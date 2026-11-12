@@ -1,0 +1,163 @@
+---
+title: "Exercise: denoising and what you may measure"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute a **median** and a **mean** filter on a row by hand, and **bilateral** weights across a step,
+- choose a denoiser for a given image (outliers, thin lines, repetitive texture), judged by what it destroys,
+- read a **method-noise** image,
+- say which **measurements** survive restoration and which do not, and what to report,
+- show why the median ignores outliers and why restoration keeps the flux *(math)*.
+
+Do the pen-and-paper part first, then the two demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Gaussian | weighted mean of the neighbours by distance; linear |
+| Median | middle value of the sorted window; a rank filter |
+| Bilateral | weights $e^{-\lVert p - q\rVert^2/2\sigma_s^2}e^{-(I_p - I_q)^2/2\sigma_r^2}$: close **and** similar |
+| Non-local means | weights $e^{-d^2/h^2}$, $d^2$ = mean squared difference of two patches |
+| Method noise | noisy − denoised; should look like pure noise |
+| Flux | total intensity; kept by RL, by roughness-penalised Tikhonov; shrunk slightly by Wiener |
+| Restored image | an estimate: detect on it, measure on the raw image, validate, report the settings |
+
+## By hand
+
+**B1.** The row $(10, 10, 10, 200, 10, 10, 50, 50, 50)$, window 3, ends mirrored (the value beyond the first pixel is the second pixel).
+(a) Compute the 3-point mean and median of every pixel.
+(b) What happened to the outlier and to the step in each?
+(c) Now the step is a 1-pixel line: $(10, 10, 10, 10, 50, 10, 10, 10, 10)$. What does the median do to it?
+
+**B2.** Bilateral weights in 1D, a centre pixel of value 10 with neighbours 10 (left) and 50 (right), all at distance 1, σs large (distance does not matter), σr = 10.
+(a) Compute the three range weights.
+(b) Compute the filtered value of the centre pixel. Compare with the plain mean.
+(c) How large must σr be for the 50 to get a weight of 0.5?
+
+**B3.** Which denoiser would you choose, and which would you avoid, for: (a) an image with salt-and-pepper noise (dead and hot pixels); (b) thin filaments in moderate Gaussian noise; (c) a regular lattice of identical particles; (d) an image whose noise is as large as the contrast of its edges?
+
+**B4.** A trust table. After RL deconvolution of a bead image, mark each measurement as kept, changed, or unknown (needs validation): (a) total intensity of a bead within a mask three times its size; (b) the peak value of a bead; (c) the ratio of the integrated intensities of two beads far apart; (d) the FWHM of a bead near the resolution limit; (e) the distance between two beads 1.2 Rayleigh distances apart; (f) the number of beads found by thresholding.
+
+**B5.** A method-noise image shows (a) only fine grain everywhere, (b) bright and dark lines along all edges, (c) the dot lattice of the image, faint. What did the filter do in each case?
+
+**B6.** A Wiener denoiser has an SNR of 100 at frequency 0. By how much does it change the total intensity of the image? What about Tikhonov with the roughness penalty?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a)
+
+| pixel | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|---|
+| mean | 10 | 10 | 73.3 | 73.3 | 73.3 | 23.3 | 36.7 | 50 | 50 |
+| median | 10 | 10 | 10 | 10 | 10 | 10 | 50 | 50 | 50 |
+
+(b) Mean: the outlier is spread over three pixels (73.3) and the step becomes a ramp (23.3, 36.7). Median: the outlier is gone and the step stays sharp.
+(c) Every window containing the 50 has two 10s: the median is 10 everywhere. The line is erased.
+
+**B2.** (a) For the 10s: $e^0 = 1$ (both the centre and the left neighbour). For the 50: $e^{-40^2/(2 \cdot 10^2)} = e^{-8} = 0.000335$.
+(b) $(10 + 10 + 50 \times 0.000335)/(1 + 1 + 0.000335) = 10.007$. The mean is $(10 + 10 + 50)/3 = 23.3$: the bilateral filter does not average across the step.
+(c) $e^{-1600/(2\sigma_r^2)} = 0.5$: $\sigma_r^2 = 1600/(2\ln 2) = 1154$, $\sigma_r = 34$.
+
+**B3.** (a) Median (3 × 3); avoid Gaussian, which spreads each outlier into a blob. (b) Bilateral, or non-local means with a small patch and $h$; avoid a median larger than the filament (it erases it) and a wide Gaussian (it blurs it into the background). (c) Non-local means: many similar patches; avoid a wide Gaussian. (d) None of the edge-preserving filters works well: the bilateral either keeps the noise or blurs the edges (cartoon); a modest Gaussian or Wiener is the honest choice, or better data.
+
+**B4.** (a) kept (RL keeps flux; the mask is larger than the PSF); (b) changed (peaks rise with the iterations); (c) kept, approximately (both fluxes are kept); (d) changed (shrinks towards a floor set by the method); (e) changed or unknown (biased when the dip between them is weak; validate); (f) unknown (speckles can add false beads, merged pairs remove some; depends on the threshold and the iterations).
+
+**B5.** (a) It removed noise only: good. (b) It blurred the edges (removed signal there). (c) It averaged the lattice partly away: the filter is too strong for the texture (or uses too large patches or $h$).
+
+**B6.** Wiener's gain at $f = 0$ is $1/(1 + 1/\mathrm{SNR}) = 1/1.01 = 0.990$: the total intensity drops by 1 %. Tikhonov with the roughness penalty has gain exactly 1 at $f = 0$: unchanged.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that the median minimises $\sum_i |x_i - m|$, while the mean minimises $\sum_i (x_i - m)^2$. Move one value of B1's row from 200 to 2000: what happens to the mean and to the median of the window?
+
+**B8.** *(math)* Non-local means with patch $(2P + 1)^2$ and search window $(2S + 1)^2$ on an $n$-pixel image. Count the operations of the direct method and of the per-offset method with integral images.
+
+**B9.** *(math)* Show that RL keeps the total intensity at every iteration, and that a linear filter multiplies it by its gain at $f = 0$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\frac{d}{dm}\sum_i(x_i - m)^2 = -2\sum_i(x_i - m) = 0$ gives $m = \bar x$. For the absolute deviations see Q8 of the quiz: the slope $\#\{x_i < m\} - \#\{x_i > m\}$ changes sign at the median. Window $(10, 2000, 10)$: the mean jumps from 73.3 to 673.3; the median stays 10, because the extreme value only counts as "one above".
+
+**B8.** Direct: for each of the $n$ pixels and each of the $(2S + 1)^2$ candidates, a patch distance over $(2P + 1)^2$ pixels: $n(2S + 1)^2(2P + 1)^2$ operations. Per offset: for each of the $(2S + 1)^2$ offsets, the squared differences ($n$), their integral image ($n$) and one box sum per pixel (4 lookups): about $n(2S + 1)^2 \cdot c$ with a small constant $c$, independent of $P$. For $P = 2$, $S = 5$: 25 times fewer.
+
+**B9.** RL: $\sum_j x_j^{\text{new}} = \sum_j x_j\sum_i A_{ij}\frac{y_i}{(A\mathbf x)_i} = \sum_i\frac{y_i}{(A\mathbf x)_i}(A\mathbf x)_i = \sum_i y_i$. Linear filter: the total $\sum_j x_j$ is the Fourier coefficient at $f = 0$; the filter multiplies each coefficient by its gain, so the total becomes $W(0)\sum_j g_j$ (and with $H(0) = 1$ the data total equals the object total).
+:::
+
+## Explore: denoisers {#explore}
+
+A 128 × 128 test image (top left a step, top right a ramp crossed by a 1-pixel line, bottom left a dot lattice, bottom right a flat area with one unique spot) or a crop of the micrograph, with Gaussian, Poisson or salt-and-pepper noise (fixed seed). Panels: noisy, denoised, **method noise** (noisy − denoised; blue negative, red positive) and the error against the truth. **Compare with** shows a second method (with its own last settings) next to the first. The plot shows the marked row (orange ticks in the noisy image); the readout gives the PSNR (peak 255).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="denoisers" data-preset="gaussstep"></div>
+<script src="../demos/dist/denoisers.js"></script>
+```
+
+**E1.** Preset **Gaussian blurs the step** (σn = 20, σ = 2). Read the PSNR of the noisy and the denoised image. Why is the denoised one worse? Find the σ with the best PSNR.
+
+**E2.** Preset **salt and pepper: median wins**. Compare the median (3 × 3) with the Gaussian (σ = 1): PSNR and look.
+
+**E3.** Preset **median eats the thin line**. Find the line in the profile (x = 96). What is its value before and after, and what does the PSNR do? Does a 3 × 3 median keep it?
+
+**E4.** Preset **bilateral keeps edges**: compare with the Gaussian. Then **bilateral at high noise: cartoon**: describe the ramp.
+
+**E5.** Preset **non-local means on texture**: compare it with the bilateral filter overall and on the lattice. Then **non-local means smears the unique spot**: what happens to the spot (row 98)?
+
+**E6.** Preset **method noise shows the removed edge** (Gaussian σ = 3). What do you see in the method noise? Switch to the bilateral filter (σs 2, σr 30) and compare.
+
+**E7.** Preset **best PSNR, wrong look** (micrograph crop, σn = 25). Compare the PSNR of the two methods and the images. Which would you use to show membranes, and what does that say about PSNR?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Noisy 22.1 dB, Gaussian σ = 2: 21.6 dB, worse than doing nothing. The dot lattice (period 6 px) is wiped out and every edge blurred: the error there outweighs the noise removed elsewhere. The best Gaussian is σ ≈ 0.6 (25.8 dB): it can only remove a little noise without destroying the lattice.
+
+**E2.** Median: 15.3 → 22.7 dB, the image is clean with sharp edges. Gaussian σ = 1: 21.9 dB, but every hit pixel becomes a grey smudge.
+
+**E3.** The line (true value 211 on the ramp at row 32) drops to 133 after the 5 × 5 median: it is erased; PSNR falls from 34.1 dB (noisy, σn = 5) to 21.6 dB. A 3 × 3 median erases it too (133): a 1-pixel line is only 3 of the 9 values.
+
+**E4.** Bilateral (σs 2, σr 30) at σn = 15: 33.7 dB, edges sharp; Gaussian σ = 2: 21.7 dB. At σn = 50 with σr = 100 the ramp becomes a few flat patches with steps between them (a cartoon), and the lattice turns into blotches; 21.9 dB.
+
+**E5.** Non-local means (patch 3 × 3, search 15 × 15, h = 25): 29.5 dB against 27.0 dB for the bilateral filter; on the lattice quarter 26.7 dB against 23.2 dB (noisy: 20.1 dB): the dots are kept because every dot has many similar copies. With patch 5 × 5 and h = 45, the unique spot (true value 220) falls to 129: it has no similar patch and is averaged with flat ones.
+
+**E6.** The method noise shows the step as a bright and dark double line (up to +72 and −58 at the edge), the ramp's line and the lattice; in flat regions it is plain noise (RMS 9.9, about σn = 10). The bilateral filter's method noise has almost no edge in it.
+
+**E7.** Wiener (SNR 3): 23.4 dB; bilateral (σs 1.5, σr 50): 23.3 dB. The Wiener result is blurred overall; the bilateral keeps the membranes and edges sharper but leaves flat patches. The PSNR prefers the blurred one by a hair: it measures pixel-wise error, not whether structures look right. Look at the images (and the method noise), not only at a number.
+:::
+
+## Explore: what may be measured {#explore-measure}
+
+A field with known truth, blurred by an Airy PSF (NA 1.0, Rayleigh distance 4.88 px) with Poisson noise: bead pairs at 0.8, 1.0, 1.2 and 1.5 Rayleigh distances (top), spots of flux 1 : 2 : 4 (middle), disks of radius 3, 5 and 8 px (bottom). Restore with Wiener, Tikhonov or RL; the table compares raw, restored and truth: the peak and integrated ratios of the flux-4 and flux-1 spots, the FWHM of the bright spot, the separation of the 1.2 × Rayleigh pair, and the number of local maxima above one fixed threshold in the top two rows (truth: 11). Green: within 10 % (counts: exact); yellow: within 30 % (counts: ±2); red: worse.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="rlsteps" data-mode="measure" data-preset="integrals"></div>
+<script src="../demos/dist/rlsteps.js"></script>
+```
+
+**M1.** Presets **integrals hold** and **peaks lie** (3000 photons, RL). Read the peak and integrated ratios at $k$ = 100 and $k$ = 316, and in the raw image. Which would you trust?
+
+**M2.** Preset **sizes shrink to a floor**. Follow the FWHM of the bright spot from the raw image through $k$ = 10, 32, 100, 316 and 1000. Where does it stop, and how does that compare with the truth?
+
+**M3.** Preset **close pairs: the separation is biased** (1000 photons). Give the separation of the 1.2 × Rayleigh pair in the raw image, after 100 and after 1000 iterations.
+
+**M4.** Preset **1000 iterations: extra spots**. How many spots are detected in raw, restored and truth? Move $k$ down: from which iteration does the count go wrong?
+
+**M5.** Preset **Wiener**. Compare the five measurements with RL at $k$ = 100 (same photons). What does Wiener do better, and what worse?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**M1.** Raw: peak ratio 4.13, integrated 3.86. RL $k$ = 100: peak 6.20, integrated 4.00; $k$ = 316: peak 6.53, integrated 3.97. The integrated ratio stays close to 4 (light is moved, not created); the peak ratio rises with the iterations, because a bright spot is sharpened more than a dim one at the same noise. Trust integrals over a region larger than the PSF; never peaks after restoration.
+
+**M2.** Raw 4.51 px; RL $k$ = 10: 3.01, 32: 2.44, 100: 2.09, 316: 1.94, 1000: 1.93. It stops near 1.9 px, well above the true 1.45 px: the floor is set by the noise and the method (frequencies beyond those restored), not by the object. A FWHM measured after restoration is not the object's size.
+
+**M3.** Raw: 4.95 px (truth 5.92): the blur pulls the two maxima together. RL $k$ = 100: 5.85 px; $k$ = 1000: 5.62 px. Restoration reduces the bias but the result depends on the stopping point; at 3000 photons the raw value is 6.11 and RL gives about 6.0. Validate separations with pairs of known distance.
+
+**M4.** Raw 11, restored ($k$ = 1000) 259, truth 11. At $k$ = 100 the count is still 11; at $k$ = 316 it is 64: the noise has been turned into speckles above the threshold. Counting on restored images needs a stopping rule and validation.
+
+**M5.** Wiener (SNR 300) at 1000 photons: peak ratio 3.66, integrated 4.27, FWHM 3.53 px, separation 5.82 px, 16 spots. RL at $k$ = 100: 4.75, 4.38, 2.22 px, 5.85 px, 11 spots. Wiener sharpens much less (the FWHM stays large) and its ringing adds a few false maxima; RL sharpens more and keeps a correct count at this stopping point. Neither keeps peak ratios.
+:::
+
+## Where this leads
+
+This ends Part I: images as numbers, from pixels and filters to the noise of the camera, the optics that blur and the restoration that undoes as much as the data allow. Part II starts from the restored or raw image and turns it into **objects**, beginning with **thresholding**, where the median returns in one line. Statistics of measurements, and how to compare them honestly, are the evaluation day's.

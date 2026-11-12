@@ -30,7 +30,13 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .4em; }
-.reveal [data-demo="${NAME}"] .cv-in { flex-basis: 220px; }
+.reveal [data-demo="${NAME}"] { flex-wrap: nowrap; gap: .6em; }
+.reveal [data-demo="${NAME}"] .cv-in { flex: 0 0 240px; }
+.reveal [data-demo="${NAME}"] .cv-in .cv-pad { max-width: 180px; }
+.reveal [data-demo="${NAME}"] .cv-out { flex: 0 0 250px; }
+.reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .4em; }
+.reveal [data-demo="${NAME}"] .qb-slider { grid-template-columns: auto 1fr 2.6em; }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -88,7 +94,7 @@ function mount(host: HTMLElement): void {
   const setRow = htmlEl("div", "qb-presets", "", co);
   const setBtns = SETS.map(s => button(setRow, s.label, () => { const kindChanged = s.kind !== set.kind; set = s; if (kindChanged) { base = toImg(s.kind === "shapes" ? SHAPE_EXAMPLES[0].img : DIGIT_EXAMPLES[12].img); reset(); } else { occ = null; draw(); } }));
   const readout = htmlEl("div", "qb-readout", "", co);
-  const presetBtns = presetRow(co, [
+  const presetBtns = presetRow(cm, [
     { label: "a 6 rotated to a 9", apply: () => preset("digits", DIGIT_EXAMPLES[12].img, 180, 0, 0) },
     { label: "shifted digit: maps shift, prediction stays", apply: () => preset("digits", DIGIT_EXAMPLES[12].img, 0, 4, 0) },
     { label: "rotation 30°, no augmentation", apply: () => preset("digits", DIGIT_EXAMPLES[12].img, 30, 0, 0) },
@@ -174,16 +180,16 @@ function mount(host: HTMLElement): void {
     bars.replaceChildren();
     const K = r.probs.length, bh = 270 / K, best = argmax(r.probs);
     for (let k = 0; k < K; k++) {
-      const y = 6 + k * bh, w = 150 * r.probs[k];
+      const y = 6 + k * bh, w = 115 * r.probs[k];
       const lab = svgEl("text", { x: 4, y: y + bh * 0.7, style: `font-size:${Math.min(18, bh * 0.75)}px` }, bars);
       lab.textContent = set.kind === "digits" ? String(k) : SHAPE_NAMES[k];
-      svgEl("rect", { x: 100, y: y + 2, width: Math.max(0.5, w), height: bh - 4, fill: k === best ? "#d62728" : "#1f77b4" }, bars);
-      const v = svgEl("text", { x: 104 + w, y: y + bh * 0.7, style: `font-size:${Math.min(17, bh * 0.7)}px` }, bars);
+      svgEl("rect", { x: 105, y: y + 2, width: Math.max(0.5, w), height: bh - 4, fill: k === best ? "#d62728" : "#1f77b4" }, bars);
+      const v = svgEl("text", { x: 110 + w, y: y + bh * 0.7, style: `font-size:${Math.min(17, bh * 0.7)}px` }, bars);
       v.textContent = r.probs[k] >= 0.005 ? r.probs[k].toFixed(2) : "";
     }
     const acc = set.id === "shapes" ? CNN_INFO["shapes acc"] : set.id.startsWith("digitsE") ? CNN_INFO[set.id + " acc"] : CNN_INFO[set.id + " acc rot 0"];
-    readout.textContent = `prediction: ${set.kind === "digits" ? best : SHAPE_NAMES[best]} (p = ${r.probs[best].toFixed(2)})\ntest accuracy of these weights: ${(100 * acc).toFixed(1)} %` +
-      (set.id === "digits" || set.id === "digitsAug" ? `\n(on test digits rotated by 45°: ${(100 * CNN_INFO[set.id + " acc rot 45"]).toFixed(1)} %)` : "") +
+    readout.textContent = `prediction: ${set.kind === "digits" ? best : SHAPE_NAMES[best]} (p = ${r.probs[best].toFixed(2)})\ntest accuracy ${(100 * acc).toFixed(1)} %` +
+      (set.id === "digits" || set.id === "digitsAug" ? `\nrotated 45°: ${(100 * CNN_INFO[set.id + " acc rot 45"]).toFixed(1)} %` : "") +
       (occ ? `\nocclusion: red = covering this part lowers p(${set.kind === "digits" ? occ.k : SHAPE_NAMES[occ.k]})` : "");
   }
 

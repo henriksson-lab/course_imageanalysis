@@ -29,9 +29,9 @@ const STYLE = baseStyle(NAME) + `
 [data-demo="${NAME}"] table.rl-table td, [data-demo="${NAME}"] table.rl-table th { border: 1px solid var(--qb-grid); padding: .15em .35em; text-align: right; }
 [data-demo="${NAME}"] table.rl-table td:first-child, [data-demo="${NAME}"] table.rl-table th:first-child { text-align: left; }
 [data-demo="${NAME}"] td.ok { background: #d9f2d9; } [data-demo="${NAME}"] td.mid { background: #fff1c2; } [data-demo="${NAME}"] td.bad { background: #f8d0cc; }
-.reveal [data-demo="${NAME}"] .rl-imgs { flex: 0 1 360px; }
-.reveal [data-demo="${NAME}"] .rl-plots { flex: 0 1 360px; }
-.reveal [data-demo="${NAME}"] figcaption { font-size: 15px; }
+.reveal [data-demo="${NAME}"] .rl-imgs { flex: 0 1 330px; }
+.reveal [data-demo="${NAME}"] .rl-imgs3 { flex: 0 1 400px; }
+.reveal [data-demo="${NAME}"] .rl-plots { flex: 0 1 400px; max-width: 400px; }
 `;
 
 function panelHide(el: HTMLElement | null | undefined, hide: boolean): void { if (el) el.style.display = hide ? "none" : ""; }
@@ -240,9 +240,9 @@ function mountXZ(host: HTMLElement): void {
   const otfP = imagePanel(plots, "OTF |H(kx, kz)| (log), missing cone dashed", "rl-free");
   const otfSvgHost = otfP.fig;
   otfSvgHost.style.position = "relative";
-  const ap = new Plot(plots, { width: 420, height: 230, x: [0, 1], y: [0, 1], xlabel: "z (µm)", ylabel: "value", font: 19 });
+  const ap = new Plot(plots, { width: 420, height: 230, x: [0, 1], y: [0, 1], xlabel: "z (µm)", ylabel: "÷ own maximum", font: 19 });
   const aT = ap.line([], [], { color: "var(--qb-muted, #777)", dash: "7 5" }), aO = ap.line([], [], { color: seriesColor(0) }), aR = ap.line([], [], { color: seriesColor(1) });
-  legendRow(plots, [{ label: "truth", color: "var(--qb-muted, #777)", dash: true }, { label: "observed", color: seriesColor(0) }, { label: "RL", color: seriesColor(1) }]);
+  legendRow(plots, [{ label: "truth", color: "var(--qb-muted, #777)", dash: true }, { label: "blurred (no noise)", color: seriesColor(0) }, { label: "RL", color: seriesColor(1) }]);
 
   const panel = htmlEl("div", "qb-panel", "", host);
   htmlEl("div", "dc-lab", "presets", panel);
@@ -311,9 +311,11 @@ function mountXZ(host: HTMLElement): void {
     const px = st.prof === "bead" ? beadX : st.prof === "sheet" ? sheetX : filX;
     const zs = Array.from({ length: NZ }, (_, z) => (z - cz) * st.zstep / 1000);
     const at = (v: Float64Array, z: number) => v[(z * NY + cy) * NX + px];
-    const tv = zs.map((_, z) => at(truth, z)), ov = zs.map((_, z) => at(obs, z)), rv = zs.map((_, z) => at(est, z));
+    // each profile scaled to its own maximum, so the widths can be compared
+    const norm = (v: number[]) => { const m = Math.max(...v) || 1; return v.map(a => a / m); };
+    const tv = norm(zs.map((_, z) => at(truth, z))), ov = norm(zs.map((_, z) => at(clean3, z))), rv = norm(zs.map((_, z) => at(est, z)));
     aT.set(zs, tv); aO.set(zs, ov); aR.set(zs, rv);
-    ap.setDomain([zs[0], zs[NZ - 1]], [0, 1.1 * Math.max(...tv, ...ov, ...rv)]);
+    ap.setDomain([zs[0], zs[NZ - 1]], [0, 1.1]);
     const fw = (v: number[]) => P.fwhm(v) * st.zstep;
     const bz = (v: Float64Array) => zs.map((_, z) => v[(z * NY + cy) * NX + beadX]);
     const sz = (v: Float64Array) => zs.map((_, z) => v[(z * NY + cy) * NX + sheetX]);

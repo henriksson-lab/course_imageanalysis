@@ -72,7 +72,7 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .cc-img { flex-basis: 250px; }
 .reveal [data-demo="${NAME}"] .cc-gl { flex-basis: 430px; max-width: 450px; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 `;
 

@@ -27,6 +27,7 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; }
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; }
+.reveal [data-demo="${NAME}"] .qb-readout { display: none; }
 `;
 
 function injectStyle(): void {
@@ -37,6 +38,15 @@ function injectStyle(): void {
   document.head.appendChild(s);
 }
 
+// lib/plot.ts numbers its clip paths per bundle ("qb-clip-1", …), so two demos on one page
+// share ids and clip each other's plots. Give every plot of this demo a unique clip id.
+let clipCount = 0;
+function uniqueClip<T extends { svg: SVGSVGElement; layer: SVGGElement }>(p: T): T {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) { cp.id = `${NAME}-clip-${++clipCount}`; p.layer.setAttribute("clip-path", `url(#${cp.id})`); }
+  return p;
+}
+
 const fp = (p: number) => (p < 0.001 ? p.toExponential(1) : p.toFixed(3));
 const DESIGNS: { id: M.Settings["design"]; label: string }[] = [{ id: "independent", label: "independent" }, { id: "paired", label: "paired" }, { id: "confounded", label: "confounded" }];
 
@@ -45,6 +55,7 @@ function mount(host: HTMLElement): void {
   const panels = new Set((host.dataset.panels ?? "superplot,ci,runs,se,controls").split(/[\s,]+/));
   const p0 = M.PRESETS.find(p => p.id === host.dataset.preset) ?? M.PRESETS[0];
   let st: M.Settings = { ...M.DEFAULTS, ...p0.settings }, seed = p0.seed ?? 1;
+  const slide = !!host.closest(".reveal"), fs = slide ? 24 : 18;
 
   const spF = plotFigure(host, "SuperPlot: cells and experiment means", "pr-sp qb-figure");
   const mid = htmlEl("div", "pr-mid", "", host);
@@ -90,7 +101,8 @@ function mount(host: HTMLElement): void {
     spF.querySelector("svg")?.remove();
     const all = data.flatMap(d => Array.from(d.values));
     const lo = Math.min(...all), hi = Math.max(...all), pad = 0.05 * (hi - lo);
-    const sp = new Plot(spF, { x: [0.4, 2.6], y: [lo - pad, hi + pad], ylabel: "measured feature", height: 440, width: 420, xticks: [1, 2], xfmt: v => (v === 1 ? "control" : v === 2 ? "treated" : "") });
+    const sp = new Plot(spF, { x: [0.4, 2.6], y: [lo - pad, hi + pad], ylabel: "measured feature", height: 440, width: 420, font: fs, xticks: [1, 2], xfmt: v => (v === 1 ? "control" : v === 2 ? "treated" : "") });
+    uniqueClip(sp);
     const jr = rng(99);
     const nExp = Math.max(...data.map(d => d.exp)) + 1;
     const colour = (e: number) => QUALITATIVE[e % QUALITATIVE.length];
@@ -110,7 +122,8 @@ function mount(host: HTMLElement): void {
     ciF.querySelector("svg")?.remove();
     const rows: [string, TestResult | null][] = [["cells as n", res.cells], ["experiments as n", res.means], ["paired", res.paired]];
     const lim = Math.max(1, ...rows.flatMap(([, r]) => (r ? [Math.abs(r.ci[0]), Math.abs(r.ci[1])] : [])), st.effect + 0.5);
-    const ci = new Plot(ciF, { x: [-lim, lim], y: [0.4, 3.9], xlabel: "treated − control", width: 420, height: 270, yticks: [], margin: { l: 14 } });
+    const ci = new Plot(ciF, { x: [-lim, lim], y: [0.4, 4.1], xlabel: "treated − control", width: 420, height: slide ? 300 : 270, font: fs, yticks: [], margin: { l: 14 } });
+    uniqueClip(ci);
     ci.vline(0, { color: "var(--qb-muted)", width: 1.5, dash: "" });
     ci.vline(st.effect, { color: seriesColor(2), width: 2, text: "true" });
     rows.forEach(([lab, r], k) => {
@@ -120,17 +133,16 @@ function mount(host: HTMLElement): void {
       ci.scatter([r.estimate], [y], { color: seriesColor(k === 0 ? 1 : 0), r: 7 });
       ci.text(-lim * 0.97, y + 0.38, `${lab}: n = ${r.n}, p = ${fp(r.p)}`, { size: 17 });
     });
-    ro.textContent =
-      `cells as n:       ${res.cells.estimate.toFixed(2)} [${res.cells.ci[0].toFixed(2)}, ${res.cells.ci[1].toFixed(2)}]  p ${fp(res.cells.p)}\n` +
-      `experiments as n: ${res.means.estimate.toFixed(2)} [${res.means.ci[0].toFixed(2)}, ${res.means.ci[1].toFixed(2)}]  p ${fp(res.means.p)}\n` +
-      (res.paired ? `paired:           ${res.paired.estimate.toFixed(2)} [${res.paired.ci[0].toFixed(2)}, ${res.paired.ci[1].toFixed(2)}]  p ${fp(res.paired.p)}` : `paired:           (paired design only)`);
+    const line = (lab: string, r: TestResult | null) => (r ? `${lab}: ${r.estimate.toFixed(2)}, p ${fp(r.p)}\n  CI [${r.ci[0].toFixed(2)}, ${r.ci[1].toFixed(2)}]` : `${lab}: paired design only`);
+    ro.textContent = [line("cells as n", res.cells), line("experiments as n", res.means), line("paired", res.paired)].join("\n");
   }
 
   function drawRuns(): void {
     const many = M.runMany(st, 1000, 11);
     runsF.querySelector("svg")?.remove();
     runsCap.textContent = st.effect === 0 && st.design !== "confounded" ? "1000 repetitions: share with p < 0.05 (no effect: false positives)" : st.effect === 0 ? "1000 repetitions: share with p < 0.05 (no effect, only the batch)" : "1000 repetitions: share with p < 0.05 (true effect: power)";
-    const pl = new Plot(runsF, { x: [0.4, 3.6], y: [0, 1.15], yticks: [0, 0.2, 0.4, 0.6, 0.8, 1], ylabel: "share p < 0.05", width: 420, height: 250, xticks: [1, 2, 3], xfmt: v => ["", "cells as n", "exp. as n", "paired"][Math.round(v)] ?? "" });
+    const pl = new Plot(runsF, { x: [0.4, 3.6], y: [0, 1.15], yticks: [0, 0.2, 0.4, 0.6, 0.8, 1], ylabel: "share p < 0.05", width: 420, height: 250, font: fs, xticks: [1, 2, 3], xfmt: v => ["", "cells as n", "exp. as n", "paired"][Math.round(v)] ?? "" });
+    uniqueClip(pl);
     const vals = [many.cells, many.means, Number.isFinite(many.paired) ? many.paired : 0];
     pl.bars([1, 2, 3], vals, { colors: [seriesColor(1), seriesColor(0), seriesColor(0)], barWidth: 0.6 });
     pl.hline(0.05, { color: seriesColor(2), width: 2, text: st.effect === 0 ? "5 %" : "" });
@@ -143,7 +155,8 @@ function mount(host: HTMLElement): void {
     const ind = { ...st, design: "independent" as const }, par = { ...st, design: "paired" as const };
     const ti = ms.map(m => M.seCurves(ind, m).true), tp = ms.map(m => M.seCurves(par, m).true), cl = ms.map(m => M.seCurves(st, m).claimed);
     const top = Math.max(...ti, ...cl) * 1.1;
-    const pl = new Plot(seF, { x: [3, 1000], xlog: true, y: [0, top], xlabel: "cells per experiment m", ylabel: "SE of the effect", width: 420, height: 330 });
+    const pl = new Plot(seF, { x: [3, 1000], xlog: true, y: [0, top], xlabel: "cells per experiment m", ylabel: "SE of the effect", width: 420, height: 330, font: fs });
+    uniqueClip(pl);
     pl.line(ms, ti, { color: seriesColor(0), label: "experiments as n" });
     pl.line(ms, tp, { color: seriesColor(2), label: "paired" });
     pl.line(ms, cl, { color: seriesColor(1), dash: "6 4", label: "cells as n claims" });

@@ -1,0 +1,154 @@
+---
+title: "Exercise: honest validation"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- decide whether a validation design **leaks**, and at which level,
+- choose the **level of the split** (image, specimen, experiment, day, site) that matches a claim, and design a split for a single large image,
+- estimate the **optimism** of reporting the best of many test scores,
+- explain what the drop from a held-out-image score to a held-out-day score measures (**domain shift**).
+
+Do the pen-and-paper part first, then the two demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Leakage | information about the test data reaches training or model choices; the score becomes optimistic |
+| Unit of the split | everything of one unit (image, experiment, day) goes to the same side |
+| Group k-fold | cross-validation where the folds are groups, e.g. "leave one experiment out" |
+| Buffer | a zone around test blocks whose pixels are used neither for training nor for testing |
+| Validation set | data used for choices (settings, features, stopping); the test set is used once at the end |
+| Optimism of the best of $k$ | $\sigma\,E[\max_j Z_j]$; $E[\max Z] \approx$ 1.54 ($k = 10$), 1.87 (20), 2.25 (50), 2.51 (100); $\sigma = \sqrt{a(1-a)/n}$ |
+
+## By hand
+
+**B1.** For each design: does it leak, and at which level? What would you change?
+(1) 2000 tiles cut from 10 tissue slides; tiles split at random into training and test.
+(2) 40 images from 4 days; leave-one-day-out cross-validation.
+(3) Every image rotated in 8 ways, then the images split at random by image.
+(4) Intensities scaled by the mean and SD of the whole data set, then split by image.
+(5) The threshold of a segmentation chosen to give the best Dice on the test images.
+(6) Cells from 6 wells, classified per cell; cells split at random into training and test.
+
+**B2.** You try 20 settings, all with the same true accuracy 0.80, on a test set of 100 objects, and report the best.
+(a) What is the standard error of one test score?
+(b) About what does the best of the 20 read?
+(c) The same with a test set of 1000 objects.
+(d) The same with 20 settings that are really different (one of them truly 0.85). Is the best one still optimistic?
+
+**B3.** A pixel classifier scores 0.97 under a random pixel split, 0.91 when whole images are left out, and 0.78 when whole days are left out.
+(a) Which number goes in the paper, and for which claim?
+(b) What does each gap (0.97 → 0.91, 0.91 → 0.78) measure?
+(c) The always-"background" classifier scores 0.80 on these data. What does that change in your reading?
+
+**B4.** You have one large image only: a whole-slide scan.
+(a) Design a validation that is as honest as possible. Draw it.
+(b) How wide should the buffer be?
+(c) What can such a validation **not** tell you?
+
+**B5.** A colleague says: "I used a validation set to choose the network size, and then reported the validation score." What is wrong, and how large could the problem be if 30 sizes were tried on 200 validation objects with accuracy around 0.9?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (1) Leaks at the **tile** level: tiles of one slide (neighbouring, even overlapping) are on both sides. Split by slide (group k-fold over slides). (2) Honest for the claim "works on a new day" (the strongest of these). (3) Leaks: rotated copies of a test image are in training; the classifier has seen it. Split first, then augment the training images only. (4) Mild leak: the test images' statistics shaped the scaling. Compute mean and SD on the training images only (or per image). (5) Leaks: the test set was used to choose the threshold; the reported Dice is the best of many and optimistic. Choose it on a validation set. (6) Leaks at the **cell** level: cells of one well share the well's conditions (and neighbours look alike); split by well. And with 6 wells, the test can only say something about wells like these.
+
+**B2.** (a) $\sqrt{0.8 \cdot 0.2/100} = 0.04$. (b) $0.80 + 1.87 \cdot 0.04 \approx 0.875$. (c) SE $= 0.0126$: $0.80 + 1.87 \cdot 0.0126 \approx 0.824$, much less optimism. (d) Yes: the best-looking one is likely the good one, but its score still contains its own luck plus the luck of being picked. Selection then helps (you find a better method) but the reported number is still too high; re-test on fresh data.
+
+**B3.** (a) For the claim "works on images from new days" (the normal use): **0.78**. 0.91 is honest only for "new images from the same days", 0.97 for nothing useful. (b) 0.97 → 0.91: the leakage of neighbouring pixels (memory, not generalisation). 0.91 → 0.78: the **domain shift** between days (staining, illumination, focus). (c) 0.78 is worse than predicting "background" everywhere (0.80): on a new day the classifier is useless. Accuracy with unbalanced classes needs this baseline (or use F1 or Dice of the object class).
+
+**B4.** (a) Cut the slide into blocks larger than the structures (e.g. several cell diameters); assign blocks to $k$ folds, preferably in contiguous groups (stripes or quadrants); for each test fold, leave out a buffer around the test blocks. (b) At least the correlation length of the features and labels: the largest smoothing scale of the features plus the size of the objects. In the demo, 3 px of buffer already brought blocks down to chance with features smoothed up to σ = 8. (c) Anything about other slides, patients, days or scanners: the domain shift is untested. Report it as "within-slide" performance.
+
+**B5.** The validation score of the chosen size is the best of 30 and optimistic: SE $= \sqrt{0.9 \cdot 0.1/200} = 0.021$, $E[\max]$ for 30 is about 2.04, so the optimism is up to about 0.04 if the sizes are about equally good. Report the score on a separate test set that was not used for the choice (or nested cross-validation).
+:::
+
+### Math questions
+
+**B6.** *(math)* (a) Show that $E[\max(Z_1, Z_2)] = 1/\sqrt\pi$ for two independent standard normal variables. (Hint: $\max(a, b) = \frac{a+b}{2} + \frac{|a - b|}{2}$.) (b) Show that $E[\max_{j \le k} Z_j] \le \sqrt{2\ln k}$, using Jensen's inequality and $E[e^{tZ}] = e^{t^2/2}$.
+
+**B7.** *(math)* A 1D signal has correlation length $\ell$; samples are taken every $\Delta$; the feature of a sample is a vector of $d$ smoothed versions of the signal at scales up to $\ell$; the label is a smooth function of position, unrelated to the signal. Argue why the error of a 1-nearest-neighbour classifier under a **random split** goes to 0 as $\Delta/\ell \to 0$, and why it stays at chance under a split into contiguous blocks much longer than $\ell$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** (a) $E[\max] = \frac12 E[Z_1 + Z_2] + \frac12 E|Z_1 - Z_2| = \frac12 E|Z_1 - Z_2|$. $Z_1 - Z_2 \sim N(0, 2)$, and $E|X| = \sigma\sqrt{2/\pi}$ for $X \sim N(0, \sigma^2)$: $E|Z_1 - Z_2| = \sqrt2 \cdot \sqrt{2/\pi} = 2/\sqrt\pi$. So $E[\max] = 1/\sqrt\pi = 0.564$.
+(b) For $t > 0$, $e^{t\,E[\max_j Z_j]} \le E[e^{t \max_j Z_j}]$ (Jensen, $e^x$ convex) $= E[\max_j e^{t Z_j}] \le \sum_j E[e^{t Z_j}] = k\,e^{t^2/2}$. Take logarithms: $E[\max Z] \le \frac{\ln k}{t} + \frac t2$. The right side is smallest at $t = \sqrt{2 \ln k}$, where it equals $\sqrt{2\ln k}$. (For $k = 20$: 2.45, against the exact 1.87.)
+
+**B7.** Random split: a test sample at $x$ has training samples at distance of order $\Delta$ (a fraction of all samples are in training, so the nearest one is a few steps away). Their features differ by about $|\nabla f|\,\Delta$, which goes to 0; a sample from far away matches all $d$ smoothed features to within $\varepsilon$ only with a probability that shrinks like $\varepsilon^d$. So for small $\Delta/\ell$ the nearest neighbour in feature space is almost always a spatial neighbour, and its label differs from the test label only if a label boundary lies between them: probability of order $\Delta/\ell_{\text{label}}$. The error goes to 0, although the label has nothing to do with the signal. Block split: inside a test block of length $\gg \ell$, all spatial neighbours within $\ell$ are test samples too; the nearest training sample in feature space is somewhere else, where the label is independent: the error is chance (0.5 for balanced labels). The demo shows exactly this: 78 % with random pixels, 50 % with buffered blocks or by image.
+:::
+
+## Explore: five ways to split {#explore}
+
+Twelve synthetic 48 × 48 images from four days (rows), three per day; the task is "nucleus or background" per pixel. Each day has its own brightness, contrast and noise (**day effect**). The classifier is $k$ nearest neighbours on a feature stack (smoothed intensities, gradient magnitude and blob filters at several scales), trained on **all** training pixels of a fold. Five ways to split into 4 folds are compared: the bars are the mean test accuracy over the folds, the whiskers the range. Thumbnails show the roles of the pixels in the fold that tests the selected image (red test, blue train, grey buffer); click a thumbnail to select an image, and a split button to show its folds. The right column shows the selected image with its true outline (yellow) and the prediction on its test pixels. The grey line is the accuracy of always answering "background" (or chance, 50 %, when the labels are random).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="leakage"></div>
+<script src="../demos/dist/leakage.js"></script>
+```
+
+**L1.** Preset **nothing to learn**: the labels are random blobs, unrelated to the images. Read the accuracy of every split. Which ones would make you believe there is something to learn?
+
+**L2.** Still **nothing to learn**, split **random pixels**: look at the prediction of the selected image. How can the classifier reproduce the blob shapes? Switch the split to **by image**.
+
+**L3.** Still **nothing to learn**, split **blocks + buffer**: set the buffer to 0, 3, 6 and 12 px. What happens to the accuracy of "blocks + buffer"? Why is there still something left at 0?
+
+**L4.** Preset **random pixels look great** (real labels). Read the five accuracies and the "always background" line. Rank the splits. Which number answers "how well does it work on a new day"?
+
+**L5.** Preset **a new day: domain shift** (day effect 2). Compare "by image" and "by day" with L4. Select an image of day 1 and the split **by day**: what does the classifier do on that day? Then preset **no day effect**: compare "by image" and "by day".
+
+**L6.** Preset **augment then split**: every image is rotated by 90°, 180° and 270° before splitting, and each copy counts as an image. Which bars change compared with L4, and why does "by day" not jump?
+
+**L7.** In **nothing to learn**, set $k$ to 1 and to 15. How does the leakage of random pixels change? Why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**L1.** Random pixels 78.3 %, random blocks 59.9 %, blocks + buffer 50.4 %, by image 48.0 %, by day 54.0 % (chance is 50 %). Random pixels (and, less, random blocks) suggest the classifier has learned something. It has not: the labels are random.
+
+**L2.** The prediction (78.7 % correct on the selected image) reproduces the blobs: every test pixel has training pixels next to it, with almost the same features and the same random label, and k-NN copies their label. By image the prediction is noise (51.5 %): no neighbour from the same image is in training.
+
+**L3.** Buffer 0: 59.9 % (same as random blocks); 3 px: 51.1 %; 6 px: 50.4 %; 12 px: 52.4 % (around chance, the fold-to-fold scatter is a few percent). Without a buffer, the pixels at the edges of each test block have training pixels right across the edge, and they leak; the buffer removes those neighbours.
+
+**L4.** Random pixels 97.8 %, random blocks 96.9 %, blocks + buffer 94.5 %, by image 92.2 %, by day 86.8 % (fold range 79.0–96.5 %); always "background" 81.5 %. The order is the order of how "new" the test pixels are. For new days: **by day**, 86.8 %, only 5 points better than the trivial classifier.
+
+**L5.** Day effect 2: by image 91.4 %, by day 80.5 % (fold range 77.5–85.0 %), below the 81.5 % of always "background". On day 1 (darker, higher contrast) the classifier trained on the other days predicts no nucleus pixel at all: the first image is 77.9 % correct only because 78 % of its pixels are background. No day effect: by image 96.1 %, by day 96.0 %: when days do not differ, leaving out a day costs nothing. The gap between image and day splits is the domain shift.
+
+**L6.** Random pixels and random blocks rise to 99.1 %, by image jumps from 92.2 % to 99.1 %, blocks + buffer to 97.0 %. The rotated copies of every test image are in training, and the features are rotation invariant: each test pixel has an exact copy in training. By day stays at 86.1 %: all copies of an image belong to the same day, so they stay on the same side of the split.
+
+**L7.** $k = 1$: random pixels 81.5 %; $k = 15$: 75.0 % (by image stays near 50 %). With $k = 1$ the classifier copies the label of the single nearest pixel, usually a direct neighbour; with 15 neighbours, more distant (and unrelated) pixels get a vote and dilute the leak. The leak is still large.
+:::
+
+## Explore: peeking at the test set {#explore-testpeek}
+
+$k$ candidate methods (settings), each with the same true accuracy (grey dots, or spread around it), are scored on a test set of $n$ objects. **Left**: one run: each candidate's test score (blue), the best one (red, the number that would be reported) and the same candidate re-tested on fresh data (green). **Right**: 1000 runs: histograms of the reported best scores and of their fresh re-tests, with their means. **Validation + test**: the choice is made on a separate validation set (purple), and the test score of the chosen candidate is reported.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="testpeek" data-preset="one"></div>
+<script src="../demos/dist/testpeek.js"></script>
+```
+
+**T1.** Preset **one method: honest**. What are the mean reported and the mean fresh score over 1000 runs? Press **run once again** a few times: how much does a single test score wobble?
+
+**T2.** Preset **50 settings, 100 objects**. Read the mean reported score, the mean fresh score and the optimism. Compare with the formula $\sigma\,E[\max Z]$ (Background table).
+
+**T3.** Vary the number of candidates $k$ (2, 10, 20, 100) at $n = 100$, and then $n$ (30, 300, 3000) at $k = 50$. How does the optimism depend on $k$ and on $n$?
+
+**T4.** Preset **validation set fixes it**. What is the optimism now? Why?
+
+**T5.** Preset **real differences**: 20 candidates whose true accuracies differ (spread 0.03). Is choosing the best still useful? Is the reported number still too high?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**T1.** Reported 79.8 %, fresh 79.9 %: no optimism (−0.1 points, noise). A single score of 100 objects has an SE of 4 points: the first run, for example, reports 85.0 %, and a range of roughly 72–88 % (±2 SE) is normal.
+
+**T2.** Reported 89.1 %, fresh 80.1 %: optimism 9.0 points. The formula: $\sigma = 0.04$, $E[\max Z] = 2.25$ for $k = 50$: $0.09$, i.e. 9 points.
+
+**T3.** At $n = 100$: optimism 2.1 points ($k = 2$), 6.2 (10), 7.6 (20), 10.0 (100): it grows with $k$, but slowly (like $\sqrt{\ln k}$). At $k = 50$: 15.0 points ($n = 30$), 5.2 (300), 1.6 (3000): it shrinks like $1/\sqrt n$. A big test set helps, a small one with many trials is dangerous.
+
+**T4.** Optimism 0.0 (reported 80.0 %, fresh 80.0 %). The validation scores decide which candidate is chosen; the test score of that candidate is a fresh, independent measurement, untouched by the choice.
+
+**T5.** Yes: the chosen candidates are better than average (fresh 83.2 % against the mean true accuracy of 80 %). But the reported score (89.1 %) is still 5.9 points too high. Choose on validation data, report on test data.
+:::
+
+## Where this leads
+
+The same logic holds for the **statistics of measurements**: cells from one dish are not independent, just as pixels from one image are not. The next unit asks what the unit of replication is in an experiment, and how to report an effect honestly.

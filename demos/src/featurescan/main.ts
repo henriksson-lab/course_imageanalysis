@@ -4,7 +4,8 @@
 // p-values (flat when nothing is real). Right: the sorted p-values against their rank (log
 // axes) with the lines of an uncorrected test (α), Bonferroni (α/m) and Benjamini–Hochberg
 // (k α/m); dots green = real feature, red = null feature (known from the simulation).
-// Auto-mounts on <div data-demo="featurescan">. Options: data-preset="null|real|confounded|randomised|edge".
+// Auto-mounts on <div data-demo="featurescan">. Options: data-preset="null|real|confounded|randomised|edge",
+// data-panels="plate,hist,rank,controls" (any subset).
 import { htmlEl, slider, presets, button, checkbox, autoMount, svgEl } from "../lib/ui";
 import { Plot, seriesColor, plotFigure } from "../lib/plot";
 import { diverging } from "../lib/colour";
@@ -22,7 +23,10 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; flex-basis: 250px; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal [data-demo="${NAME}"] .fs-plate { flex-basis: 330px; }
+.reveal [data-demo="${NAME}"] .qb-plot { max-width: 330px; }
 `;
 
 function injectStyle(): void {
@@ -33,12 +37,23 @@ function injectStyle(): void {
   document.head.appendChild(s);
 }
 
+// lib/plot.ts numbers its clip paths per bundle ("qb-clip-1", …), so two demos on one page
+// share ids and clip each other's plots. Give every plot of this demo a unique clip id.
+let clipCount = 0;
+function uniqueClip<T extends { svg: SVGSVGElement; layer: SVGGElement }>(p: T): T {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) { cp.id = `${NAME}-clip-${++clipCount}`; p.layer.setAttribute("clip-path", `url(#${cp.id})`); }
+  return p;
+}
+
 const LAYOUTS: { id: PlateLayout; label: string }[] = [{ id: "left", label: "treated left" }, { id: "random", label: "random" }, { id: "blocked", label: "random per row" }];
 
 function mount(host: HTMLElement): void {
   injectStyle();
   const p0 = M.PRESETS.find(p => p.id === host.dataset.preset) ?? M.PRESETS[0];
   let st: M.Settings = { ...M.DEFAULTS, ...p0.settings }, seed = M.SEED, feat = 0;
+  const slide = !!host.closest(".reveal"), fs = slide ? 26 : 18;
+  const panels = new Set((host.dataset.panels ?? "plate,hist,rank,controls").split(/[\s,]+/));
 
   const left = htmlEl("div", "fs-plate", "", host);
   const plateF = plotFigure(left, "plate: one feature");
@@ -66,6 +81,10 @@ function mount(host: HTMLElement): void {
   button(row, "new plate", () => { seed++; recompute(); });
   button(row, "reset", () => load(p0));
   const ro = htmlEl("div", "qb-readout", "", panel);
+  if (!panels.has("plate")) left.style.display = "none";
+  if (!panels.has("hist")) histF.style.display = "none";
+  if (!panels.has("rank")) rankF.style.display = "none";
+  if (!panels.has("controls")) panel.style.display = "none";
 
   let plate = M.makePlate(st, seed), ana = M.analyse(plate, st.alpha);
 
@@ -86,7 +105,8 @@ function mount(host: HTMLElement): void {
   function drawPlate(): void {
     plateF.querySelector("svg")?.remove();
     const R = plate.rows, C = plate.cols, v = plate.values[feat];
-    const pl = new Plot(plateF, { x: [0, C], y: [0, R], width: 480, height: 40 + 330 * R / C + 40, xticks: [], yticks: [], grid: false, margin: { l: 10, r: 10, t: 34, b: 10 }, title: `feature ${feat + 1} (${plate.real[feat] ? "real" : "null"}), p = ${ana.p[feat] < 0.001 ? ana.p[feat].toExponential(1) : ana.p[feat].toFixed(3)}` });
+    const pl = new Plot(plateF, { x: [0, C], y: [0, R], width: 480, height: 40 + 330 * R / C + 40, xticks: [], yticks: [], grid: false, margin: { l: 10, r: 10, t: slide ? 44 : 34, b: 10 }, font: slide ? 24 : 18, title: `feature ${feat + 1} (${plate.real[feat] ? "real" : "null"}), p = ${ana.p[feat] < 0.001 ? ana.p[feat].toExponential(1) : ana.p[feat].toFixed(3)}` });
+    uniqueClip(pl);
     const lim = Math.max(...Array.from(v, Math.abs));
     pl.heatmap(v, C, R, { map: diverging, lo: -lim, hi: lim });
     pl.mark(g => {
@@ -103,7 +123,8 @@ function mount(host: HTMLElement): void {
     const nb = 20, c = new Array(nb).fill(0), cn = new Array(nb).fill(0);
     ana.p.forEach((p, i) => { const k = Math.min(nb - 1, Math.floor(p * nb)); c[k]++; if (!plate.real[i]) cn[k]++; });
     const edges = Array.from({ length: nb + 1 }, (_, i) => i / nb);
-    const pl = new Plot(histF, { x: [0, 1], y: [0, Math.max(...c, ana.p.length / nb) * 1.15], xlabel: "p-value", ylabel: "features", width: 420, height: 330 });
+    const pl = new Plot(histF, { x: [0, 1], y: [0, Math.max(...c, ana.p.length / nb) * 1.15], xlabel: "p-value", ylabel: "features", width: 420, height: 330, font: fs });
+    uniqueClip(pl);
     pl.histogram(edges, c, { color: seriesColor(0), label: "all features" });
     pl.histogram(edges, cn, { color: "#999", label: "null features", fillOpacity: 0.35 });
     pl.hline(ana.p.length / nb, { color: seriesColor(1), width: 2, text: "flat: m/20" });
@@ -115,14 +136,15 @@ function mount(host: HTMLElement): void {
     const m = ana.p.length, order = Array.from({ length: m }, (_, i) => i).sort((a, b) => ana.p[a] - ana.p[b]);
     const pmin = Math.max(1e-12, Math.min(...ana.p) / 3);
     const lo = Math.max(1e-8, Math.min(1e-4, 10 ** Math.floor(Math.log10(pmin))));
-    const pl = new Plot(rankF, { x: [1, m], xlog: true, y: [lo, 1], ylog: true, xlabel: "rank k", ylabel: "p-value (sorted)", width: 420, height: 330 });
+    const pl = new Plot(rankF, { x: [1, m], xlog: true, y: [lo, 1], ylog: true, xlabel: "rank k", ylabel: "p-value (sorted)", width: 420, height: 330, font: fs, margin: { l: 2 * fs + 62 } });
+    uniqueClip(pl);
     const a = st.alpha;
     pl.line([1, m], [a, a], { color: seriesColor(3), width: 2.5, label: "α (uncorrected)" });
     pl.line([1, m], [a / m, a / m], { color: seriesColor(4), width: 2.5, label: "α/m (Bonferroni)" });
     pl.line([1, m], [a / m, a], { color: seriesColor(0), width: 2.5, dash: "6 4", label: "kα/m (BH)" });
     const ks = order.map((_, k) => k + 1), ps = order.map(i => Math.max(lo, ana.p[i]));
     pl.scatter(ks, ps, { colors: order.map(i => (plate.real[i] ? seriesColor(2) : seriesColor(1))), r: 4 });
-    pl.legend(undefined, "br");
+    pl.legend(undefined, "tl");
   }
 
   function readout(): void {

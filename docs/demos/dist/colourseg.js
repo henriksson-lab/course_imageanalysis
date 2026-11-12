@@ -11,8 +11,9 @@
 [data-demo="${B}"] .qb-panel { flex: 1 1 270px; max-width: 420px; gap: .35em; }
 [data-demo="${B}"] .cs-row { display: flex; flex-wrap: wrap; gap: .3em; }
 [data-demo="${B}"] .cs-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${B}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${B}"] .qb-readout { font-size: 14px; white-space: pre; }
 .reveal [data-demo="${B}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${B}"] .qb-readout { font-size: 16px; }
 .reveal [data-demo="${B}"] .cs-imgs { max-width: 640px; }
 .reveal [data-demo="${B}"] .qb-btn { font-size: 15px; padding: .1em .42em; }
 .reveal [data-demo="${B}"] .qb-note, .reveal [data-demo="${B}"] .cs-credit { display: none; }

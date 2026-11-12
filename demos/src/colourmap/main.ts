@@ -11,6 +11,7 @@ import { htmlEl, slider, presets, button, autoMount, rng } from "../lib/ui";
 import { Plot, plotFigure } from "../lib/plot";
 import { ColorMap, grey, viridis, inferno, diverging, lightnessProfile } from "../lib/colour";
 import { jet, rainbow, cividis, magma, simulateDichromatBytes, Dichromacy } from "../colourcloud/colourx";
+import { uniqueClip } from "../colourcloud/plotfix";
 
 const NAME = "colourmap";
 const N = 160;
@@ -26,6 +27,7 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 [data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .42em; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 `;
@@ -97,6 +99,7 @@ autoMount(NAME, host => {
   const bar = htmlEl("canvas", "cmap-bar", "", mid); bar.width = 256; bar.height = 1;
   const lf = plotFigure(mid, "");
   const lp = new Plot(lf, { width: 420, height: 250, x: [0, 1], y: [0, 100], xlabel: "position in the map", ylabel: "lightness L*", yticks: [0, 25, 50, 75, 100], xticks: [0, 0.2, 0.4, 0.6, 0.8, 1] });
+  uniqueClip(lp.svg, NAME);
   const lline = lp.line([], [], { color: "#222", width: 3 });
   const read = htmlEl("div", "qb-readout", "", mid);
 

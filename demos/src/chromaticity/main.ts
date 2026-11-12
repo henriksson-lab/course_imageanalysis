@@ -12,6 +12,7 @@ import { htmlEl, slider, presets, button, checkbox, autoMount, svgEl } from "../
 import { Plot } from "../lib/plot";
 import { toCss } from "../lib/colour";
 import * as SP from "../lib/spectra";
+import { uniqueClip } from "../colourcloud/plotfix";
 
 const NAME = "chromaticity";
 const STYLE = `
@@ -23,6 +24,7 @@ const STYLE = `
 [data-demo="${NAME}"] .ch-row { display: flex; flex-wrap: wrap; gap: .3em .8em; align-items: center; }
 [data-demo="${NAME}"] .ch-warn { color: var(--qb-c2); font-weight: 600; min-height: 1.3em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
 .reveal [data-demo="${NAME}"] .ch-plot { flex-basis: 440px; max-width: 440px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
@@ -92,6 +94,7 @@ autoMount(NAME, host => {
 
   const box = htmlEl("div", "ch-plot", "", host);
   const plot = new Plot(box, { width: 560, height: 600, x: [-0.06, 0.8], y: [0, 0.9], equal: true, xlabel: "x", ylabel: "y", xticks: [0, 0.2, 0.4, 0.6, 0.8], yticks: [0, 0.2, 0.4, 0.6, 0.8] });
+  uniqueClip(plot.svg, NAME);
   // fill image (computed once)
   const X1 = 0.8, Y1 = 0.9;
   plot.mark(g => {

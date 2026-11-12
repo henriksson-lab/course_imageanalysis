@@ -75,7 +75,7 @@ for (const basis of ["rgb", "lms", "bradford"] as const) {
   check(o.every(v => near(v, 1, 1e-6)), `adaptation (${basis}) maps the source white to white`);
 }
 for (const k of ["protan", "deutan", "tritan"] as const) {
-  const M = X.DICHROMAT[k], det = SP.inv3 && (M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]));
+  const M = X.DICHROMAT[k], det = (M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]));
   check(near(det, 0, 1e-9), `${k} matrix is singular (det ${det})`);
   const M2 = SP.mat3mul(M, M);
   for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) check(near(M2[r][c], M[r][c], 1e-9), `${k}: a projection (M² = M)`);
@@ -137,7 +137,7 @@ for (const obs of ["lms", "camera", "deutan"] as SP.Observer[]) {
 
 // ---- white balance ----
 {
-  const base = { kind: "chart" as const, illum: "blackbody" as const, T: 2800, obs: "eye" as const, how: "greyworld" as const, space: "rgb" as const, card: 20, highlight: false };
+  const base: Parameters<typeof WB.runWB>[0] = { kind: "chart", illum: "blackbody", T: 2800, obs: "eye", how: "greyworld", space: "rgb", card: 20, highlight: false };
   const res = WB.runWB(base);
   // grey world on linear RGB: the corrected chart image has equal channel means
   const img = res.img, n = img.w * img.h;
@@ -146,7 +146,7 @@ for (const obs of ["lms", "camera", "deutan"] as SP.Observer[]) {
   const corr = WB.correct(cols, "greyworld", "rgb", g), m = [0, 1, 2].map(k => corr.reduce((s, c) => s + c[k], 0) / corr.length);
   check(near(m[0], m[1], 1e-9) && near(m[1], m[2], 1e-9), "grey world equalises the channel means");
   check(WB.runWB({ ...base, illum: "d65", how: "none" }).dE.every(d => d < 1e-6), "D65, no correction: ΔE = 0");
-  const mean = (o: Partial<typeof base> & Record<string, unknown>) => { const r = WB.runWB({ ...base, ...o } as typeof base); return r.dE.reduce((s, v) => s + v, 0) / r.dE.length; };
+  const mean = (o: Partial<typeof base>) => { const r = WB.runWB({ ...base, ...o }); return r.dE.reduce((s, v) => s + v, 0) / r.dE.length; };
   check(mean({ how: "card", space: "bradford" }) < mean({ how: "card", space: "rgb" }) && mean({ how: "card", space: "rgb" }) < mean({ how: "card", space: "encoded" }), "card: Bradford < linear RGB < encoded");
   check(mean({ how: "lstsq" }) < mean({ how: "card", space: "bradford" }), "3x3 fit beats any diagonal");
   check(mean({ kind: "forest", T: 4000, how: "greyworld", space: "lms" }) > 2 * mean({ kind: "forest", T: 4000, how: "whitepatch", space: "lms" }), "grey world fails in the forest");

@@ -108,7 +108,7 @@ function mount(host: HTMLElement): void {
   const imgBtns = presets(panel, imgIds.map(id => ({ label: IMAGES.get(id)!.label, apply: () => { st.image = id; st.px = 64; st.py = 64; makeImage(); } })));
   const quadDiv = htmlEl("div", "", "", panel);
   const qa = slider(quadDiv, "a", -1, 1, 0.1, st.qa, v => { st.qa = v; makeImage(); });
-  const qb = slider(quadDiv, "b", -1, 1, 0.1, st.qb, v => { st.qb = v; makeImage(); });
+  const qb = slider(quadDiv, "b", -2, 2, 0.1, st.qb, v => { st.qb = v; makeImage(); });
   const qc = slider(quadDiv, "c", -1, 1, 0.1, st.qc, v => { st.qc = v; makeImage(); });
   const sigS = slider(panel, "σ", 1, 8, 0.25, st.sigma, v => { st.sigma = v; compute(); });
   const multiC = checkbox(panel, "multi-scale σ = 1 … σmax", st.multi, v => { st.multi = v; compute(); });

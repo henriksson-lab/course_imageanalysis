@@ -15,7 +15,11 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; gap: .45em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre; }
 [data-demo="${NAME}"] svg text { font-size: 18px; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
+.reveal [data-demo="${NAME}"] { font-size: 18px; flex-wrap: nowrap; }
+.reveal [data-demo="${NAME}"] .rf-main { flex: 1 1 600px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 0 0 340px; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
+.reveal [data-demo="${NAME}"] .qb-panel svg { max-width: 170px !important; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .1em .45em; }
 `;
 function injectStyle(): void {

@@ -1,8 +1,104 @@
 ---
-title: "Exercise: CNN"
+title: "Exercise: convolutional networks"
 ---
 
-## Explore: convlayer {#explore-convlayer}
+## Goal
+
+By the end of this exercise you should be able to:
+
+- push a small image through a convolutional layer, ReLU and max pooling by hand,
+- count the weights of convolutional and dense layers, and compute output sizes,
+- compute the receptive field of a stack of layers,
+- check translation equivariance, and see where pooling breaks it,
+- explain what data augmentation teaches a network.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Convolutional layer | $C_\text{out}$ kernels, each $k \times k \times C_\text{in}$, slid over the input (correlation, no flip), plus a bias each, then ReLU: $C_\text{out}$ feature maps |
+| Weights | $k^2C_\text{in}C_\text{out} + C_\text{out}$, whatever the image size |
+| Valid / same padding | no padding (the map shrinks by $k - 1$) / zeros around the border so the size stays |
+| Max pooling $2 \times 2$ | the largest value of each $2 \times 2$ block: half width, half height |
+| Output size | $n_\text{out} = \lfloor(n + 2p - k)/s\rfloor + 1$ for kernel $k$, padding $p$, stride $s$ |
+| Receptive field | $r_l = r_{l-1} + (k_l - 1)j_{l-1}$, jump $j_l = j_{l-1}s_l$, $r_0 = j_0 = 1$ |
+| Equivariance | shift the input, the feature maps shift the same way |
+
+## By hand
+
+**B1.** The $6 \times 6$ image (a dark region on the left, a bright one on the right, with a step in the boundary)
+
+$$I = \begin{bmatrix} 0&0&0&1&1&1\\ 0&0&0&1&1&1\\ 0&0&0&1&1&1\\ 0&0&1&1&1&1\\ 0&0&1&1&1&1\\ 0&0&1&1&1&1 \end{bmatrix}, \qquad K_1 = \begin{bmatrix} -1&0&1\\ -1&0&1\\ -1&0&1 \end{bmatrix}, \qquad K_2 = \begin{bmatrix} -1&-1&-1\\ 0&0&0\\ 1&1&1 \end{bmatrix}$$
+
+(a) Compute both feature maps with valid padding (correlation, bias 0). What size are they?
+(b) Apply the ReLU and then $2 \times 2$ max pooling. Give the two $2 \times 2$ results.
+(c) Which kernel responds to what? Why does the ReLU change nothing here, and which kernel would give a map that the ReLU sets to zero everywhere?
+
+**B2.** Weights.
+(a) A convolutional layer with 16 kernels of $3 \times 3$ on an RGB image.
+(b) A dense layer from a $64 \times 64$ RGB image to 16 units.
+(c) Both for a $1024 \times 1024$ RGB image.
+
+**B3.** Output sizes. Compute $n_\text{out}$ for: (a) $n = 28$, $k = 3$, $p = 1$, $s = 1$; (b) $n = 28$, $k = 5$, $p = 0$, $s = 1$; (c) $n = 64$, $k = 3$, $p = 1$, $s = 2$; (d) $2 \times 2$ max pooling on $n = 28$; (e) $n = 7$, $k = 3$, $p = 0$, $s = 2$.
+
+**B4.** Receptive field. A network has conv 3, conv 3, pool 2, conv 3, conv 3.
+(a) Compute the receptive field and the jump after every layer.
+(b) Add pool 2, conv 3, conv 3. What is the receptive field now?
+(c) Nuclei are about 20 pixels across. After which layer can one unit see a whole nucleus?
+
+**B5.** Equivariance in 1D. The signal $x = (0, 0, 1, 3, 1, 0, 0, 0)$ and the kernel $(-1, 0, 1)$.
+(a) Compute the valid correlation (6 values).
+(b) Shift $x$ one step to the right ($x' = (0, 0, 0, 1, 3, 1, 0, 0)$) and compute it again. Compare.
+(c) Max pooling with window 2 and stride 2 on $x$ and on $x'$. Is the pooled $x'$ a shifted version of the pooled $x$? What about a shift by two steps?
+
+**B6.** Three stacked $3 \times 3$ layers or one $7 \times 7$ layer, each with 16 input and 16 output channels.
+(a) Show that both have the same receptive field.
+(b) Count the weights of each. Which has more nonlinearities?
+
+**B7.** Augmentation. For each task, name augmentations that are safe and one that would be harmful: (a) classifying handwritten digits; (b) classifying cell shapes in fluorescence images; (c) deciding whether a tissue section was stained with dye A or dye B (which differ in colour).
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Both maps are $4 \times 4$ ($6 - 3 + 1$):
+
+$$K_1: \begin{bmatrix} 0&3&3&0\\ 1&3&2&0\\ 2&3&1&0\\ 3&3&0&0 \end{bmatrix}, \qquad K_2: \begin{bmatrix} 0&0&0&0\\ 1&1&1&0\\ 1&1&1&0\\ 0&0&0&0 \end{bmatrix}$$
+
+(b) The ReLU changes nothing (no negative values). Pooling: $K_1$: $\begin{bmatrix} 3&3\\ 3&1 \end{bmatrix}$, $K_2$: $\begin{bmatrix} 1&1\\ 1&1 \end{bmatrix}$.
+(c) $K_1$ (right minus left) responds to the vertical dark-to-bright edge; its value is 3 where the edge runs straight through the window. $K_2$ (bottom minus top) responds where the image gets brighter downwards: only around the step of the boundary (rows 3–4). No window sees a bright-to-dark transition, so no value is negative. $-K_1$ (bright on the left) or $-K_2$ would give maps that are $\le 0$ everywhere, which the ReLU sets to 0: "this feature is not present".
+
+**B2.** (a) $3 \cdot 3 \cdot 3 \cdot 16 + 16 = 448$. (b) $64 \cdot 64 \cdot 3 \cdot 16 + 16 = 196{,}624$. (c) The convolutional layer: still 448. The dense layer: $1024 \cdot 1024 \cdot 3 \cdot 16 + 16 = 50{,}331{,}664$.
+
+**B3.** (a) 28. (b) 24. (c) $\lfloor(64 + 2 - 3)/2\rfloor + 1 = 32$. (d) 14. (e) $\lfloor 4/2\rfloor + 1 = 3$.
+
+**B4.** (a) $r = 3, 5, 6, 10, 14$ and $j = 1, 1, 2, 2, 2$. (b) Pool: $r = 16$, $j = 4$; conv: 24; conv: **32**. (c) After the first convolution following the second pooling ($r = 24 \ge 20$), i.e. after 7 layers. Before that, 16 pixels: part of a nucleus only.
+
+**B5.** (a) $(1, 3, 0, -3, -1, 0)$. (b) $(0, 1, 3, 0, -3, -1)$: the same values, shifted one step (the first value comes in from the border). (c) Pooled $x$: $(0, 3, 1, 0)$; pooled $x'$: $(0, 1, 3, 0)$. That is not a shift of $(0, 3, 1, 0)$: the peak 3 moved into the other pooling window, together with a different neighbour. A shift by two steps (the stride) gives $(0, 0, 3, 1)$: an exact shift. Pooling is equivariant only for shifts by multiples of its stride.
+
+**B6.** (a) Three $3 \times 3$ layers: $1 + 2 + 2 + 2 = 7$; one $7 \times 7$: 7. (b) $3 \cdot (9 \cdot 16 \cdot 16 + 16) = 6960$ against $49 \cdot 16 \cdot 16 + 16 = 12{,}560$. The stack has three ReLUs instead of one, so it can represent more complicated patterns with fewer weights.
+
+**B7.** (a) Small shifts, rotations (say up to ±15°), slight thickening or thinning of strokes, noise. Harmful: flips (a mirrored 2 is no digit) and large rotations (6 ↔ 9). (b) Rotations by any angle, flips, shifts, brightness and contrast changes, noise, mild elastic deformation. Harmful: strong blur or rescaling if size is part of the classes. (c) Rotations, flips, shifts, noise. Harmful: colour (hue) changes: they would erase exactly the difference to be learned.
+:::
+
+### Math questions
+
+**B8.** *(math)* Write a 1D convolutional layer with kernel $(w_1, w_2, w_3)$, valid padding, on inputs of length 5, as a $3 \times 5$ matrix. How many of its 15 entries are free parameters? What is its transpose, applied to a vector of length 3?
+
+**B9.** *(math)* Show that two stacked $3 \times 3$ convolutions without a nonlinearity equal one $5 \times 5$ convolution. Compute the combined kernel for the 1D case $(1, 2, 1)$ followed by $(-1, 0, 1)$.
+
+**B10.** *(math)* Prove the receptive-field recursion $r_l = r_{l-1} + d_l(k_l - 1)j_{l-1}$, $j_l = j_{l-1}s_l$ for a layer with kernel $k_l$, stride $s_l$ and dilation $d_l$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** *(math)* $\begin{bmatrix} w_1&w_2&w_3&0&0\\ 0&w_1&w_2&w_3&0\\ 0&0&w_1&w_2&w_3 \end{bmatrix}$: a banded (Toeplitz) matrix with 3 free parameters out of 15; a dense layer would have 15. The transpose maps $(d_1, d_2, d_3)$ to $(w_1d_1,\ w_2d_1 + w_1d_2,\ w_3d_1 + w_2d_2 + w_1d_3,\ w_3d_2 + w_2d_3,\ w_3d_3)$: every output value stamps a weighted copy of the kernel back onto the input positions it came from. This is how backpropagation sends gradients through a convolution, and it is the "transposed convolution" of the next unit.
+
+**B9.** *(math)* $y[i] = \sum_v k_2[v]\sum_u k_1[u]x[i + u + v] = \sum_t\big(\sum_u k_1[u]k_2[t - u]\big)x[i + t]$, so one correlation with the kernel $k[t] = \sum_u k_1[u]k_2[t - u]$, whose support has $3 + 3 - 1 = 5$ positions in each direction. For $(1, 2, 1)$ and $(-1, 0, 1)$: $k = (-1, -2, 0, 2, 1)$, a smoothed derivative (as in the Sobel kernel).
+
+**B10.** *(math)* By induction. Units of layer $l-1$ are $j_{l-1}$ input pixels apart and each sees $r_{l-1}$ pixels. A unit of layer $l$ combines $k_l$ units of layer $l-1$ spaced $d_l$ apart: the first and last of them are $d_l(k_l - 1)$ units, i.e. $d_l(k_l - 1)j_{l-1}$ input pixels apart, so together they see $r_{l-1} + d_l(k_l - 1)j_{l-1}$ pixels. Neighbouring units of layer $l$ start $s_l$ units of layer $l-1$ apart: $j_l = s_lj_{l-1}$ pixels.
+:::
+
+## Explore: one convolutional layer {#explore-convlayer}
+
+The demo applies a bank of 8 kernels ($3 \times 3$) to an input image; under each kernel is its feature map after the ReLU (white = strong). **hand-made kernels**: Sobel, diagonal edges, Laplacian, Gaussian, line detectors. **learned kernels**: layer 1 of the small digit network of the last part of this exercise. Click a kernel to edit its numbers. The **shift** buttons move the input; **2×2 max pool** shows the pooled maps.
 
 ```{=html}
 <link rel="stylesheet" href="../demos/dist/demo.css">
@@ -10,7 +106,27 @@ title: "Exercise: CNN"
 <script src="../demos/dist/convlayer.js"></script>
 ```
 
-## Explore: receptive {#explore-receptive}
+**C1.** Preset **learned filters look like edge detectors** (a digit, learned bank). Look at the 8 kernels: which ones look like an edge detector, and for which direction? Which looks like a blur? Compare their maps with those of the hand-made bank on the same digit.
+
+**C2.** Preset **shift the input** (micrograph shifted 24 pixels right). Compare the maps with **no shift**. What happens to the maps, and what appears at the left border?
+
+**C3.** Preset **pooling**. What size are the maps? Which detail is lost, which kept?
+
+**C4.** Select **Sobel x** on the digit and change its sign (edit the 6 non-zero numbers). Which edges of each stroke light up now? Why would a network need both kernels?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**C1.** Learned kernel 8 has a positive top row (0.70, 0.41, 0.58), a zero middle and a negative bottom row (−0.86, −0.55, −0.40): a horizontal edge detector that fires where ink lies above background (the bottom edges of strokes). Kernel 4 is similar (two positive rows above a negative bottom row: $-0.61, -0.79, -0.27$). Kernel 6 (positive top-left corner, negative bottom row and right column) is a diagonal edge detector. Kernel 2 has all positive weights (0.11–0.55): a blur that responds to ink anywhere. The maps of the learned bank look like those of Sobel y and the diagonal kernels; nobody designed them, they came out of training on digits. (The learned kernels are less tidy than Sobel: training only needs them to be useful, not symmetric.)
+
+**C2.** Every map is shifted by the same 24 pixels: the same structures light up at the same places relative to the cell (equivariance). At the left border a 24-pixel strip of zeros has come in; the edge between this black strip and the bright image is a strong new vertical edge, so Sobel x and the vertical line kernel light up along it: a border artefact, not part of the cell.
+
+**C3.** $14 \times 14$ instead of $28 \times 28$. Each pooled pixel keeps the strongest response of a $2 \times 2$ block: whether a stroke edge is present in that block is kept, its exact position within the block is lost.
+
+**C4.** With the sign changed, the right edges of vertical strokes light up instead of the left ones (bright-to-dark instead of dark-to-bright when moving right). The ReLU keeps only one sign of each kernel's response, so a network that should see both edges of a stroke needs a kernel for each.
+:::
+
+## Explore: receptive fields {#explore-receptive}
+
+Bottom row: input pixels along one line of the image; every row above is a layer (no padding, so each layer is a little shorter). Click a unit: the units it depends on light up in all layers below, and the bracket shows its receptive field. The square on the right shows that field in 2D next to a 20-pixel nucleus; the readout lists the field, the jump and the weights (for 16 channels in and out) of every layer.
 
 ```{=html}
 <link rel="stylesheet" href="../demos/dist/demo.css">
@@ -18,11 +134,64 @@ title: "Exercise: CNN"
 <script src="../demos/dist/receptive.js"></script>
 ```
 
-## Explore {#explore}
+**F1.** Presets **three 3×3 layers = 7** and **one 7×7 layer**. Compare the field and the total weights. Check B6.
+
+**F2.** Preset **with pooling**. Read the field after every layer. Click a unit in the second layer: why does it light up two input pixels more than a unit of the first layer, but a unit in the fourth layer four more than the third?
+
+**F3.** Preset **how deep to see a whole nucleus?** Check B4. Remove layers one by one from the top: at which depth does the field drop below 20 pixels?
+
+**F4.** Preset **dilated: 1, 2, 4**. What is the field after each layer? Why is dilation an alternative to pooling for growing the field?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**F1.** Both see 7 pixels. Weights: three $3 \times 3$ layers 6960 in total (2320 each), one $7 \times 7$ layer 12,560.
+
+**F2.** Fields 3, 4, 8, 10, 18 (jumps 1, 2, 2, 4, 4). The first pooling adds 1 pixel ($r = 3 + 1 \cdot 1$) but doubles the jump: after it, neighbouring units are 2 input pixels apart, so each further $3 \times 3$ layer adds $2 \times 2 = 4$ pixels instead of 2. After the second pooling the jump is 4, and the last convolution adds 8.
+
+**F3.** 32 pixels after all 8 layers. Removing the top layer gives 24 (still enough), removing one more gives 16 (after conv, conv, pool, conv, conv, pool): too small for a 20-pixel nucleus. So 7 layers are needed, as in B4.
+
+**F4.** 3, 7, 15: dilation $d$ spreads the 3 taps $d$ pixels apart, so the layer adds $2d$ pixels. The field doubles with each layer, as with pooling, but the maps keep their full resolution (useful for segmentation, the next unit).
+:::
+
+## Explore: inside a trained network {#explore}
+
+A small convolutional network (conv $3 \times 3$ with 8 kernels → pool → conv $3 \times 3$ with 16 kernels → pool → dense → softmax, 9,098 weights) was trained on 60,000 handwritten digits (MNIST). Pick a digit or draw one; **rotate** and **shift** it. You see the 8 learned layer-1 kernels, the layer-1 and layer-2 feature maps and the class probabilities. Click a layer-2 map to see the 9 test-image patches (its receptive field, $8 \times 8$) that excite it most. **occlusion map** covers each part of the input in turn with a $6 \times 6$ black square and marks in red where this lowers the probability of the predicted class. Weight sets: trained **with rotation augmentation** (random rotations up to ±45°), **training snapshots** after 0, 1 and 3 epochs, and a network for **cell masks** (round, elongated, dividing, protrusion).
 
 ```{=html}
 <link rel="stylesheet" href="../demos/dist/demo.css">
-<div data-demo="cnnviewer" data-weights="digits"></div>
+<div data-demo="cnnviewer" data-weights="digits" data-example="12"></div>
 <script src="../demos/dist/cnnviewer.js"></script>
 ```
 
+**V1.** Pick a few digits. Which layer-1 maps light up for horizontal strokes, which for vertical ones? Click two layer-2 maps and describe their favourite patches.
+
+**V2.** Preset **shifted digit** (the 6, shifted 4 pixels right). What do the maps do, and what is the prediction? Now shift by 6 pixels left or right, or up or down. Is the network shift-invariant? Which part of it is not?
+
+**V3.** Preset **rotation 30°, no augmentation**, then **rotation 30°, with augmentation**. Compare the predictions. Then rotate the 6 step by step with both weight sets: over which range of angles does each still say 6? The readout gives the test accuracy on digits rotated by 45°: compare.
+
+**V4.** Preset **a 6 rotated to a 9**. What does the network say? Is it wrong? Would full rotation augmentation (any angle) be a good idea for digits?
+
+**V5.** Choose the weight sets **epoch 0**, **epoch 1**, **epoch 3** and the final one. What do the layer-1 kernels look like at epoch 0? How does the test accuracy develop?
+
+**V6.** Preset **what is the network looking at?** (a 4, with the occlusion map). Where is the red region? Imagine the 4 with that part missing: which digit could it then be?
+
+**V7.** Choose **cell masks**. Pick the four example shapes, then rotate the protrusion cell by 90° and 180°. Why is this network not troubled by rotation?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**V1.** Different maps respond to different edges of the strokes: kernels 4 and 8 (positive above, negative below) light up along the lower edges of horizontal strokes, kernel 6 along diagonal edges, kernel 2 (all positive) on the ink itself. Layer-2 maps respond to combinations: their favourite patches show, for example, the end of a stroke, a curve, a corner where two strokes meet, or a short horizontal bar, each at the centre of the $8 \times 8$ patch.
+
+**V2.** The maps of both layers shift with the input (by 4 pixels in layer 1, by 2 in layer 2, which is pooled once); the prediction stays 6 with probability 1.00 for shifts of 4 left or right. At 6 pixels it breaks: shifted 6 left the network says 2 (0.53), 6 right 1 (0.79), 6 down 2 (0.50), 6 up 8 (0.99). The convolutional layers are equivariant and pooling adds a little tolerance, but the final dense layer has a separate weight for each position of the $7 \times 7$ maps: it has only seen digits that are centred.
+
+**V3.** At 30°, the network without augmentation says 4 (0.55), the one with augmentation 6 (1.00). Without augmentation the 6 stays a 6 from −75° to +20°; with augmentation from −85° to +50° (steps of 5°). On test digits rotated by 45°: 46.9 % correct without augmentation, 92.9 % with (at 0°: 98.7 % and 97.2 %; the augmented network pays a little on upright digits).
+
+**V4.** It says 9 (probability 0.98; the augmented network 0.80). That is right: a 6 rotated by 180° **is** a 9. Rotation invariance is not wanted for digits; full rotation augmentation would make 6 and 9 (and partly 2 and 5) the same class. Augment only with changes that keep the label.
+
+**V5.** Epoch 0: random kernels (noise patterns of small numbers), every digit gets about 10 % for every class, test accuracy 9.8 %. After one epoch (469 gradient steps) the kernels have structure and the accuracy is 94.4 %; after 3 epochs 97.4 %; after 10 epochs 98.7 %. Most of the learning happens in the first epoch.
+
+**V6.** The red region lies at the upper right, where the right arm of the 4 starts above the crossbar (rows 8–13, columns 16–21 of the $28 \times 28$ image). Covering it lowers the probability of 4 from 0.98 to 0.007; the network then says 5 (0.57): without that part, the remaining strokes (left arm, bar, lower stem) look more like a 5. The network bases its decision on a few key strokes, not on the whole shape.
+
+**V7.** All four examples are classified correctly (protrusion with probability 1.00), and the protrusion cell rotated by 90° or 180° is still a protrusion (1.00). The training masks were generated in every orientation, so rotation was already "augmented" by the data: the network has learned the invariance from examples. Test accuracy 99.0 %.
+:::
+
+## Where this leads
+
+A classification network says **what** is in the image. The next unit keeps the convolutional layers but drops the dense layer at the end: an **encoder–decoder** (U-Net) outputs a class probability for **every pixel**, a segmentation. The **moments** elective shows the opposite route to invariance: features that are invariant by construction.

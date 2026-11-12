@@ -42,11 +42,21 @@ function injectStyle(): void {
   document.head.appendChild(s);
 }
 
+// lib/plot.ts numbers its clip paths per bundle ("qb-clip-1", …), so two demos on one page
+// share ids and clip each other's plots. Give every plot of this demo a unique clip id.
+let clipCount = 0;
+function uniqueClip<T extends { svg: SVGSVGElement; layer: SVGGElement }>(p: T): T {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) { cp.id = `${NAME}-clip-${++clipCount}`; p.layer.setAttribute("clip-path", `url(#${cp.id})`); }
+  return p;
+}
+
 function mount(host: HTMLElement): void {
   injectStyle();
   const p0 = M.PRESETS.find(p => p.id === host.dataset.preset) ?? M.PRESETS[0];
   let st: M.Settings = { ...M.DEFAULTS, ...p0.settings };
   let show: M.Strategy = p0.show ?? "pixels", selImg = 0;
+  const slide = !!host.closest(".reveal");
 
   // ---- layout ----
   const thumbs = htmlEl("figure", "lk-thumbs", "", host);
@@ -70,7 +80,8 @@ function mount(host: HTMLElement): void {
 
   const barsF = htmlEl("figure", "lk-bars", "", host);
   htmlEl("figcaption", "", "test accuracy of each way to split", barsF);
-  const plot = new Plot(barsF, { x: [0.4, 5.6], y: [0.4, 1.04], yticks: [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], ylabel: "test accuracy", height: 380, xticks: [1, 2, 3, 4, 5], xfmt: v => ["", "pixels", "blocks", "buffer", "image", "day"][Math.round(v)] ?? "" });
+  const plot = new Plot(barsF, { x: [0.4, 5.6], y: [0.4, 1.04], yticks: [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], ylabel: "test accuracy", height: slide ? 460 : 380, width: slide ? 620 : 560, font: slide ? 24 : 18, xticks: [1, 2, 3, 4, 5], xfmt: v => ["", "pixels", "blocks", "buffer", "image", "day"][Math.round(v)] ?? "" });
+  uniqueClip(plot);
   const busy = htmlEl("div", "lk-busy", "", barsF);
 
   const predF = htmlEl("figure", "lk-pred", "", host);

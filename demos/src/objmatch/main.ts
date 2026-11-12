@@ -54,6 +54,15 @@ function injectStyle(): void {
   document.head.appendChild(s);
 }
 
+// lib/plot.ts numbers its clip paths per bundle ("qb-clip-1", …), so two demos on one page
+// share ids and clip each other's plots. Give every plot of this demo a unique clip id.
+let clipCount = 0;
+function uniqueClip<T extends { svg: SVGSVGElement; layer: SVGGElement }>(p: T): T {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) { cp.id = `${NAME}-clip-${++clipCount}`; p.layer.setAttribute("clip-path", `url(#${cp.id})`); }
+  return p;
+}
+
 const f2 = (v: number) => v.toFixed(2), f3 = (v: number) => v.toFixed(3);
 const clone = (objs: M.PredObj[]): M.PredObj[] => objs.map(o => ({ ...o, parts: o.parts.map(p => ({ ...p, e: { ...p.e } })) }));
 
@@ -331,6 +340,7 @@ function mount(host: HTMLElement): void {
     plotHost.replaceChildren();
     if (st.tab === "f1") {
       plot = new Plot(plotHost, { x: [0.1, 0.95], y: [0, 1.02], xlabel: "IoU threshold τ", ylabel: "object F1", font, width: onSlide ? 460 : 560, height: onSlide ? 500 : 380, xticks: [0.1, 0.3, 0.5, 0.7, 0.9] });
+      uniqueClip(plot);
       if (st.annotator) plot.band(M.TAUS, evB.f1, M.TAUS.map(() => 1.02), { color: "#888", fillOpacity: 0.25, label: "above annotator B" });
       if (st.annotator) plot.line(M.TAUS, evB.f1, { color: "#888", width: 2, label: "annotator B vs A" });
       plot.hline(ev.dice, { color: seriesColor(4), width: 2, text: "pixel Dice " + f2(ev.dice) });
@@ -340,6 +350,7 @@ function mount(host: HTMLElement): void {
       plot.legend(undefined, "bl");
     } else {
       plot = new Plot(plotHost, { x: [0, 1], y: [0, 1.02], xlabel: "recall", ylabel: "precision", font, width: onSlide ? 460 : 560, height: onSlide ? 500 : 380, title: `τ = ${f2(st.tau)}: AP ${f3(ev.pr.ap)}` });
+      uniqueClip(plot);
       const R = [0, ...ev.pr.recall], I = [ev.pr.interp[0] ?? 1, ...ev.pr.interp];
       plot.band(R, R.map(() => 0), I, { color: seriesColor(0), fillOpacity: 0.15 });
       plot.line(R, I, { color: seriesColor(0), label: "interpolated" });

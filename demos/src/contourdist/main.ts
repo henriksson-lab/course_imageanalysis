@@ -19,11 +19,15 @@ const STYLE = `
 [data-demo="${NAME}"] .cd-view svg { width: 100%; aspect-ratio: 1; background: var(--qb-panel); border-radius: 4px; touch-action: none; }
 [data-demo="${NAME}"] .cd-right { flex: 1 1 300px; max-width: 420px; display: flex; flex-direction: column; gap: .4em; }
 [data-demo="${NAME}"] .cd-num { display: grid; grid-template-columns: repeat(5, auto); gap: .1em .9em; font-size: 15px; justify-content: start; }
+.reveal [data-demo="${NAME}"] .cd-num { font-size: 16px; gap: .1em .5em; }
+.reveal [data-demo="${NAME}"] .cd-num b { font-size: 18px; }
 [data-demo="${NAME}"] .cd-num b { font-size: 22px; font-family: ui-monospace, monospace; font-weight: 600; }
 [data-demo="${NAME}"] .qb-panel { flex: 0 1 260px; gap: .4em; }
 [data-demo="${NAME}"] .cd-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .cd-view { flex-basis: 470px; }
+.reveal [data-demo="${NAME}"] .cd-view { flex-basis: 420px; }
+.reveal [data-demo="${NAME}"] .cd-right { flex-basis: 300px; max-width: 340px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex-basis: 250px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; }
 `;
@@ -34,6 +38,15 @@ function injectStyle(): void {
   s.id = "qb-style-" + NAME;
   s.textContent = STYLE;
   document.head.appendChild(s);
+}
+
+// lib/plot.ts numbers its clip paths per bundle ("qb-clip-1", …), so two demos on one page
+// share ids and clip each other's plots. Give every plot of this demo a unique clip id.
+let clipCount = 0;
+function uniqueClip<T extends { svg: SVGSVGElement; layer: SVGGElement }>(p: T): T {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) { cp.id = `${NAME}-clip-${++clipCount}`; p.layer.setAttribute("clip-path", `url(#${cp.id})`); }
+  return p;
 }
 
 const pathOf = (c: M.Pt[]) => "M" + c.map(p => p[0].toFixed(3) + "," + p[1].toFixed(3)).join("L") + "Z";
@@ -68,7 +81,9 @@ function mount(host: HTMLElement): void {
   for (const k of ["IoU", "Dice", "Hausdorff", "HD95", "ASD"]) vals[k] = htmlEl("b", "", "", nums);
   htmlEl("div", "qb-note", "Hausdorff, HD95 and ASD in pixels.", right);
   const histHost = htmlEl("div", "", "", right);
-  const hist = new Plot(histHost, { x: [0, 5], y: [0, 1], xlabel: "boundary distance (px)", ylabel: "share of points", height: 300 });
+  const slide = !!host.closest(".reveal");
+  const hist = new Plot(histHost, { x: [0, 5], y: [0, 1], xlabel: "boundary distance (px)", ylabel: "share of points", width: slide ? 420 : 560, height: slide ? 360 : 300, font: slide ? 26 : 18 });
+  uniqueClip(hist);
 
   const panel = htmlEl("div", "qb-panel", "", host);
   htmlEl("div", "cd-lab", "presets", panel);
@@ -127,7 +142,8 @@ function mount(host: HTMLElement): void {
     const bq = M.nearestOn(best.p, best.to).q;
     if (best.d > 0.05) {
       svgEl("line", { x1: best.p[0], y1: best.p[1], x2: bq[0], y2: bq[1], stroke: "#d62728", "stroke-width": 3.5 * u }, gDyn);
-      const t = svgEl("text", { x: (best.p[0] + bq[0]) / 2 + 6 * u, y: (best.p[1] + bq[1]) / 2, "font-size": 18 * u, "font-weight": 700, class: "qb-halo" }, gDyn);
+      const mx = (best.p[0] + bq[0]) / 2, right = mx > 0;
+      const t = svgEl("text", { x: mx + (right ? -10 : 6) * u, y: (best.p[1] + bq[1]) / 2 - 8 * u, "text-anchor": right ? "end" : "start", "font-size": 18 * u, "font-weight": 700, class: "qb-halo" }, gDyn);
       t.textContent = `H = ${res.dist.hausdorff.toFixed(1)} px`;
       t.style.fill = "#d62728";
     }

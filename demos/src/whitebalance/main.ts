@@ -11,6 +11,7 @@ import { Plot, plotFigure } from "../lib/plot";
 import { linearToSrgb, RGB } from "../lib/colour";
 import * as SP from "../lib/spectra";
 import { runWB, illuminant, chartImage, ChartKind, Illum, WbObserver, Estimate, Space, NP, COLS, CELL, GAP } from "./wb";
+import { uniqueClip } from "../colourcloud/plotfix";
 
 const NAME = "whitebalance";
 const STYLE = `
@@ -27,7 +28,11 @@ const STYLE = `
 [data-demo="${NAME}"] .wb-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .wb-left { max-width: 620px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; }
+.reveal [data-demo="${NAME}"] .wb-left { flex: 1 1 600px; max-width: 610px; }
+.reveal [data-demo="${NAME}"] .wb-left figure { flex: 1 1 30%; min-width: 0; max-width: 200px; }
+.reveal [data-demo="${NAME}"] .wb-left figure.wb-spd { flex: 1 1 100%; max-width: 600px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 440px; max-width: 470px; gap: .2em; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .42em; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 `;
@@ -49,6 +54,7 @@ autoMount(NAME, host => {
   cCap.classList.add("wb-click");
   const spdFig = plotFigure(left, "lamp spectrum (orange) and daylight (grey, dashed), each scaled to peak 1", "wb-spd");
   const spd = new Plot(spdFig, { width: 660, height: 150, x: [375, 735], y: [0, 1.1], xlabel: "wavelength (nm)", ylabel: "lamp", yticks: [0, 1], xticks: [400, 450, 500, 550, 600, 650, 700], margin: { b: 50 } });
+  uniqueClip(spd.svg, NAME);
   const spdD65 = spd.line([], [], { color: "#999", width: 2, dash: "4 4" });
   const spdLine = spd.line([], [], { color: "#ff7f0e", width: 3 });
 

@@ -29,7 +29,11 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-slider { font-size: 16px; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .4em; }
-.reveal [data-demo="${NAME}"] .us-panels { max-width: 820px; }
+.reveal [data-demo="${NAME}"] .us-panels { max-width: 760px; }
+.reveal [data-demo="${NAME}"] .us-low { flex-wrap: nowrap; }
+.reveal [data-demo="${NAME}"] .us-arch svg { max-width: 400px !important; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .4em; }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -83,7 +87,7 @@ function mount(host: HTMLElement): void {
   const sBright = slider(ctl, "brightness ×", 0.3, 2.5, 0.05, shift.brightness, v => { shift.brightness = v; schedule(); });
   const sSize = slider(ctl, "nucleus size ×", 0.4, 2, 0.05, shift.size, v => { shift.size = v; schedule(); });
   const readout = htmlEl("div", "qb-readout", "", ctl);
-  const presetBtns = presetRow(ctl, PRESETS.map(p => ({ label: p.label, apply: () => applyPreset(p) })));
+  const presetBtns = presetRow(arch, PRESETS.map(p => ({ label: p.label, apply: () => applyPreset(p) })));
 
   function syncSliders(): void { sT.set(t); sNoise.set(shift.noise); sGrad.set(shift.gradient); sBright.set(shift.brightness); sSize.set(shift.size); }
   function schedule(): void { if (!pending) pending = requestAnimationFrame(() => { pending = 0; recompute(); }); }

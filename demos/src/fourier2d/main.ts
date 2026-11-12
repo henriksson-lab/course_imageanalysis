@@ -8,8 +8,15 @@
 // Auto-mounts on <div data-demo="fourier2d">. Optional: data-mode="low|high|band|top|all",
 // data-min="10" and data-max="40" (radii; data-r="20" sets the one cutoff of low/high),
 // data-stripe="1" (start with the stripe artefact).
+// Optional (compression day, dct/ unit): data-basis="dft|dct|dct8" adds a basis switch, so
+// "keep largest" can compare the whole-image DFT, the whole-image DCT and the 8 × 8 block DCT
+// at the same kept fraction. Without data-basis the demo is exactly the Fourier unit's.
+// In the DCT bases only "no filter" and "keep largest" apply (no radial masks, no painting);
+// "variation kept" is 1 − (squared error)/(squared deviation from the mean), which equals the
+// DFT's share of the energy of the kept coefficients whenever the average is kept.
 import { htmlEl, slider, presets, checkbox, button, autoMount } from "../lib/ui";
 import { fft2d, makeMask, magnitudeOrder, reconstruct, rmse, stripe, Mode } from "./fft";
+import { dct2, idct2, blockDct, blockIdct } from "../lib/dct";
 // @ts-ignore -- esbuild inlines the image as a data URL
 import cellUrl from "./cell256.png";
 
@@ -21,6 +28,12 @@ const STRIPE = { kx: 16, ky: 10, amp: 0.15 };
 const BRUSH = 4;   // paint radius in frequency units
 const EDGE = Math.ceil(Math.SQRT2 * N / 2);   // 182: past the corner of the spectrum, i.e. no upper limit
 const RING = "#40d0ff";                       // colour of the cutoff circles
+type Basis = "dft" | "dct" | "dct8";
+const BASES: { id: Basis; label: string; title: string; sub: string }[] = [
+  { id: "dft", label: "DFT", title: "spectrum", sub: "centre = low frequencies" },
+  { id: "dct", label: "DCT", title: "DCT coefficients", sub: "top left = low frequencies" },
+  { id: "dct8", label: "8×8 DCT", title: "8×8 block DCT", sub: "one tile per frequency (u, v)" },
+];
 
 const STYLE = `
 [data-demo="${NAME}"] { gap: 1em; flex-wrap: wrap; }
@@ -36,6 +49,7 @@ const STYLE = `
 [data-demo="${NAME}"] .f2-info .qb-note { flex: 1 1 200px; }
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 220px; max-width: 320px; gap: .45em; }
 [data-demo="${NAME}"] .qb-slider.off, [data-demo="${NAME}"] .qb-check.off { opacity: .35; pointer-events: none; }
+[data-demo="${NAME}"] .qb-btn.off, [data-demo="${NAME}"] .f2-row.off { opacity: .35; pointer-events: none; }
 [data-demo="${NAME}"] .qb-slider.dim { opacity: .45; }
 [data-demo="${NAME}"] .f2-row { display: flex; gap: .35em; align-items: center; flex-wrap: wrap; }
 [data-demo="${NAME}"] .f2-credit { font-size: 13px; color: var(--qb-muted); }
@@ -103,6 +117,15 @@ function mount(host: HTMLElement): void {
   const info = htmlEl("div", "f2-info", "", left);
   htmlEl("div", "f2-credit", CREDIT, left);
   const panel = htmlEl("div", "qb-panel", "", host);
+  const basisAttr = host.dataset.basis as Basis | undefined;
+  const basis0: Basis = basisAttr === "dct" || basisAttr === "dct8" ? basisAttr : "dft";
+  let basis: Basis = basis0;
+  let basisBtns: HTMLButtonElement[] = [];
+  if (basisAttr !== undefined) {
+    const row = htmlEl("div", "f2-row", "", panel);
+    htmlEl("span", "", "basis:", row);
+    basisBtns = presets(row, BASES.map(b => ({ label: b.label, apply: () => setBasis(b.id) })));
+  }
 
   // initial settings from data-*: the old low/high/band modes become a radial band
   const m0 = host.dataset.mode ?? "low";
@@ -134,11 +157,13 @@ function mount(host: HTMLElement): void {
       if (st.rMax === EDGE || st.rMax <= st.rMin) st.rMax = Math.min(EDGE - 1, st.rMin + 30);
     } },
     { label: "keep largest", apply: () => { st.mode = "top"; } },
-  ].map(it => ({ label: it.label, apply: () => { it.apply(); syncSliders(); rebuild(); } })));
+  ].map(it => ({ label: it.label, apply: () => { it.apply(); if (basis !== "dft" && st.mode === "radial") st.mode = "top"; syncSliders(); rebuild(); } })));
   const minS = slider(panel, "min radius", 0, EDGE, 1, st.rMin, v => {
+    if (basis !== "dft") return;
     st.mode = "radial"; st.rMin = v; if (st.rMax < v) { st.rMax = v; maxS.set(v); } rebuild();
   });
   const maxS = slider(panel, "max radius", 0, EDGE, 1, st.rMax, v => {
+    if (basis !== "dft") return;
     st.mode = "radial"; st.rMax = v; if (st.rMin > v) { st.rMin = v; minS.set(v); } rebuild();
   }, v => v >= EDGE ? "∞" : String(v));
   const dcBox = checkbox(panel, "keep average brightness (centre)", st.keepDC, on => { st.keepDC = on; rebuild(); });
@@ -156,12 +181,19 @@ function mount(host: HTMLElement): void {
     Object.assign(st, init); st.keepDC = true; st.keepIdx = 5; st.brush = 0;
     syncSliders(); dcBox.checked = true; kS.set(st.keepIdx);
     brushBtns.forEach((b, i) => b.classList.toggle("active", i === 0));
+    if (basisAttr !== undefined) { basis = basis0; if (basis !== "dft" && st.mode === "radial") st.mode = "top"; }
     if (st.stripe !== (host.dataset.stripe === "1")) {
       st.stripe = host.dataset.stripe === "1"; stripeBox.checked = st.stripe; forward();
     }
     rebuild();
   });
   function syncSliders(): void { minS.set(st.rMin); maxS.set(st.rMax); }
+  /** Switch the basis (only with data-basis): DCT bases allow only "no filter" and "keep largest". */
+  function setBasis(b: Basis): void {
+    basis = b;
+    if (b !== "dft" && st.mode === "radial") st.mode = "top";
+    forward(); rebuild();
+  }
   /** Which preset button the current settings correspond to (-1: none). */
   function activePreset(): number {
     if (st.mode === "all") return 0;
@@ -179,6 +211,9 @@ function mount(host: HTMLElement): void {
   let order: Uint32Array | null = null;
   let logMag: Float64Array = new Float64Array(N * N), lo = 0, hi = 1, totalE = 1;
   let mask: Uint8Array = new Uint8Array(N * N).fill(1);
+  // DCT bases (data-basis only): coefficients, their order and display values
+  let C: Float64Array = new Float64Array(N * N), orderC: Uint32Array | null = null;
+  let logC: Float64Array = new Float64Array(N * N), loC = 0, hiC = 1, sst = 1;
 
   function forward(): void {
     img = Float64Array.from(clean);
@@ -199,11 +234,54 @@ function mount(host: HTMLElement): void {
       if (logMag[k] > hi) hi = logMag[k];
     }
     lo = lo + 0.15 * (hi - lo);                     // a little contrast stretch
+    if (basis !== "dft") forwardDct();
     paintGrey(cOrig, img);
+  }
+
+  /** Coefficients of the DCT bases, sorted by magnitude; display arrangement for dct8. */
+  function forwardDct(): void {
+    C = basis === "dct" ? dct2(img, N, N) : blockDct(img, N, N, 8);
+    const zero = new Float64Array(N * N);
+    orderC = magnitudeOrder(C, zero);
+    let mean = 0;
+    for (let k = 0; k < N * N; k++) mean += img[k];
+    mean /= N * N;
+    sst = 0;
+    for (let k = 0; k < N * N; k++) sst += (img[k] - mean) ** 2;
+    loC = Infinity; hiC = -Infinity;
+    for (let k = 0; k < N * N; k++) {
+      logC[k] = Math.log(1 + 255 * Math.abs(C[k]));
+      const dc = basis === "dct" ? k === 0 : (k % 8 === 0 && Math.floor(k / N) % 8 === 0);
+      if (dc) continue;
+      if (logC[k] < loC) loC = logC[k];
+      if (logC[k] > hiC) hiC = logC[k];
+    }
+    loC = loC + 0.15 * (hiC - loC);
+  }
+  /** Display position (row, col) of coefficient index k in the DCT bases. */
+  function dctPos(k: number): number {
+    const row = Math.floor(k / N), col = k % N;
+    if (basis === "dct") return k;
+    // block (bx, by), frequency (u, v) -> tile (u, v) of 32 × 32, position (bx, by) inside it
+    const bx = col >> 3, by = row >> 3, u = col & 7, v = row & 7, T = N / 8;
+    return (v * T + by) * N + u * T + bx;
   }
 
   function rebuild(): void {
     st.edited = false;
+    if (basis !== "dft") {
+      mask = new Uint8Array(N * N);
+      if (st.mode === "top" && orderC) {
+        const k = Math.max(1, Math.round(KEEPS[st.keepIdx] / 100 * N * N));
+        for (let j = 0; j < k; j++) mask[orderC[j]] = 1;
+      } else mask.fill(1);
+      const a = st.mode === "all" ? 0 : 4;
+      modeBtns.forEach((b, i) => b.classList.toggle("active", i === a));
+      basisBtns.forEach((b, i) => b.classList.toggle("active", BASES[i].id === basis));
+      schedule();
+      return;
+    }
+    basisBtns.forEach((b, i) => b.classList.toggle("active", BASES[i].id === basis));
     mask = makeMask(N, st.mode, st.rMin, st.rMax >= EDGE ? Infinity : st.rMax, st.keepDC,
       KEEPS[st.keepIdx] / 100, order);
     const a = activePreset();
@@ -219,6 +297,12 @@ function mount(host: HTMLElement): void {
   }
 
   function draw(): void {
+    const bi = BASES.find(b => b.id === basis)!;
+    const cap = cSpec.previousElementSibling;
+    if (cap && basisAttr !== undefined) { cap.firstChild!.textContent = bi.title; (cap.lastChild as HTMLElement).textContent = bi.sub; }
+    for (const b of modeBtns.slice(1, 4)) b.classList.toggle("off", basis !== "dft");
+    brushRow.classList.toggle("off", basis !== "dft");
+    if (basis !== "dft") { drawDct(); return; }
     // sliders of the other mode are dimmed but still usable: moving one switches mode
     for (const sl of [minS, maxS]) sl.input.parentElement!.classList.toggle("dim", st.mode !== "radial");
     dcBox.parentElement!.classList.toggle("off", st.mode !== "radial");
@@ -269,6 +353,34 @@ function mount(host: HTMLElement): void {
       `RMS error: ${rmse(out, clean).toFixed(3)} (grey 0–1)` + (st.edited ? "  (mask painted)" : "");
   }
 
+  /** draw() for the DCT bases: coefficients (removed ones dark red), rebuilt image, readout. */
+  function drawDct(): void {
+    for (const sl of [minS, maxS]) sl.input.parentElement!.classList.toggle("dim", true);
+    dcBox.parentElement!.classList.toggle("off", true);
+    kS.input.parentElement!.classList.toggle("dim", st.mode !== "top");
+    const ctx = cSpec.getContext("2d")!;
+    const id = ctx.createImageData(N, N);
+    let kept = 0;
+    const Ck = new Float64Array(N * N);
+    for (let k = 0; k < N * N; k++) {
+      if (mask[k]) { kept++; Ck[k] = C[k]; }
+      const v = Math.min(1, Math.max(0, (logC[k] - loC) / (hiC - loC)));
+      const p = 4 * dctPos(k);
+      if (mask[k]) { const g = Math.round(255 * v); id.data[p] = id.data[p + 1] = id.data[p + 2] = g; }
+      else { id.data[p] = 90 + Math.round(130 * v); id.data[p + 1] = id.data[p + 2] = 20 + Math.round(60 * v); }
+      id.data[p + 3] = 255;
+    }
+    ctx.putImageData(id, 0, 0);
+    const out = basis === "dct" ? idct2(Ck, N, N) : blockIdct(Ck, N, N, 8);
+    paintGrey(cOut, out);
+    let sse = 0;
+    for (let k = 0; k < N * N; k++) sse += (out[k] - img[k]) ** 2;
+    ro.textContent =
+      `kept: ${fmtPct(100 * kept / (N * N))} of ${N * N} coefficients\n` +
+      `variation kept: ${fmtPct(100 * Math.max(0, 1 - sse / sst))}\n` +
+      `RMS error: ${rmse(out, clean).toFixed(3)} (grey 0–1)`;
+  }
+
   // ---- painting on the spectrum ----
   function paintAt(ev: PointerEvent): void {
     const rect = cSpec.getBoundingClientRect();
@@ -288,6 +400,7 @@ function mount(host: HTMLElement): void {
   }
   cSpec.addEventListener("pointerdown", ev => {
     ev.preventDefault();
+    if (basis !== "dft") return;
     try { cSpec.setPointerCapture(ev.pointerId); } catch { /* synthetic event */ }
     paintAt(ev);
     const move = (e: PointerEvent) => paintAt(e);

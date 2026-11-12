@@ -32,6 +32,7 @@ const STYLE = `
 [data-demo="${NAME}"] .cm-pre { grid-column: 1 / -1; }
 [data-demo="${NAME}"] .cm-credit { font-size: 13px; color: var(--qb-muted); grid-column: 1 / -1; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .cm-imgs { max-width: 600px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .cm-pre { grid-column: 1 / -1; }

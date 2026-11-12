@@ -32,10 +32,10 @@ const PRESETS: Preset[] = [
   { id: "line", label: "median eats the thin line", s: { level: 5, m: "median" }, p: { radius: 2 } },
   { id: "bilateral", label: "bilateral keeps edges", s: { level: 15, m: "bilateral", cmp: "gauss" }, p: { sS: 2, sR: 30, sigma: 2 } },
   { id: "cartoon", label: "bilateral at high noise: cartoon", s: { level: 50, m: "bilateral" }, p: { sS: 3, sR: 100 } },
-  { id: "nlm", label: "non-local means on texture", s: { level: 25, m: "nlm", cmp: "bilateral", row: 96 }, p: { patch: 2, search: 5, h: 25, sS: 2, sR: 50 } },
+  { id: "nlm", label: "non-local means on texture", s: { level: 25, m: "nlm", cmp: "bilateral", row: 96 }, p: { patch: 1, search: 7, h: 25, sS: 2, sR: 50 } },
   { id: "spot", label: "non-local means smears the unique spot", s: { level: 25, m: "nlm", row: 98 }, p: { patch: 2, search: 7, h: 45 } },
   { id: "methodnoise", label: "method noise shows the removed edge", s: { level: 10, m: "gauss" }, p: { sigma: 3 } },
-  { id: "psnr", label: "best PSNR, wrong look", s: { img: "cell", level: 25, m: "wiener", cmp: "bilateral", row: 64 }, p: { snr: 30, sS: 2, sR: 40 } },
+  { id: "psnr", label: "best PSNR, wrong look", s: { img: "cell", level: 25, m: "wiener", cmp: "bilateral", row: 64 }, p: { snr: 3, sS: 1.5, sR: 50 } },
 ];
 const LABEL: Record<Meth, string> = { gauss: "Gaussian", median: "median", bilateral: "bilateral", nlm: "non-local means", wiener: "Wiener (no blur)" };
 
@@ -43,8 +43,8 @@ const STYLE = baseStyle(NAME) + `
 [data-demo="${NAME}"] .dn-imgs { flex: 1 1 380px; max-width: 440px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em .5em; }
 [data-demo="${NAME}"] .dn-imgs.three { grid-template-columns: 1fr 1fr 1fr; max-width: 520px; }
 [data-demo="${NAME}"] .dn-plots { flex: 1 1 320px; max-width: 420px; display: flex; flex-direction: column; gap: .2em; }
-.reveal [data-demo="${NAME}"] .dn-imgs { flex: 0 1 380px; }
-.reveal [data-demo="${NAME}"] .dn-plots { flex: 0 1 360px; }
+.reveal [data-demo="${NAME}"] .dn-imgs { flex: 0 1 340px; }
+.reveal [data-demo="${NAME}"] .dn-plots { flex: 0 1 400px; max-width: 400px; }
 `;
 
 function mount(host: HTMLElement): void {
@@ -162,6 +162,11 @@ function mount(host: HTMLElement): void {
     ctx.fillRect(0, st.row, 3, 1); ctx.fillRect(N - 3, st.row, 3, 1);
     const lines = [`PSNR (peak 255): noisy ${psnr(noisy, truth, 255).toFixed(1)} dB`, `${LABEL[st.m]}: ${psnr(outA, truth, 255).toFixed(1)} dB`];
     if (outB) lines.push(`${LABEL[st.cmp as Meth]}: ${psnr(outB, truth, 255).toFixed(1)} dB`);
+    if (st.img === "test") {   // the dot lattice (bottom-left quarter) on its own
+      const q = (a: Float64Array) => { const o: number[] = []; for (let y = 64; y < N; y++) for (let x = 0; x < 64; x++) o.push(a[y * N + x]); return o; };
+      const tq = q(truth);
+      lines.push(`lattice quarter: noisy ${psnr(q(noisy), tq, 255).toFixed(1)}, ${LABEL[st.m]} ${psnr(q(outA), tq, 255).toFixed(1)}${outB ? `, ${LABEL[st.cmp as Meth]} ${psnr(q(outB), tq, 255).toFixed(1)}` : ""} dB`);
+    }
     lines.push(`computed in ${ms.toFixed(0)} ms`);
     ro.textContent = lines.join("\n");
   }

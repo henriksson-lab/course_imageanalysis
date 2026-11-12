@@ -1,0 +1,184 @@
+---
+title: "Exercise: reconstruction and h-extrema"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute a **geodesic dilation** and iterate it to a **reconstruction** by hand, in 1D and on a small mask,
+- use reconstruction to **fill holes**, **clear the border** and **open by reconstruction**,
+- compute the **h-maxima** and **h-minima** transforms of a short signal and say which extrema survive,
+- explain **minima imposition**, the step before a marker-controlled watershed.
+
+Do the pen-and-paper part first, then the demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Marker, mask | $M \subseteq A$ (binary) or $M \le I$ (grey) |
+| Geodesic dilation | dilate $M$ by one step (3-window in 1D, $3 \times 3$ square in 2D), then clip: $\min(M \oplus B, I)$ |
+| Reconstruction $R_I(M)$ | repeat until nothing changes; binary: the components of $A$ that contain a seed |
+| Geodesic erosion, $R^{\varepsilon}_I(M)$ | for $M \ge I$: erode one step, then $\max(\cdot, I)$; repeat |
+| Opening by reconstruction | $R_A(A \ominus B)$ |
+| Clear border / fill holes | $A \setminus R_A(A \cap \text{frame})$ / complement of $R_{A^c}(A^c \cap \text{frame})$ (background 4-connected) |
+| h-maxima / h-minima transform | $\mathrm{HMAX}_h(I) = R_I(I - h)$ / $\mathrm{HMIN}_h(I) = R^{\varepsilon}_I(I + h)$ |
+| Regional maximum (minimum) | a plateau whose neighbours are all lower (higher) |
+| Minima imposition | $R^{\varepsilon}_G(M)$ with $M = 0$ on the markers, $\max I + 1$ elsewhere, and $G = \min(I + 1, M)$ |
+
+## By hand
+
+The signal (samples 0–11), the same as on the watershed day:
+$$I = 7\,1\,4\,3\,4\,6\,5\,1\,6\,4\,2\,3 .$$
+
+**B1.** h-maxima with $h = 2$.
+(a) Write the marker $M_0 = I - 2$.
+(b) Apply geodesic dilations (max over the 3-window, then min with $I$) until nothing changes. Write every iterate. How many iterations are needed?
+(c) Mark the regional maxima of $I$ and of the result. Which peaks disappeared, and why?
+(d) Compute the domes $I - \mathrm{HMAX}_2(I)$.
+
+**B2.** h-minima with $h = 2$: start from $I + 2$ and apply geodesic erosions (min over the 3-window, then max with $I$) until stable. How many regional minima does $I$ have, and how many does the result have? Which basin was filled, and how much water (result $- I$) does each sample hold?
+
+**B3.** A single seed: $M = 0$ everywhere except sample 5, where $M = 6$ (= $I$ there). Reconstruct by dilation. How many iterations, and what is the result? Explain the value at sample 1 and at sample 8.
+
+**B4.** Minima imposition with markers at samples 3 and 10.
+(a) Write $M$ ($0$ at the markers, $\max I + 1 = 8$ elsewhere) and $G = \min(I + 1, M)$.
+(b) Reconstruct by erosion of $M$ above $G$. What is the result, and where are its regional minima?
+
+**B5.** The $7 \times 7$ mask (rows and columns 0–6; objects 8-connected, background 4-connected)
+$$A = \begin{bmatrix} 1&1&0&0&0&0&0 \\ 1&1&1&0&0&0&0 \\ 0&1&0&0&0&0&0 \\ 0&0&0&1&1&1&0 \\ 0&0&0&1&0&1&0 \\ 0&1&0&1&1&1&0 \\ 0&0&0&0&0&0&0 \end{bmatrix}$$
+(a) **Fill holes**: mark the background pixels on the frame, flood the background (4-connected steps) from them. Which background pixels are never reached? After how many geodesic dilations does the flood stop?
+(b) **Clear border**: mark the object pixels on the frame and flood the objects (8-connected). Which object is removed, how many pixels, after how many steps? What happens to the single pixel at row 5, column 1?
+
+**B6.** Two large blobs joined by a 1-pixel-wide bridge, and a few isolated specks. Compare the opening with the $3 \times 3$ square and the opening by reconstruction with the same square: what happens to the bridge, the specks and the blobs' corners?
+
+**B7.** Synthetic nuclei with brightness about 180 on a background of about 50, noise with standard deviation 4, and a smooth texture inside the nuclei. Which $h$ range would you try for one regional maximum per nucleus? What limits $h$ from above?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $M_0 = 5\,{-1}\,2\,1\,2\,4\,3\,{-1}\,4\,2\,0\,1$.
+(b) Three iterations:
+
+| sample | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| $I$ | 7 | 1 | 4 | 3 | 4 | 6 | 5 | 1 | 6 | 4 | 2 | 3 |
+| $M_0 = I - 2$ | 5 | −1 | 2 | 1 | 2 | 4 | 3 | −1 | 4 | 2 | 0 | 1 |
+| $M_1$ | 5 | 1 | 2 | 2 | 4 | 4 | 4 | 1 | 4 | 4 | 2 | 1 |
+| $M_2$ | 5 | 1 | 2 | 3 | 4 | 4 | 4 | 1 | 4 | 4 | 2 | 2 |
+| $M_3$ (stable) | 5 | 1 | 3 | 3 | 4 | 4 | 4 | 1 | 4 | 4 | 2 | 2 |
+
+(c) $I$ has 5 regional maxima: samples 0 (7), 2 (4), 5 (6), 8 (6), 11 (3). The result has 3: sample 0 (5), the plateau 4–6 (4) and the plateau 8–9 (4). The peak at sample 2 (4) rises only 1 above the pass (3, at sample 3) towards the higher peak at 5; the peak at sample 11 (3) only 1 above sample 10 (2). Their dynamic is 1 ≤ 2, so they are flattened.
+(d) Domes: $2\,0\,1\,0\,0\,2\,1\,0\,2\,0\,0\,1$. Each surviving peak keeps a dome of height 2; the flattened ones keep 1.
+
+**B2.** Iterates: $9\,3\,6\,5\,6\,8\,7\,3\,8\,6\,4\,5 \to 7\,3\,4\,5\,5\,6\,5\,3\,6\,4\,4\,4 \to 7\,3\,4\,4\,5\,6\,5\,3\,6\,4\,4\,4 \to 7\,3\,4\,4\,4\,6\,5\,3\,6\,4\,4\,4$ (stable after 3 iterations). $I$ has 4 regional minima (samples 1, 3, 7, 10); the result has 3 (sample 1 at 3, sample 7 at 3, and the plateau 9–11 at 4). The basin at sample 3 (bottom 3, spill level 4 on both sides) is only 1 deep: it is filled to 4. Water: $0\,2\,0\,1\,0\,0\,0\,2\,0\,0\,2\,1$.
+
+**B3.** Six iterations; the iterates are $0\,0\,0\,0\,4\,6\,5\,0\ldots \to \ldots$ and the result is
+$$1\,1\,3\,3\,4\,6\,5\,1\,1\,1\,1\,1 .$$
+The seed spreads its value 6 outwards but is clipped by $I$. Going left it is clipped to 4 (sample 4), 3 (samples 3, 2), then 1 at sample 1, after which nothing higher can pass: sample 0 gets 1 although $I = 7$ there. Going right it is clipped to 1 at sample 7, and everything beyond that pass stays at 1: sample 8 ($I = 6$) gets only 1. The reconstruction is "what the seed reaches without climbing above it", limited by the lowest point on the way.
+
+**B4.** (a) $M = 8\,8\,8\,0\,8\,8\,8\,8\,8\,8\,0\,8$, $G = 8\,2\,5\,0\,5\,7\,6\,2\,7\,5\,0\,4$.
+(b) After 3 iterations: $8\,5\,5\,0\,5\,7\,7\,7\,7\,5\,0\,4$. The regional minima are exactly the markers (samples 3 and 10, value 0). The basins at samples 1 and 7 were filled up to their spill levels (5 and 7), and the passes between the markers kept their heights.
+
+**B5.** (a) The flood of the background from the frame reaches every background pixel except row 4, column 4, the hole inside the ring; the last pixels are reached at the 3rd geodesic dilation (row 2, column 2, through the gap between the two objects). Filled result: the ring becomes a solid $3 \times 3$ block (one pixel added).
+(b) The top-left object touches the frame at row 0, columns 0–1 and row 1, column 0; one geodesic dilation reaches its other 3 pixels (row 1, columns 1–2 and row 2, column 1), after which nothing changes. 6 pixels are removed. The single pixel at row 5, column 1 is not on the frame and not connected to the border object (the nearest object pixel, row 2, column 1, is 3 rows away), so it stays; the ring stays too.
+
+**B6.** Opening: the bridge is cut (the square does not fit in it), the specks vanish, and each blob loses its sharp corners and any thin protrusions; the two blobs become two objects. Opening by reconstruction: the specks vanish (no part of them survives the erosion), but each blob contains eroded seeds, and the reconstruction refills the whole component, bridge, corners and protrusions included: one object, unchanged.
+
+**B7.** Noise bumps have a dynamic of a few standard deviations (up to about 10–15 grey levels with texture), the nuclei rise about 130 above the background: try $h$ around 15–40. Small $h$ leaves noise maxima inside nuclei and on the background; large $h$ merges touching nuclei whose dividing neck is less than $h$ below the lower of the two tops (and, above about 130, removes nuclei entirely).
+:::
+
+### Math questions
+
+**B8** *(math)*. Show that iterating geodesic dilation with the $3 \times 3$ square from $M \subseteq A$ stops after finitely many steps, and that the result is the union of the 8-connected components of $A$ that meet $M$.
+
+**B9** *(math)*. Show that $I - h \le \mathrm{HMAX}_h(I) \le I$. Then, in 1D, take a peak $m$ with dynamic $d \le h$: the highest pass towards a higher peak $q$ has height $s = I(m) - d$, and the "lobe" of $m$ is the stretch around $m$ between that pass and the first sample on the other side of $m$ with $I < s$ (both excluded). Show that $\mathrm{HMAX}_h(I)$ is constant on the lobe and equal to a value that also occurs just outside it, so $m$ no longer gives a regional maximum of its own.
+
+**B10** *(math)*. The fill-holes formula uses 4-connected steps for the background. Give a small example where 8-connected background steps would fail to fill a hole of an 8-connected object.
+
+**B11** *(math)*. Show that the opening by reconstruction $\gamma^R(A) = R_A(A \ominus B)$ is increasing, anti-extensive and idempotent (an algebraic opening), assuming $0 \in B$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** The iterates $M_k$ are nested ($M_k \subseteq M_{k+1}$, since $0 \in B$ and $M_k \subseteq A$) and contained in the finite set $A$, so they become constant after at most $|A|$ steps. By induction, $M_k$ is the set of pixels of $A$ joined to $M$ by an 8-connected path inside $A$ of at most $k$ steps; at stability this is every pixel joined to $M$ inside $A$, i.e. the union of the components that meet $M$.
+
+**B9.** The iterates start at $I - h$, only increase (each step takes a max that includes the sample itself), and are clipped to $I$: $I - h \le \mathrm{HMAX}_h(I) \le I$. On the lobe $I \ge s$ by construction, and the marker values inside it are at most $I(m) - h \le s$. A flood entering through the higher pass from $q$'s side brings the value $F = \min(I(q) - h, s) \ge I(m) - h$ (as $I(q) > I(m)$ and $d \le h$); a flood entering from the other end brings less than $s$. Let $F^*$ be the largest value entering the lobe. Since $I \ge s \ge F^*$ everywhere on the lobe, nothing clips it there, and it exceeds every marker value inside: the result is the constant $F^*$ on the whole lobe, and $F^*$ also sits just outside the pass it came through. So $m$ is part of a plateau that continues outside its lobe and is not a separate regional maximum. (If $d > h$, the top keeps $I(m) - h > s$ and stays a maximum.)
+
+**B10.** A ring that is closed only by a diagonal step, for example the object pixels of the four diagonal neighbours of a centre pixel: $\begin{bmatrix} 0&1&0 \\ 1&0&1 \\ 0&1&0 \end{bmatrix}$. As an 8-connected object this is a closed ring around the centre. With 8-connected background steps, the centre is diagonally adjacent to the outside corners and the flood reaches it, so the "hole" would not be filled. With 4-connected background steps the centre is enclosed and gets filled.
+
+**B11.** Increasing: $A \subseteq A'$ gives $A \ominus B \subseteq A' \ominus B$ and a larger mask, and reconstruction is increasing in both. Anti-extensive: the result lies in the mask $A$. Idempotent (for a connected $B$ containing the origin, such as the square or a disc): $\gamma^R(A)$ is the union $U$ of the components of $A$ that contain a point $x$ of $A \ominus B$. For such $x$ the copy $B_x$ lies in $A$ and is connected and contains $x$, so it lies in the same component, hence in $U$: $x \in U \ominus B$. So every component of $U$ contains a marker point of $U \ominus B$, and $\gamma^R(U) = U$.
+:::
+
+## Explore: reconstruction in 1D {#explore-1d}
+
+Grey bars: the signal $I$ (drag a bar to change its value). Modes: **reconstruct** (click "sets a marker", then click samples to place seeds), **h-maxima** (marker $I - h$, orange), **h-minima** (marker $I + h$; blue = water above $I$), **impose minima** (markers ▲ at value 0; dotted green: the mask $G$). **step** applies one geodesic dilation (or erosion): the dashed red line is the marker dilated (eroded) before clipping, the hatched part is what the clip removes. The rows under the plot give $I$ and the current marker $M$ for every sample. At stability, dots mark the regional maxima (red) or minima (blue) of the result.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="recon1d" data-preset="twelve" data-mode="hmax"></div>
+<script src="../demos/dist/recon1d.js"></script>
+```
+
+**R1.** The **12 samples (exercise)** in **h-maxima** mode with $h = 2$: step through and check B1. Switch to **h-minima** and check B2.
+
+**R2.** Example **a single seed floods its hill**. Step to the end. How many iterations? Describe the result: which samples keep their full height, and why do the levels form steps away from the seed?
+
+**R3.** Example **h removes the shallow peaks**. How many regional maxima does $I$ have, and how many remain for $h = 2, 3, 4$?
+
+**R4.** Example **h-minima: basins fill** ($h = 2$). How many regional minima remain? Which $h$ leaves only 2?
+
+**R5.** Example **two markers: imposition**. How many iterations, and how many regional minima does the result have? Compare the passes between the two markers before and after.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**R1.** h-maxima: 3 iterations, regional maxima 5 → 3, the iterates as in B1. h-minima: 3 iterations, regional minima 4 → 3, as in B2.
+
+**R2.** 15 iterations. The seed is at sample 26 (value 9). Only samples 25–27 keep their full height (6, 9, 6); going outwards the flood is held down by each pass it crosses: 2 and 1 at samples 28–29, 0 from sample 30 on (where $I = 0$); to the left it drops to 4 over samples 18–24, 2 over samples 11–17, and 0 from sample 10 (where $I = 0$). Each step in the result is the level of the lowest pass between that sample and the seed.
+
+**R3.** $I$ has 8 regional maxima. $h = 2$: 6 remain (3 iterations); $h = 3$: 5 (8 iterations); $h = 4$: 3.
+
+**R4.** 8 regional minima become 5 (3 iterations). With $h = 4$ only 2 remain.
+
+**R5.** The markers are at samples 10 and 30 (the bottoms of the two deepest basins). The reconstruction takes 15 iterations, and the result has exactly 2 regional minima (the markers; $I$ has 8). The highest point between the markers keeps its height (plus 1, from $G = I + 1$); every other basin is filled up to its spill level, so between the markers the landscape only rises towards that point and falls after it.
+:::
+
+## Explore: reconstruction on images {#explore}
+
+**binary**: a $256 \times 256$ synthetic mask (some blobs touch the border, some have holes, two pairs are joined by thin bridges, and there are specks). Operations: **fill holes**, **clear border**, **opening** and **opening by reconstruction** (disc of radius $r$), **click a blob** (click anywhere on the mask). The **replay** slider shows the reconstruction after each geodesic dilation; orange = the marker. Dark = kept, red = removed, green = added, light blue = background reached from the border. **grey**: synthetic nuclei or the micrograph; the dots are the regional maxima (red) or minima (blue) of the h-transform; views: the input, the reconstruction $\mathrm{HMAX}_h$ ($\mathrm{HMIN}_h$), the domes (basins), and **impose minima** (click to add markers).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="reconstruct" data-preset="openrec"></div>
+<script src="../demos/dist/reconstruct.js"></script>
+```
+
+**C1.** Example **opening breaks shapes, reconstruction does not** ($r = 4$). How many pixels does the opening by reconstruction remove? Switch to **opening**: how many now, and what else is lost? Repeat with $r = 8$.
+
+**C2.** Example **clear border**. How many pixels and objects are removed? Move the replay slider from 0: how many geodesic dilations does the flood need?
+
+**C3.** Example **fill holes**. How many holes, and how many pixels are added? Why does the background flood need so many iterations?
+
+**C4.** Example **one pixel → its blob**. Click several blobs, including one joined to another by a bridge. What do you get? Which day takes this further?
+
+**C5.** **grey** tab, example **noise: hundreds of maxima** ($h = 0$). How many regional maxima? Raise $h$ to 10, 12 and 15.
+
+**C6.** Example **h = 15: one dot per nucleus?** Do all 22 nuclei get exactly one dot? Look at the nuclei that touch. Switch the view to **domes / basins**.
+
+**C7.** Example **impose two minima** (the micrograph, minima). How many regional minima does the micrograph have at $h = 0$? Add a third marker by clicking: how many minima does the imposed image have?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**C1.** $r = 4$: the opening by reconstruction removes 60 pixels (the specks), and 16 objects remain, each unchanged. The ordinary opening removes 203 pixels: the specks, the corners and the thin bridges, which leaves 18 pieces (two pairs of blobs are cut apart). With $r = 8$: the opening removes 5473 pixels and the opening by reconstruction 2557 pixels (the smaller blobs no longer contain a disc of radius 8 and disappear entirely, the others stay whole).
+
+**C2.** 4165 pixels in 5 objects (the blobs cut by the image edge). The flood from the frame needs 25 geodesic dilations to cover the largest of them.
+
+**C3.** 7 holes, 556 pixels added (green). The marker is the background on the frame, and it must flood the whole background one pixel per step, around all blobs: 131 iterations. That is why the fast queue algorithm matters.
+
+**C4.** Exactly the blob that contains the clicked pixel (its 8-connected component), including any blob joined to it by a bridge, since the bridge connects them. Labelling all components of a mask efficiently is the next day (labelling).
+
+**C5.** 6184 regional maxima at $h = 0$ (noise and texture). $h = 10$: 116; $h = 12$: 39; $h = 15$: 19.
+
+**C6.** No: 19 dots, 18 nuclei have exactly one dot, 4 nuclei have none of their own (they touch a neighbour and share its dot, because the neck between them is less than 15 below the lower top), and 1 dot lies on the background. The domes show the top 15 grey levels of every surviving peak. Splitting touching nuclei is the watershed day's job (with the distance transform or with these markers).
+
+**C7.** The micrograph has 4316 regional minima at $h = 0$. With 3 markers the imposed image has exactly 3 regional minima.
+:::
+
+## Where this leads
+
+Reconstruction keeps or removes whole components, and its grey-level versions give robust markers: one regional maximum (or minimum) per significant peak (basin). The **labelling** day (next) turns "the component of a pixel" into an efficient algorithm that labels all components at once and measures them. The **watershed** day floods a landscape from markers: the h-minima or imposed minima of this unit decide where the regions start, and the distance transform of the previous units turns a mask of touching cells into a landscape with one basin per cell.

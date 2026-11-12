@@ -19,7 +19,9 @@ const STYLE = `
 [data-demo="${NAME}"] { gap: 1em; align-items: flex-start; }
 [data-demo="${NAME}"] .cl-in { flex: 0 1 270px; display: flex; flex-direction: column; gap: .35em; min-width: 200px; }
 [data-demo="${NAME}"] .cl-in canvas { width: 100%; aspect-ratio: 1; image-rendering: pixelated; border: 1px solid var(--qb-grid); }
-[data-demo="${NAME}"] .cl-bank { flex: 1 1 560px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5em .7em; min-width: 0; }
+[data-demo="${NAME}"] .cl-right { flex: 1 1 560px; min-width: 0; display: flex; flex-direction: column; gap: .5em; }
+[data-demo="${NAME}"] .cl-erow { display: flex; flex-wrap: wrap; gap: .5em 1em; align-items: center; }
+[data-demo="${NAME}"] .cl-bank { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5em .7em; min-width: 0; }
 [data-demo="${NAME}"] .cl-unit { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border-radius: 6px; padding: 3px; }
 [data-demo="${NAME}"] .cl-unit.sel { background: var(--qb-panel); outline: 2px solid var(--qb-accent); }
 [data-demo="${NAME}"] .cl-k { display: grid; grid-template-columns: repeat(3, 1fr); width: 78px; height: 78px; border: 1px solid #999; }
@@ -32,7 +34,10 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] { font-size: 18px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .1em .45em; }
 .reveal [data-demo="${NAME}"] .cl-k { width: 62px; height: 62px; }
-.reveal [data-demo="${NAME}"] .cl-k div { font-size: 11px; }
+.reveal [data-demo="${NAME}"] .cl-k div { font-size: 0; }
+.reveal [data-demo="${NAME}"] .cl-in canvas { max-width: 200px; }
+.reveal [data-demo="${NAME}"] .qb-note { font-size: 12px; }
+.reveal [data-demo="${NAME}"] .cl-right { gap: .3em; }
 .reveal [data-demo="${NAME}"] .cl-unit canvas { max-width: 108px; }
 .reveal [data-demo="${NAME}"] .cl-in { flex-basis: 250px; }
 `;
@@ -86,8 +91,12 @@ function mount(host: HTMLElement): void {
   const cPool = checkbox(left, "2×2 max pool", pool, v => { pool = v; draw(); });
   const bankRow = htmlEl("div", "qb-presets", "", left);
   const bankBtns = ["hand", "learned"].map(k => button(bankRow, k === "hand" ? "hand-made kernels" : "learned kernels", () => { bankKind = k; bank = (k === "learned" ? learned() : HAND).map(q => ({ ...q, w: [...q.w] })); draw(); }));
-  htmlEl("div", "cl-name", "edit the selected kernel:", left);
-  const edit = htmlEl("div", "cl-edit", "", left);
+  const credit = htmlEl("div", "qb-note", "", left);
+  const right = htmlEl("div", "cl-right", "", host);
+  const grid = htmlEl("div", "cl-bank", "", right);
+  const erow = htmlEl("div", "cl-erow", "", right);
+  htmlEl("div", "cl-name", "edit the selected kernel:", erow);
+  const edit = htmlEl("div", "cl-edit", "", erow);
   const inputs = Array.from({ length: 9 }, (_, i) => {
     const e = htmlEl("input", "", "", edit);
     e.type = "number"; e.step = "0.1";
@@ -95,9 +104,7 @@ function mount(host: HTMLElement): void {
     e.addEventListener("change", () => { const v = Number(e.value); if (Number.isFinite(v)) { bank[sel].w[i] = v; draw(); } });
     return e;
   });
-  const credit = htmlEl("div", "qb-note", "", left);
-  const grid = htmlEl("div", "cl-bank", "", host);
-  const presetBtns = presetRow(left, [
+  const presetBtns = presetRow(right, [
     { label: "learned filters look like edge detectors", apply: () => { inputKind = "digit"; bankKind = "learned"; bank = learned(); pool = false; dx = dy = 0; draw(); } },
     { label: "shift the input", apply: () => { inputKind = "cell"; bankKind = "hand"; bank = HAND.map(q => ({ ...q, w: [...q.w] })); pool = false; dx = 24; dy = 0; draw(); } },
     { label: "pooling", apply: () => { inputKind = "digit"; bankKind = "hand"; bank = HAND.map(q => ({ ...q, w: [...q.w] })); pool = true; dx = dy = 0; draw(); } },

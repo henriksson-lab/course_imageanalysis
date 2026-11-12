@@ -27,6 +27,7 @@ const STYLE = `
 [data-demo="${NAME}"] .cs-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .cs-imgs { max-width: 640px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .42em; }
 .reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .cs-credit { display: none; }

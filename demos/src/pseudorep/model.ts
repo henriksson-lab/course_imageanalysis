@@ -106,5 +106,5 @@ export const PRESETS: Preset[] = [
   { id: "more-cells", label: "more cells does not help", settings: { m: 1000, effect: 1 } },
   { id: "more-exp", label: "more experiments does", settings: { E: 10, m: 20, effect: 1 } },
   { id: "paired", label: "paired design wins", settings: { E: 3, m: 100, effect: 1, design: "paired" } },
-  { id: "confounded", label: "confounded with the day", settings: { E: 3, m: 100, effect: 0, design: "confounded", batch: 1.5 } },
+  { id: "confounded", label: "confounded with the day", settings: { E: 3, m: 100, effect: 0, design: "confounded", batch: 1.5 }, seed: 11 },
 ];

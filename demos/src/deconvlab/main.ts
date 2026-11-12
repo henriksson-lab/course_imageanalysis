@@ -64,9 +64,8 @@ const SWEEP: Record<Exclude<MethodKind, "inverse">, [number, number]> = { trunca
 const STYLE = baseStyle(NAME) + `
 [data-demo="${NAME}"] .dl-imgs { flex: 1 1 360px; max-width: 420px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em .5em; }
 [data-demo="${NAME}"] .dl-plots { flex: 1 1 330px; max-width: 420px; display: flex; flex-direction: column; gap: .3em; }
-.reveal [data-demo="${NAME}"] .dl-imgs { flex: 0 1 370px; }
-.reveal [data-demo="${NAME}"] .dl-plots { flex: 0 1 360px; }
-.reveal [data-demo="${NAME}"] figcaption { font-size: 15px; }
+.reveal [data-demo="${NAME}"] .dl-imgs { flex: 0 1 330px; }
+.reveal [data-demo="${NAME}"] .dl-plots { flex: 0 1 400px; max-width: 400px; }
 `;
 
 /** Noise slider position u (log10 of σn in units of 0.01 %) → σn; the left end is 0. */

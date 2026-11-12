@@ -12,6 +12,7 @@ import { Plot, plotFigure } from "../lib/plot";
 import { toCss, linearToSrgb, RGB } from "../lib/colour";
 import * as SP from "../lib/spectra";
 import { simulateDichromat } from "../colourcloud/colourx";
+import { uniqueClip } from "../colourcloud/plotfix";
 
 const NAME = "spectrum";
 const STYLE = `
@@ -26,6 +27,7 @@ const STYLE = `
 [data-demo="${NAME}"] .sp-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .sp-plots { flex-basis: 560px; max-width: 600px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .sp-sw div { height: 70px; }
@@ -73,9 +75,11 @@ autoMount(NAME, host => {
   const plots = htmlEl("div", "sp-plots", "", host);
   const f1 = plotFigure(plots, "", "sp-fig");
   const top = new Plot(f1, { width: 620, height: 250, x: [375, 735], y: [0, 200], ylabel: "power", xticks: [400, 450, 500, 550, 600, 650, 700], margin: { b: 30 } });
+  uniqueClip(top.svg, NAME);
   top.svg.classList.add("sp-edit");
   const f2 = plotFigure(plots, "", "sp-fig");
   const bot = new Plot(f2, { width: 620, height: 230, x: [375, 735], y: [0, 1.05], xlabel: "wavelength (nm)", ylabel: "sensitivity", xticks: [400, 450, 500, 550, 600, 650, 700] });
+  uniqueClip(bot.svg, NAME);
   // wavelength colour strip under the top plot's axis
   top.mark(g => {
     for (let i = 0; i < SP.NB; i++) {

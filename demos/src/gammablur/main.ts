@@ -8,6 +8,7 @@ import { htmlEl, slider, presets, button, checkbox, autoMount } from "../lib/ui"
 import { Plot, plotFigure } from "../lib/plot";
 import { srgbToLinear, linearToSrgb } from "../lib/colour";
 import { N, Img, ImageId, Op, makeImage, process, meanLuminance } from "./gamma";
+import { uniqueClip } from "../colourcloud/plotfix";
 
 const NAME = "gammablur";
 const STYLE = `
@@ -22,6 +23,7 @@ const STYLE = `
 [data-demo="${NAME}"] .gb-row { display: flex; flex-wrap: wrap; gap: .3em; }
 [data-demo="${NAME}"] .gb-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .gb-imgs { max-width: 600px; }
 .reveal [data-demo="${NAME}"] .gb-imgs figure { max-width: 190px; }
 .reveal [data-demo="${NAME}"] .gb-imgs figure.gb-prof { max-width: 630px; }
@@ -48,6 +50,7 @@ autoMount(NAME, host => {
   const cIn = mk("input"), cNaive = mk("on encoded values"), cLin = mk("in linear light");
   const profBox = plotFigure(imgs, "", "gb-prof");
   const prof = new Plot(profBox, { width: 740, height: 210, x: [0, N - 1], y: [0, 255], xlabel: "x (pixels) along the marked row", ylabel: "value", yticks: [0, 64, 128, 188, 255], margin: { b: 52 } });
+  uniqueClip(prof.svg, NAME);
   const lIn = prof.line([], [], { color: "#aaa", width: 2, label: "input" });
   const lNaive = prof.line([], [], { color: "#d62728", width: 3, dash: "7 4", label: "on encoded values" });
   const lLin = prof.line([], [], { color: "#1f77b4", width: 3, label: "in linear light" });
@@ -115,7 +118,7 @@ autoMount(NAME, host => {
     const xs = Array.from({ length: N }, (_, i) => i);
     lIn.set(xs, profile(I)); lNaive.set(xs, profile(naive)); lLin.set(xs, profile(linear));
     const yIn = meanLuminance(I), yN = meanLuminance(naive), yL = meanLuminance(linear);
-    const pc = (v: number) => `${v >= 0 ? "+" : ""}${(100 * (v / yIn - 1)).toFixed(1)} %`;
+    const pc = (v: number) => { const d = 100 * (v / yIn - 1); return `${d >= 0 ? "+" : ""}${d.toFixed(1)} %`; };
     const lines = ["mean luminance Y (light)", `  input   ${yIn.toFixed(4)}`, `  codes   ${yN.toFixed(4)}  ${pc(yN)}`, `  linear  ${yL.toFixed(4)}  ${pc(yL)}`];
     if (st.image === "stripes") {
       // centre of the stripe area, row st.row

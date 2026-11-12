@@ -69,66 +69,82 @@ export const pointRho = (x: number, y: number, theta: number): number => x * Mat
 // ---------------------------------------------------------------------------------------
 // One ray
 
+// Scratch buffers for one ray: pixel indices and weights (at most 2 per row or column).
+let RIDX = new Int32Array(0), RW = new Float64Array(0);
+
 /**
- * Walk the ray (theta, rho) through an n x n image. mode 0: return a_i . x (the line
- * integral); mode 1: x += val * a_i (scatter, the transpose); mode 2: return ||a_i||^2.
+ * List the pixels and weights of the ray (c = cos theta, s = sin theta, rho) in RIDX / RW;
+ * returns their number.
  */
-function ray(x: Arr | null, n: number, c: number, s: number, rho: number, mode: 0 | 1 | 2, val: number): number {
-  const cen = (n - 1) / 2;
-  let acc = 0;
+function walk(n: number, c: number, s: number, rho: number): number {
+  if (RIDX.length < 2 * n) { RIDX = new Int32Array(2 * n); RW = new Float64Array(2 * n); }
+  const cen = (n - 1) / 2, idx = RIDX, wt = RW;
+  let k = 0;
   if (Math.abs(c) >= Math.abs(s)) {
-    // one sample per row r: col = cen + (rho - cen s) / c + r s / c
-    const w = 1 / Math.abs(c), d = s / c;
-    let col = cen + (rho - cen * s) / c;
-    for (let r = 0; r < n; r++, col += d) {
+    // one sample per row r: col = col0 + r d
+    const w = 1 / Math.abs(c), d = s / c, col0 = cen + (rho - cen * s) / c;
+    // rows with -1 < col < n
+    let r0 = 0, r1 = n - 1;
+    if (d > 1e-12) { r0 = Math.max(0, Math.floor((-1 - col0) / d)); r1 = Math.min(n - 1, Math.ceil((n - col0) / d)); }
+    else if (d < -1e-12) { r0 = Math.max(0, Math.floor((n - col0) / d)); r1 = Math.min(n - 1, Math.ceil((-1 - col0) / d)); }
+    for (let r = r0; r <= r1; r++) {
+      const col = col0 + r * d;
       if (col <= -1 || col >= n) continue;
       const i0 = Math.floor(col), f = col - i0, o = r * n;
-      const w0 = (1 - f) * w, w1 = f * w;
-      if (mode === 0) {
-        if (i0 >= 0) acc += w0 * x![o + i0];
-        if (i0 + 1 < n) acc += w1 * x![o + i0 + 1];
-      } else if (mode === 1) {
-        if (i0 >= 0) x![o + i0] += w0 * val;
-        if (i0 + 1 < n) x![o + i0 + 1] += w1 * val;
-      } else {
-        if (i0 >= 0) acc += w0 * w0;
-        if (i0 + 1 < n) acc += w1 * w1;
-      }
+      if (i0 >= 0 && f < 1) { idx[k] = o + i0; wt[k++] = (1 - f) * w; }
+      if (i0 + 1 < n && f > 0) { idx[k] = o + i0 + 1; wt[k++] = f * w; }
     }
   } else {
-    // one sample per column q: row = cen - (rho + cen c) / s + q c / s
-    const w = 1 / Math.abs(s), d = c / s;
-    let row = cen - (rho + cen * c) / s;
-    for (let q = 0; q < n; q++, row += d) {
+    // one sample per column q: row = row0 + q d
+    const w = 1 / Math.abs(s), d = c / s, row0 = cen - (rho + cen * c) / s;
+    let q0 = 0, q1 = n - 1;
+    if (d > 1e-12) { q0 = Math.max(0, Math.floor((-1 - row0) / d)); q1 = Math.min(n - 1, Math.ceil((n - row0) / d)); }
+    else if (d < -1e-12) { q0 = Math.max(0, Math.floor((n - row0) / d)); q1 = Math.min(n - 1, Math.ceil((-1 - row0) / d)); }
+    for (let q = q0; q <= q1; q++) {
+      const row = row0 + q * d;
       if (row <= -1 || row >= n) continue;
       const i0 = Math.floor(row), f = row - i0;
-      const w0 = (1 - f) * w, w1 = f * w;
-      if (mode === 0) {
-        if (i0 >= 0) acc += w0 * x![i0 * n + q];
-        if (i0 + 1 < n) acc += w1 * x![(i0 + 1) * n + q];
-      } else if (mode === 1) {
-        if (i0 >= 0) x![i0 * n + q] += w0 * val;
-        if (i0 + 1 < n) x![(i0 + 1) * n + q] += w1 * val;
-      } else {
-        if (i0 >= 0) acc += w0 * w0;
-        if (i0 + 1 < n) acc += w1 * w1;
-      }
+      if (i0 >= 0 && f < 1) { idx[k] = i0 * n + q; wt[k++] = (1 - f) * w; }
+      if (i0 + 1 < n && f > 0) { idx[k] = (i0 + 1) * n + q; wt[k++] = f * w; }
     }
   }
+  return k;
+}
+
+/** a_i . x along the ray. */
+function rayDot(x: Float64Array, n: number, c: number, s: number, rho: number): number {
+  const k = walk(n, c, s, rho), idx = RIDX, wt = RW;
+  let acc = 0;
+  for (let j = 0; j < k; j++) acc += wt[j] * x[idx[j]];
   return acc;
 }
 
+/** x += val a_i. */
+function rayAdd(x: Float64Array, n: number, c: number, s: number, rho: number, val: number): void {
+  const k = walk(n, c, s, rho), idx = RIDX, wt = RW;
+  for (let j = 0; j < k; j++) x[idx[j]] += wt[j] * val;
+}
+
+function rayN2(n: number, c: number, s: number, rho: number): number {
+  const k = walk(n, c, s, rho), wt = RW;
+  let acc = 0;
+  for (let j = 0; j < k; j++) acc += wt[j] * wt[j];
+  return acc;
+}
+
+const f64 = (a: Arr): Float64Array => (a instanceof Float64Array ? a : Float64Array.from(a));
+
 /** Line integral of the image along the ray (theta, rho): one entry of A x. */
-export const rayIntegral = (img: Arr, n: number, theta: number, rho: number): number => ray(img, n, Math.cos(theta), Math.sin(theta), rho, 0, 0);
+export const rayIntegral = (img: Arr, n: number, theta: number, rho: number): number => rayDot(f64(img), n, Math.cos(theta), Math.sin(theta), rho);
 /** img += value * (row of A for this ray): smear one number back along its ray. */
-export const raySmear = (img: Arr, n: number, theta: number, rho: number, value: number): void => { ray(img, n, Math.cos(theta), Math.sin(theta), rho, 1, value); };
+export const raySmear = (img: Float64Array, n: number, theta: number, rho: number, value: number): void => rayAdd(img, n, Math.cos(theta), Math.sin(theta), rho, value);
 /** Squared norm of the ray's row of A. */
-export const rayNorm2 = (n: number, theta: number, rho: number): number => ray(null, n, Math.cos(theta), Math.sin(theta), rho, 2, 0);
+export const rayNorm2 = (n: number, theta: number, rho: number): number => rayN2(n, Math.cos(theta), Math.sin(theta), rho);
 
 /** Visit the pixels and weights of one ray (for drawing a ray or building A explicitly). */
 export function rayWeights(n: number, theta: number, rho: number): { idx: number[]; w: number[] } {
   const probe = new Float64Array(n * n);
-  ray(probe, n, Math.cos(theta), Math.sin(theta), rho, 1, 1);
+  rayAdd(probe, n, Math.cos(theta), Math.sin(theta), rho, 1);
   const idx: number[] = [], w: number[] = [];
   for (let p = 0; p < n * n; p++) if (probe[p] !== 0) { idx.push(p); w.push(probe[p]); }
   return { idx, w };
@@ -138,27 +154,27 @@ export function rayWeights(n: number, theta: number, rho: number): { idx: number
 // Whole projections
 
 /** Projection of the image at one angle into out[offset .. offset + nBins). */
-export function projectAngle(img: Arr, n: number, theta: number, nBins = n, dRho = 1, out?: Arr, offset = 0): Arr {
-  const o = out ?? new Float64Array(nBins);
+export function projectAngle(img: Arr, n: number, theta: number, nBins = n, dRho = 1, out?: Float64Array, offset = 0): Float64Array {
+  const o = out ?? new Float64Array(nBins), x = f64(img);
   const c = Math.cos(theta), s = Math.sin(theta);
-  for (let b = 0; b < nBins; b++) o[offset + b] = ray(img, n, c, s, rhoOf(b, nBins, dRho), 0, 0);
+  for (let b = 0; b < nBins; b++) o[offset + b] = rayDot(x, n, c, s, rhoOf(b, nBins, dRho));
   return o;
 }
 
 /** Add the back-projection of one projection (sino[offset .. offset + nBins)) to img, times `scale`. */
-export function backprojectAngle(proj: Arr, n: number, theta: number, img: Arr, nBins = n, dRho = 1, offset = 0, scale = 1): Arr {
+export function backprojectAngle(proj: Arr, n: number, theta: number, img: Float64Array, nBins = n, dRho = 1, offset = 0, scale = 1): Float64Array {
   const c = Math.cos(theta), s = Math.sin(theta);
   for (let b = 0; b < nBins; b++) {
     const v = proj[offset + b] * scale;
-    if (v !== 0) ray(img, n, c, s, rhoOf(b, nBins, dRho), 1, v);
+    if (v !== 0) rayAdd(img, n, c, s, rhoOf(b, nBins, dRho), v);
   }
   return img;
 }
 
 /** Sinogram A x: one row of nBins per angle. */
 export function project(img: Arr, g: Geometry, out?: Float64Array): Float64Array {
-  const o = out ?? new Float64Array(g.angles.length * g.nBins);
-  for (let a = 0; a < g.angles.length; a++) projectAngle(img, g.n, g.angles[a], g.nBins, g.dRho, o, a * g.nBins);
+  const o = out ?? new Float64Array(g.angles.length * g.nBins), x = f64(img);
+  for (let a = 0; a < g.angles.length; a++) projectAngle(x, g.n, g.angles[a], g.nBins, g.dRho, o, a * g.nBins);
   return o;
 }
 
@@ -384,8 +400,8 @@ export class IterativeRecon {
           const i = a * nB + k, nn = this.norms[i];
           if (nn < 1e-9) continue;
           const rho = rhoOf(k, nB, g.dRho);
-          const r = this.b[i] - ray(x, g.n, c, s, rho, 0, 0);
-          ray(x, g.n, c, s, rho, 1, om * r / nn);
+          const r = this.b[i] - rayDot(x, g.n, c, s, rho);
+          rayAdd(x, g.n, c, s, rho, om * r / nn);
         }
         if (this.o.nonneg) for (let p = 0; p < x.length; p++) if (x[p] < 0) x[p] = 0;
       }

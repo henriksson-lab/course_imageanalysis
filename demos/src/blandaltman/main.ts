@@ -33,12 +33,22 @@ function injectStyle(): void {
   document.head.appendChild(s);
 }
 
+// lib/plot.ts numbers its clip paths per bundle ("qb-clip-1", …), so two demos on one page
+// share ids and clip each other's plots. Give every plot of this demo a unique clip id.
+let clipCount = 0;
+function uniqueClip<T extends { svg: SVGSVGElement; layer: SVGGElement }>(p: T): T {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) { cp.id = `${NAME}-clip-${++clipCount}`; p.layer.setAttribute("clip-path", `url(#${cp.id})`); }
+  return p;
+}
+
 const f1 = (v: number) => v.toFixed(1), f2 = (v: number) => v.toFixed(2), f3 = (v: number) => v.toFixed(3);
 
 function mount(host: HTMLElement): void {
   injectStyle();
   const p0 = M.PRESETS.find(p => p.id === host.dataset.preset) ?? M.PRESETS[0];
   let st: M.Settings = { ...M.DEFAULTS, ...p0.settings };
+  const slide = !!host.closest(".reveal"), fs = slide ? 28 : 18;
 
   const col = htmlEl("div", "ba-col", "", host);
   const scF = plotFigure(col, "");
@@ -83,19 +93,22 @@ function mount(host: HTMLElement): void {
     const lim = extent([d.manual, d.auto], 0.05);
     lim[0] = Math.min(0, lim[0]);
     scF.replaceChildren(); raF.replaceChildren(); baF.querySelector("svg")?.remove();
-    sc = new Plot(scF, { x: lim, y: lim, xlabel: d.xlabel, ylabel: st.annotator ? "annotator B" : "automated", title: `r = ${f3(a.r)}`, width: 400, height: 400 });
+    sc = new Plot(scF, { x: lim, y: lim, xlabel: slide ? d.xlabel.replace(" (annotator A)", "") : d.xlabel, ylabel: st.annotator ? "annotator B" : "automated", title: `r = ${f3(a.r)}`, width: 400, height: slide ? 440 : 400, font: fs });
+    uniqueClip(sc);
     sc.line(lim, lim, { color: "var(--qb-muted)", width: 2, dash: "6 4" });
     sc.scatter(d.manual, d.auto, { color: seriesColor(0), r: st.areas ? 4 : 6, fillOpacity: 0.8 });
     // ratio
     const ratio = Array.from(d.manual, (m, i) => (m > 0 ? d.auto[i] / m : NaN));
     const rr = extent([ratio, [1]], 0.1);
-    ra = new Plot(raF, { x: extent([a.means], 0.05), y: [Math.min(rr[0], 0.8), Math.max(rr[1], 1.2)], xlabel: "mean of the two", ylabel: "ratio", width: 400, height: 260 });
+    ra = new Plot(raF, { x: extent([a.means], 0.05), y: [Math.min(rr[0], 0.8), Math.max(rr[1], 1.2)], xlabel: "mean of the two", ylabel: "ratio", width: 400, height: slide ? 330 : 260, font: fs });
+    uniqueClip(ra);
     ra.hline(1, { color: "var(--qb-muted)", width: 1.5 });
     ra.hline(mean(ratio.filter(Number.isFinite)), { color: seriesColor(1), width: 2, text: "mean " + f2(mean(ratio.filter(Number.isFinite))) });
     ra.scatter(a.means, ratio, { color: seriesColor(0), r: st.areas ? 3.5 : 5, fillOpacity: 0.8 });
     // Bland–Altman
     const xr = extent([a.means], 0.05), dr = extent([a.diffs, [a.lo, a.hi, 0]], 0.12);
-    ba = new Plot(baF, { x: xr, y: dr, xlabel: "mean of the two (" + d.unit + ")", ylabel: "difference: " + (st.annotator ? "B − A" : "auto − manual"), height: 400 });
+    ba = new Plot(baF, { x: xr, y: dr, xlabel: "mean of the two (" + d.unit + ")", ylabel: "difference: " + (st.annotator ? "B − A" : "auto − manual"), height: 400, font: slide ? 22 : 18 });
+    uniqueClip(ba);
     ba.hline(0, { color: "var(--qb-muted)", width: 1.5 });
     ba.hline(a.hi, { color: seriesColor(3), text: "+1.96 SD " + f1(a.hi) });
     ba.hline(a.lo, { color: seriesColor(3), text: "−1.96 SD " + f1(a.lo) });

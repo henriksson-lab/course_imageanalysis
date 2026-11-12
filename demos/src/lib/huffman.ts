@@ -193,7 +193,7 @@ export function jpegCodes(t: JpegTable): string[] {
   const out: string[] = new Array(256).fill("");
   let code = 0, k = 0;
   for (let len = 1; len <= 16; len++) {
-    for (let i = 0; i < t.bits[len - 1]; i++) out[t.vals[k++]] = code++.toString(2).padStart(len, "0");
+    for (let i = 0; i < t.bits[len - 1]; i++) { out[t.vals[k++]] = code.toString(2).padStart(len, "0"); code++; }
     code <<= 1;
   }
   return out;

@@ -5,7 +5,7 @@
 // called kernels.ts.
 //
 //   linear      k(x, z) = x·z
-//   polynomial  k(x, z) = (x·z + c)^p
+//   polynomial  k(x, z) = (γ x·z + c)^p     (γ = 1 by default: (x·z + c)^p)
 //   RBF         k(x, z) = exp(−γ ‖x − z‖²)   (= the Gaussian affinity exp(−d²/2σ²) of the
 //                                             graph-cut n-links and of ncut, with γ = 1/(2σ²))
 //
@@ -17,7 +17,7 @@ export type KernelType = "linear" | "poly" | "rbf";
 
 export interface KernelSpec {
   type: KernelType;
-  /** RBF width: γ = 1 / (length scale)². */
+  /** RBF width: γ = 1 / (length scale)²; for the polynomial a scale of x·z (default 1). */
   gamma?: number;
   /** Polynomial degree p. */
   degree?: number;
@@ -53,8 +53,8 @@ export const gammaFromSigma = (sigma: number): number => 1 / (2 * sigma * sigma)
 export function kernelFn(spec: KernelSpec): KernelFn {
   if (spec.type === "linear") return dotAt;
   if (spec.type === "poly") {
-    const p = spec.degree ?? 2, c = spec.coef0 ?? 1;
-    return (a, ia, b, ib, d) => Math.pow(dotAt(a, ia, b, ib, d) + c, p);
+    const p = spec.degree ?? 2, c = spec.coef0 ?? 1, g = spec.gamma ?? 1;
+    return (a, ia, b, ib, d) => Math.pow(g * dotAt(a, ia, b, ib, d) + c, p);
   }
   const g = spec.gamma ?? 1;
   return (a, ia, b, ib, d) => Math.exp(-g * sqDistAt(a, ia, b, ib, d));

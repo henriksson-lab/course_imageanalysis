@@ -38,7 +38,7 @@ const KS = Array.from(new Set(Array.from({ length: 41 }, (_, i) => Math.round(10
 const STYLE = baseStyle(NAME) + `
 [data-demo="${NAME}"] .rp-plots { flex: 1 1 640px; display: grid; grid-template-columns: 1fr 1fr; gap: .2em .8em; min-width: 0; }
 [data-demo="${NAME}"] .rp-plots > div { min-width: 0; }
-.reveal [data-demo="${NAME}"] .rp-plots { flex: 0 1 790px; }
+.reveal [data-demo="${NAME}"] .rp-plots { flex: 0 1 820px; }
 `;
 
 /** Log-axis ticks at 1, 2, 5 × 10^k (only 1 × 10^k if the range spans more than two decades). */
