@@ -21,7 +21,7 @@ typecheck:
 
 # Correctness tests of the demo algorithms (demos/test/): bundled for node by esbuild
 # and run directly, no files written. E.g. max-flow against brute force over all cuts.
-TESTS = demos/test/test.ts demos/test/bitdepth-test.ts
+TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts
 test:
 	@for t in $(TESTS); do echo "== $$t"; \
 	  js=$$(node_modules/.bin/esbuild $$t --bundle --platform=node --log-level=warning) && printf '%s\n' "$$js" | node || exit 1; \

@@ -2,12 +2,14 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
+**Course map (2026-11-12):** core day 13 of 17, Part V "Learning from examples" (its first day). Order: graph cuts (day 12) → this → neural networks (day 14).
+
 ## Goal of the day
 
 After the day a student can:
 
 1. describe a **decision tree** as a sequence of yes/no questions on single features (axis-aligned splits), draw the partition of a 2D feature space it produces, and read it as a **piecewise-constant function**;
-2. compute the **best split** of a small table by hand with **Gini impurity** or **entropy / information gain**, and explain why a tree grown to full depth **overfits** (high variance) and what depth, minimum leaf size and stopping do;
+2. compute the **best split** of a small table by hand with **Gini impurity** (entropy / information gain named in one line), and explain why a tree grown to full depth **overfits** (high variance) and what depth, minimum leaf size and stopping do; separate **training, validation and test data** and estimate the test error by a held-out set or **k-fold cross-validation**;
 3. explain **bagging** (bootstrap samples, averaging) and the **random feature subset** at each split, say why averaging helps only as far as the trees are **decorrelated**, and use the **out-of-bag error** as a free validation estimate; read class **probabilities** as vote fractions;
 4. compute and interpret **feature importance** (impurity decrease, permutation importance) and recognise its pitfalls with **correlated** features;
 5. do **pixel classification** from a few painted labels with a **multiscale filter feature stack** (semantic segmentation without deep learning), run the "paint – train – look – correct" loop, and avoid its traps: spatially correlated training pixels, label imbalance, evaluation on the wrong pixels;
@@ -16,81 +18,77 @@ After the day a student can:
 Why it fits this audience: a tree is nested `if`s on numbers; impurity is a function of class
 proportions they can evaluate on a calculator; bagging is "the variance of a mean", which they
 know from basic statistics, with one extra term for correlation. The image side reuses filters
-they know (Gaussian, derivatives, Laplacian from `kernels/`). No machine learning is assumed:
-the day introduces training/test data, overfitting and validation itself (in the concept layer,
-with pictures), so it stands alone.
+they know (Gaussian, derivatives, Laplacian from `kernels/`, day 1; LoG/DoG, Hessian and
+structure tensor from the edges day, day 2). No machine learning is assumed: this is the
+course's first learning day and the **owner of the classification basics** (feature space,
+training/validation/test data, overfitting, cross-validation, the pixel feature stack and the
+paint – train – correct loop), in the concept layer with pictures. Every later day that
+classifies (neural networks day 14, evaluation day 15, and the electives SVM, GMM, integral
+images, moments, measurements' feature tables) recalls them from here in one slide.
 
 ## Prerequisite gap / overlaps
 
-Written against the parallel drafts `plan/svm-day.md`, `plan/integral-day.md`,
-`plan/neuralnets-day.md` and `plan/gmm-day.md` (all 2026-11-12). The splits marked
-**proposal** need a reply from those plans.
+Ownership follows `plan/coursemap.md` (decided 2026-11-12). Review-organisation proposed a
+day-neutral `classify/` unit on the SVM day as owner of the classification basics; the course
+map overrules this: **this day owns them**, and the SVM day (elective) recalls them.
 
-- **Filters** (`kernels/`): Gaussian smoothing, derivative filters (Sobel), Laplacian are
-  known. Unit 4 also uses the **Laplacian of Gaussian / difference of Gaussians** (owned by the
-  wavelets day, `cwt/`), **Hessian eigenvalues** (owned by the skeleton day,
-  `skel-neurovessel/`: tube vs blob from the eigenvalues), **box means / local variance** (owned
-  by the integral-image day, `box-filters/`, `rect-features/`) and the **structure tensor**
-  (no owner found: concept slide + math slide here). Each owned filter is recalled as one
-  picture ("what this channel lights up on") with a pointer.
-- **Decision trees, stumps, bagging, random forests, feature importance: owned here.** The
-  integral-image plan asks (open question) which day owns trees and forests and wants stumps
-  introduced once: proposal: the **stump** is defined here (unit 1, a depth-1 tree) and recalled
-  in one line on the integral-image day.
-- **Boosting: owned by the integral-image day** (`viola-jones/`: AdaBoost with stumps, the
-  cascade, at concept level with a math layer). Here: one slide **bagging vs boosting** in unit 2
-  (independent deep trees averaged → less variance; shallow trees in sequence on reweighted data →
-  less bias), and gradient-boosted trees only as a contrast in optional unit 5. Code: `lib/boost.ts`
-  (integral plan) can call the weighted split search of `lib/forest.ts` with the
-  weighted-error criterion instead of keeping a second stump search.
-- **Feature stack and pixel classification: shared with the SVM day (`pixel-classify/`, demo
-  `pixelsvm`) and the integral-image day (`rect-features/`, stack tab of `haarexplore`).**
-  Today all three plans introduce a per-pixel multiscale feature stack. Proposal:
-  - **This day introduces the feature stack and the paint – train – look – correct loop**
-    (unit 4): the forest is the classic classifier for it, needs no feature scaling and almost no
-    tuning, so the lesson stays on the features, the labels and honest evaluation. It also owns the
-    two pitfalls common to every pixel classifier: **spatially correlated training pixels**
-    (shown here as OOB optimism vs a held-out region) and **label imbalance**.
-  - The **SVM day** recalls the stack in one slide and keeps what is specific to SVMs: feature
-    **standardisation** (fatal for RBF, irrelevant for a forest: a nice contrast preset),
+- **Filters**: Gaussian smoothing, derivative filters (Sobel), Laplacian are known from
+  `kernels/` (day 1). **LoG/DoG, Hessian eigenvalues and the structure tensor** are taught on the
+  edges day (day 2: `scale-space/`, `hessian/`, `structure-tensor/`); unit 4 recalls them in one
+  slide of pictures ("what this channel lights up on"). **Box means / local variance**: one line,
+  pointer to the integral-images elective (`box-filters/`).
+- **Classification basics, decision trees, stumps, bagging, random forests, feature importance,
+  the pixel feature stack and the paint – train – look – correct loop: owned here.** The stump
+  (unit 1, a depth-1 tree) is recalled by the integral-images elective, which may run before
+  this day and then defines it in one slide itself.
+- **Boosting: owned by the integral-images elective** (`viola-jones/`: AdaBoost with stumps, the
+  cascade). Here: one slide **bagging vs boosting** in unit 2, and gradient-boosted trees only as a
+  contrast in optional unit 5. Code: `lib/boost.ts` calls the weighted split search of
+  `lib/forest.ts` (one split search, no second stump search).
+- **Feature stack and pixel classification (decided):** this day introduces the stack and the
+  loop (unit 4); the forest needs no feature scaling and almost no tuning, so the lesson stays on
+  the features, the labels and honest evaluation. It also owns the two pitfalls common to every
+  pixel classifier: **spatially correlated training pixels** (OOB optimism vs a held-out region)
+  and **label imbalance**.
+  - The **SVM elective** recalls the stack in one slide and keeps what is specific to SVMs:
+    feature **standardisation** (fatal for RBF, irrelevant for a forest: a contrast preset),
     $(C, \gamma)$ cross-validation **by stroke**, one-vs-rest / one-vs-one.
-  - The **integral-image day** keeps "why large box scales are free" and presents box/Haar
-    channels as an alternative stack family; it stops at the feature vector, as its plan says.
-  - **One demo shell** instead of `pixelsvm` + `pixelclass`: `pixelclass` with
-    `data-classifier="forest|svm|…"` and `data-stack="gaussian|box"`; the SVM day's *evaluate* and
-    *cross-validate* tabs become tabs of the shared shell. **One stack builder**:
-    `featureStack(img, groups, sigmas)` in `lib/imageops.ts`, as the SVM plan already proposes
-    (not a separate `lib/pixelfeatures.ts`; and not `lib/features.ts`, which the measurements plan
-    uses for **object** features). This day adds the structure-tensor group; the integral day adds
-    the box group.
-- **Measurements** (`plan/measurements-day.md`): owns the object feature catalogue
-  (`lib/features.ts`), redundancy/correlation of features and the `featurespace` demo
-  (`features-use/`, "classification briefly"). This day owns **classifying objects with a
-  forest** and **feature importance**; unit 3 uses that day's seeded synthetic population as data,
-  and its "one slide on overfitting" can point to unit 1 here. The SVM plan also uses object
-  tables as an example: there for the margin, here for importance.
-- **Moments** (`plan/moments-day.md`, `moment-features/`): owns nearest-mean / nearest-neighbour
-  classification of shape descriptors and leave-one-out error. Unit 1 recalls nearest neighbour in
-  one line as another way to carve up feature space; `momentclass` could get a forest option via
-  the shared classifier interface (decide with the moments and SVM plans, which ask the same).
-- **Thresholding** (`plan/thresholding-day.md`, `seg-eval/`): owns **evaluation** (confusion
-  matrix, precision/recall, Dice/Jaccard, ROC and PR). Reused, not re-taught: a forest gives a
-  probability map, and sweeping its threshold traces that unit's ROC/PR curves (`lib/threshold.ts`).
-  Its "pixel classifiers (the step to machine learning, one slide)" in `threshold-more/` points here.
-- **Graph cuts** (`seg-energy/`, `graphcut-seg/`): the forest's probability gives a data term
-  $-\log P(\ell \mid \text{features}_p)$; smoothing a noisy pixel classification with a graph cut
-  is one slide and one preset (the `graphcut` demo takes a data term), not a new demo. The SVM and
-  neural-network plans make the same link; say it once per day in one line.
-- **Neural networks** (`plan/neuralnets-day.md`: `neurons/`, `backprop/`, `cnn/`, `unet/`; and
-  `neuralnet/` with demo `nnfit`): contrast only. Unit 1: a regression tree fits **steps**, a ReLU
-  network fits **hinges** (`nnfit`). Unit 4: the feature stack is a hand-made first layer; a CNN /
-  U-Net (`unet/`) learns its own filters and needs many more annotations; a forest on a stack is the
-  strong baseline from a few strokes. Softmax/cross-entropy are not needed here (vote fractions).
-- **GMMs** (`plan/gmm-day.md`: `kmeans/`, `gaussian-mixture/`, `gmm-images/`): unsupervised and
-  generative; the generative-vs-discriminative slide lives there and on the SVM day. Here one
-  sentence: a forest is discriminative and, unlike a mixture, needs labels. The GMM plan's shared
-  2D datasets module (`lib/datasets2d.ts`) is reused by `treeplay`/`forestplay` (XOR and staircase
-  sets added there).
+  - The **integral-images elective** keeps "why large box scales are free" and the box/Haar
+    group; it stops at the feature vector.
+  - **One demo shell** `pixelclass` with `data-classifier="forest|svm|…"` and
+    `data-stack="gaussian|box"`; the SVM day's *cross-validate* tab is a tab of the shared shell.
+    **One stack builder** `featureStack(img, groups, sigmas)` in `lib/imageops.ts` (owner: this
+    day; not `lib/pixelfeatures.ts`, and not `lib/features.ts`, which holds **object** features).
+- **Measurements** (day 10): owns the object feature catalogue (`lib/features.ts`) and the
+  feature tables. Its optional `features-use/` is dissolved (review-organisation §2.6):
+  classification of feature tables is unit 3 here, which uses that day's seeded synthetic
+  population as data. Shape features (`shape-features/`) are now on the labelling day (day 8).
+- **Moments** (elective, Objects group): nearest-mean / nearest-neighbour classification of
+  shape descriptors in its optional `moment-features/` recalls this day's vocabulary. Unit 1 names
+  nearest neighbour in one line as another way to carve up feature space.
+- **Thresholding** (day 5, `seg-eval/`): owns **pixel-level evaluation** (confusion matrix,
+  precision/recall, Dice/Jaccard, ROC and PR). Reused, not re-taught: sweeping the forest's
+  probability threshold traces that unit's ROC/PR curves (`lib/metrics.ts`). Its pointer
+  "pixel classifiers (the step to machine learning, one slide)" in `threshold-more/` points here.
+- **Evaluation and statistics** (day 15): owns **object-level evaluation** (matching by IoU,
+  object F1/AP), **data leakage** and statistics of measurements. Here only one line in unit 4:
+  "split by image (or region), never by pixel; day 15 does this in full".
+- **Graph cuts** (day 12, `seg-energy/`, `graphcut-seg/`): back-reference. The forest's
+  probability gives a data term $-\log P(\ell \mid \text{features}_p)$; smoothing a noisy pixel
+  classification with a graph cut is one slide and one preset (the `graphcut` demo takes a data
+  term), not a new demo.
+- **Neural networks** (day 14, the next day; its unit 1 is the built `neuralnet/` with demo
+  `nnfit`): forward pointers only. Unit 1: a regression tree fits **steps**, a ReLU network fits
+  **hinges** (`nnfit`). Unit 4: the feature stack is a hand-made first layer; a CNN / U-Net (day 14
+  `cnn/`, `unet/`) learns its own filters and needs many more annotations; a forest on a stack is
+  the strong baseline from a few strokes. Softmax/cross-entropy are not needed here (vote
+  fractions).
+- **Entropy**: owned by the compression elective (`entropy/`). Gini is the main split criterion
+  here; entropy gets one line ("expected surprise; the full story is on the compression day").
+- **GMMs** (elective, More learning, after this day): unsupervised and generative. Here one
+  sentence: a forest is discriminative and, unlike a mixture, needs labels. The shared 2D datasets
+  module `lib/datasets2d.ts` is owned here (see Shared engineering) and reused by the GMM and SVM
+  electives.
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
@@ -102,7 +100,7 @@ Concept layer:
 
 - Classification as **carving up feature space**: each pixel or object is a point (features as
   axes), each class a colour. Training data = points with known class; the classifier must
-  colour the rest of the plane. Recall nearest neighbour in one line (moments day).
+  colour the rest of the plane. Nearest neighbour in one line as the simplest way to do it.
 - A **decision tree**: ask "is feature $j$ below $t$?", go left or right, repeat; a **leaf**
   holds a class (or class proportions). Picture: the tree diagram next to the plane cut into
   axis-aligned rectangles. A **stump** is a tree with one question.
@@ -111,13 +109,19 @@ Concept layer:
   partitioning**). Greedy: the best first question is not always part of the best tree (XOR
   picture: no single split helps, two do).
 - **Impurity** in words: 0 when a node holds one class, largest when the classes are mixed
-  evenly. Gini = "chance that two random points in the node have different classes". Entropy =
-  "how many yes/no questions are still needed". In practice they choose almost the same splits.
+  evenly. Gini = "chance that two random points in the node have different classes" (the
+  criterion used all day). Entropy in one line: "how many yes/no questions are still needed";
+  it chooses almost the same splits (the full story is on the compression elective).
 - **When to stop**: maximum depth, minimum points per leaf, minimum impurity decrease. A tree
   grown until every leaf is pure **memorises** the training points: perfect on training data,
   jagged boundaries, a thin sliver around every noisy point. Train vs test error against depth:
   the U-shaped test curve. Small changes in the data → a completely different tree (**high
   variance**): this instability is what unit 2 exploits.
+- **Training, validation and test data** (owned here for the course): the training set fits the
+  model, the validation set chooses settings (depth, leaf size), the test set is touched once at
+  the end. **k-fold cross-validation** when data are scarce: k rotations, average the error. One
+  picture of a 5-fold split. One sentence on the trap that matters for images: pixels or cells
+  from the same image are not independent, so split by image (unit 4; day 15 owns leakage).
 - A tree as a **piecewise-constant function**; **regression trees** briefly: leaves hold the
   mean value instead of a class; split to reduce the spread. Picture: a step-function fit to a
   noisy intensity profile across a cell, next to the ReLU hinge fit of `nnfit`.
@@ -127,7 +131,7 @@ Concept layer:
 The math (separate slides after the intuition):
 
 - Class proportions $p_k$ in a node. $G = 1 - \sum_k p_k^2 = \sum_{k \ne l} p_k p_l$;
-  $H = -\sum_k p_k \log_2 p_k$; misclassification $1 - \max_k p_k$ (and why it is a poor
+  entropy $H = -\sum_k p_k \log_2 p_k$ in one line (owned by the compression elective); misclassification $1 - \max_k p_k$ (and why it is a poor
   splitting criterion: not strictly concave, so a split can improve the children's purity
   without lowering it).
 - Split of $n$ points into $n_L, n_R$: impurity decrease
@@ -169,6 +173,7 @@ By hand:
   0.311 vs 0.549 bits).
 - (b) Draw the partition for a given depth-2 tree; classify three points.
 - (c) Concept: what happens to training and test error when max depth goes from 2 to 20?
+  Which depth would 5-fold cross-validation pick, given five (fold, depth, error) rows?
 - (d) *(math)* Show $1 - \sum p_k^2 = \sum_{k\ne l} p_k p_l$, and that for two classes Gini and
   entropy are both maximal at $p = 1/2$; show the impurity decrease is $\ge 0$ for a concave $I$.
 
@@ -195,7 +200,7 @@ Concept layer:
 - Hyperparameters: **number of trees** (more never hurts accuracy, only time; the OOB curve
   flattens), **depth / leaf size** (forests usually grow deep trees), **$m$** (the one that
   matters most). Little tuning compared with most classifiers.
-- **Bagging vs boosting** (one slide, pointer to the integral-image day): bagging = independent
+- **Bagging vs boosting** (one slide, pointer to the integral-images elective): bagging = independent
   deep trees, averaged, reduces variance; boosting = shallow trees in sequence, each focusing on
   the previous mistakes, reduces bias.
 
@@ -249,7 +254,7 @@ By hand:
 
 Concept layer:
 
-- Object classification: segment, measure (measurements day), one row per object, a forest per
+- Object classification: segment, measure (measurements, day 10), one row per object, a forest per
   row: e.g. mitotic vs interphase nuclei, debris vs cells. Why forests are the default here:
   dozens of **heterogeneous features** in different units (area in µm², intensity in counts,
   ratios) with **no scaling**, irrelevant features mostly ignored, little tuning, fast
@@ -265,7 +270,7 @@ Concept layer:
   importance can make **both** look unimportant (shuffle one, the other still carries the
   information) and shuffling creates impossible objects (huge area, tiny perimeter). Importance
   is about *this model*, not about biology or causation. Remedy in words: group correlated
-  features (the correlation blocks of the measurements day) and permute groups.
+  features (the correlation blocks of day 10) and permute groups.
 - Feature importance as a guide for **which measurements to keep**, not as proof.
 
 The math:
@@ -308,21 +313,23 @@ Concept layer:
   0.7, 1, 1.6, 3.5, 5, 10 px) gives one channel; a pixel's feature vector = its value in every
   channel (~35–40 numbers). Families, each shown as an image of the micrograph:
   - **intensity**: Gaussian-smoothed image (what is the brightness here, at this scale?);
-    box mean and local variance are the cheap cousins (integral-image day, pointer);
+    box mean and local variance are the cheap cousins (integral-images elective, pointer);
   - **edges**: gradient magnitude (is there a boundary near?);
-  - **blobs**: Laplacian of Gaussian / difference of Gaussians (a bright spot of this size?
-    recall, wavelets day `cwt/`);
-  - **ridges and texture**: Hessian eigenvalues (line-like vs blob-like; recall, skeleton day
-    `skel-neurovessel/`), structure tensor eigenvalues (oriented texture, corners; new here).
-  Forests take this pile of channels as is: no scaling, redundant channels harmless.
+  - **blobs**: Laplacian of Gaussian / difference of Gaussians (a bright spot of this size?);
+  - **ridges and texture**: Hessian eigenvalues (line-like vs blob-like), structure tensor
+    eigenvalues (oriented texture, corners).
+  Blobs, ridges and texture are **one recall slide** of day 2 (`scale-space/`, `hessian/`,
+  `structure-tensor/`): one image per family, no derivation. Forests take this pile of channels
+  as is: no scaling, redundant channels harmless.
 - The **interactive loop**: paint a little → train → look at the result **and the uncertainty
   map** → paint where it is wrong or uncertain → repeat. Few strokes go a long way.
 - Pitfalls:
   - **Spatially correlated training pixels**: neighbouring pixels in a stroke are near
     copies. OOB error is then wildly optimistic (an "unseen" pixel has its neighbour in the
     bag). Evaluate on a **held-out region** of the image (or another image), with the
-    confusion matrix and Dice of `seg-eval/` (thresholding day). The SVM day meets the same
-    trap as cross-validation by pixel vs by stroke (one-line pointer each way).
+    confusion matrix and Dice of `seg-eval/` (day 5). Rule: split by image or region, never by
+    pixel; day 15 treats leakage and object-level evaluation in full. The SVM elective meets
+    the same trap as cross-validation by pixel vs by stroke (one-line pointer).
   - **Label imbalance**: a big background brushstroke vs a few nucleus pixels pushes the
     probabilities toward background; balance by sampling per class or weighting.
   - **Painting only the easy cases** (bright nuclei): dim or dividing nuclei are classified
@@ -332,22 +339,19 @@ Concept layer:
     texture.
 - From probabilities to objects: threshold the probability map (ROC/PR as in `seg-eval/`),
   clean up (morphology), or smooth with a graph cut using $-\log P$ as the data term
-  (pointer to `graphcut-seg/`), then label and measure.
-- Contrast (one slide): a convolutional network (`cnn/`, `unet/`) learns its own filters from
-  far more labels; the forest + hand-made stack is the strong baseline that works from a few
-  strokes. Contrast with the SVM on the same stack: the SVM needs standardised features and a
-  $(C, \gamma)$ search, the forest does not (pointer to `pixel-classify/`).
+  (back-reference to day 12, `graphcut-seg/`), then label and measure.
+- Contrast (one slide): a convolutional network (day 14, `cnn/`, `unet/`) learns its own
+  filters from far more labels; the forest + hand-made stack is the strong baseline that works
+  from a few strokes. Contrast with the SVM on the same stack: the SVM needs standardised
+  features and a $(C, \gamma)$ search, the forest does not (pointer to the SVM elective,
+  `pixel-classify/`).
   One-line pointer: interactive pixel-classification programs implement exactly this loop.
 
 The math:
 
-- Gaussian scale space $L_\sigma = G_\sigma * I$; gradient magnitude
-  $\lVert\nabla L_\sigma\rVert$; LoG $\sigma^2 \nabla^2 L_\sigma$ (scale normalisation, one
-  line) and DoG $\approx$ LoG; Hessian $\mathbf H = \begin{pmatrix} L_{xx} & L_{xy}\\ L_{xy} & L_{yy}\end{pmatrix}$
-  and its eigenvalues (both negative: bright blob; one strongly negative: bright ridge);
-  structure tensor $\mathbf S = G_\rho * (\nabla L_\sigma \nabla L_\sigma^\top)$ and its
-  eigenvalues (one large: edge/oriented texture; both large: corner). Closed-form eigenvalues of a
-  symmetric $2\times2$ matrix (recall).
+- The stack as formulas, one recall slide of day 2: $L_\sigma = G_\sigma * I$,
+  $\lVert\nabla L_\sigma\rVert$, $\sigma^2 \nabla^2 L_\sigma$, eigenvalues of the Hessian and
+  of the structure tensor (derived on the edges day, not here).
 - Why OOB fails here: the bootstrap assumes independent samples; correlated samples → leakage.
   Effective sample size in one sentence.
 - Class weighting: weighted Gini with class weights $w_k$; equivalent to resampling.
@@ -355,7 +359,7 @@ The math:
 **Demo `pixelclass`** (new, main demo; **one shell shared with the SVM day**, replacing a separate
 `pixelsvm`, and able to use the integral-image day's box stack): the micrograph
 `demos/src/fourier2d/cell256.png` (256×256, greyscale), plus a synthetic image with ground truth
-(blobs of two textures and a dim class, from `lib/imageops.ts` generators) for honest evaluation.
+(blobs of two textures and a dim class, from `lib/synth.ts` generators) for honest evaluation.
 Left: image with painted labels (2–4 classes, brush size, eraser). Right: overlay switch —
 segmentation, probability of a chosen class, **uncertainty** (1 − max probability, or vote
 entropy), or one feature channel (feature-stack browser: family × scale grid of thumbnails;
@@ -389,15 +393,15 @@ By hand:
   OOB error was lower.
 - (d) Concept: which feature family should separate (i) nuclei from background, (ii) a thin
   membrane from cytoplasm, (iii) a textured from a smooth region of equal mean? At which scale?
-- (e) *(math)* Structure tensor of a patch whose gradients are all $(1, 0)$, and of one with
-  gradients $(1,0)$ and $(0,1)$ in equal numbers: eigenvalues, and which is an edge, which a
-  corner or isotropic texture? (The Hessian version of this question is on the skeleton day.)
+- (e) *(math)* Show that weighting class $k$ by $w_k$ in the Gini impurity gives the same
+  splits as resampling class $k$ in proportion to $w_k$; which weights balance 400 background
+  and 20 nucleus pixels? (Structure-tensor and Hessian exercises are on day 2.)
 
 ### 5. (optional / further reading) `forest-more/`: Relatives of the random forest
 
 - **Extremely randomised trees**: thresholds drawn at random too (best of a few random cuts);
   even less correlation, faster training, smoother probability maps. `forestplay` toggle.
-- **Gradient-boosted trees** (contrast; boosting owned by the integral-image day): shallow trees
+- **Gradient-boosted trees** (contrast; boosting owned by the integral-images elective): shallow trees
   added one at a time, each fitted to the current residuals (regression) with a learning rate;
   often a bit more accurate on tables, needs more tuning, can overfit with too many trees
   (unlike a forest). `forestplay` `data-mode="boost"` on the 1D regression data: residuals shrink
@@ -413,82 +417,86 @@ By hand:
 
 ## Shared engineering
 
-- `demos/src/lib/forest.ts` (new, owned by this day): CART classification and regression trees
-  on a feature-major `Float32Array` (or pre-binned `Uint8Array`) with optional **sample weights**
-  (for class balancing and for AdaBoost stumps on the integral-image day); options: max depth,
-  min leaf, $m$, criterion (Gini / entropy / misclassification / SSE), random vs best threshold
+Library names follow review-organisation §3.1 (one file, one owner).
+
+- `demos/src/lib/forest.ts` (new, **owned by this day**): CART classification and regression
+  trees on a feature-major `Float32Array` (or pre-binned `Uint8Array`) with optional **sample
+  weights** (class balancing; AdaBoost stumps in `lib/boost.ts` of the integral-images elective
+  call **this one weighted split search**, no second implementation); options: max depth, min
+  leaf, $m$, criterion (Gini / entropy / misclassification / SSE), random vs best threshold
   (extra-trees); forests with bootstrap and OOB bookkeeping; flat node arrays (feature, threshold,
   left, right, leaf value) for fast prediction; impurity and permutation importance; an
   **instrumented** single-split search returning the impurity curve per feature (for `treeplay`).
-  Seeded by `rng(seed)` from `lib/ui.ts`.
-- **Feature stack**: one builder `featureStack(img, groups, sigmas)` in `lib/imageops.ts`, as the
-  SVM plan proposes (no separate `lib/pixelfeatures.ts`; `lib/features.ts` is the measurements
-  plan's object features). Groups: intensity, gradient magnitude, LoG/DoG, Hessian eigenvalues
-  (skeleton plan's Gaussian second derivatives), structure-tensor eigenvalues (**added by this
-  day**), box mean / local variance / Haar (integral-image plan, via the integral image). Returns
-  channel names, group and $\sigma$ per channel (for the browser and importance bars), cached per
-  image; a `binStack(stack, 64)` helper for the forest's histogram split search. Symmetric 2×2
-  eigenvalues from `lib/linalg.ts` / `lib/imageops.ts` (as agreed in the labelling and skeleton
-  plans).
-- `demos/src/lib/classifier.ts` (new, tiny): the interface the `pixelclass` shell and `forestplay`
-  use: `train(X, y, w, groups, opts) → model`, `predictScore(model, X) → Float32Array` (vote
-  fraction for the forest, decision value for the SVM), `name`, option sliders. Forest here; SVM
-  (`lib/svm.ts`), nearest neighbour, small MLP (`lib/nn.ts`) plug in from their days. `groups` =
-  stroke ids, so by-stroke CV (SVM plan) and held-out strokes work for every classifier.
-- `demos/src/lib/playground.ts` (new): the 2D point-painting plane (add/delete points, class
-  picker, probability-map rendering on a grid) on top of the seeded generators of
-  `lib/datasets2d.ts` (GMM plan; add XOR, staircase-diagonal, rings with label noise). Used by
-  `treeplay`, `forestplay`, and offered to the SVM day's `svm2d` so both days draw the same
-  clouds.
-- `lib/boost.ts` (integral-image plan) may call `forest.ts`'s weighted split search
-  (criterion = weighted error) for its stumps rather than keeping a second implementation.
-- `demos/src/lib/paint.ts` (new): brush/eraser label painting on a canvas over an image, label
-  layers, held-out rectangle; used by `pixelclass` (and by `graphcut` seeds if it is refactored).
-- Reused: `lib/plot.ts` (bar charts, error curves, scatter), `lib/threshold.ts` evaluation
-  (confusion matrix, Dice, ROC/PR), `lib/imageops.ts` synthetic generators with ground truth,
-  the measurements plan's seeded object population and `lib/features.ts` (for `featimp`).
+  Seeded by `rng(seed)` from `lib/random.ts` (re-exported by `lib/ui.ts`).
+- **Feature stack** (**owned by this day**): one builder `featureStack(img, groups, sigmas)` in
+  `lib/imageops.ts` (no `lib/pixelfeatures.ts`; `lib/features.ts` is day 10's object features).
+  Groups: intensity, gradient magnitude, LoG/DoG, Hessian eigenvalues, structure-tensor
+  eigenvalues (the derivative filters come from `lib/edges.ts`, owned by the edges day), box mean
+  / local variance / Haar (`lib/integral.ts`, integral-images elective). Returns channel names,
+  group and $\sigma$ per channel (for the browser and importance bars), cached per image; a
+  `binStack(stack, 64)` helper for the histogram split search. Symmetric 2×2 eigenvalues from
+  `lib/linalg.ts` (not `lib/imageops.ts`).
+- `demos/src/lib/classifier.ts` (new, tiny, **owned by this day**): the interface the
+  `pixelclass` shell and `forestplay` use: `train(X, y, w, groups, opts) → model`,
+  `predictScore(model, X) → Float32Array` (vote fraction for the forest, decision value for the
+  SVM), `name`, option sliders. Forest here; SVM (`lib/svm.ts`), nearest neighbour, small MLP
+  (`lib/nn.ts`) plug in from their days. `groups` = stroke ids, so by-stroke CV and held-out
+  strokes work for every classifier.
+- `demos/src/lib/datasets2d.ts` (**owned by this day**, the owner of feature spaces; move the
+  `ncut/data.ts` `POINT_PRESETS` in; add XOR, staircase-diagonal, rings with label noise) and
+  `demos/src/lib/playground.ts` (**owned by this day**): the 2D point playground shell (add/delete
+  points, class picker, probability-map rendering on a grid). Used by `treeplay`, `forestplay`,
+  and by the SVM (`svm2d`), GMM (`kmeans2d`, `em2d`), neural-network (`nnplayground`) and ncut
+  point-mode demos, so all days draw the same clouds.
+- `demos/src/lib/paint.ts` (new, **owned by this day**; extract the seed painting from
+  `graphcut/main.ts`): brush/eraser label painting over an image, label layers, held-out
+  rectangle; used by `pixelclass` and `graphcut`.
+- Reused: `lib/plot.ts` (bar charts, error curves, scatter; morphology day), `lib/metrics.ts`
+  (confusion matrix, Dice, ROC/PR; segmentation section owned by thresholding), `lib/synth.ts`
+  synthetic generators with ground truth (thresholding), day 10's seeded object population and
+  `lib/features.ts` (for `featimp`).
 - Speed: all TypeScript first. Expected: `treeplay` < 5 ms, `forestplay` ~50–100 ms per full
   map, `pixelclass` ~100–200 ms per full prediction with progressive display. Only if measurements
   exceed ~300 ms per full `pixelclass` update: move tree training + flat-array prediction to Rust→Wasm
   (`demos/wasm/forest/`), keeping `forest.ts` as the reference implementation, per `demos/README.md`.
-- Tests (`demos/test/`): split search vs brute force on random small tables; the unit-1 worked
-  table ($G = 0.2$ on $V$, $0.333$ on $I$); a depth-unlimited tree reaches zero training error on
-  distinct points; OOB fraction ≈ 0.368 over many bootstraps; variance formula vs Monte Carlo;
-  importance of an exact duplicate ≈ half; feature stack: Gaussian of a constant is constant,
-  Hessian eigenvalues of a synthetic quadratic match the closed form.
-- Images: `cell256.png` (already in the repo); synthetic images with ground truth for evaluation
-  and counting. Follow `demos/README.md`: fixed seeds, presets + reset, keyboard back to
-  reveal.js, labels ≥ 18 px, fits 1150×560 on a slide (`pixelclass` uses a 2-column layout with
-  the controls in a narrow side panel; the feature browser opens as an overlay).
+- Tests (`demos/test/forest-test.ts`, run by `make test`): split search vs brute force on random
+  small tables; the unit-1 worked table ($G = 0.2$ on $V$, $0.333$ on $I$); a depth-unlimited tree
+  reaches zero training error on distinct points; OOB fraction ≈ 0.368 over many bootstraps;
+  variance formula vs Monte Carlo; importance of an exact duplicate ≈ half; feature stack:
+  Gaussian of a constant is constant.
+- Images: `cell256.png` (via `loadGrey()` in `lib/imageops.ts`); synthetic images with ground
+  truth for evaluation and counting. Follow `demos/README.md`: fixed seeds, presets + reset,
+  keyboard back to reveal.js, labels ≥ 18 px, fits 1150×560 on a slide (`pixelclass` uses a
+  2-column layout with the controls in a narrow side panel; the feature browser opens as an
+  overlay).
 
 ## Suggested timetable
 
 | Time | |
 |---|---|
-| 09:00–10:30 | Unit 1 lecture, Gini table by hand, `treeplay` |
+| 09:00–10:30 | Unit 1 lecture (trees, train/validation/test, cross-validation), Gini table by hand, `treeplay` |
 | 10:45–12:15 | Unit 2 lecture + exercise (`bootstrap`, `forestplay`) |
 | 13:15–14:45 | Unit 3 lecture + exercise (`featimp`) |
 | 15:00–16:30 | Unit 4 lecture + exercise (`pixelclass`); quizzes as wrap-up |
 
 ## Open questions
 
-- **Feature stack and pixel classification**: the SVM plan's `pixel-classify/` and the
-  integral-image plan's `rect-features/` both introduce a stack too. Proposal: introduced here
-  (unit 4), recalled there in one slide each; one demo shell `pixelclass` (absorbing `pixelsvm`)
-  and one builder `featureStack` in `lib/imageops.ts`. Needs agreement from both plans; if the SVM
-  day keeps the introduction, unit 4 here becomes a recall + forest-specific lesson (no scaling,
-  OOB optimism, uncertainty from votes) and gains time for unit 5.
-- **Boosting**: proposal: the integral-image day owns AdaBoost/stumps (`viola-jones/`), this
-  day owns trees/stumps/bagging/forests and gives one contrast slide plus optional gradient
-  boosting. Answers the integral plan's open question "which day owns boosting / decision trees /
-  random forests".
-- Structure tensor: no plan owns it; concept + math slide here, or move it to whichever day
-  covers corners/orientation (none found).
+- **Decided (course map):** feature stack and pixel classification are introduced here (unit 4)
+  and recalled on the SVM and integral-images electives; one shell `pixelclass` (absorbing
+  `pixelsvm`) and one builder `featureStack` in `lib/imageops.ts`.
+- **Decided (course map):** classification basics (train/test, overfitting, cross-validation,
+  feature stack) are owned here, not by a day-neutral `classify/` on the SVM day as
+  review-organisation proposed.
+- **Decided (course map):** boosting is owned by the integral-images elective; this day owns
+  trees/stumps/bagging/forests, one contrast slide plus optional gradient boosting.
+- **Decided (course map):** the structure tensor, Hessian and LoG/DoG are owned by the edges day
+  (day 2); unit 4 recalls them.
 - Ground truth for `cell256.png`: a manual annotation (nuclei mask, maybe cytoplasm) would allow
   honest held-out evaluation on the real image; the thresholding plan asks for the same. Until
   then held-out Dice is shown only on the synthetic image.
-- Unit 3 could be shortened and merged into unit 2 if the day is too full, freeing time for
-  optional unit 5 (counting) — which is more image-specific?
+- Unit 3 could be shortened and merged into unit 2 if the day is too full (unit 1 now also
+  carries train/validation/test and cross-validation), freeing time for optional unit 5
+  (counting) — which is more image-specific?
 - Web Worker vs time-sliced main-thread prediction: workers from inlined blob URLs under `file://`
   need testing in all browsers; time slicing is the safe default.
 

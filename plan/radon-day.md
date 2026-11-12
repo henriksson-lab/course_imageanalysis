@@ -2,6 +2,8 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
+**Course map (2026-11-12):** elective, group "Transforms" (wavelets → compression; Radon); entry after Part I (core day 4). Independent of the wavelets chain; if the Hough elective (group "Detection") is also taken, run it first so the $(\rho, \theta)$ pictures are back-references.
+
 ## Goal of the day
 
 After the day a student can:
@@ -18,7 +20,7 @@ After the day a student can:
    central line of the 2D spectrum) and use it to explain direct Fourier reconstruction and
    its interpolation problem; prove it *(math)*;
 5. explain **filtered back-projection**: what the **ramp filter** $|\omega|$ undoes, why it
-   amplifies noise, and what a windowed ramp (Shepp–Logan, Hann) trades; derive the ramp
+   amplifies noise, and what a tapered ramp (Shepp–Logan, Hann) trades; derive the ramp
    from the polar Jacobian *(math)*;
 6. predict the **artefacts of undersampling**: streaks from too few angles, the **missing
    wedge** of limited-angle tomography, noise from low dose; state the angle rule
@@ -26,32 +28,37 @@ After the day a student can:
 7. write tomography as a linear system $A\mathbf x = \mathbf b$, build $A$ for a 2×2 image by
    hand, recognise $A^\top$ as back-projection, run **Kaczmarz/ART** and **SIRT** steps by
    hand, and explain why priors (non-negativity, **total variation**) help with few views or
-   low dose.
+   low dose, as an instance of the ill-posed inverse problem met on day 4.
 
 Why it fits this audience: every step is linear algebra or calculus they already have.
 Projection is a line integral; a sinusoid is $r\cos(\theta - \varphi)$; the Fourier slice
 theorem is the 2D Fourier transform of *The Fourier transform* evaluated on a line;
-reconstruction is $A\mathbf x = \mathbf b$, least squares and $A^\top$. Poisson noise is used
-as intuition only ("few photons, noisy counts").
+reconstruction is $A\mathbf x = \mathbf b$, least squares and $A^\top$. Poisson noise is recalled
+from `cameranoise/` (day 3) as intuition only ("few photons, noisy counts").
 
 ## Prerequisite gap
 
-- **2D DFT, convolution theorem, sampling**: taught in `fourier/` (unit *The Fourier
-  transform*). Units 2–3 recall the 2D spectrum (centre = DC, angle = orientation) and
+- **2D DFT, convolution theorem, sampling**: taught in `fourier/` (day 1). Units 2–3 recall the 2D spectrum (centre = DC, angle = orientation) and
   "filtering = multiplying the spectrum" in one slide each. The **1D** continuous Fourier
-  transform is used in the math layer; `fourier/` has Fourier series and the DFT, so one math
-  slide in unit 2 states the continuous transform as "the DFT with $N\to\infty$".
+  transform is used in the math layer; it is owned by a `fourier/` math slide (to be added
+  there per review-organisation edit 11) and recalled here in one line.
 - **Bilinear interpolation and inverse mapping**: `images/` (*Images as arrays*). Recalled
   in one line where a projection samples the image along a ray.
 - **Line integrals, polar coordinates, the Jacobian $r$**: calculus. Recalled in one line
   in the math layer of units 2 and 3 (the Jacobian is exactly the ramp).
 - **Least squares, normal equations, transpose, null space**: linear algebra; recalled in
   one line in unit 4.
-- **Poisson / shot noise** ($\sqrt N$): stated on the bit-depth day (`plan/bitdepth-day.md`,
-  unit 1). Here only "fewer photons → noisier line integrals, worst where few photons get
-  through"; no derivation.
-- **Total variation**: introduced in 1D on the Ising/MRF day (`plan/ising-day.md` unit
-  `gmrf/`). Unit 4 states it in one line for 2D images so the day stands on its own.
+- **Poisson / shot noise** ($\sqrt N$), SNR, PSNR: owned by `cameranoise/` (day 3). Here
+  only "fewer photons → noisier line integrals, worst where few photons get through"; no
+  derivation.
+- **Forward model and ill-posedness**: day 4 (image formation) shows that measuring is a
+  linear forward operator and that inverting it amplifies noise. Unit 4 recalls that idea in
+  one slide: tomography is the same story with $A$ = the projector. Wiener/Tikhonov/
+  Richardson–Lucy deconvolution is the deconvolution day's (`plan/deconvolution-day.md`);
+  pointer only.
+- **Total variation**: owned by the Ising/MRF elective (`gmrf/`, 1D). Unit 4 states it in
+  one line for 2D images, because the Ising elective may not have been taken (different
+  group).
 
 ## Links to other days
 
@@ -60,16 +67,20 @@ as intuition only ("few photons, noisy counts").
 | Normal parameterisation of a line $(\rho, \theta)$, $\rho = x\cos\theta + y\sin\theta$ | both, **same convention** | Hough: voting, accumulator, peaks; this day: integrals, sinogram, inversion |
 | Radon transform, sinogram, back-projection, inversion | **this day** | Hough day: one optional slide "Hough of an edge map ≈ Radon transform of the edge map", pointing here |
 | Line detection by peaks in $(\rho,\theta)$ | **Hough day** | this day, optional unit 6: one slide, pointer to Hough |
-| Fourier slice theorem | **this day**, unit 2 | `fourier/`: none; FFT registration: may quote it for "rotation rotates the spectrum" (pointer) |
-| 2D DFT, convolution theorem, `fft.ts` | `fourier/` | this day: recall + reuse of code |
-| Polar / log-polar resampling of an image or spectrum | shared code (`lib/polar.ts`) | FFT registration: Cartesian → (log-)polar; dynprog: polar unwrap; this day: polar → Cartesian **gridding** in direct Fourier reconstruction |
-| Rays through a volume, emission–absorption, transmittance $\exp(-\int\tau)$, MIP/average projection | **graphics3d** unit 4 | this day: Beer–Lambert is the absorption-only case; "volume rendering computes projections to look at, tomography inverts projections to get the volume" |
-| Hounsfield units, CT windowing | **bitdepth** (`window16`) | this day: HU defined as the output scale of a reconstruction, one line, pointer for display |
-| TV and quadratic priors, energy = data + prior | **ising** (`gmrf/`), levelsets (Chan–Vese length) | this day unit 4: the same energy with $\|A\mathbf x - \mathbf b\|^2$ as the data term |
-| Denoising by wavelet shrinkage | **wavelets** | this day: pointer only (denoise sinogram or reconstruction) |
-| Shot noise, Poisson | **bitdepth** | this day: intuition only |
+| Fourier slice theorem | **this day**, unit 2 | `fourier/`: none; FFT registration (day 11): may quote it for "rotation rotates the spectrum" (pointer) |
+| 2D DFT, convolution theorem, continuous FT (math), `lib/fft.ts` | `fourier/` (day 1) | this day: recall + reuse of code |
+| Polar / log-polar resampling of an image or spectrum | shared code (`lib/polar.ts`, owner: dynprog elective) | FFT registration: Cartesian → (log-)polar; dynprog: polar unwrap; this day: polar → Cartesian **gridding** in direct Fourier reconstruction |
+| Beer–Lambert, absorption along a ray (line integral of attenuation) | **this day** (unit 1) | graphics3d `volrender/` generalises to emission–absorption and transmittance $\mathcal T$; stain optical density (unmixing elective, colour day) recalls it in one line |
+| Volume rendering, MIP/average projection | **graphics3d** `volrender/` | this day: "volume rendering computes projections to look at, tomography inverts projections to get the volume" |
+| Hounsfield units, display window/level | **`highbit/`** (day 3, `window16`) | this day: HU defined as the output scale of a reconstruction, one line, recall for display |
+| Energy = data + λ·prior | **graph cuts** `seg-energy/` (day 12) | this day unit 4: the same form with $\|A\mathbf x - \mathbf b\|^2$ as the data term |
+| TV and quadratic priors | **ising** (`gmrf/`) | this day unit 4: one line for 2D TV |
+| Forward model, ill-posed inversion | **day 4** (image formation) | this day unit 4: recall |
+| Deconvolution (Wiener, Tikhonov, Richardson–Lucy), denoiser comparison | **deconvolution day** (`plan/deconvolution-day.md`) | this day: pointer only (MLEM ≈ Richardson–Lucy for emission data) |
+| Denoising by wavelet shrinkage | **wavelets** (elective) | this day: pointer only (denoise sinogram or reconstruction) |
+| Shot noise, Poisson, SNR/PSNR | **`cameranoise/`** (day 3) | this day: intuition only |
 
-**Hough split (agreed proposal, to be checked against `plan/hough-day.md` when it exists).**
+**Hough split (agreed with `plan/hough-day.md`; course convention: origin at the centre, $\theta \in [0°, 180°)$, signed $\rho$).**
 The Hough day keeps the *voting* view: each edge pixel votes for all lines through it, which
 draws a sinusoid in the accumulator; peaks are lines. This day owns the *integral* view: the
 Radon transform sums grey values along every line, and inverting it is the main subject.
@@ -79,10 +90,10 @@ pictures match. One slide on each side names the link: "the Hough accumulator of
 edge map is (a discretised) Radon transform of that map". `lib/radon.ts` is written here; the
 Hough demos may call its forward projector for that slide but keep their own voting code.
 
-**Graphics3d split.** Graphics3d unit 4 derives transmittance from the emission–absorption
-ODE and has an "average = an X-ray" mode in `volview`. This day derives Beer–Lambert in two
-lines (absorption only, no emission) as its own math slide so it stands alone, and points to
-`volview`'s average mode for the 3D picture. Parallel-beam 3D tomography is a stack of 2D
+**Graphics3d split.** This day owns Beer–Lambert (absorption along a ray, two lines, own
+math slide). Graphics3d `volrender/` (3D elective) recalls it and generalises to the
+emission–absorption ODE (transmittance $\mathcal T$), with an "average = an X-ray" mode in
+`volview`; this day points to that mode for the 3D picture. Parallel-beam 3D tomography is a stack of 2D
 slices: one slide, no 3D reconstruction demo (`volview` can show a reconstructed stack if a
 3D example is wanted later; open question).
 
@@ -106,7 +117,8 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   Monochromatic beam assumed (beam hardening breaks this; optional unit 5).
 - **Parameterising lines**: a line is all points with $x\cos\theta + y\sin\theta = \rho$
   ($\theta$ = direction of the normal, $\rho$ = signed distance from the centre). Same
-  parameterisation as the Hough day (named, not re-taught). A **projection** at angle
+  parameterisation as the Hough elective (a recall there if taken first; otherwise this slide
+  defines it). A **projection** at angle
   $\theta$ is the profile $p_\theta(\rho)$ of line integrals of all parallel lines; stacking
   the profiles for $\theta \in [0°, 180°)$ gives the **sinogram**.
 - **A point becomes a sinusoid**: a point at radius $r$ and angle $\varphi$ lands at
@@ -219,12 +231,12 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   convolution wraps one edge into the other: cupping); one line linking to the
   convolution theorem.
 - **Noise**: the ramp boosts the highest frequencies, where there is mostly noise. Few
-  photons (low dose) → noisy projections → grainy reconstruction. **Windowed ramps**:
-  multiply the ramp by a window that rolls off at high frequency: Shepp–Logan (sinc), cosine,
+  photons (low dose) → noisy projections → grainy reconstruction. **Tapered ramps**:
+  multiply the ramp by a taper that rolls off at high frequency (recall `fourier/` tapers): Shepp–Logan (sinc), cosine,
   Hann; and a cutoff frequency. Trade: less noise, less resolution. Same trade as
   low-pass filtering in `fourier/`.
-- **The math: noise in FBP** {.math}: for white noise of variance $\sigma^2$ per bin, the
-  variance of the reconstruction scales as $\sigma^2 \int |\omega|^2 W(\omega)^2 d\omega$; with a
+- **The math: noise in FBP** {.math}: for white noise of variance $\sigma_n^2$ per bin, the
+  variance of the reconstruction scales as $\sigma_n^2 \int |\omega|^2 W(\omega)^2 d\omega$; with a
   hard cutoff $\omega_c$ that is $\propto \omega_c^3$: halving the pixel size at equal dose
   costs much more than a factor 2 in noise. *(Stated, the scaling checked in the demo.)*
 - **How many angles?** The Fourier picture again: at the outer ring (radius $N/2$) the gap
@@ -285,35 +297,39 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   over its pixels). Sweep over all rays, repeat. Picture with **two pixels**: each
   measurement is a line in the $(x_1, x_2)$ plane; ART zig-zags between the lines toward
   their intersection; nearly parallel lines (similar rays) = slow; with noise the lines
-  do not meet in one point and ART circles around (relaxation $\lambda < 1$ calms it).
+  do not meet in one point and ART circles around (relaxation $\omega < 1$ calms it; $\omega$, not λ, which is reserved for the prior weight).
 - **SIRT**: compute all ray errors first, back-project them all at once (averaged), update.
   Smoother and more robust to noise than ART, slower to converge. Its **first step from a
   zero image is plain back-projection** (normalised): iteration fixes the blur step by step.
+- **Recall (one slide, day 4):** inverting a forward model amplifies noise where the model
+  loses information; tomography is that ill-posed inverse problem with $A$ = the projector.
+  (Deconvolution methods themselves: deconvolution day, pointer.)
 - **Semi-convergence**: with noisy data the error to the truth first falls, then rises as
   the iteration starts fitting the noise. Stopping early is a form of regularisation.
 - **Priors**: what we know about the object that the data don't say. Non-negativity
   (attenuation $\ge 0$: clip after each step) and **total variation** (the image is mostly
-  piecewise constant, as on the MRF day): alternate "agree with the data" (a SIRT step)
+  piecewise constant; TV is owned by the Ising/MRF elective): alternate "agree with the data" (a SIRT step)
   and "be piecewise constant" (a TV denoising step). With 20–30 views or a missing wedge,
   TV gives clean reconstructions where FBP streaks; the price: lost fine texture and
   staircased ramps (same failure as in 1D). One slide: iterative methods with priors are
   why low-dose CT is possible; also standard in electron tomography.
 - **The math: Kaczmarz and SIRT** {.math}: Kaczmarz update
-  $\mathbf x \leftarrow \mathbf x + \lambda\,\dfrac{b_i - \mathbf a_i^\top\mathbf x}{\|\mathbf a_i\|^2}\,\mathbf a_i$
+  $\mathbf x \leftarrow \mathbf x + \omega\,\dfrac{b_i - \mathbf a_i^\top\mathbf x}{\|\mathbf a_i\|^2}\,\mathbf a_i$
   (orthogonal projection onto the hyperplane $\mathbf a_i^\top\mathbf x = b_i$); from $\mathbf x_0 = 0$ on
   a consistent system it converges to the **minimum-norm** solution (it never leaves the
-  row space). SIRT: $\mathbf x \leftarrow \mathbf x + \lambda\,C A^\top R(\mathbf b - A\mathbf x)$ with
-  $R$, $C$ the inverse row and column sums: gradient descent on a weighted
-  $\|A\mathbf x - \mathbf b\|^2$ (Landweber with $C = R = I$); normal equations
+  row space). SIRT: $\mathbf x \leftarrow \mathbf x + \omega\,W_c A^\top W_r(\mathbf b - A\mathbf x)$ with
+  $W_r$, $W_c$ the inverse row and column sums (not $C$/$R$: $C$ is avoided course-wide): gradient descent on a weighted
+  $\|A\mathbf x - \mathbf b\|^2$ (Landweber with $W_c = W_r = I$); normal equations
   $A^\top A\mathbf x = A^\top\mathbf b$. Semi-convergence via the SVD: the filter factors
   of early stopping (one slide, optional).
 - **The math: regularised reconstruction** {.math}: $\min_{\mathbf x \ge 0}\
   \tfrac12\|A\mathbf x - \mathbf b\|^2 + \lambda\,\mathrm{TV}(\mathbf x)$,
   $\mathrm{TV}(\mathbf x) = \sum_p \|\nabla x_p\|$ (smoothed by $\sqrt{\|\nabla x_p\|^2 + \varepsilon^2}$
-  for gradient steps); the same "data + prior" form as the MRF day with $A \ne I$. One
+  for gradient steps); the same "data + λ·prior" form as `seg-energy/` (day 12) and the Ising elective, with $A \ne I$. One
   line: for emission data (PET) the data term is the Poisson log-likelihood and the
   iteration becomes multiplicative (MLEM, $\mathbf x \leftarrow \tfrac{\mathbf x}{A^\top \mathbf 1}\,
-  A^\top\tfrac{\mathbf b}{A\mathbf x}$), stated only.
+  A^\top\tfrac{\mathbf b}{A\mathbf x}$), stated only; it is Richardson–Lucy with $A$ = the projector
+  (pointer to the deconvolution day).
 - **Demo `artsmall`** (new, small, the by-hand exercise made interactive): mode *2 pixels*:
   the $(x_1, x_2)$ plane with 2–4 measurement lines (draggable), the ART zig-zag step by
   step, relaxation slider, noise toggle (inconsistent lines → limit cycle), SIRT path for
@@ -322,7 +338,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   residual; *next ray* shows the correction spread along the ray; angle set menu (0°+90°,
   +45°, +135°) showing the rank and a null-space image. Presets: "2×2: two images, same
   data", "add a diagonal ray", "ART converges in one sweep", "nearly parallel rays: slow",
-  "noisy: ART circles, λ = 0.3 settles".
+  "noisy: ART circles, ω = 0.3 settles".
 - **Demo `iterrecon`** (new, main demo): 128×128 phantom; sliders for number of angles,
   angular range, dose; method menu: FBP (Hann), ART, SIRT, SIRT + non-negativity, SIRT + TV
   ($\lambda$ slider); iteration play / step / slider. Panels: reconstruction, error image,
@@ -378,9 +394,10 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   **variance** is largest at $\theta = \alpha$ (lines line up with the rays). Variance of each
   sinogram column vs $\theta$: the peak is the orientation. Uses: document skew, fibre and
   texture direction in micrographs, stripe artefacts. Compare (one slide) with the
-  structure tensor / 2D spectrum orientation (`fourier/`).
+  structure tensor (day 2, `structure-tensor/`) and the 2D spectrum orientation (`fourier/`).
 - **Line detection**: bright lines are peaks in the sinogram; for a binary edge map this is
-  the Hough transform (pointer to the Hough day, which owns peak finding and voting).
+  the Hough transform (one slide; pointer to the Hough elective, which owns peak finding and
+  voting).
 - **Demo**: `radonproj` with `data-mode="orient"`: adds a plot of column variance vs
   $\theta$ and the detected orientation drawn on the image; images: stripes, a fibrous texture
   (synthetic, seeded), a skewed text-like block pattern. No new demo.
@@ -395,32 +412,32 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   $\langle A\mathbf x, \mathbf y\rangle = \langle \mathbf x, A^\top\mathbf y\rangle$ holds to rounding (needed for
   "back-projection = $A^\top$" and for SIRT to converge). Also: angle sets (full,
   limited range), sinogram ↔ image coordinate conventions ($\rho$ origin at the image centre,
-  $\theta \in [0°, 180°)$, same as Hough), ramp and windowed filters with zero-padded FFT
+  $\theta \in [0°, 180°)$, same as Hough), ramp and tapered filters with zero-padded FFT
   filtering, FBP, ART/SIRT iterations (instrumented: per-iteration error and residual),
   explicit sparse $A$ (CSR) for images up to 16×16 for `artsmall`, analytic projections of
   ellipses (Shepp–Logan) for tests. One implementation shared by `radonproj`, `fourierslice`,
-  `backproj`, `tomosampling`, `iterrecon`, `ctartefacts`; offered to the Hough day.
-- **Phantoms** in `lib/imageops.ts` (agreed home for synthetic generators): modified
-  Shepp–Logan from its ellipse table (with the analytic sinogram), disc, square, point
-  masses, metal inserts, fibrous texture; seeded with `rng(seed)`.
-- **Reuse**: `demos/src/fourier2d/fft.ts` (`fft1d` for ramp filtering, `fft2d` for
-  `fourierslice` and the spectrum panel of `tomosampling`; propose moving it to
-  `lib/fft.ts` as other plans import it too); bilinear sampling from `lib/imageops.ts`;
-  polar ↔ Cartesian resampling in `lib/polar.ts` (proposed by the dynprog plan, also used
-  by FFT registration for log-polar); `lib/plot.ts` (profiles, filter responses, error vs
-  iteration); `lib/metrics.ts` (RMSE/PSNR, compression plan); colour maps from
-  `lib/colour.ts` (sequential for sinograms, diverging for filtered projections and error
-  images); TV denoising step: reuse the 2D TV routine if the Ising/levelsets plans add one,
-  otherwise a small gradient-descent TV in `lib/radon.ts`.
-- **Poisson noise**: a seeded Poisson sampler in `lib/ui.ts` next to `rng` (or wherever the
-  bit-depth day's camera simulation puts it): counts $\sim \mathrm{Poisson}(I_0 e^{-p})$, then
+  `backproj`, `tomosampling`, `iterrecon`, `ctartefacts`. Owner: this day; the Hough elective imports its forward projector for its one Radon slide.
+- **Phantoms** in `lib/synth.ts` (owner: thresholding day; Shepp–Logan and `window16`'s
+  `ctPhantom` move there): modified Shepp–Logan from its ellipse table (the analytic sinogram
+  stays in `lib/radon.ts`), disc, square, point masses, metal inserts, fibrous texture;
+  seeded with `rng(seed)` from `lib/random.ts`.
+- **Reuse**: `lib/fft.ts` (moved from `fourier2d/fft.ts`, owner `fourier/`; `fft1d` for
+  ramp filtering, `fft2d` for `fourierslice` and the spectrum panel of `tomosampling`);
+  bilinear sampling from `lib/imageops.ts`; polar ↔ Cartesian resampling in `lib/polar.ts`
+  (owner: dynprog elective); `lib/plot.ts` (owner: morphology day; profiles, filter
+  responses, error vs iteration); `lib/metrics.ts` (RMSE/PSNR, image-quality section owned
+  by `cameranoise/`); colour maps from `lib/colour.ts` (owner: colour day; sequential for
+  sinograms, diverging for filtered projections and error images); 2D TV step from
+  `lib/smooth.ts` (owner: Ising elective; no private TV in `lib/radon.ts`).
+- **Poisson noise**: `poisson()` from `lib/random.ts` (owner: bit-depth day, moved from
+  `camerabits/sensor.ts`): counts $\sim \mathrm{Poisson}(I_0 e^{-p})$, then
   $-\ln(\text{count}/I_0)$ with a floor at 1 count (and a visible "photon starvation" flag).
 - **Performance**: start in TS at 128×128 and 180 angles (≈ 3 M bilinear samples per
   projection or back-projection, ~10–20 ms). Measure `iterrecon` at 256²; only if one
   SIRT+TV iteration exceeds ~30 ms move the projector pair to `demos/wasm/radon/` (Rust,
   plain functions over `&[f32]`), keeping `lib/radon.ts` as the reference implementation
   and testing that the two agree.
-- **Tests** (node script, `make test`): adjoint test $\langle A\mathbf x, \mathbf y\rangle =
+- **Tests** (`demos/test/radon-test.ts`, run by the shared `make test`): adjoint test $\langle A\mathbf x, \mathbf y\rangle =
   \langle \mathbf x, A^\top \mathbf y\rangle$ on random inputs; projections of the Shepp–Logan phantom vs
   the analytic sinogram (small RMSE); FBP of the analytic sinogram reconstructs the phantom
   within a tolerance; Fourier slice: 1D DFT of the 0° projection equals the $v = 0$ row of the
@@ -442,9 +459,10 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 
 - Length of a day: four dense units. If too much, direct Fourier reconstruction (gridding)
   in unit 2 shrinks to one slide, and the TV part of unit 4 moves to the optional units.
-- Is unit 4 (algebraic reconstruction) core? Recommended yes: it is the strongest link to
-  linear algebra ($A$, $A^\top$, null space, least squares) and the way modern low-dose
-  CT and electron tomography work.
+- **Decided:** unit 4 (algebraic reconstruction) stays core. review-gaps made this
+  conditional on the image-formation day not carrying the inverse-problem idea; day 4 now
+  only motivates ill-posedness and deconvolution has its own day, so unit 4 recalls day 4
+  and remains the course's main worked inverse problem in a linear-algebra setting.
 - Fan-beam geometry: words only (as planned) or a demo mode? Parallel beam keeps the math
   clean; fan beam is what clinical CT uses.
 - 3D: a cone-beam or stacked-slice reconstruction shown in `volview` (graphics3d), or stay
@@ -452,13 +470,12 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 - Real data: a real sinogram (e.g. an openly licensed micro-CT dataset with a
   CC BY licence) would make principle 4 concrete; needs a licence check and downsampling to
   a few hundred kB. Otherwise phantom + `cell256.png` only.
-- Hough coordination: confirm with the Hough plan that both use $\theta \in [0°, 180°)$,
-  signed $\rho$ from the image centre, and the same sinogram orientation; and whether its
-  demos import `lib/radon.ts`.
-- `fft.ts` lives in `demos/src/fourier2d/`: move to `lib/fft.ts` now that several plans
-  (compression, FFT registration, this one) depend on it?
-- The ramp-filter derivation needs the continuous Fourier transform, which `fourier/` does
-  not state; one math slide here, or add it to `fourier/`?
+- **Decided (course conventions):** Hough and Radon both use $\theta \in [0°, 180°)$, signed
+  $\rho$ from the image centre, the same sinogram orientation; Hough imports `lib/radon.ts`
+  for its one slide.
+- **Decided:** `fft.ts` moves to `lib/fft.ts` (owner `fourier/`).
+- **Decided (review-organisation):** the continuous Fourier transform is added as a math
+  slide to `fourier/`; this day recalls it.
 
 ## References
 

@@ -2,6 +2,14 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
+**Course map (2026-11-12):** elective, group "Objects" (skeletons, moments); entry after
+core day 8 (labelling). Core days 1–8 are known; random forests (day 13) may still be ahead.
+
+**Notation** (course conventions): images are $I$ in the concept layer; the math layer keeps
+$f$ for "the image as a function" when moments are inner products. Sample covariance is
+$S$ (not $C$), eigenvalues in descending order. Legendre moments are written $a_{pq}$ (not
+$\lambda_{pq}$, which is reserved for eigenvalues and the prior weight).
+
 ## Goal of the day
 
 After the day a student can:
@@ -25,62 +33,72 @@ it unchanged.
 ## Prerequisite gap
 
 - **Moments of order 0–2 as region properties** (area, centroid, central moments,
-  second-moment matrix, orientation, equivalent ellipse, eccentricity) are taught on the
-  labelling day (`regionprops/`, demo `moments`). This day assumes that material and recalls
-  it in two slides (the formulas and one screenshot of the equivalent ellipse); the
-  orientation derivation is not repeated. If a group meets moments here first, the
-  `regionprops/` slides on central moments and the second-moment matrix can be shown as a
-  prelude (about 20 minutes); the rest of that unit (perimeter, Euler number) is not needed.
+  second-moment matrix $S$, orientation, equivalent ellipse, eccentricity) are taught on day 8
+  (labelling, `regionprops/`, demo `moments`), and the covariance/eigenvector picture in
+  `pca/` (day 1). This day recalls them in two slides (the formulas and one screenshot of the
+  equivalent ellipse); the orientation derivation is not repeated, nor re-derived.
+- **Shoelace area / convex hull** (day 8, `shape-features/`): recalled in one line where
+  Green's theorem appears (unit 1); this day owns the Green's-theorem math layer.
 - **Binary masks / segmentation**: shape moments need a mask of one object. One slide:
-  threshold and label (labelling and thresholding days); the demos generate their own shapes,
-  so no segmentation code is needed.
+  threshold (day 5) and label (day 8); the demos generate their own shapes, so no
+  segmentation code is needed.
 - **Orthogonal functions and projection**: known from linear algebra (inner product,
   orthogonal projection, Gram–Schmidt on vectors) and from *The Fourier transform*. The step
   from vectors to functions (inner product = integral) is new to some and gets one slide
   with the 1D picture.
 - **Polar coordinates and $e^{i\theta}$**: known from calculus and *The Fourier transform*;
   one-line recall that multiplying by $e^{i\alpha}$ rotates by $\alpha$.
-- **Classification**: no machine learning is assumed. Unit 5 uses only nearest neighbour and
-  nearest class mean in a feature space, explained with a scatter plot.
+- **Classification**: train/test, overfitting and cross-validation are owned by the random
+  forests day (day 13). Optional unit 5 recalls them in one slide (a forward pointer when this
+  elective runs before day 13) and uses only nearest neighbour and nearest class mean in a
+  feature space, explained with a scatter plot.
 
 ## Links to other days
 
-- **Labelling** (`plan/labelling-day.md`): owns orders 0–2 (region properties). This day owns
-  general order, normalisation, invariants, orthogonal moments and reconstruction. The
-  labelling day's `moments` demo is extended here with a new mode rather than duplicated; its
-  `regionfilter` measurement table can gain Hu and Zernike columns (unit 5 here), which makes
-  its scatter plot a moment-feature space.
-- **Thresholding** (`plan/thresholding-day.md`, being written): Tsai's moment-preserving
-  threshold chooses the threshold so that the binary image has the same first three grey-level
-  moments as the histogram. It is a 1D use of the same definitions; one slide pointer in unit
-  1 here, or a full treatment there, whichever day covers thresholding methods in depth.
-- **Snakes / shape models** (`plan/snakes-day.md`): Procrustes aligns *landmark* shapes and
+- **Labelling** (day 8, `plan/labelling-day.md`): owns orders 0–2 (region properties) and the
+  shape features (convex hull, shoelace, Feret, solidity, and the Fourier-descriptor slide).
+  This day owns general order, normalisation, invariants, orthogonal moments and
+  reconstruction. The labelling day's `moments` shell (`lib/shapecanvas.ts`) is extended here
+  with new modes rather than duplicated; its `regionfilter` table can gain Hu and Zernike
+  columns (unit 5 here), which makes its scatter plot a moment-feature space.
+- **Measurements** (day 10): lists Hu/Zernike as one catalogue row "(elective)" pointing here.
+- **Thresholding** (day 5, `plan/thresholding-day.md`): Tsai's moment-preserving threshold
+  chooses the threshold so that the binary image has the same first three grey-level moments
+  as the histogram. It is a 1D use of the same definitions: one pointer slide in unit 1 here
+  (decided; the thresholding day does not need it).
+- **Snakes / shape models** (elective, `plan/snakes-day.md`): Procrustes aligns *landmark* shapes and
   needs point correspondence; moment-based pose normalisation (unit 2) aligns *regions* without
   any correspondence, at the cost of being less precise and failing for symmetric shapes. The
   shape families in `lib/shapes.ts` (nucleus/kidney, leaf) are reused for classification.
   Point distribution models and moment invariants are two answers to "describe a shape with a
   few numbers".
-- **Skeletons** (`plan/skeleton-day.md`): moments describe mass distribution and are blind to
+- **Skeletons** (elective, same group, `plan/skeleton-day.md`): moments describe mass distribution and are blind to
   topology and thin branches (a neuron and a blob of the same second moments look alike);
   skeleton features (branch count, length) are the complementary descriptors. One slide in
   unit 5.
-- **Marching cubes / 3D** (`plan/marchingcubes-day.md`): 3D moments of a labelled volume give
-  the $3\times3$ inertia tensor and principal axes (optional unit 6); moments of a closed mesh
-  follow from the divergence theorem, the 3D counterpart of the Green's theorem slide in unit 1.
-- **Dynamic programming** (`plan/dynprog-day.md`): its polar unwrapping (`lib/polar.ts`, if it
-  exists) is the same resampling that turns Zernike moments into an angular Fourier series.
-- **Fourier** (`fourier/`): moments are the Taylor coefficients of the Fourier transform at
+- **Marching cubes / 3D** (elective, `plan/marchingcubes-day.md`; `volumes3d/` is the course's
+  3D-images unit): 3D moments of a labelled volume give the $3\times3$ inertia tensor and
+  principal axes (optional unit 6); moments of a closed mesh follow from the divergence
+  theorem, the 3D counterpart of the Green's theorem slide in unit 1.
+- **Dynamic programming** (elective, `plan/dynprog-day.md`): its polar unwrapping
+  (`lib/polar.ts`, owner dynprog) is the same resampling that turns Zernike moments into an
+  angular Fourier series.
+- **Integral images** (elective): one summed-area table per $x^p y^q I$ gives windowed moments
+  in $O(1)$ (unit 5 pointer).
+- **Fourier** (`fourier/`, day 1): moments are the Taylor coefficients of the Fourier transform at
   zero frequency, so low-order moments describe the coarse shape (unit 1); reconstruction from
   orthogonal moments is a truncated expansion like low-pass filtering in `fourier2d` (unit 3).
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
-Four core units, about 1.5 h each including the exercise, plus two optional units.
+Four core units, about 1.5 h each including the exercise, plus two optional units. Units 1
+and 2 may merge into one (review-organisation §2.6) since day 8's moment material is
+assumed; then a short `momentclass` task goes into the unit 4 exercise.
 
 ### 1. `moments-basis/`: Moments as projections onto monomials
 
 - Picture first: the same shape drawn as a binary mask and as a grey image; "which few numbers
-  summarise it?" Recall from the labelling day: $m_{00}$, centroid, $C$, equivalent ellipse.
+  summarise it?" Recall from day 8: $m_{00}$, centroid, $S$, equivalent ellipse.
   The ellipse misses everything that is not an ellipse (the L-shape, a pear): we need higher
   orders.
 - Definition, continuous: $m_{pq} = \iint x^p y^q f(x, y)\,dx\,dy$, i.e. the inner product
@@ -88,7 +106,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   there are $(N+1)(N+2)/2$ moments up to order $N$. Binary masks and grey images use the same
   formula ($f$ = mask or intensity).
 - **Probability view**: $f/m_{00}$ is a 2D density. Order 1: mean; order 2: covariance (the
-  labelling day's $C$); order 3: **skewness** (which way the shape leans: a pear vs its
+  labelling day's $S$, i.e. the `pca/` covariance); order 3: **skewness** (which way the shape leans: a pear vs its
   mirror, the sign of $\mu_{30}$); order 4: **kurtosis** (flat vs peaked, a square vs a
   disc). Marginal moments $\mu_{p0}$ are moments of the projection of $f$ onto the $x$-axis.
 - **Uniqueness**: a bounded image with compact support is determined by the full infinite
@@ -104,9 +122,10 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   vs pixel as a unit square: integrating over the square adds exactly $m_{00}/12$ to
   $\mu_{20}$ (the variance of a uniform distribution on a unit interval), a first taste of
   discretisation error. For a polygon (snake, marching-squares contour), Green's theorem turns
-  the area integral into a sum over the edges (one slide, formula for $m_{00}$ and $m_{10}$).
-- Pointer: Tsai's moment-preserving thresholding (1D moments of the histogram; see the
-  thresholding day).
+  the area integral into a sum over the edges (math slide, formula for $m_{00}$ and $m_{10}$;
+  $m_{00}$ is the shoelace formula recalled from day 8 `shape-features/`).
+- Pointer: Tsai's moment-preserving thresholding (1D moments of the histogram; histograms
+  from day 5).
 - **Demo `moments`** (labelling day's demo) with `data-mode="higher"`: same canvas, shapes and
   handles (drag, rotate, scale) plus a *mirror* button and a grey-image option (a blurred or
   textured shape). Side panel: a triangular table of $m_{pq}$ (or $\mu_{pq}$, toggle) up to
@@ -129,10 +148,10 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   hand). Normalised moments $\eta_{pq} = \mu_{pq} / \mu_{00}^{1 + (p+q)/2}$. For grey images
   a contrast change $af$ also cancels in $\eta_{pq}$.
 - **Rotation, small example first**: rotate the coordinates in $\mu_{20}, \mu_{11}, \mu_{02}$
-  by hand; $\phi_1 = \eta_{20} + \eta_{02}$ (the trace of $C$, scaled) and
+  by hand; $\phi_1 = \eta_{20} + \eta_{02}$ (the trace of $S$, scaled) and
   $\phi_2 = (\eta_{20} - \eta_{02})^2 + 4\eta_{11}^2$ (the squared eigenvalue difference) do
   not change. Linear algebra names both: trace and eigenvalues of a symmetric matrix are
-  invariant under $Q^\top C Q$. Fact for the quiz: the disc has the smallest $\phi_1$ of all
+  invariant under $Q^\top S Q$. Fact for the quiz: the disc has the smallest $\phi_1$ of all
   shapes, $1/(2\pi) \approx 0.159$ (the square has $1/6$).
 - **Complex moments** make the general case systematic:
   $c_{pq} = \iint (x + iy)^p (x - iy)^q f\,dx\,dy$. Rotation by $\alpha$ multiplies $c_{pq}$ by
@@ -153,11 +172,11 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   rotating a 20-pixel-wide shape changes $\phi$ by several per cent; invariance holds for the
   continuous image only. Affine invariants (Flusser & Suk) named for slanted views.
 - **Pose normalisation** as the alternative to invariants: translate to the centroid, scale to
-  $m_{00} = 1$, rotate the principal axis onto $x$ (orientation from the labelling day).
+  $m_{00} = 1$, rotate the principal axis onto $x$ (orientation from day 8).
   Remaining 180° ambiguity: fix the sign of $\mu_{30}$. Fails when $\lambda_1 \approx \lambda_2$
   (square, star, gear): then use the phase of a higher complex moment $c_{k0}$ for $k$-fold
   symmetry. After normalisation shapes can be compared pixel by pixel (link to Procrustes on
-  the snakes day: same goal, no landmarks needed).
+  the snakes elective: same goal, no landmarks needed).
 - **Demo `moments`** with `data-mode="invariants"`: the shape canvas as in unit 1, plus a
   reference copy frozen by a *set reference* button. Panel: $\mu_{pq}$, $\eta_{pq}$ and
   $\phi_1..\phi_7$ (log scale bars) for the current shape and the reference, with relative
@@ -189,15 +208,15 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   $P_2$); three-term recurrence $(n+1)P_{n+1} = (2n+1)xP_n - nP_{n-1}$ for the rest;
   $\int P_n^2 = 2/(2n+1)$.
 - **Legendre moments** on the square $[-1,1]^2$:
-  $\lambda_{pq} = \frac{(2p+1)(2q+1)}{4}\iint P_p(x) P_q(y) f\,dx\,dy$. Each is a fixed linear
+  $a_{pq} = \frac{(2p+1)(2q+1)}{4}\iint P_p(x) P_q(y) f\,dx\,dy$. Each is a fixed linear
   combination of geometric moments of order $\le p+q$: same information, better coordinates
   (triangular change of basis).
-- **Reconstruction** $\hat f_N = \sum_{p+q \le N} \lambda_{pq} P_p(x)P_q(y)$: the orthogonal
+- **Reconstruction** $\hat f_N = \sum_{p+q \le N} a_{pq} P_p(x)P_q(y)$: the orthogonal
   projection onto polynomials of degree $\le N$, so the best approximation in the
   least-squares sense, and adding an order never changes the earlier coefficients. Same
   argument as truncating a Fourier series (`fourier2d` low-pass); the error looks different
   (polynomial ringing piles up at the square's corners and edges, Fourier ringing is
-  periodic). Moments as image compression: a 128×128 image vs 231 numbers at $N = 20$.
+  periodic, recall `fourier/` day 1). Moments as image compression: a 128×128 image vs 231 numbers at $N = 20$.
 - **Discretisation**: sampled $P_p$ are not exactly orthogonal on a pixel grid, and the error
   grows with order; remedies: integrate the polynomials over each pixel, or use discrete
   orthogonal polynomials (Tchebichef, Krawtchouk; Mukundan 2001) that are exactly orthogonal
@@ -273,16 +292,20 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 - A shape becomes a point in a feature space: $(\log\phi_1, \dots, \log\phi_7)$ or
   $(|Z_{nm}|)$. Scaling features (z-scores) so that no coordinate dominates. Classify by
   **nearest class mean** or **nearest neighbour** (Euclidean distance); no further machine
-  learning. Leave-one-out error as an honest check.
+  learning. One recall slide of day 13's vocabulary (feature space, training/test set,
+  overfitting, cross-validation; a forward pointer if day 13 is still ahead), then
+  leave-one-out error as an honest check.
 - Which invariants separate which classes: round vs kidney-shaped vs lobed nuclei, leaf
   species, digits/letters. What invariance costs: 6 and 9, M and W, b and d/p/q collapse
   under rotation invariance (and with $|\phi_7|$, under mirroring too). Choose the invariance
   the task needs, not the most.
 - Robustness: boundary noise, salt-and-pepper, low resolution, partial occlusion (moments are
   global: one missing piece changes every moment, unlike local features). Moments vs
-  skeleton features vs shape-model parameters (snakes day) in one comparison table.
-- Moment-based **template matching**: compute invariants in a sliding window (one summed-area
-  table per $x^p y^q f$ makes each window $O(1)$), compare to the template's vector: rotation
+  skeleton features vs shape-model parameters (snakes elective) vs contour (Fourier)
+  descriptors (day 8) in one comparison table.
+- Moment-based **template matching** (template matching is owned by day 11, FFT
+  registration): compute invariants in a sliding window (one summed-area table per
+  $x^p y^q f$ makes each window $O(1)$; integral-images elective), compare to the template's vector: rotation
   invariant matching without trying all angles; or pose-normalise and correlate.
 - **Demo `momentclass`** (new): a seeded training set of 3–4 shape classes (choice: nuclei
   from `lib/shapes.ts`; leaves from `lib/shapes.ts`; a small set of digits and letters
@@ -303,9 +326,10 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   axes and the equivalent ellipsoid of a labelled 3D object (nucleus orientation in a
   confocal stack); its eigenvalues as rotation invariants; 3D Zernike moments and spherical
   harmonics named as the 3D analogue of unit 4. Moments of a mesh via the divergence theorem
-  (marching-cubes day).
+  (marching-cubes elective). Stacks and anisotropic spacing $(\Delta x, \Delta y, \Delta z)$:
+  recall `volumes3d/` (marching-cubes elective) or one slide here if that elective is not taken.
 - **Demo**: reuse `zernikebasis`'s WebGL view with `data-mode="ellipsoid"`: a voxel object
-  (from `lib/volume.ts` if it exists) with its principal axes and equivalent ellipsoid, rotate
+  (from `lib/volume.ts`, owner marching cubes) with its principal axes and equivalent ellipsoid, rotate
   by dragging.
 
 ## Shared engineering
@@ -325,23 +349,25 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 - **Split with the labelling day**: `lib/label.ts` keeps its one-scan per-label accumulation of
   moments to order 2 (fast, for all labels at once). `lib/moments.ts` works on one object at a
   time and to any order; its order-2 results must agree with `label.ts` (test). The closed-form
-  eigen-decomposition of a symmetric $2\times2$ matrix stays in one place (`lib/linalg.ts` or
-  `lib/imageops.ts`, as agreed in the labelling and skeleton plans).
-- **`moments` demo**: owned by the labelling day; this day adds `data-mode="higher"` and
-  `data-mode="invariants"`. The shape canvas with drag/rotate/scale/mirror handles is factored
-  out (`lib/shapecanvas.ts` or inside `lib/shapes.ts`) so that `momentphase` and `momentclass`
-  reuse it.
-- Reused: `lib/shapes.ts` (snakes day: nucleus/kidney and leaf families, rasterisation; add a
-  digit/letter stroke family), `lib/plot.ts` (bar plots, error vs $N$, scatter plot), the matrix
-  heat map helper proposed in the snakes plan (Gram matrices), `lib/gl3d.ts` (3D surface and
-  ellipsoid views), `lib/imageops.ts` (loading `cell256.png`, noise), `lib/ui.ts` (`rng(seed)`).
+  eigen-decomposition of a symmetric $2\times2$ matrix lives only in `lib/linalg.ts` (not in
+  `imageops.ts`).
+- **`moments` demo**: owned by the labelling day (shape canvas `lib/shapecanvas.ts`, owner
+  labelling); this day adds `data-mode="higher"` and `data-mode="invariants"`, and
+  `momentphase` and `momentclass` reuse the same canvas. `momentclass`'s scatter reuses the
+  labelling day's feature-table + scatter shell (`regionfilter`) and the 2D point helpers of
+  `lib/playground.ts` (owner random forests day).
+- Reused: `lib/shapes.ts` (nucleus/kidney and leaf families, rasterisation; add a
+  digit/letter stroke family), `lib/plot.ts` (bar plots, error vs $N$, scatter plot, matrix heat
+  map for Gram matrices), `lib/colour.ts` (diverging map), `lib/gl3d.ts` (owner 3D graphics
+  elective; 3D surface and ellipsoid views), `lib/imageops.ts` (`loadGrey()` for `cell256.png`),
+  `lib/random.ts` (`rng`, `gauss` for noise).
 - **Language / speed**: TypeScript throughout. Estimated costs: Zernike moments up to $N = 20$
   on 128×128 are ~121 sums over ~13 k disc pixels (≈ 2 M complex multiply-adds, a few ms);
   reconstruction is the same again. $N = 40$ on 256×256 is ≈ 30 M operations, around the 30 ms
   limit: recompute only when $N$ or the image changes (not on every slider tick of other
   controls), cache radial polynomial tables per size, and measure before considering Rust/Wasm
   for that one kernel (with a TS reference and an agreement test, per `demos/README.md`).
-- Tests (`make test`, as in the other plans): moments of an analytic rectangle and disc match
+- Tests (`make test` over `demos/test/*-test.ts`): moments of an analytic rectangle and disc match
   the closed forms; central-from-raw = direct central; order-2 results agree with
   `lib/label.ts`; Hu invariants of a large digitised ellipse are constant under rotation within
   a tolerance and $\phi_7$ flips sign under mirroring; complex moments rotate by
@@ -368,24 +394,24 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 
 ## Open questions
 
-- How long is a "day" (same question as for the other days)? Units 1 and 2 could merge into
-  one if the labelling day's moment material is fresh; then unit 5 (classification) could
-  become core, which gives the day an applied ending. Proposal: keep 1–4 core and put a short
-  classification task from `momentclass` into the unit 4 exercise.
+- **Decided (course map):** this is an elective after day 8, so day 8's moment material is
+  always taught first (no prelude needed). Units 1 and 2 may merge; then unit 5
+  (classification) could become core, which gives the day an applied ending. Proposal: keep
+  1–4 core and put a short classification task from `momentclass` into the unit 4 exercise.
 - Depth of Hu invariants: derive $\phi_1, \phi_2$ and show the complex-moment construction
   (proposal), or also derive $\phi_7$'s mirror behaviour formally?
 - Monomial reconstruction in `momentrecon`: keep it (shows the ill-conditioning vividly) or
   show only the Gram matrix condition number in `polybasis`?
 - Discrete orthogonal polynomials (Tchebichef, Krawtchouk): one slide (proposal) or a demo
   toggle?
-- Tsai's moment-preserving threshold: here as a pointer (proposal) or on the thresholding day?
+- **Decided:** Tsai's moment-preserving threshold is a pointer slide here only.
 - Digits/letters for classification: hand-made stroke glyphs (proposal, reproducible) or a
   small bundled licensed dataset (e.g. a few MNIST digits; licence and size to check)? A real
   image with differently shaped nuclei or leaves would also help (same licence search as other
   plans).
 - 3D moments: optional unit (proposal) or a single slide in unit 2?
-- Boundary-based descriptors (Fourier descriptors of a contour) are not covered by any plan;
-  they would fit next to this day as a comparison (region moments vs contour descriptors).
+- **Decided (review-gaps gap 13):** Fourier descriptors of a contour are one slide plus a demo
+  mode in the labelling day's `shape-features/`; unit 5 here compares them with moments.
 - Programming language for any code parts is still open (see README).
 
 ## References

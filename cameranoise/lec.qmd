@@ -1,0 +1,153 @@
+---
+title: "Camera noise, SNR and PSNR"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+Where do the numbers in an image come from, and how much of them is **noise**?
+
+- A camera counts **electrons**: a full well, read noise, an ADC with $b$ bits.
+- Light itself is noisy: **shot noise** grows as $\sqrt N$.
+- The usual **noise model** for the rest of the course: additive Gaussian noise of standard deviation $\sigma_n$, and when it is (and is not) right.
+- How many bits are worth storing: the **dynamic range**.
+- Measuring quality in decibels: **SNR** and **PSNR**.
+
+*Slides titled **The math** give the formulas and proofs; the ideas are complete without them.*
+
+::: notes
+Second unit of the bit-depth day. The quantisation unit showed what rounding to b bits costs; this one asks what the measurement itself can fill. It is the course's owner of noise models, SNR and PSNR: later days (denoising, MRFs, reconstruction, compression, unmixing) recall the definitions from here. Notation: σ_n is a noise standard deviation; σ alone is reserved for the width of a Gaussian filter.
+:::
+
+## Where the numbers come from
+
+A camera pixel collects light as **electrons** ($e^-$), during the exposure:
+
+1. **Full well**: a pixel holds at most $N_\text{max}$ electrons (a few thousand to ~100 000). More light: the pixel **saturates**.
+2. **Read noise**: the electronics add noise of a few $e^-$ to every reading, even in the dark.
+3. **ADC** (analogue-to-digital converter): turns the charge into a whole number of **ADU** (analogue-digital units), with $b$ bits. The **gain** $g$ says how many electrons one ADU is.
+
+A raw pixel value is "electrons ÷ gain, rounded".
+
+## Light itself is noisy: shot noise
+
+Photons arrive at random. A pixel that collects **on average** $N$ electrons gets a count that varies from exposure to exposure by about $\sqrt N$ (Poisson statistics):
+
+| mean signal $N$ | 100 | 10 000 |
+|---|---|---|
+| noise $\sqrt N$ | 10 | 100 |
+| signal/noise | 10 | 100 |
+
+- More light → the noise grows, but more slowly than the signal: **100× more light gives 10× better SNR**.
+- The best SNR a pixel can ever reach is $\sqrt{N_\text{max}}$: for a full well of 30 000 $e^-$, about 173.
+- **Averaging** $n$ frames is like collecting $n$ times the light: the SNR improves by $\sqrt n$.
+- So the lowest bits of a bright pixel only record noise.
+
+## The math: Poisson counts {.math}
+
+A count $K$ of independent random arrivals with mean $N$ is **Poisson**: $P(K = k) = e^{-N}N^k/k!$, with
+
+$$\mathbb E[K] = N, \qquad \operatorname{Var}(K) = N, \qquad \text{SNR} = \frac{N}{\sqrt N} = \sqrt N.$$
+
+- The sum of $n$ independent Poisson counts with mean $N$ is Poisson with mean $nN$: averaging $n$ frames gives mean $N$ and SD $\sqrt{N/n}$, so the SNR is $\sqrt{nN}$.
+- For $N \gtrsim 30$ the Poisson distribution is close to a Gaussian with mean $N$ and variance $N$: shot noise behaves like Gaussian noise whose **variance equals the signal**.
+
+## The usual noise model
+
+Most methods in this course assume **additive Gaussian noise**:
+
+$$\text{observed pixel} = \text{true value} + \text{noise}, \qquad \text{noise} \sim \mathcal N(0, \sigma_n^2), \text{ independent from pixel to pixel.}$$
+
+- It fits **read noise** well, and **shot noise** in a region of roughly constant brightness (then $\sigma_n^2 \approx$ the mean signal in electrons).
+- It does **not** fit across an image with dark and bright parts: shot noise is **signal-dependent** (bright parts are noisier in absolute terms). At very low light the counts are small whole numbers, not a bell curve.
+- Saturated pixels have no noise at all, and are not measurements either.
+- Correlated noise (from demosaicing, compression, or a filter) breaks "independent from pixel to pixel".
+
+::: notes
+When a method assumes constant σ_n but the noise is Poisson, a variance-stabilising transform (e.g. 2√x, the Anscombe transform) makes the noise roughly constant; mention it as a pointer only. Later days that need a noise model (MRF denoising, wavelet shrinkage, reconstruction, unmixing) recall this slide.
+:::
+
+## Try it: how many bits does a camera need?
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="camerabits" data-fwc="30000" data-read="1.5" data-bits="16" data-exposure="0.5"></div>
+<script src="../demos/dist/camerabits.js"></script>
+```
+
+::: notes
+The plot is a photon-transfer curve: noise against signal, both in electrons, log-log. Flat blue = read noise, slope-1/2 green = shot noise, dashed red = quantisation noise. Start with the sCMOS preset: quantisation is far below everything else. "Same, 8-bit ADC": now one ADU is 118 electrons, and the dashed line is above the read noise; the dark measured points drop to zero (red triangles), because every pixel of a flat dark patch reads the same number: the signal is lost, not noisy. "Noisy, 16-bit ADC": the read noise is 66 ADU, so the lowest 6 bits only record noise. Finally the two low-light presets: count the ADU values used in the image (4 with 8 bits, 48 with 12).
+:::
+
+## How many bits are meaningful?
+
+- **Dynamic range** = full well ÷ read noise: the ratio between the brightest signal and the faintest one you can tell from zero. For 30 000 $e^-$ and 1.5 $e^-$: 20 000 : 1, which is 86 dB, or 14.3 bits.
+- An ADC with fewer bits than that throws dark detail away (quantisation noise above the read noise).
+- An ADC with many more bits records noise very precisely: harmless, but the extra bits carry no information.
+- Rule of thumb: choose the gain so that **one ADU is at most about one read-noise SD**. Then the read noise works as a natural dither (quantisation unit).
+- Hence: scientific cameras use 12–16 bits; an 8-bit image of a dim sample may have lost exactly what you wanted to measure.
+
+## The math: adding the noise sources {.math}
+Independent noise sources add in **variance**. At a mean signal of $S$ electrons, with read noise $\sigma_r$ and gain $g$:
+
+$$\sigma^2_\text{total} = \underbrace{S}_{\text{shot}} + \underbrace{\sigma_r^2}_{\text{read}} + \underbrace{g^2/12}_{\text{quantisation}}.$$
+
+- Shot noise dominates when $S > \sigma_r^2$ (for $\sigma_r = 1.5\,e^-$: above about 2 electrons).
+- Quantisation is negligible when $g/\sqrt{12} \ll \sigma_r$; a full well $N_\text{max}$ spread over $2^b - 1$ levels gives $g = N_\text{max}/(2^b - 1)$.
+- In decibels, amplitude ratios use $20\log_{10}$: dynamic range $= 20\log_{10}(N_\text{max}/\sigma_r)$, maximum SNR $= 20\log_{10}\sqrt{N_\text{max}} = 10\log_{10}N_\text{max}$.
+- In bits: $\log_2(N_\text{max}/\sigma_r)$; one bit is $20\log_{10}2 \approx 6.02$ dB.
+
+## Measuring noise: SNR and PSNR {.smaller}
+
+**SNR** (signal-to-noise ratio) of a measurement: the signal divided by the noise SD, $\ \text{SNR} = S/\sigma_n$. In decibels: $20\log_{10}(S/\sigma_n)$.
+
+- 400 electrons with pure shot noise: $400/20 = 20$, or 26.0 dB. Halving the noise adds 6 dB.
+
+**PSNR** (peak signal-to-noise ratio) compares a whole image with a **reference** (the clean image, or the original before compression or denoising):
+
+$$\text{MSE} = \text{mean of } (\text{image} - \text{reference})^2, \qquad \text{PSNR} = 10\log_{10}\frac{\text{peak}^2}{\text{MSE}} \text{ dB}.$$
+
+- **Peak** = the largest possible value: 255 for 8 bits, $2^b - 1$ for $b$ bits, 1 for images scaled to $[0, 1]$. **Always state it.**
+- An 8-bit image with Gaussian noise $\sigma_n = 5$ grey levels: MSE = 25, PSNR = $10\log_{10}(255^2/25) = 34.2$ dB. Half the noise: 40.2 dB.
+- The same 12-bit image (noise 80 ADU) has PSNR 34.2 dB with peak 4095, but 58.3 dB if someone uses the 16-bit peak 65 535: **24 dB for nothing**.
+- PSNR compares pixels one by one; it says nothing about **where** the errors are or whether they look like structure (the quantisation unit's dithering example).
+
+::: notes
+PSNR is the standard number for denoising, compression and reconstruction results; SSIM and "metrics can disagree" are left to the compression day. With an image scaled to [0, 1], peak = 1 and PSNR = −10 log10(MSE). In a physical unit (electrons) the natural peak is the full well. The quantisation unit's SNR (signal variance over rounding-noise variance) is a third variant: say which one you use.
+:::
+
+## The math: decibels for SNR and PSNR {.math}
+
+Decibels measure a **power** (variance) ratio $P_1/P_2$ as $10\log_{10}(P_1/P_2)$; for an **amplitude** (SD) ratio that is $20\log_{10}(A_1/A_2)$.
+
+- Averaging $n$ frames divides the noise variance by $n$: $+10\log_{10}n$ dB ($+6.0$ dB for 4 frames, $+12.0$ dB for 16).
+- Rounding to $b$ bits on a $[0, 2^b - 1]$ scale (step $\Delta = 1$) gives MSE $= \Delta^2/12$, so
+
+$$\text{PSNR}_\text{quantisation} = 10\log_{10}\frac{(2^b - 1)^2}{1/12} = 20\log_{10}(2^b - 1) + 10\log_{10}12 \approx 6.02\,b + 10.8 \text{ dB}$$
+
+(58.9 dB for 8 bits). Noise well below that is invisible next to the rounding.
+
+- A PSNR difference between two methods on the same image and peak is $10\log_{10}(\text{MSE}_1/\text{MSE}_2)$: independent of the peak.
+
+## Summary
+
+- A camera counts electrons: **shot noise** $\sqrt N$ (Poisson), **read noise**, a **full well**. Their ratio, the dynamic range, says how many bits are worth storing.
+- Noise sources add in **variance**. Averaging $n$ frames improves the SNR by $\sqrt n$.
+- The usual model is **additive Gaussian noise** $\sigma_n$; shot noise is signal-dependent, so the model holds region by region.
+- **SNR** = signal / noise SD; **PSNR** = $10\log_{10}(\text{peak}^2/\text{MSE})$ against a reference, with the peak stated.
+- Next: storing and showing those 12- and 16-bit numbers without breaking them.

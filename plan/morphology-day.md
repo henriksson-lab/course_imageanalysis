@@ -1,6 +1,7 @@
 # Plan: a day on mathematical morphology
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
+**Course map (2026-11-12):** core day 7 of 17, Part II "From pixels to objects". Order: day 6 (colour) → this → day 8 (labelling). **Owner of the distance transform** (course map; moved here from the watershed plan, review-ordering C2).
 
 ## Goal of the day
 
@@ -10,7 +11,7 @@ After the day a student can:
 2. compute **opening** and **closing**, state their properties (increasing, idempotent, anti-extensive / extensive, duality), and use them to remove noise and to **filter objects by size**, including a **granulometry** (size distribution);
 3. apply the same operators to **grey-level** images: remove an uneven background with a **top-hat**, find edges with the **morphological gradient**, and predict from the SE size which bright or dark structures survive;
 4. compute a **geodesic dilation** and a **morphological reconstruction** by hand, and use it to **fill holes**, **remove objects touching the border**, compute **h-maxima / h-minima** and **impose markers** (what the watershed day needs);
-5. relate erosion by a disc to **thresholding the distance transform**, and dilation by a disc to a front moving at constant speed.
+5. define the **distance transform** $\mathrm{DT}(p)$, compute a city-block DT **by hand**, *(math)* state the two-pass chamfer algorithm, and relate erosion by a disc to **thresholding the distance transform** and dilation by a disc to a front moving at constant speed.
 
 Why it fits this audience: the definitions are set operations and min/max, so everything
 can be done by hand on a 7×7 grid, and the formal side is light. The properties have a
@@ -18,60 +19,62 @@ linear-algebra counterpart worth naming: an opening is idempotent like a project
 ($P^2 = P$), dilation distributes over union as a linear map distributes over sums
 (max-plus algebra in one sentence), and erosion/dilation are a dual pair like a map and
 its adjoint. The sliding window, the border problem and the "separable kernel" trick
-come straight from *Filtering & convolution*, so morphology is introduced as "the same
+come straight from `kernels/` (day 1), so morphology is introduced as "the same
 window, but take the min or max instead of the weighted sum".
 
 ## Prerequisite gap
 
-- **Sliding-window filtering, border handling, separability**: known from `kernels/`.
+- **Sliding-window filtering, border handling, separability**: known from `kernels/` (day 1).
   Recall in one slide; the border question returns with a twist (erosion needs
   "outside = foreground" or "outside = background" to be chosen, and the choice
   visibly matters).
-- **Binary images / thresholding** are taught on the thresholding day
-  (`plan/thresholding-day.md`). Unit 1 opens with a one-line recall (threshold → 0/1
-  mask, foreground = 1), with noise specks and gaps as the motivation for the day.
-  Top-hat background correction stays on this day (unit 3); the thresholding day's
-  unit 3 cross-references it.
+- **Binary images / thresholding** are taught on day 5 (`plan/thresholding-day.md`).
+  Unit 1 opens with a one-line recall (threshold → 0/1 mask, foreground = 1), with noise
+  specks and gaps as the motivation for the day. Top-hat background correction is owned
+  here (unit 3); day 5's unit 3 had a forward pointer to it. The **median filter** was
+  met on day 5 (one slide there); unit 3 here places it among the rank filters.
 - **Connected components** (4- vs 8-connectivity) are needed here only as a picture: in
-  unit 1 (cross vs square SE), in and in unit 4 (reconstruction floods one component). Labelling as an algorithm, and
+  unit 1 (cross vs square SE) and in unit 4 (reconstruction floods one component). Labelling as an algorithm, and
   everything done with labels, is its own day, directly after this one
   (`plan/labelling-day.md`; decided 2026-11-12). Keep the conventions (foreground
   8-connected, background 4-connected) identical here, on the labelling day and on the
   watershed day.
-- **Distance transform**: defined and computed (two-pass chamfer) on the watershed
-  day. Here it is used only through its definition $D(p) = \min_{q \notin A}\|p - q\|$
-  and a picture; if the watershed day has not been taught, one slide with the
-  definition is enough (no algorithm needed for the link in unit 2).
+- **Distance transform**: **defined here** (unit 2): $\mathrm{DT}(p) = \min_{q \notin A}\|p - q\|$,
+  a picture, the city-block DT by hand, the two-pass chamfer algorithm in the math layer,
+  exact Euclidean DT named. The watershed day (9), skeleton elective, measurements (day 10),
+  dynprog elective ("chamfer is DP") and level sets (SDF) recall it. Symbol $\mathrm{DT}$
+  (course convention; $D_p$ is the data term on day 12).
 - **Set notation** (union, intersection, complement, translate $A_x$, reflection
   $\check B = \{-b\}$): one slide, with a pixel-grid picture for each.
 
 ## Links to other days
 
-- **Labelling** (`plan/labelling-day.md`, the next day): a connected component is the
+- **Labelling** (day 8, `plan/labelling-day.md`, the next day): a connected component is the
   reconstruction of the mask from a single pixel (one line in unit 4, developed there).
   The labelling day uses this day's opening, fill holes and clear border to clean masks
   before measuring.
-- **Skeletons** (`plan/skeleton-day.md`, its own day; decided 2026-11-12): hit-or-miss,
+- **Skeletons** (elective "Objects", `plan/skeleton-day.md`, entry after day 8): hit-or-miss,
   thinning, medial axis and skeleton analysis all live there. It builds on this day's
   erosion, opening (Lantuéjoul's formula) and the distance-transform link of unit 2;
   one pointer slide at the end of unit 2 ("the centres of the largest discs that fit
-  form the skeleton: see the skeleton day").
-- **Watershed** (`plan/watershed-day.md`) relies on this day for the *definitions* of
+  form the skeleton: see the skeleton elective").
+- **Watershed** (day 9, `plan/watershed-day.md`) relies on this day for the *definitions* of
   **morphological reconstruction**, **h-minima** (fill every basin by $h$ = reconstruction
   by erosion of $f + h$ above $f$), **regional minima**, **minima imposition** for
-  marker-controlled watershed, and **fill holes** (applied to a mask before the
-  distance transform in `ws-distance/`). All are in unit 4 here, with the same 1D
+  marker-controlled watershed, **fill holes** (applied to a mask before the
+  distance transform in `ws-distance/`), and the **distance transform** itself (unit 2;
+  `ws-distance/` recalls it and spends its time on the splitting). All are in unit 4 here, with the same 1D
   integer-signal exercise style as the watershed day's unit 1, so the two by-hand
   answers can be checked against each other. The `recon1d` demo is designed to be
   embedded on the watershed day (`data-mode="hmin"`), and the watershed library calls
   this day's reconstruction code rather than re-implementing it.
 - **Distance transform**: erosion/dilation by a Euclidean disc of radius $r$ = threshold
-  of $D$ (unit 2). Same `lib/distance.ts` as the watershed day.
-- **Level sets**: dilation by a disc of radius $r$ = the front moved outwards by
+  of $\mathrm{DT}$ (unit 2). This day owns `lib/distance.ts`; the watershed day uses it.
+- **Level sets** (elective): dilation by a disc of radius $r$ = the front moved outwards by
   $F = 1$ for time $r$ (the zero level of the SDF shifted by $r$). One slide in unit 2.
-- **Graph cuts**: opening/closing of a noisy threshold as the cheap, local alternative
-  to a smoothness term; same test image so results can be compared (unit 2, one slide).
-- **Marching cubes**: all operators carry over to 3D with a ball as SE; a closing of a
+- **Graph cuts** (day 12): opening/closing of a noisy threshold as the cheap, local alternative
+  to a smoothness term; same test image so results can be compared (unit 2, one forward-pointer slide).
+- **Marching cubes** (3D elective; 3D images in its `volumes3d/` unit): all operators carry over to 3D with a ball as SE; a closing of a
   segmented stack before surface extraction removes tiny handles and cavities (one
   sentence in unit 1).
 
@@ -140,15 +143,22 @@ to `plan/labelling-day.md`.)
   distribution; the **pattern spectrum** $a(r) - a(r + 1)$ is a histogram of object
   sizes, without segmenting individual objects. Size = "the largest disc that fits",
   so a long thin object counts as small.
+- **The distance transform** (owned here): $\mathrm{DT}(p)$ = distance from a foreground
+  pixel to the nearest background pixel. Picture first (a blob and its DT as a "mountain";
+  ridges in the middle). The metric matters: city-block (4-steps), chessboard (8-steps),
+  chamfer (3-4 weights), Euclidean. By hand on an 8×8 mask with the city-block metric.
+  Algorithm: two raster passes (forward with the upper-left neighbours, backward with the
+  lower-right), each a "min over neighbours + step": the math slide; exact Euclidean DT
+  named (separable, linear time), not derived.
 - **Link to the distance transform**: with a Euclidean disc $D_r = \{b : \|b\| \le r\}$,
-  $A \ominus D_r = \{x : D(x) > r\}$ and $A \oplus D_r = \{x : D_{A^c}(x) \le r\}$ (distance
+  $A \ominus D_r = \{x : \mathrm{DT}(x) > r\}$ and $A \oplus D_r = \{x : \mathrm{DT}_{A^c}(x) \le r\}$ (distance
   to $A$). Erosion by any disc is one threshold of one image; an opening is two distance
   transforms. Level-set link: the dilated boundary is the front moved out at unit speed.
   Digital caveat: chessboard distance ↔ square SE, city-block ↔ diamond (cross iterated).
 - Pointer (one slide): the centres of the largest discs that fit inside $A$ form its
-  skeleton, the ridges of $D$; hit-or-miss, thinning and skeletons are the skeleton day
-  (`plan/skeleton-day.md`).
-- Pointer to graph cuts: opening/closing of a noisy threshold vs an energy with a
+  skeleton, the ridges of $\mathrm{DT}$; hit-or-miss, thinning and skeletons are the skeleton
+  elective (`plan/skeleton-day.md`).
+- Forward pointer to graph cuts (day 12): opening/closing of a noisy threshold vs an energy with a
   smoothness term on the same image (one slide, side by side).
 - **Demo**: reuse `morphgrid` with `data-mode="openclose"` (presets: "opening removes
   the speck", "closing fills the gap", "open∘close ≠ close∘open", "apply twice: nothing
@@ -158,14 +168,15 @@ to `plan/labelling-day.md`.)
   Slider $r$; the opening shown with removed pixels coloured by the radius at which they
   disappeared (a "size map"). Right: the curve $a(r)$ and the pattern spectrum as bars,
   current $r$ marked. SE: disc / square / diamond / horizontal line (orientation filter).
-  Toggle *via distance transform*: shows $D$ with the iso-line $D = r$ on top of the
+  Toggle *via distance transform*: shows $\mathrm{DT}$ with the iso-line $\mathrm{DT} = r$ on top of the
   eroded set, so the coincidence is visible. Presets: "two sizes, two peaks",
   "touching discs count as one bigger object?", "lines: find the horizontal ones",
   "square SE on discs".
 - By hand: open and close a 7×7 image with the 3×3 square; check idempotence by doing it
   twice. Then a 1D binary signal with runs of length 1, 2, 2, 4, 5: the pattern spectrum
-  for line SEs of length 1–5. Finally a city-block distance transform given on an 8×8
-  mask: read off the erosion by the diamond of radius 2 and check two pixels directly.
+  for line SEs of length 1–5. Finally **compute** the city-block distance transform of an
+  8×8 mask (concept: by counting steps; *(math)*: with the two-pass algorithm), read off
+  the erosion by the diamond of radius 2 and check two pixels directly.
 
 ### 3. `morph-grey/`: Grey-level morphology, top-hat and gradient
 
@@ -183,9 +194,9 @@ to `plan/labelling-day.md`.)
 - **Morphological gradient** $(f \oplus B) - (f \ominus B)$; inner and outer halves.
   Compared with Sobel from `kernels/`: no sign, thicker, but no direction preference and
   no ringing.
-- Rank filters as the family between: min, median, max over the same window (the median
-  removes salt-and-pepper noise that the min or max alone cannot). Link to `kernels/`:
-  nonlinear filters with the same window.
+- Rank filters as the family between: min, median, max over the same window (the median,
+  met on day 5, removes salt-and-pepper noise that the min or max alone cannot). Link to
+  `kernels/`: nonlinear filters with the same window.
 - Pointer: the max-plus algebra (dilation is a "convolution" with max for sum and $+$
   for product); no convolution theorem, but the slope transform as further reading.
 - **Demo `morph1d`** (new): a 1D profile (~120 samples) in SVG. The flat SE drawn as a
@@ -224,13 +235,13 @@ to `plan/labelling-day.md`.)
   **fill holes** $\big(R_{A^c}(A^c \cap \text{frame})\big)^c$ (the background that cannot be
   reached from the image edge is a hole).
 - One line: the connected component containing $p$ is $R_A(\{p\})$; labelling all
-  components efficiently is the next day (`plan/labelling-day.md`).
+  components efficiently is the next day (day 8, `plan/labelling-day.md`).
 - Grey-level reconstruction: same definition with min/max. **h-maxima**
   $\mathrm{HMAX}_h(f) = R_f(f - h)$: every peak lowered by $h$, peaks of height (dynamic)
   $< h$ flattened away; the domes $f - \mathrm{HMAX}_h(f)$; **regional maxima** = plateaus
   with all neighbours lower; **extended maxima** = regional maxima of $\mathrm{HMAX}_h$
   (markers for the nuclei). **h-minima** dual: $R^\varepsilon_f(f + h)$, basins
-  shallower than $h$ filled; this is exactly what the watershed day uses.
+  shallower than $h$ filled; this is exactly what the watershed day (day 9) uses.
 - **Minima imposition**: given a marker image, $f_m = 0$ on markers and $\max f$
   elsewhere; $R^\varepsilon_{(f + 1) \wedge f_m}(f_m)$ keeps $f$'s shape but has regional
   minima only at the markers. This is how "marker-controlled watershed" is computed;
@@ -270,7 +281,7 @@ to `plan/labelling-day.md`.)
 | Time | |
 |---|---|
 | 09:00–10:30 | Unit 1 lecture, erosion/dilation by hand, `morphgrid` |
-| 10:45–12:15 | Unit 2 lecture, opening/closing and 1D pattern spectrum by hand, `granulo` |
+| 10:45–12:15 | Unit 2 lecture, opening/closing, 1D pattern spectrum and city-block DT by hand, `granulo` |
 | 13:15–14:45 | Unit 3 lecture + exercise (`morph1d`, `tophat`) |
 | 15:00–16:30 | Unit 4 lecture, 1D reconstruction by hand, `recon1d`, `reconstruct`; quizzes as wrap-up |
 
@@ -296,16 +307,24 @@ to `plan/labelling-day.md`.)
   components in `reconstruct`, counting objects in `granulo`) but adds nothing to it.
   `morph.ts` should call `label.ts` for "regional extrema = components of plateaus" so
   that `lib/watershed.ts` can call either and nothing is implemented twice.
-- Reused, not duplicated: `lib/distance.ts` (watershed plan: chamfer + exact Euclidean;
-  for `granulo`), `lib/imageops.ts` (watershed plan: loading
-  `cell256.png`, the seeded synthetic nuclei generator, Sobel for the gradient comparison,
-  label-to-colour map). Add to `imageops.ts`: synthetic "spots on an uneven background",
-  "discs of several sizes", "blobs with holes and frame contact". The Gaussian/Sobel code
-  lives in `lib/imageops.ts` for all plans (decided 2026-11-12). `lib/pqueue.ts` is not needed (the fast
-  reconstruction uses a plain FIFO ring buffer, which can live in `morph.ts`).
-- A small SVG line/bar plot helper (`lib/plot.ts` or in `lib/ui.ts`) for `granulo`,
-  `morph1d`, `recon1d`; the 1D demos on the watershed (`flood1d`) and graph-cut
-  (`segchain`) days need the same thing.
+- **Owner of `demos/src/lib/distance.ts`**: city-block, chessboard and chamfer two-pass DT
+  (instrumented for step-through), exact Euclidean DT; used by `granulo`, the watershed
+  day's `ws-distance/`, skeleton, measurements and dynprog.
+- Reused, not duplicated: `lib/imageops.ts` (owner `kernels/`: `loadGrey()` for
+  `cell256.png`, Gaussian/Sobel for the gradient comparison); synthetic images in
+  `lib/synth.ts` (owner thresholding: the seeded nuclei generator, "spots on an uneven
+  background", "discs of several sizes", "blobs with holes and frame contact" are added
+  there); label colours from `lib/colour.ts` (owner colour). The FIFO for fast
+  reconstruction comes from `lib/pqueue.ts` (owner watershed: heap + bucket + FIFO);
+  until that exists, a ring buffer in `morph.ts` that moves there.
+- **Owner of `lib/plot.ts`** (never in `lib/ui.ts`): the SVG line/bar/scatter/heat-map
+  helper for `granulo`, `morph1d`, `recon1d`, and for ~20 demos elsewhere (the 1D
+  step-through demos `flood1d`, `segchain`, `mrf1d`, `xcorr1d`, `dtw` share its line
+  plot plus step controls).
+- **Owner of `lib/gridui.ts`**: the grid step-through UI (cells ≥ 24 px, step/back/play,
+  value overlay) under `morphgrid`; reused by labelling (`label` mode, `floodgrid`),
+  skeleton (`hitmiss`), watershed, dynprog (`dpgrid`), integral (`satstep`), graphics3d
+  (`raster`).
 - **Language / speed** (`demos/README.md`): all of this stays in **TypeScript**. At
   256×256 a naive disc erosion with $r \le 10$ (~300 offsets) is ~20 M min-operations,
   around 20–40 ms in TS; decomposition, van Herk lines or the distance-transform route
@@ -314,14 +333,14 @@ to `plan/labelling-day.md`.)
   whole size map for all radii on a slider change (precompute once instead: the size map
   is one image, so this should not be needed), and a non-flat ball SE on 256×256 if it
   is made live. No WebGL (all demos are 2D).
-- Tests (node script, `make test`, as proposed in the other plans): duality
+- Tests (`demos/test/morphology-test.ts`, run by `make test`): duality
   $(A \ominus B)^c = A^c \oplus \check B$ on random images and SEs; adjunction
   $A \oplus B \subseteq C \iff A \subseteq C \ominus B$; opening idempotent and
   $A \circ B \subseteq A \subseteq A \bullet B$; van Herk = naive; Euclidean-disc erosion =
-  threshold of the exact distance transform; fast reconstruction = iterated geodesic
+  threshold of the exact distance transform; two-pass chamfer = brute-force distances; fast reconstruction = iterated geodesic
   dilation; h-minima in 1D = a brute-force "fill by $h$" (the
   same check the watershed plan lists).
-- Images: `demos/src/fourier2d/cell256.png` (credit as in `fourier2d`); synthetic images
+- Images: `demos/src/fourier2d/cell256.png` via `loadGrey()` (credit as in `fourier2d`); synthetic images
   generated in TS with fixed seeds (no files).
 - Follow `demos/README.md`: fixed seeds, presets + reset, pointer only (no modifier keys or
   hover; keyboard back to reveal.js), labels ≥ 18 px, fits 1150×560 on a slide, `data-*`
@@ -332,12 +351,15 @@ to `plan/labelling-day.md`.)
 
 ## Open questions
 
+- **Decided (course map):** the distance transform is owned here (unit 2, which is now
+  denser; if it overruns, `granulo`'s line-SE presets go to the exercise).
 - How long is a "day" (same question as for the other days)? If four units are too many,
   units 1 and 2 merge into one (keeping `morphgrid` and dropping `granulo` to the
   exercise), or the grey-level unit is shortened to top-hat only. Moving labelling out
   of unit 4 already frees about 20 min there.
 - ~~Skeletons and hit-or-miss: optional or core?~~ Decided 2026-11-12: **their own day**
-  (`plan/skeleton-day.md`), including hit-or-miss; this day keeps one pointer slide.
+  (`plan/skeleton-day.md`, now an elective in group "Objects"), including hit-or-miss;
+  this day keeps one pointer slide.
 - How much algebra: properties only (proposal), or also adjunction and the lattice view
   (openings as the general "increasing, anti-extensive, idempotent" operators)?
 - A real image for top-hat and granulometry: `cell256.png` (TEM, single cell) has
@@ -348,8 +370,7 @@ to `plan/labelling-day.md`.)
 - ~~Where is connected-components labelling taught as an algorithm?~~ Decided
   2026-11-12: its **own day, directly after this one** (`plan/labelling-day.md`); here
   only the one-line link "component = reconstruction from one pixel".
-- 3D morphology: one sentence (proposal) or a demo reusing the marching-cubes volume
-  tools?
+- 3D morphology: one sentence (proposal), with a pointer to `volumes3d/` (3D elective).
 - Programming language for any code parts is still open (see README).
 
 ## References
