@@ -40,13 +40,13 @@ const STYLE = `
 [data-demo="${NAME}"] .sp-noaxes { background: var(--qb-panel); border-radius: 4px; }
 [data-demo="${NAME}"] .sp-row { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
 [data-demo="${NAME}"] .sp-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-.reveal [data-demo="${NAME}"] { font-size: 16px; gap: .5em; }
-.reveal [data-demo="${NAME}"] .sp-left { flex-basis: 270px; }
-.reveal [data-demo="${NAME}"] .sp-main { flex-basis: 440px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .12em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .sp-left { flex-basis: 270px; }
+.reveal .qb-demo[data-demo="${NAME}"] .sp-main { flex-basis: 440px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .12em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { display: none; }
 `;
 
 function injectStyle(): void {

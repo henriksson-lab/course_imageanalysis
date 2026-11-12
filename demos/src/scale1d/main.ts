@@ -48,6 +48,18 @@ const LEVELS = 64, S0 = 0.5, S1 = 32;
 const SIGMAS = geomScales(S0, S1, LEVELS), Q = Math.pow(S1 / S0, 1 / (LEVELS - 1));
 const QTY_NAMES = ["L (blurred signal)", "slope σ·Lx", "curvature −σ²·Lxx"];
 const QTY_RAW = ["L (blurred signal)", "slope Lx", "curvature −Lxx"];
+/** Positions of the local extrema of a (a flat top or bottom counts once, at its middle). */
+function extremaAt(a: ArrayLike<number>, eps: number): number[] {
+  const out: number[] = [];
+  let prevSign = 0, prevAt = 0;
+  for (let x = 1; x < a.length; x++) {
+    const d = a[x] - a[x - 1], sg = d > eps ? 1 : d < -eps ? -1 : 0;
+    if (!sg) continue;
+    if (prevSign && sg !== prevSign) out.push(Math.round((prevAt + x - 1) / 2));
+    prevSign = sg; prevAt = x;
+  }
+  return out;
+}
 const nearestLevel = (s: number) => Math.max(0, Math.min(LEVELS - 1, Math.round(Math.log(s / S0) / Math.log(Q))));
 
 function mount(host: HTMLElement): void {
@@ -87,7 +99,7 @@ function mount(host: HTMLElement): void {
 
   const panel = htmlEl("div", "qb-panel", "", host);
   htmlEl("div", "ev-lab", "presets", panel);
-  const presetBtns = presets(panel, PRESETS.map(p => ({ label: p.label, apply: () => { Object.assign(st, DEFAULT, p.s); sync(); compute(); } })));
+  const presetBtns = presets(panel, PRESETS.map(p => ({ label: p.label, apply: () => { Object.assign(st, DEFAULT, p.s); st.sigma = SIGMAS[nearestLevel(st.sigma)]; sync(); compute(); } })));
   htmlEl("div", "ev-lab", "signal", panel);
   const sigIds: Sig[] = ["bumps", "stepramp", "boxdemo", "cell"];
   const sigBtns = presets(panel, ["three bumps", "step + ramp", "line in dark band", "micrograph"].map((l, i) => ({ label: l, apply: () => { st.signal = sigIds[i]; compute(); } })));
@@ -98,7 +110,7 @@ function mount(host: HTMLElement): void {
   const qBtns = presets(panel, ["L", "slope", "curvature"].map((l, i) => ({ label: l, apply: () => { st.qty = i as Qty; draw(); } })));
   const normC = checkbox(panel, "normalise (× σ per derivative)", st.norm, v => { st.norm = v; draw(); });
   const boxC = checkbox(panel, "box kernel instead of Gaussian", st.box, v => { st.box = v; compute(); });
-  button(panel, "reset", () => { Object.assign(st, DEFAULT, p0?.s ?? {}); presetBtns.forEach(b => b.classList.remove("active")); sync(); compute(); });
+  button(panel, "reset", () => { Object.assign(st, DEFAULT, p0?.s ?? {}); st.sigma = SIGMAS[nearestLevel(st.sigma)]; presetBtns.forEach(b => b.classList.remove("active")); sync(); compute(); });
   const ro = htmlEl("div", "qb-readout", "", panel);
   const credit = htmlEl("div", "ev-credit", CELL_CREDIT, panel);
 
@@ -160,14 +172,10 @@ function mount(host: HTMLElement): void {
     for (let j = 0; j < LEVELS; j++) {
       const a = st.qty === 0 ? L[j] : st.qty === 1 ? Lx[j] : Lxx[j];
       const amp = st.qty === 2 ? Math.max(...Array.from(a, Math.abs)) : 0;
-      for (let x = 1; x < N - 1; x++) {
-        if (st.qty === 2) {
+      if (st.qty === 2) {
+        for (let x = 1; x < N - 1; x++)
           if (((a[x] < 0 && a[x + 1] >= 0) || (a[x] >= 0 && a[x + 1] < 0)) && Math.abs(a[x] - a[x + 1]) > 0.02 * amp) { dx.push(x + 0.5); dy.push(SIGMAS[j]); }
-        } else {
-          const d1 = a[x] - a[x - 1], d2 = a[x + 1] - a[x], e = 1e-6 * (hi - lo);
-          if ((d1 > e && d2 < -e) || (d1 < -e && d2 > e)) { dx.push(x); dy.push(SIGMAS[j]); }
-        }
-      }
+      } else for (const x of extremaAt(a, 1e-6 * (hi - lo || 1))) { dx.push(x); dy.push(SIGMAS[j]); }
     }
     dots.style.color = st.qty === 0 ? "#ffd400" : "#111";
     dots.set(dx, dy);
@@ -193,6 +201,7 @@ function mount(host: HTMLElement): void {
       (bump && st.qty === 2 ? `\nbump half-width a = ${bump.a} (predicted σ = a)` : "");
   }
 
+  st.sigma = SIGMAS[nearestLevel(st.sigma)];
   sync();
   if (p0) presetBtns[PRESETS.indexOf(p0)].classList.add("active");
   compute();

@@ -1,4 +1,5 @@
-// Canny, step by step. A synthetic scene (rectangle, disc, a 4-px bar, a T-junction, a faint
+// Canny, step by step. A synthetic scene (rectangle, disc, a staircase of two steps 4 px
+// apart, a T-junction, a faint
 // fading rectangle; seeded noise) or the micrograph. Stage tabs: input, smoothed, gradient
 // magnitude, direction (colour wheel), after non-maximum suppression, after hysteresis, and
 // the edges over the input. Click a pixel: its 3 × 3 magnitude neighbourhood, the gradient
@@ -7,7 +8,7 @@
 // A small histogram of the post-NMS magnitudes shows both thresholds.
 //
 // <div data-demo="canny" data-preset="small|large|nms|one|hyst|cell" data-size="128|256"
-//      data-image="synthetic|cell"></div>
+//      data-image="synthetic|cell"></div>   (data-size applies to the micrograph; the scene is 128)
 import { autoMount, htmlEl, slider, presets, checkbox, button, svgEl } from "../lib/ui";
 import { Grey, combine } from "../lib/imageops";
 import { canny, CannyResult, screenAngle, quantiseDirection, NMS_OFFSETS } from "../lib/edges";
@@ -43,12 +44,12 @@ type Stage = "input" | "smoothed" | "mag" | "dir" | "nms" | "hyst" | "overlay";
 const STAGES: [Stage, string][] = [["input", "input"], ["smoothed", "smoothed"], ["mag", "magnitude"], ["dir", "direction"], ["nms", "after NMS"], ["hyst", "hysteresis"], ["overlay", "edges on input"]];
 interface State { image: "synthetic" | "cell"; sigma: number; noise: number; tLow: number; tHigh: number; sub: boolean; stage: Stage; px: number; py: number; ring: number }
 interface Preset { id: string; label: string; s: Partial<State> }
-const DEFAULT: State = { image: "synthetic", sigma: 1.5, noise: 8, tLow: 3, tHigh: 8, sub: false, stage: "overlay", px: 47, py: 30, ring: -1 };
+const DEFAULT: State = { image: "synthetic", sigma: 1.5, noise: 12, tLow: 3, tHigh: 10, sub: false, stage: "overlay", px: 47, py: 30, ring: -1 };
 const PRESETS: Preset[] = [
   { id: "small", label: "σ too small: noise edges", s: { sigma: 0.7, stage: "overlay" } },
-  { id: "large", label: "σ too large: edges merge", s: { sigma: 4, tLow: 1.5, tHigh: 4, stage: "overlay", px: 14, py: 80 } },
+  { id: "large", label: "σ too large: edges merge", s: { sigma: 4, tLow: 1.5, tHigh: 4, stage: "overlay", px: 10, py: 80 } },
   { id: "nms", label: "NMS thins the ridge", s: { stage: "mag", px: 46, py: 30 } },
-  { id: "one", label: "one threshold: gaps or noise", s: { tLow: 8, tHigh: 8, stage: "hyst", px: 96, py: 100 } },
+  { id: "one", label: "one threshold: gaps or noise", s: { tLow: 10, tHigh: 10, stage: "hyst", px: 96, py: 100 } },
   { id: "hyst", label: "hysteresis closes the gap", s: { stage: "hyst", ring: 0, px: 96, py: 100 } },
   { id: "cell", label: "micrograph", s: { image: "cell", noise: 0, sigma: 2, tLow: 8, tHigh: 16, stage: "overlay", px: 64, py: 64 } },
 ];
@@ -59,12 +60,12 @@ const RED = "#e8402a", ORANGE = "#ff9f1c", BLUE = "#5b8ff9";
 
 function mount(host: HTMLElement): void {
   injectStyle(NAME, STYLE);
-  const N = host.dataset.size === "256" ? 256 : 128;
+  const cellN = host.dataset.size === "256" ? 256 : 128;
+  let N = 128;
   const p0 = PRESETS.find(p => p.id === host.dataset.preset);
   const start = (): State => ({ ...DEFAULT, ...(host.dataset.image === "cell" ? { image: "cell" as const, noise: 0 } : {}), ...(p0?.s ?? {}) });
   const st: State = start();
-  const scl = N / 128;
-  st.px = Math.round(st.px * scl); st.py = Math.round(st.py * scl);
+  let scl = 1;
 
   // ---- layout ----
   const main = htmlEl("div", "cy-main", "", host);
@@ -109,7 +110,7 @@ function mount(host: HTMLElement): void {
   button(growRow, "grow 1 ring", () => { stop(); if (st.ring >= 0) st.ring = Math.min(st.ring + 1, res ? res.hyst.rings : 0); st.stage = "hyst"; draw(); });
   const playB = button(growRow, "play", () => { if (timer) stop(); else play(); });
   button(growRow, "all", () => { stop(); st.ring = -1; draw(); });
-  button(panel, "reset", () => { stop(); Object.assign(st, start()); st.px = Math.round(st.px * scl); st.py = Math.round(st.py * scl); presetBtns.forEach(b => b.classList.remove("active")); sync(); makeImage(); });
+  button(panel, "reset", () => { stop(); Object.assign(st, start()); presetBtns.forEach(b => b.classList.remove("active")); sync(); makeImage(); });
   const ro = htmlEl("div", "qb-readout", "", panel);
 
   let timer = 0;
@@ -127,19 +128,19 @@ function mount(host: HTMLElement): void {
   function load(p: Preset): void {
     stop();
     Object.assign(st, DEFAULT, p.s);
-    st.px = Math.round(st.px * scl); st.py = Math.round(st.py * scl);
     sync(); makeImage();
   }
   function sync(): void { sigS.set(uOf(st.sigma)); noiseS.set(st.noise); lowS.set(st.tLow); highS.set(st.tHigh); subC.checked = st.sub; }
 
-  view.onPick((x, y) => { st.px = x; st.py = y; draw(); });
+  view.onPick((x, y) => { st.px = x / scl; st.py = y / scl; draw(); });
 
   // ---- images and computation ----
   let cell: Grey | null = null, synth: Grey | null = null, img: Grey | null = null, res: CannyResult | null = null;
   function makeImage(): void {
+    N = st.image === "cell" ? cellN : 128; scl = N / 128;
     if (st.image === "cell" && !cell) { loadCell(N).then(g => { cell = g; makeImage(); }); return; }
     if (st.image === "cell") img = st.noise > 0 ? addGaussianNoise(cell!, st.noise, 1) : cell!;
-    else { if (!synth || synthNoise !== st.noise) { synth = makeScene("synthetic", N, st.noise, 1).image; synthNoise = st.noise; } img = synth; }
+    else { if (!synth || synthNoise !== st.noise) { synth = makeScene("synthetic", 128, st.noise, 1).image; synthNoise = st.noise; } img = synth; }
     run();
   }
   let synthNoise = -1;
@@ -155,6 +156,8 @@ function mount(host: HTMLElement): void {
   }
 
   // ---- drawing ----
+  const pxX = () => Math.max(0, Math.min(N - 1, Math.round(st.px * scl)));
+  const pxY = () => Math.max(0, Math.min(N - 1, Math.round(st.py * scl)));
   function draw(): void {
     if (!img || !res) return;
     tabBtns.forEach((b, i) => b.classList.toggle("active", STAGES[i][0] === st.stage));
@@ -191,13 +194,13 @@ function mount(host: HTMLElement): void {
     }
     // overlay: selected pixel, NMS neighbours, gradient arrow
     view.clear();
-    const i = st.py * N + st.px, gx = r.gx.data[i], gy = r.gy.data[i], m = r.mag.data[i];
+    const PX = pxX(), PY = pxY(), i = PY * N + PX, gx = r.gx.data[i], gy = r.gy.data[i], m = r.mag.data[i];
     const nb = NMS_OFFSETS[quantiseDirection(gx, gy)];
-    view.box(st.px, st.py, 0, "#ffd400", 2.5);
+    view.box(PX, PY, 0, "#ffd400", 2.5);
     if (st.stage !== "input" && st.stage !== "smoothed") {
-      view.box(st.px + nb[0], st.py + nb[1], 0, "#22d3ee", 2); view.box(st.px - nb[0], st.py - nb[1], 0, "#22d3ee", 2);
+      view.box(PX + nb[0], PY + nb[1], 0, "#22d3ee", 2); view.box(PX - nb[0], PY - nb[1], 0, "#22d3ee", 2);
     }
-    if (m > 1e-9) { const L = 6 * scl; view.arrow(st.px + 0.5, st.py + 0.5, st.px + 0.5 + L * gx / m, st.py + 0.5 + L * gy / m, "#ffd400", 2.5); }
+    if (m > 1e-9) { const L = 6 * scl; view.arrow(PX + 0.5, PY + 0.5, PX + 0.5 + L * gx / m, PY + 0.5 + L * gy / m, "#ffd400", 2.5); }
     drawInset();
     drawHist();
     wheelRow.style.display = st.stage === "dir" ? "" : "none";
@@ -206,7 +209,7 @@ function mount(host: HTMLElement): void {
   }
 
   function drawInset(): void {
-    const r = res!, x = st.px, y = st.py, i = y * N + x;
+    const r = res!, x = pxX(), y = pxY(), i = y * N + x;
     inset.replaceChildren();
     const C = 76, O = 6;
     const nb = NMS_OFFSETS[quantiseDirection(r.gx.data[i], r.gy.data[i])];

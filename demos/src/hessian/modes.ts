@@ -14,7 +14,7 @@
 import { Grey } from "../lib/imageops";
 import { loadCell } from "../lib/cell";
 import { addGaussianNoise } from "../lib/synth";
-import { quadratic, makeHessScene } from "./scene";
+import { quadratic, quadUnits, makeHessScene } from "./scene";
 
 export type Tab = "image" | "classes" | "l1" | "l2" | "trace" | "det" | "vessel" | "scale";
 export const TABS: [Tab, string][] = [
@@ -48,6 +48,8 @@ export interface HessImage {
   /** The image (values about 0..255) for the state (noise, quadratic coefficients). */
   make(N: number, st: HessState): Grey | Promise<Grey>;
   credit?: string;
+  /** Factor applied to the pixel Hessian at scale σ (default σ², scale normalisation). */
+  units?(N: number, sigma: number): number;
 }
 
 export interface HessPreset { id: string; label: string; s: Partial<HessState> }
@@ -67,7 +69,7 @@ export function registerImage(im: HessImage): void { IMAGES.set(im.id, im); }
 export function registerMode(m: HessMode): void { MODES.set(m.id, m); }
 
 let cell256: Grey | null = null;
-registerImage({ id: "quadratic", label: "f = ax² + bxy + cy²", size: 128, make: (N, st) => quadratic(N, st.qa, st.qb, st.qc) });
+registerImage({ id: "quadratic", label: "f = ax² + bxy + cy²", size: 128, make: (N, st) => quadratic(N, st.qa, st.qb, st.qc), units: N => quadUnits(N) });
 registerImage({ id: "scene", label: "test scene", size: 128, make: (N, st) => makeHessScene("scene", N, st.noise, 1).image });
 registerImage({ id: "lines", label: "curved lines", size: 128, make: (N, st) => makeHessScene("vessels", N, st.noise, 1).image });
 registerImage({
@@ -83,14 +85,14 @@ registerImage({
 registerMode({
   id: "hessian", label: "Hessian", images: ["quadratic", "scene", "lines", "cell"], defaults: {},
   presets: [
-    { id: "hill", label: "hilltop: both negative", s: { image: "quadratic", qa: -1, qb: 0, qc: -1, noise: 0, tab: "image", px: 64, py: 64, sigma: 2 } },
-    { id: "ridge", label: "ridge: one eigenvalue", s: { image: "quadratic", qa: -1, qb: 0, qc: 0, noise: 0, tab: "image", px: 64, py: 64, sigma: 2 } },
-    { id: "saddle", label: "saddle", s: { image: "quadratic", qa: 1, qb: 0, qc: -1, noise: 0, tab: "image", px: 64, py: 64, sigma: 2 } },
+    { id: "hill", label: "hilltop: both negative", s: { image: "quadratic", qa: -1, qb: 0, qc: -1, noise: 0, tab: "image", px: 64, py: 64, sigma: 2, t: 0.5 } },
+    { id: "ridge", label: "ridge: one eigenvalue", s: { image: "quadratic", qa: -1, qb: 0, qc: 0, noise: 0, tab: "image", px: 64, py: 64, sigma: 2, t: 0.5 } },
+    { id: "saddle", label: "saddle", s: { image: "quadratic", qa: 1, qb: 0, qc: -1, noise: 0, tab: "image", px: 64, py: 64, sigma: 2, t: 0.5 } },
     { id: "edge", label: "an edge is not a ridge", s: { image: "scene", tab: "classes", px: 25, py: 114, sigma: 3 } },
     { id: "trace", label: "LoG cannot tell blob from ridge; det can", s: { image: "scene", tab: "trace", px: 28, py: 28, sigma: 3 } },
     { id: "vessel", label: "vesselness: blob suppressed", s: { image: "scene", tab: "vessel", px: 28, py: 28, sigma: 3 } },
     { id: "thick", label: "one σ misses the thick line", s: { image: "scene", tab: "vessel", px: 30, py: 70, sigma: 1.5 } },
     { id: "multi", label: "multi-scale", s: { image: "scene", tab: "vessel", multi: true, px: 30, py: 70 } },
-    { id: "cell", label: "membranes in the micrograph", s: { image: "cell", noise: 0, tab: "vessel", bright: false, sigma: 1.5, c: 15, px: 50, py: 44 } },
+    { id: "cell", label: "membranes in the micrograph", s: { image: "cell", noise: 0, tab: "vessel", bright: false, sigma: 2, c: 20, px: 47, py: 63 } },
   ],
 });

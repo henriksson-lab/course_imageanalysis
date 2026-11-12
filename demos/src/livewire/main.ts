@@ -27,7 +27,7 @@ const STYLE = `
 [data-demo="${NAME}"] .lw-box svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 360px; gap: .35em; }
 [data-demo="${NAME}"] .lw-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
+[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
 [data-demo="${NAME}"] .lw-credit { font-size: 12px; color: var(--qb-muted); }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] figure { flex-basis: 500px; }
@@ -55,10 +55,10 @@ const CELL_ANCHORS: Pt[] = [[122, 48], [195, 123], [147, 181], [103, 110]];
 
 const PRESETS: Record<string, Preset> = {
   nucleus: { label: "trace the nucleus (4 anchors)", s: { image: "cell", sigma: 2, mode: "valley" }, anchors: async () => CELL_ANCHORS, free: () => [0, 0], close: true },
-  weak: { label: "weak edge: the wire short-cuts", s: { image: "nucleus", sigma: 1.5 }, anchors: async () => [nucleusPoint(95)], free: () => nucleusPoint(205) },
-  noise: { label: "no smoothing: noise wins", s: { image: "nucleus", sigma: 0.5 }, anchors: async () => [nucleusPoint(250)], free: () => nucleusPoint(330) },
+  weak: { label: "weak edge: the wire short-cuts", s: { image: "cell", sigma: 2, mode: "valley" }, anchors: async () => [[122, 48]], free: () => [147, 181] },
+  noise: { label: "no smoothing: noise wins", s: { image: "nucleus", sigma: 0.5 }, anchors: async () => [nucleusPoint(110)], free: () => nucleusPoint(180) },
   neighbour: { label: "the neighbour steals the path", s: { image: "nucleus", sigma: 1.5 }, anchors: async () => [nucleusPoint(-50)], free: () => nucleusPoint(50) },
-  neurite: { label: "measure along a neurite", s: { image: "neurite", sigma: 1, mode: "ridge" }, anchors: async () => [roundPt(neuron().tips[0])], free: () => roundPt(neuron().tips[neuron().tips.length - 1]) },
+  neurite: { label: "measure along a neurite", s: { image: "neurite", sigma: 1, mode: "ridge" }, anchors: async () => [roundPt(neuron().tips[0])], free: () => roundPt(neuron().tips[4]) },
 };
 const roundPt = (p: Pt): Pt => [Math.round(p[0]), Math.round(p[1])];
 
@@ -258,15 +258,14 @@ function mount(host: HTMLElement): void {
     if (!anchors.length) lines.push("click on the image to place a seed");
     else {
       if (!closed) {
-        lines.push(`live wire   length ${liveLen.toFixed(1)} px`);
-        lines.push(`            cost   ${liveCost.toFixed(2)}`);
+        lines.push(`live wire: ${liveLen.toFixed(1)} px, cost ${liveCost.toFixed(2)}`);
         if (free) {
           const a = anchors[anchors.length - 1];
-          lines.push(`            straight line ${Math.hypot(free[0] - a[0], free[1] - a[1]).toFixed(1)} px`);
+          lines.push(`straight line: ${Math.hypot(free[0] - a[0], free[1] - a[1]).toFixed(1)} px`);
         }
       }
-      lines.push(`fixed       ${fixed.length} segment${fixed.length === 1 ? "" : "s"}, ${fixedLen.toFixed(1)} px, cost ${fixedCost.toFixed(2)}${closed ? " (closed)" : ""}`);
-      lines.push(`Dijkstra    ${treeMs.toFixed(0)} ms for ${SIZE * SIZE} pixels`);
+      lines.push(`fixed: ${fixed.length} segment${fixed.length === 1 ? "" : "s"}${closed ? " (closed)" : ""}, ${fixedLen.toFixed(1)} px, cost ${fixedCost.toFixed(2)}`);
+      lines.push(`Dijkstra: ${treeMs.toFixed(0)} ms for ${SIZE * SIZE} pixels`);
     }
     ro.textContent = lines.join("\n");
   }

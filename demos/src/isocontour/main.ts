@@ -6,49 +6,42 @@
 // so every contour closes.
 // Auto-mounts on <div data-demo="isocontour">. Optional: data-preset="blobs|noise|blur|merge|cell".
 import { htmlEl, slider, presets, button, autoMount, svgEl, checkbox } from "../lib/ui";
-import { Grey, fromFunction, gaussianBlur, drawGrey } from "../lib/imageops";
+import { Grey, gaussianBlur, drawGrey } from "../lib/imageops";
+import { synthImage, N } from "./image";
 import { addGaussianNoise } from "../lib/synth";
 import { loadCell, CELL_CREDIT } from "../lib/cell";
 import { marchingSquares, padGrid, contourLength, lineArea, lineLength } from "../lib/marching";
 import { histC } from "./histc";
 
 const NAME = "isocontour";
-const N = 128;
 
 interface Preset { id: string; label: string; image: "synth" | "cell"; c: number; sigma: number; noise: number }
 const PRESETS: Preset[] = [
   { id: "blobs", label: "test image", image: "synth", c: 120, sigma: 0, noise: 0 },
   { id: "noise", label: "noise: many tiny contours", image: "synth", c: 120, sigma: 0, noise: 25 },
-  { id: "blur", label: "blur first", image: "synth", c: 120, sigma: 2, noise: 25 },
+  { id: "blur", label: "blur first", image: "synth", c: 120, sigma: 1.5, noise: 25 },
   { id: "merge", label: "two blobs merge as c drops", image: "synth", c: 140, sigma: 0, noise: 0 },
   { id: "cell", label: "micrograph", image: "cell", c: 100, sigma: 1, noise: 0 },
 ];
 
-/** The synthetic image: two Gaussian blobs (saddle value between them ≈ 128) and two discs
- *  joined by a 3-pixel neck, background 30. */
-export function synthImage(): Grey {
-  const disc = (x: number, y: number, cx: number, cy: number, r: number) => 0.5 * (1 + Math.tanh((r - Math.hypot(x - cx, y - cy)) / 0.8));
-  const neck = (x: number, y: number) => (x > 40 && x < 92 ? 0.5 * (1 + Math.tanh((1.5 - Math.abs(y - 98)) / 0.6)) : 0);
-  return fromFunction(N, N, (x, y) => {
-    const g = 175 * (Math.exp(-((x - 42) ** 2 + (y - 42) ** 2) / (2 * 11 ** 2)) + Math.exp(-((x - 82) ** 2 + (y - 46) ** 2) / (2 * 11 ** 2)));
-    const d = Math.max(disc(x, y, 34, 98, 12), disc(x, y, 96, 98, 13), neck(x, y));
-    return 30 + g + 170 * d;
-  });
-}
-
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; }
-[data-demo="${NAME}"] .ic-img { flex: 0 1 430px; min-width: 240px; position: relative; margin: 0; }
-[data-demo="${NAME}"] .ic-img canvas, [data-demo="${NAME}"] .ic-img svg { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
-[data-demo="${NAME}"] .ic-img svg { position: absolute; left: 0; top: 0; }
-[data-demo="${NAME}"] .ic-credit { font-size: 12px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 320px; max-width: 440px; gap: .35em; }
-[data-demo="${NAME}"] .ic-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .ic-img { flex-basis: 420px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .ic-img { flex: 0 1 430px; min-width: 240px; position: relative; margin: 0; }
+.qb-demo[data-demo="${NAME}"] .ic-img canvas, [data-demo="${NAME}"] .ic-img svg { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
+.qb-demo[data-demo="${NAME}"] .ic-img svg { position: absolute; left: 0; top: 0; }
+.qb-demo[data-demo="${NAME}"] .ic-credit { font-size: 12px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 320px; max-width: 440px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .ic-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .ic-img { flex-basis: 420px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .ic-img { flex: 0 0 440px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 460px; max-width: 520px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider, .reveal .qb-demo[data-demo="${NAME}"] .qb-check { font-size: 16px; }
 `;
 
 function injectStyle(): void {

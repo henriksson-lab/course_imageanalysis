@@ -1,0 +1,150 @@
+---
+title: "Exercise: finding a shift by sliding and scoring"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- score a candidate shift with **SSD**, **cross-correlation** (CC) and **normalised cross-correlation** (NCC), by hand for short signals,
+- predict which score is fooled by a **brightness change**, a **bright region**, a **tiny overlap** or a **periodic** pattern,
+- estimate the **cost** of trying every shift,
+- use NCC for **template matching**.
+
+Do the pen-and-paper part first, then the demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Shift $t$ | where image B must be placed on image A so that they agree: B$(x) \approx$ A$(x + t)$ |
+| Overlap | the pixels $x$ of B for which $x + t$ lies inside A; only these are compared |
+| SSD | sum of squared differences of the pixel pairs; small is good |
+| CC | sum of products of the pixel pairs; large is good |
+| NCC | the correlation coefficient of the pixel pairs in the overlap; between −1 and 1, large is good |
+| Cost | one multiply-add per pixel pair; all shifts of two images with $N$ pixels each: about $N^2$ |
+
+## By hand
+
+**B1.** The template $B = (1, 3, 1)$ is placed at the positions $t = 0, 1, \ldots, 5$ of $A = (0, 1, 3, 1, 0, 2, 6, 2)$ (B's first pixel on A's pixel $t$).
+(a) Compute CC and SSD at every position.
+(b) Compute NCC at $t = 1$, $t = 3$ and $t = 5$. (For $t = 3$: the pixels of A are $(1, 0, 2)$.)
+(c) Which position does each score choose? A contains B twice. Which score would you use for a mosaic whose tiles differ in exposure?
+
+**B2.** $A = (0, 1, 0, 0, 5, 5, 5)$ and the template $B = (0, 1, 0)$, positions $t = 0 \ldots 4$.
+(a) Compute CC at every position. Where is its maximum, and where is the copy of B?
+(b) What is NCC at $t = 4$? What does that tell you about NCC in flat regions?
+
+**B3.** $A = (1, 2, 3)$ and $B = (3, 5, 7)$, full overlap. Compute SSD and NCC. Write B as $aA + b$. Which of the two scores says "same pattern"?
+
+**B4.** Cost. Two tiles of $2048 \times 2048$ pixels overlap by about 10 % of their width (205 columns); the stage puts them within $\pm 20$ pixels of the nominal position, in both directions.
+(a) How many multiply-adds does a comparison at **every** shift cost? How long at $10^9$ multiply-adds per second?
+(b) How many if you only compare the expected overlap strip ($205 \times 2048$ pixels) at the $41 \times 41$ shifts the stage allows?
+(c) What do you risk with (b)?
+
+**B5.** A grating with a period of 12 pixels is registered with NCC, every shift between −40 and 45. Predict where the NCC curve reaches 1. What extra information would decide the true shift?
+
+**B6.** You look for small round cells of radius 5 px with a template of $15 \times 15$ px. Predict what NCC gives at (a) a cell of the same size but twice as bright, (b) a cell of radius 10 px, (c) an empty, flat background region, (d) a dark hole of radius 5 px in a bright background.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a)
+
+| $t$ | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| pixels of A | 0 1 3 | 1 3 1 | 3 1 0 | 1 0 2 | 0 2 6 | 2 6 2 |
+| CC | 6 | 11 | 6 | 3 | 12 | 22 |
+| SSD | 9 | 0 | 9 | 10 | 27 | 11 |
+
+(b) B has mean $5/3$ and deviations $(-\tfrac23, \tfrac43, -\tfrac23)$. At $t = 1$ the pixels of A are B itself: NCC $= 1$. At $t = 5$, $(2, 6, 2) = 2B$: the same deviations times 2, NCC $= 1$. At $t = 3$, $(1, 0, 2)$ has mean 1 and deviations $(0, -1, 1)$; the sum of products of deviations is $0 - \tfrac43 - \tfrac23 = -2$, the squared lengths are $\tfrac{24}{9}$ and 2, so NCC $= -2/\sqrt{48/9} = -0.866$. (The others: $-0.189$ at $t = 0, 2, 4$.)
+(c) CC chooses $t = 5$ (22 against 11 for the exact copy): it prefers the bright copy. SSD chooses $t = 1$ (0 against 11). NCC scores both copies 1. For tiles with different exposure, NCC: a change of gain or offset does not matter to it, while SSD would penalise the true shift.
+
+**B2.** (a) CC $= 1, 0, 0, 5, 5$: the maximum (5) is in the bright region at $t = 3$ and 4, while the copy of B is at $t = 0$ (CC 1, SSD 0). (b) At $t = 4$ the pixels of A are $(5, 5, 5)$: flat, with zero spread, so NCC is $0/0$, undefined. Flat regions carry no pattern; NCC cannot (and should not) say they match. Implementations return 0 or skip them.
+
+**B3.** SSD $= 2^2 + 3^2 + 4^2 = 29$. $B = 2A + 1$, so NCC $= 1$: the same pattern with more contrast and an offset. SSD says "different", NCC says "same pattern".
+
+**B4.** (a) All shifts of two $N$-pixel images cost about $N^2$: $(2048^2)^2 = 1.8 \cdot 10^{13}$ multiply-adds, about 4.9 hours. (b) $41^2 = 1681$ shifts of about $205 \cdot 2048 = 4.2 \cdot 10^5$ pixels: $7 \cdot 10^8$ (exactly $6.7 \cdot 10^8$, counting the slightly smaller overlaps of the shifted strips), less than a second. (c) If the stage is worse than you assumed, the true shift is outside the window, and the best score in the window is a wrong shift. Check the score: a low NCC means "not found", not "found here".
+
+**B5.** At every shift that is a multiple of 12 away from the true one: if the true shift is 9, at $-39, -27, -15, -3, 9, 21, 33, 45$. A defect or the edge of the grating inside the overlap, or the nominal stage position (take the peak nearest to it), decides.
+
+**B6.** (a) NCC about 1 (a gain does not matter). (b) Lower: the template sees only part of the big cell, a bright patch filling most of the window; NCC is positive but well below 1, and the best position may be off-centre. (c) Undefined or close to 0: no pattern (in practice the noise gives small random values). (d) Close to −1: the same pattern with the contrast inverted. A detector keeps the positive peaks above a threshold.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that over the overlap $\Omega_t$, $\mathrm{SSD}(t) = E_A(t) + E_B(t) - 2\,\mathrm{CC}(t)$ with $E_A(t) = \sum_{\Omega_t} f(x+t)^2$ and $E_B(t) = \sum_{\Omega_t} g(x)^2$. For a template that always lies completely inside A, which of the two energies depends on $t$? What does that mean for SSD vs CC?
+
+**B8.** *(math)* (a) Show that $|\mathrm{NCC}| \le 1$, with equality exactly when $g = af + b$ on the overlap ($a \ne 0$). (b) Show that NCC does not change when $g$ is replaced by $ag + b$ with $a > 0$. What happens for $a < 0$?
+
+**B9.** *(math)* Show that all shifts of two signals of length $N$ (every shift with a non-empty overlap) cost $N^2$ multiply-adds in total, and that a window $|t| \le w$ costs $(2w+1)N - w(w+1)$. Give the 2D versions for $N \times N$ images.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Expand $(f - g)^2 = f^2 + g^2 - 2fg$ and sum over $\Omega_t$. For a template inside A, $\Omega_t$ is always the whole template, so $E_B$ is a constant; but $E_A(t)$ is the energy of the part of A under the template and changes with $t$. SSD $= E_A(t) + \text{const} - 2\,\mathrm{CC}(t)$: minimising SSD is maximising $\mathrm{CC}(t) - E_A(t)/2$, which punishes bright regions. Maximising CC alone rewards them (B2).
+
+**B8.** (a) Let $\mathbf u, \mathbf v$ be the mean-free overlap vectors of $f$ and $g$. NCC $= \mathbf u \cdot \mathbf v / (\|\mathbf u\|\|\mathbf v\|)$, and Cauchy–Schwarz gives $|\mathbf u \cdot \mathbf v| \le \|\mathbf u\|\|\mathbf v\|$, with equality iff $\mathbf v = a\mathbf u$, i.e. $g - \bar g = a(f - \bar f)$, $g = af + b$. (b) $ag + b$ has mean $a\bar g + b$, so its mean-free vector is $a\mathbf v$: numerator and denominator both scale by $|a|$ up to the sign of $a$, NCC becomes $\operatorname{sign}(a)\,$NCC. For $a < 0$ (inverted contrast) NCC changes sign: a perfect match scores −1.
+
+**B9.** Shift $t$ overlaps $N - |t|$ samples. $\sum_{t=-(N-1)}^{N-1}(N - |t|) = N + 2\sum_{k=1}^{N-1}k = N + N(N - 1) = N^2$. For the window: $\sum_{|t| \le w}(N - |t|) = (2w+1)N - 2\cdot\frac{w(w+1)}{2} = (2w+1)N - w(w+1)$. In 2D the overlap $(N - |t_x|)(N - |t_y|)$ is a product, so the double sum is the square of the 1D sum: $N^4$ for all shifts, $\big((2w+1)N - w(w+1)\big)^2$ for the window; for $N = 1024$, $w = 32$: $65504^2 = 4.29 \cdot 10^9$.
+:::
+
+## Explore: sliding and scoring {#explore}
+
+Image A (blue, 64 samples) and image B (red) placed at the shift $t$; the shaded band is the overlap. Below, the score of every shift: SSD (red), CC (green) and NCC (blue), each scaled to its own range in **all three** mode; the bold part has been "visited" by B so far, the dots mark each score's best shift, the dotted green line the true shift. SSD and CC are averaged over the overlap (so that long and short overlaps compare fairly); the readout gives the sums and counts the multiply-adds. **gain**, **offset** and **ramp** change B's brightness; **min. overlap** limits the shifts.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="xcorr1d" data-preset="bump"></div>
+<script src="../demos/dist/xcorr1d.js"></script>
+```
+
+**E1.** Preset **by hand: (1,3,1)**. Move the shift from 0 to 5 and check your table of B1. Which shift does each score choose?
+
+**E2.** Preset **a matching bump**: B is a 16-sample piece of A. Slide B from left to right. Which shift does each score choose? How many multiply-adds did the whole search cost?
+
+**E3.** Preset **brighter copy: SSD fails** (B as long as A, gain 1.6, offset 40). Where are the best shifts of SSD, CC and NCC? Compare SSD per pixel at the true shift and at SSD's best shift. Set the gain back to 1 and the offset to 0: what changes?
+
+**E4.** Preset **bright blob: CC fails**. Where does CC put its peak, and why there? Do SSD and NCC agree with the truth?
+
+**E5.** Preset **periodic: many peaks**, score NCC. List the shifts where NCC reaches 1. Which one does the readout report as best, and why that one?
+
+**E6.** Preset **tiny overlap: NCC noisy** (noise 15, overlaps down to 2 samples). Where is NCC's best shift, and how large is the overlap there? Raise **min. overlap** to 16. What does NCC choose now, and what is its value at the true shift?
+
+**E7.** Preset **micrograph profile**: A is a row of the course micrograph. Which score fails here? Look at the profile: why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** The readout gives the sums of B1: CC 6, 11, 6, 3, 12, 22; SSD 9, 0, 9, 10, 27, 11; NCC −0.189, 1, −0.189, −0.866, −0.189, 1. Best: SSD 1, CC 5, NCC 1 (both copies score 1; the first one is reported).
+
+**E2.** All three find the true shift 22. The search covers 65 shifts (min. overlap 8) and costs 968 multiply-adds.
+
+**E3.** SSD chooses 48 (wrong), CC 10 (one off), NCC 9 (the truth, NCC 1.000). SSD per pixel is 9462.6 at the truth but only 1598.3 at 48, where B's bright parts happen to lie on bright parts of A. With gain 1 and offset 0 B is an exact copy, SSD is 0 at the truth and all three agree.
+
+**E4.** CC puts its peak at 42, where B lies on the bright blob: the products are large because A is large there. SSD and NCC find the truth, 12.
+
+**E5.** NCC is 1 at $-39, -27, -15, -3, 9, 21, 33, 45$: every 12 samples. The readout reports −3, the first of the equal maxima from the left: the choice between equal peaks is arbitrary. (The true shift is 9.)
+
+**E6.** NCC's best is at 62, where the overlap is only 2 samples: two pairs of numbers always have a correlation of ±1. With min. overlap 16 NCC chooses 9, the true shift, with NCC 0.874 (less than 1 because of the noise).
+
+**E7.** CC chooses −28; SSD and NCC find 9. The micrograph is bright (around 170) with dark structures: CC is largest where B's bright parts lie on bright parts of A, not where the dark structures match.
+:::
+
+## Explore: template matching {#explore-template}
+
+Drag the yellow template box over the image. The right panel shows the NCC of the template at every position (top-left corner of the box; red positive, blue negative, grey where the template does not fit). Cyan boxes mark the local maxima above the threshold.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="phasecorr" data-template="1"></div>
+<script src="../demos/dist/phasecorr.js"></script>
+```
+
+**E8.** Preset **dark granules**: a $20 \times 20$ template on a dark granule of the micrograph. What is the NCC at the template's own position, and how high are the next best matches? Lower the threshold to 0.3: what kind of places are added?
+
+**E9.** Preset **nuclei (synthetic)**: 18 nuclei, a $32 \times 32$ template on the one at the top left. How many matches are there at threshold 0.5? Which nuclei are missed, and what do they have in common? Lower the threshold to 0.3: how many nuclei are found now?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E8.** NCC is 1.00 at (99, 59), the template's own position (it is a copy of itself). The next best are (203, 10), (225, 162) and (79, 207), all with NCC about 0.5: dark specks with some likeness, but no real copies of the granule. At 0.3 many more dark or textured places pass the threshold: NCC rewards any similar local pattern, so the threshold sets the trade-off between missed and false matches.
+
+**E9.** At 0.5 there are 14 matches, one on each of 14 nuclei (NCC from 1.00 for the template itself down to 0.57). Three of the four missed nuclei touch a neighbour, so the template window also contains part of the other nucleus; the fourth, at the bottom edge, is cut by the border and the template cannot be centred on it. At 0.3 there are 16 matches, on 16 of the 18 nuclei. Of the last two, one (touching its neighbour at the bottom left) scores only 0.27; the other, at the right (NCC 0.35), lies within half a template of a better match on its touching neighbour, and the search keeps only the higher of two nearby maxima. Template matching assumes isolated objects of one size and shape; touching and elongated objects score lower.
+:::
+
+## Where this leads
+
+Trying every shift costs about $N^2$ operations for two images of $N$ pixels. The next unit computes the cross-correlation for **all shifts at once** with three FFTs, at a cost of about $N \log N$. After that, normalising the spectrum turns the broad CC peak into a sharp spike: **phase correlation**.

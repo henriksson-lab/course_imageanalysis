@@ -17,6 +17,7 @@ export interface Sim1D {
   noise: number;    // sd of Gaussian noise (on both)
   blob: number;     // height of a bright blob added to A only (0: none)
   seed: number;
+  circular?: boolean; // B = A rolled around by t (an exact circular shift; L = N)
 }
 
 export const PROFILE: Sim1D = { kind: "bumps", N: 64, L: 64, t: 9, gain: 1, offset: 0, ramp: 0, noise: 0, blob: 0, seed: 3 };
@@ -66,7 +67,10 @@ export function simulate1d(o: Sim1D, row: ArrayLike<number> | null = null): Sign
   const f = new Float64Array(o.N), g = new Float64Array(o.L);
   for (let x = 0; x < o.N; x++) f[x] = s(x);
   if (o.blob) { const c = blobCentre(o); for (let x = 0; x < o.N; x++) f[x] += o.blob * Math.exp(-((x - c) ** 2) / (2 * 3.5 * 3.5)); }
-  for (let x = 0; x < o.L; x++) g[x] = o.gain * s(x + o.t) + o.offset + o.ramp * (o.L > 1 ? x / (o.L - 1) : 0);
+  for (let x = 0; x < o.L; x++) {
+    const v = o.circular ? f[(((x + o.t) % o.N) + o.N) % o.N] : s(x + o.t);
+    g[x] = o.gain * v + o.offset + o.ramp * (o.L > 1 ? x / (o.L - 1) : 0);
+  }
   if (o.noise > 0) { for (let x = 0; x < o.N; x++) f[x] += o.noise * r.norm(); for (let x = 0; x < o.L; x++) g[x] += o.noise * r.norm(); }
   return { f, g };
 }

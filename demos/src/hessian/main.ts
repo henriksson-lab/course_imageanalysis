@@ -48,6 +48,17 @@ const CLASS_COLOURS: [number, number, number][] = [[150, 150, 150], [232, 64, 42
 const css = (c: [number, number, number]) => `rgb(${c.join(",")})`;
 const LEVELS = 8;
 
+/** "−x² + 0.5xy" style text of a x² + b xy + c y². */
+function poly(a: number, b: number, c: number): string {
+  const terms: string[] = [];
+  for (const [k, v] of [[a, "x²"], [b, "xy"], [c, "y²"]] as [number, string][]) {
+    if (Math.abs(k) < 1e-9) continue;
+    const mag = Math.abs(k) === 1 ? "" : String(+Math.abs(k).toFixed(2));
+    terms.push((k < 0 ? "−" : terms.length ? "+" : "") + mag + v);
+  }
+  return terms.length ? terms.join(" ").replace(/^\+/, "") : "0";
+}
+
 function mount(host: HTMLElement): void {
   injectStyle(NAME, STYLE);
   const mode = MODES.get(host.dataset.mode ?? "hessian") ?? MODES.get("hessian")!;
@@ -76,11 +87,11 @@ function mount(host: HTMLElement): void {
     L(-0.5 * m, -m, 0, 0, "6 4", "#666"); L(0.5 * m, -m, 0, 0, "6 4", "#666"); L(-0.5 * m, m, 0, 0, "6 4", "#666"); L(0.5 * m, m, 0, 0, "6 4", "#666");
     const T = (x: number, y: number, s: string, c: [number, number, number]) => {
       const e = svgEl("text", { x: sp.x(x), y: sp.y(y), "text-anchor": "middle", class: "qb-halo" }, g);
-      e.textContent = s; e.style.fontSize = "14px"; e.style.fill = css(c); e.style.fontWeight = "700";
+      e.textContent = s; e.style.fontSize = "13px"; e.style.fill = css(c); e.style.fontWeight = "700";
     };
     T(0, -0.93 * m, "bright ridge", CLASS_COLOURS[3]); T(0, 0.88 * m, "dark ridge", CLASS_COLOURS[4]);
-    T(-0.72 * m, -0.6 * m, "bright blob", CLASS_COLOURS[1]); T(0.72 * m, 0.6 * m, "dark blob", CLASS_COLOURS[2]);
-    T(0.7 * m, -0.6 * m, "saddle", CLASS_COLOURS[5]); T(-0.7 * m, 0.6 * m, "saddle", CLASS_COLOURS[5]);
+    T(-0.62 * m, -0.75 * m, "bright blob", CLASS_COLOURS[1]); T(0.62 * m, 0.8 * m, "dark blob", CLASS_COLOURS[2]);
+    T(0.66 * m, -0.75 * m, "saddle", CLASS_COLOURS[5]); T(-0.66 * m, 0.8 * m, "saddle", CLASS_COLOURS[5]);
   }, [1, 0.1]);
   const scat = sp.scatter([], [], { r: 2.2, opacity: 0.6 });
   const selDot = sp.scatter([], [], { r: 8, color: "none", stroke: "#000" });
@@ -101,12 +112,15 @@ function mount(host: HTMLElement): void {
   const qc = slider(quadDiv, "c", -1, 1, 0.1, st.qc, v => { st.qc = v; makeImage(); });
   const sigS = slider(panel, "σ", 1, 8, 0.25, st.sigma, v => { st.sigma = v; compute(); });
   const multiC = checkbox(panel, "multi-scale σ = 1 … σmax", st.multi, v => { st.multi = v; compute(); });
-  const smaxS = slider(panel, "σmax", 2, 12, 0.5, st.sigmaMax, v => { st.sigmaMax = v; if (st.multi) compute(); });
-  const tS = slider(panel, "flat below |λ2| =", 0, 20, 0.5, st.t, v => { st.t = v; draw(); });
-  const betaS = slider(panel, "β", 0.1, 2, 0.05, st.beta, v => { st.beta = v; draw(); });
-  const cS = slider(panel, "c", 1, 60, 1, st.c, v => { st.c = v; draw(); });
+  const smaxDiv = htmlEl("div", "", "", panel);
+  const smaxS = slider(smaxDiv, "σmax", 2, 12, 0.5, st.sigmaMax, v => { st.sigmaMax = v; if (st.multi) compute(); });
+  const tS = slider(panel, "flat below |λ2| =", 0, 20, 0.25, st.t, v => { st.t = v; draw(); });
+  const vesDiv = htmlEl("div", "", "", panel);
+  vesDiv.style.display = "flex"; vesDiv.style.flexDirection = "column"; vesDiv.style.gap = "inherit";
+  const betaS = slider(vesDiv, "β", 0.1, 2, 0.05, st.beta, v => { st.beta = v; draw(); });
+  const cS = slider(vesDiv, "c", 1, 60, 1, st.c, v => { st.c = v; draw(); });
+  const brightC = checkbox(vesDiv, "bright lines (untick: dark)", st.bright, v => { st.bright = v; draw(); });
   const noiseS = slider(panel, "noise", 0, 30, 1, st.noise, v => { st.noise = v; makeImage(); });
-  const brightC = checkbox(panel, "vesselness for bright lines (untick: dark)", st.bright, v => { st.bright = v; draw(); });
   button(panel, "reset", () => { Object.assign(st, start()); presetBtns.forEach(b => b.classList.remove("active")); sync(); makeImage(); });
 
   function sync(): void {
@@ -133,7 +147,12 @@ function mount(host: HTMLElement): void {
     setTimeout(() => {
       const t0 = performance.now();
       sigmas = st.multi ? geomScales(1, st.sigmaMax, LEVELS) : [st.sigma];
-      Hs = sigmas.map(s => hessian(img!, s, true));
+      const im = IMAGES.get(st.image);
+      Hs = sigmas.map(s => {
+        const H = hessian(img!, s, false), k = im?.units ? im.units(N, s) : s * s;
+        for (const g of [H.xx, H.xy, H.yy, H.l1, H.l2]) for (let i = 0; i < g.data.length; i++) g.data[i] *= k;
+        return H;
+      });
       pick = new Int32Array(N * N);
       if (Hs.length > 1) for (let i = 0; i < N * N; i++) {
         let b = 0; for (let k = 1; k < Hs.length; k++) if (Math.abs(Hs[k].l2.data[i]) > Math.abs(Hs[b].l2.data[i])) b = k;
@@ -152,7 +171,8 @@ function mount(host: HTMLElement): void {
     quadDiv.style.display = st.image === "quadratic" ? "" : "none";
     credit.style.display = IMAGES.get(st.image)?.credit ? "" : "none";
     legend.style.visibility = st.tab === "classes" ? "visible" : "hidden";
-    smaxS.input.disabled = !st.multi; sigS.input.disabled = st.multi;
+    smaxDiv.style.display = st.multi ? "" : "none"; sigS.input.disabled = st.multi;
+    vesDiv.style.display = st.tab === "vessel" || st.tab === "scale" ? "flex" : "none";
     const n = N * N, l1 = new Float32Array(n), l2 = new Float32Array(n), cls = new Uint8Array(n), ves = new Float32Array(n), best = new Int32Array(n);
     let gmin = Infinity, gmax = -Infinity;
     for (let i = 0; i < n; i++) { gmin = Math.min(gmin, img.data[i]); gmax = Math.max(gmax, img.data[i]); }
@@ -179,7 +199,7 @@ function mount(host: HTMLElement): void {
           if (contour) { const x = i % N; const a = Math.floor(img.data[i] / 12), b = x + 1 < N ? Math.floor(img.data[i + 1] / 12) : a, c = i + N < n ? Math.floor(img.data[i + N] / 12) : a; if (a !== b || a !== c) g = 0.45 * g; }
           px[4 * i] = px[4 * i + 1] = px[4 * i + 2] = g; px[4 * i + 3] = 255;
         }
-        cap = st.image === "quadratic" ? `f = ${st.qa}x² ${st.qb >= 0 ? "+" : "−"} ${Math.abs(st.qb)}xy ${st.qc >= 0 ? "+" : "−"} ${Math.abs(st.qc)}y² (with contours)` : "image"; break;
+        cap = st.image === "quadratic" ? `f = ${poly(st.qa, st.qb, st.qc)} (with contours)` : "image"; break;
       }
       case "classes":
         for (let i = 0; i < n; i++) {
@@ -210,18 +230,20 @@ function mount(host: HTMLElement): void {
     };
     axis(a, e1); axis(a + Math.PI / 2, e2);
     view.add("circle", { cx: X + 0.5, cy: Y + 0.5, r: 1.5 * N / 128, fill: "#ffd400", stroke: "#000", "stroke-width": 1 });
-    // scatter
-    const all = Float32Array.from(l2, Math.abs).sort();
-    const m = Math.max(st.t * 1.5, all[Math.floor(0.995 * (n - 1))] * 1.1, 1e-6);
+    // scatter (pixels away from the border, where the filters are not affected by it)
+    const mg = Math.min(Math.floor(N / 4), Math.ceil(2.5 * sigmas[sigmas.length - 1])), inner: number[] = [];
+    for (let y = mg; y < N - mg; y++) for (let x = mg; x < N - mg; x++) inner.push(y * N + x);
+    const all = Float32Array.from(inner, j => Math.abs(l2[j])).sort();
+    const m = Math.max(st.t * 1.5, all[Math.floor(0.995 * (all.length - 1))] * 1.1, 1e-6);
     sp.setDomain([-m, m], [-m, m]);
     regions.set(m, st.t);
-    const stride = Math.max(1, Math.floor(n / 2500)), xs: number[] = [], ys: number[] = [], cols: string[] = [];
-    for (let j = 0; j < n; j += stride) { xs.push(Math.max(-m, Math.min(m, l1[j]))); ys.push(Math.max(-m, Math.min(m, l2[j]))); cols.push(css(CLASS_COLOURS[cls[j]])); }
+    const stride = Math.max(1, Math.floor(inner.length / 2500)), xs: number[] = [], ys: number[] = [], cols: string[] = [];
+    for (let q = 0; q < inner.length; q += stride) { const j = inner[q]; xs.push(Math.max(-m, Math.min(m, l1[j]))); ys.push(Math.max(-m, Math.min(m, l2[j]))); cols.push(css(CLASS_COLOURS[cls[j]])); }
     scat.set(xs, ys, cols);
     selDot.set([Math.max(-m, Math.min(m, e1))], [Math.max(-m, Math.min(m, e2))]);
-    const f = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2));
+    const f = (v: number) => (Math.abs(v) < 0.005 ? "0" : Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2));
     ro.textContent =
-      `pixel (${X}, ${Y}), σ = ${sigmas[pick[i]].toFixed(2)} (×σ²)\n` +
+      `pixel (${X}, ${Y}), σ = ${sigmas[pick[i]].toFixed(2)}${st.image === "quadratic" ? " (units of f)" : " (×σ²)"}\n` +
       `H = [${f(H.xx.data[i])}  ${f(H.xy.data[i])}; ${f(H.xy.data[i])}  ${f(H.yy.data[i])}]\n` +
       `λ1 = ${f(e1)}, λ2 = ${f(e2)}\ntrace = ${f(e1 + e2)}, det = ${f(e1 * e2)}\n` +
       `→ ${HESS_CLASS_NAMES[cls[i]]}; vesselness ${ves[i].toFixed(2)}` + (sigmas.length > 1 ? ` (best σ ${sigmas[best[i]].toFixed(1)})` : "");

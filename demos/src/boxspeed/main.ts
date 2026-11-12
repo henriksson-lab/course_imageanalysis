@@ -33,14 +33,14 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-panel { flex: 0 1 280px; gap: .4em; }
 [data-demo="${NAME}"] .bs-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
 [data-demo="${NAME}"] .bs-credit { font-size: 12px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
+[data-demo="${NAME}"] .qb-readout { font-size: 14px; margin-top: .3em; }
 [data-demo="${NAME}"] .bs-tabs .qb-btn { font-weight: 600; }
 .reveal [data-demo="${NAME}"] { font-size: 18px; gap: .8em; }
 .reveal [data-demo="${NAME}"] .bs-img { flex-basis: 270px; }
 .reveal [data-demo="${NAME}"] .bs-plot { flex-basis: 470px; max-width: 480px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex-basis: 300px; gap: .25em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .bs-lab { display: none; }
 `;
 
 function injectStyle(): void {
@@ -86,7 +86,8 @@ function mount(host: HTMLElement): void {
   const imgFig2 = htmlEl("figure", "", "", imgFig);
   const cap2 = htmlEl("figcaption", "", "", imgFig2);
   const cv2 = htmlEl("canvas", "", "", imgFig2);
-  const plotBox = htmlEl("div", "bs-plot", "", host);
+  const midBox = htmlEl("div", "bs-plot", "", host);
+  const plotBox = htmlEl("div", "", "", midBox);
   const panel = htmlEl("div", "qb-panel", "", host);
 
   const tabRow = htmlEl("div", "qb-presets bs-tabs", "", panel);
@@ -98,11 +99,8 @@ function mount(host: HTMLElement): void {
   const imBtns = (["cell", "dots", "star"] as ImageId[]).map(id => button(imRow, id === "cell" ? "micrograph" : id === "dots" ? "points" : "star", () => { st.image = id; update(); }));
   const kS = slider(panel, "box width k", 1, 101, 2, st.k, v => { st.k = v; update(); });
   const nS = slider(panel, "passes n", 1, 4, 1, st.n, v => { st.n = v; update(); });
-  const methodLab = htmlEl("div", "bs-lab", "time this method", panel);
-  const mRow = htmlEl("div", "qb-presets", "", panel);
-  const mBtns = METHODS.map(m => button(mRow, m.label, () => { st.method = m.id; update(); }));
   button(panel, "reset", () => load(p0));
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  const ro = htmlEl("div", "qb-readout", "", midBox);
   const note = htmlEl("div", "qb-note", "", panel);
 
   function load(p: Preset): void {
@@ -161,10 +159,9 @@ function mount(host: HTMLElement): void {
   function sync(): void {
     tabBtns.forEach((b, i) => b.classList.toggle("active", (i === 1) === (st.tab === "repeat")));
     imBtns.forEach((b, i) => b.classList.toggle("active", ["cell", "dots", "star"][i] === st.image));
-    mBtns.forEach((b, i) => b.classList.toggle("active", METHODS[i].id === st.method));
+    pbtns.forEach((b, i) => { b.style.display = PRESETS[i].tab === st.tab ? "" : "none"; });
     const speed = st.tab === "speed";
     (nS.input.parentElement as HTMLElement).style.display = speed ? "none" : "";
-    methodLab.style.display = mRow.style.display = speed ? "" : "none";
     imgFig2.style.display = speed ? "none" : "";
     credit.style.display = st.image === "cell" ? "" : "none";
     kS.input.max = speed ? "101" : "21";
@@ -192,12 +189,11 @@ function mount(host: HTMLElement): void {
     P.legend(undefined, "tl");
     const fmt = (m: BoxMethod) => {
       const t = times[m];
-      return t === undefined ? "  …" : t === null ? "  skipped (too slow)" : `${t.toFixed(1).padStart(6)} ms`;
+      return t === undefined ? "     …" : t === null ? "skipped" : t.toFixed(1).padStart(6);
     };
-    ro.textContent = `additions per pixel at k = ${st.k}\n` +
-      METHODS.map(m => `${m.label.padEnd(15)}${String(boxOpsPerPixel(m.id, st.k)).padStart(6)}`).join("\n") +
-      `\n\nmeasured, ${N} × ${N} image\n(this machine, median of 3)\n` +
-      METHODS.map(m => `${m.label.padEnd(15)}${fmt(m.id)}`).join("\n");
+    ro.textContent = `k = ${st.k}        additions/pixel   time (ms)\n` +
+      METHODS.map(m => `${m.label.padEnd(16)}${String(boxOpsPerPixel(m.id, st.k)).padStart(8)}   ${fmt(m.id)}`).join("\n") +
+      `\ntimes: ${N} × ${N} image, this computer, median of 3`;
     note.textContent = "The time depends on the computer and the browser; the counts do not. All four methods give the same image (windows clipped at the border).";
   }
 

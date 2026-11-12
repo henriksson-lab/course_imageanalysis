@@ -1,0 +1,165 @@
+---
+title: "Exercise: closed boundaries in polar coordinates"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- **unwrap** an image around a centre and map polar samples back to pixels, with bilinear interpolation,
+- find the best **open** and the best **closed** boundary in a small polar cost table by DP,
+- choose the **polarity** of the edge cost and the **smoothness** limit,
+- explain when the method **fails** (not star-shaped, bad centre, a brighter edge nearby),
+- *(math)* analyse the cost of the exact closure, the unroll heuristic and DP snakes.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Star-shaped around $c$ | every ray from $c$ leaves the object once; the boundary is a radius $r(\theta)$ per angle |
+| Unwrapping | $P(\theta_k, r) = I(c_x + r\cos\theta_k,\ c_y + r\sin\theta_k)$, read by bilinear interpolation; $y$ points down, so $\theta$ turns clockwise on the screen |
+| Cost | from the radial derivative $\partial P/\partial r$: $+\partial P/\partial r$ for a bright → dark edge, $-\partial P/\partial r$ for dark → bright |
+| Smoothness | $\lvert r_{k+1} - r_k\rvert \le \delta$, plus a penalty $\alpha\lvert r_{k+1} - r_k\rvert$ |
+| Recursion | $M(k, r) = C(k, r) + \min_{\lvert d\rvert \le \delta}\big(M(k-1, r+d) + \alpha\lvert d\rvert\big)$ |
+| Closure | also $\lvert r_0 - r_{K-1}\rvert \le \delta$: try every start radius (exact) or unroll the angles three times (heuristic) |
+
+## By hand
+
+**B1.** A polar cost table with $K = 4$ angles and radii $r = 1, \dots, 4$ (rows = radius, columns = angle), $\delta = 1$, $\alpha = 0$:
+
+| | 0° | 90° | 180° | 270° |
+|---|---|---|---|---|
+| $r = 1$ | 3 | 9 | 1 | 0 |
+| $r = 2$ | 6 | 0 | 2 | 6 |
+| $r = 3$ | 1 | 5 | 9 | 6 |
+| $r = 4$ | 1 | 3 | 3 | 7 |
+
+(a) Fill the DP table $M$ over the angles $0°, 90°, 180°, 270°$ (each column from the previous one) and find the best **open** path and its cost.
+(b) Does it close, that is, is $|r(0°) - r(270°)| \le \delta$? Draw the curve roughly around a centre.
+(c) Find the best **closed** path: fix the start radius $r(0°) = s$, run the table with only that start allowed, and keep the best end radius within $\delta$ of $s$. Do this for $s = 1, 2, 3, 4$. Which start wins, and what does the closed path cost?
+
+**B2.** Unwrapping. The centre is $c = (50, 40)$ ($x$ right, $y$ down).
+(a) Which pixel does the sample at $r = 10$, $\theta = 90°$ read?
+(b) The sample at $r = 5$, $\theta = 30°$: compute its position $(x, y)$. The four pixels around it have the values $I(54, 42) = 100$, $I(55, 42) = 120$, $I(54, 43) = 140$, $I(55, 43) = 180$. Compute the bilinear value.
+
+**B3.** Polarity. A bright nucleus (grey level 160) touches a brighter neighbour (220) on its right; the background is 40. Along the ray at $0°$ (to the right) the profile is: nucleus 160, then neighbour 220, then background 40.
+(a) Sketch $\partial P/\partial r$ along that ray. Where is it most negative, and where positive?
+(b) Which edge does the cost "bright → dark" prefer on that ray? And "either"? Which one is the nucleus boundary?
+(c) How do the smoothness limit and the neighbouring rays help to keep the boundary on the nucleus?
+
+**B4.** Angles and steepness. A boundary at radius about 50 px is sampled with $K$ angles and $\delta = 1$.
+(a) How long is the arc between two neighbouring rays for $K = 36$, $120$ and $360$?
+(b) $\delta = 1$ lets the radius change by 1 px per angle step. How steeply (angle to the circle) may the boundary then run, for each $K$? Which $\delta$ would allow 45° at $K = 120$?
+(c) Why do the path costs of runs with different $K$ not compare directly?
+
+**B5.** Predict. A convex nucleus is unwrapped around a centre near its edge (not in its middle). Is it still star-shaped around that centre? What goes wrong in practice? And for a bean-shaped nucleus, which centres work?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Column by column ($M$ at $0°$ copies the costs; each later entry is the cost plus the smallest of the up to three entries in the previous column within one radius):
+
+| $M$ | 0° | 90° | 180° | 270° |
+|---|---|---|---|---|
+| $r = 1$ | 3 | 12 | 2 | 2 |
+| $r = 2$ | 6 | 1 | 3 | 8 |
+| $r = 3$ | 1 | 6 | 10 | 9 |
+| $r = 4$ | 1 | 4 | 7 | 14 |
+
+For example $M(90°, 2) = 0 + \min(3, 6, 1) = 1$ and $M(180°, 1) = 1 + \min(12, 1) = 2$. The smallest entry at $270°$ is 2 (at $r = 1$). Backtracking: $r = 1$ at 270° ← $r = 1$ at 180° ← $r = 2$ at 90° ← $r = 3$ at 0°. The open path is $r = (3, 2, 1, 1)$ with cost $1 + 0 + 1 + 0 = 2$.
+(b) $|r(0°) - r(270°)| = |3 - 1| = 2 > 1$: it does **not** close. The curve jumps from radius 1 back to radius 3 between 270° and 360°.
+(c) With the start fixed:
+
+| start $s$ | allowed ends | best closed path | cost |
+|---|---|---|---|
+| 1 | $r = 1, 2$ | $(1, 2, 1, 1)$ | **4** |
+| 2 | $r = 1, 2, 3$ | $(2, 2, 1, 1)$ | 7 |
+| 3 | $r = 2, 3, 4$ | $(3, 2, 1, 2)$ | 8 |
+| 4 | $r = 3, 4$ | $(4, 4, 4, 3)$ | 13 |
+
+For $s = 1$ the table is $M(0°) = (3, \infty, \infty, \infty)$, $M(90°) = (12, 3, \infty, \infty)$, $M(180°) = (4, 5, 12, \infty)$, $M(270°) = (4, 10, 11, 19)$; the ends $r = 1, 2$ give 4 and 10. The best closed path is $(1, 2, 1, 1)$ with cost **4**: 2 more than the open optimum, which was not a closed curve.
+
+**B2.** (a) $(50 + 10\cos 90°,\ 40 + 10\sin 90°) = (50, 50)$: straight **down** on the screen, because $y$ points down.
+(b) $(50 + 5\cos 30°,\ 40 + 5\sin 30°) = (54.33, 42.5)$, so $f_x = 0.33$, $f_y = 0.5$. Top row: $100 + 0.33 \cdot 20 = 106.60$; bottom row: $140 + 0.33 \cdot 40 = 153.21$; between them: $106.60 + 0.5 \cdot (153.21 - 106.60) = 129.90$.
+
+**B3.** (a) Going outward: $+60$ at the nucleus/neighbour contact (dark → bright), then $-180$ at the neighbour's outer edge (bright → dark); smoothed, these are a positive and a strongly negative bump.
+(b) "bright → dark" (cost $= +\partial P/\partial r$) makes the positive jump at the contact **expensive** and the neighbour's outer edge very cheap: on this ray alone it prefers the **neighbour's outer edge**. "Either" (cost $-|\partial P/\partial r|$) likes both, and the outer edge more (180 > 60). The nucleus boundary is the contact, which has the **wrong** sign for "bright → dark": no edge cost will pick it on this ray.
+(c) On the neighbouring rays above and below the neighbour, the nucleus has a clear bright → dark edge at about the same radius. With a small $\delta$ (and a penalty $\alpha$) the path cannot climb out to the neighbour's outer edge and back within the few angles where the neighbour sits, so it crosses the contact zone at roughly the nucleus radius. The smoothness term carries the boundary across the part where the image gives no evidence.
+
+**B4.** (a) The arc is $50 \cdot 2\pi / K$: 8.73 px ($K = 36$), 2.62 px ($K = 120$), 0.87 px ($K = 360$).
+(b) The steepest allowed slope is 1 px of radius per arc length: $\arctan(1/8.73) = 6.5°$, $\arctan(1/2.62) = 20.9°$, $\arctan(1/0.87) = 48.9°$. For 45° at $K = 120$ one needs $\delta \approx 2.6$, so $\delta = 3$. A fixed $\delta$ is a stronger smoothness constraint with fewer angles.
+(c) The cost is a **sum over the $K$ angles**: with more angles there are more terms. Compare costs only at the same $K$ (or divide by $K$).
+
+**B5.** A convex shape is star-shaped around **every** interior point, so the method still works in principle. In practice the rays near the close side hit the boundary at very small radii and the far side at large radii; neighbouring rays on the far side are far apart (coarse sampling), and the boundary runs steeply relative to the rays, so $\delta$ may be too small. For a bean, only centres in the "kernel" of the shape work: points from which the whole boundary is visible, roughly the middle of the bean below its dent. From a point in one lobe, rays to the other lobe cross the dent (leave and re-enter the object).
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that the exact closure (one DP run per start radius, accepting only end radii within $\delta$ of the start) finds the cheapest closed path. What is its cost in operations for $K = 360$, $R = 100$, $\delta = 3$, and how does that compare with one open run?
+
+**B7.** *(math)* The unroll heuristic. For the table below ($K = 4$, radii $r = 1, \dots, 4$, $\delta = 1$, $\alpha = 0$), unrolling three times and keeping the middle copy gives $r = (4, 4, 3, 2)$. Check that this path does not close, and find the best closed path. Why can the middle copy of a long open path fail to close?
+
+| | 0° | 90° | 180° | 270° |
+|---|---|---|---|---|
+| $r = 1$ | 3 | 8 | 9 | 0 |
+| $r = 2$ | 2 | 4 | 1 | 3 |
+| $r = 3$ | 5 | 4 | 0 | 5 |
+| $r = 4$ | 2 | 1 | 1 | 4 |
+
+**B8.** *(math)* DP snakes. Each of $n$ snake points may move to one of $m$ positions in a window. (a) With an elastic term $\alpha|v_i - v_{i-1}|^2$ and an image term, write the recursion and show that one pass costs $O(nm^2)$. (b) With a bending term $\beta|v_{i+1} - 2v_i + v_{i-1}|^2$, explain why the states must be pairs of positions and show the cost $O(nm^3)$.
+
+**B9.** *(math)* Show that for a bright disc of radius $\rho$ and contrast $h$ on a dark background, smoothed with a Gaussian of scale $\sigma \ll \rho$, the radial derivative along any ray from the centre is most negative at $r \approx \rho$, with value about $-h/(\sqrt{2\pi}\,\sigma)$. What happens to the minimum if the centre is moved by a small offset?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** Every closed path has a start radius $s$. For fixed $s$ the run with only $s$ allowed at angle 0 computes, by the principle of optimality, the cheapest path from $(0, s)$ to every $(K-1, r)$; adding the closing step $\alpha|r - s|$ and allowing only $|r - s| \le \delta$ gives the cheapest closed path starting at $s$. The minimum over $s$ is the cheapest closed path. Work: $R$ runs of $K R (2\delta + 1)$ operations: $100 \cdot 360 \cdot 100 \cdot 7 = 25.2$ million, against $252\,000$ for one open run (100 times more), still a fraction of a second.
+
+**B7.** $|r(0°) - r(270°)| = |4 - 2| = 2 > 1$: not closed. Its cost with the closing step ignored: $2 + 1 + 0 + 3 = 6$. The best closed path (trying all starts as in B1) costs **7**. The open path through three copies is optimal as a whole, but nothing forces it to pass the "seam" between two copies at the same radius at both ends of the middle copy: the cheapest way through the third copy may enter it at a different radius than the middle copy was entered from the first. Usually the copies agree (the middle is far from the free ends), but not always, and when it closes it is not guaranteed to be the cheapest closed path.
+
+**B8.** (a) $M_i(v) = E_{\text{img}}(v) + \min_{u \in W_{i-1}}\big(M_{i-1}(u) + \alpha|v - u|^2\big)$: $m$ states, $m$ candidates each, so $m^2$ per point and $O(nm^2)$ per pass (times $m$ for the exact closure of a closed snake). (b) The bending term at point $i$ involves $v_{i-1}, v_i, v_{i+1}$; a recursion over single positions would need $v_{i-2}$ when choosing $v_i$, which is not in the state. With the state $(v_{i-1}, v_i)$: $M_i(v_{i-1}, v_i) = E_{\text{img}}(v_i) + \alpha|v_i - v_{i-1}|^2 + \min_{v_{i-2}}\big(M_{i-1}(v_{i-2}, v_{i-1}) + \beta|v_i - 2v_{i-1} + v_{i-2}|^2\big)$: $m^2$ states with $m$ candidates each, $O(nm^3)$.
+
+**B9.** Near the boundary a disc of radius $\rho \gg \sigma$ looks like a straight step of height $h$ across the ray. The smoothed step is $h\,\Phi\big((\rho - r)/\sigma\big)$ (with $\Phi$ the normal distribution function), whose derivative in $r$ is $-\frac{h}{\sigma}\varphi\big((r - \rho)/\sigma\big)$, most negative at $r = \rho$ with value $-h/(\sqrt{2\pi}\sigma)$. From an offset centre the ray meets the boundary at an angle $\gamma$ to the normal; the radial derivative is the directional derivative along the ray, about $\cos\gamma$ times the normal one, so the minimum stays at the boundary but is **weaker** where the ray is oblique: another reason to centre well.
+:::
+
+## Explore {#explore}
+
+Left: the image with the centre (drag it, or click to move it), every few rays (red: angle 0°), the allowed annulus $[r_{\min}, r_{\max}]$ (dashed) and the boundary found. Middle: the unwrapped image, angle across and radius down, with the path; **cost** shows the cost table (blue = cheap) and **table M** the cumulative table of the DP. The readout gives the gap $|r(0°) - r(\text{last})|$, whether the curve closes, the path cost (lower is better), the number of operations and the time.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="polarseg" data-preset="done"></div>
+<script src="../demos/dist/polarseg.js"></script>
+```
+
+**E1.** Preset **nucleus: done** ($K = 120$, $\delta = 1$, $\alpha = 0.1$, bright → dark, exact). Read the gap and the cost. Look at the lower left of the nucleus, where its edge is a weak, wide ramp: how does the boundary get across? Switch the middle view to **cost** and find the weak part there.
+
+**E2.** Same preset, closure **open**, then **unroll ×3**, then **exact**. Compare gap, cost and operations. Which ones close?
+
+**E3.** Preset **no smoothness** ($\delta = 8$, $\alpha = 0$). Where does the boundary go at 0°, and is its cost higher or lower than in E1? What does that tell you about the energy? Now raise $\alpha$ to 0.3: what happens?
+
+**E4.** Preset **open path: jump at 0°**. How large is the jump? Switch to **exact**: where does the path change?
+
+**E5.** Preset **bad centre** (the bean, centre in its left lobe). Which part is missing, and why can no smoothness setting recover it? Press **centre → centroid of the contour** a few times. Does it converge to a good boundary? Then choose the image **bean** (its default centre is in the middle, below the dent): what happens at the dent, with $\delta = 1$ and with $\delta = 8$?
+
+**E6.** Preset **wrong polarity** (dark → bright on a bright nucleus). Where does the path go, and what is its cost? Try **either**.
+
+**E7.** Preset **micrograph nucleus** (dark-line cost, $\delta = 2$). Where does the boundary follow the nuclear envelope, and where does it go wrong? Explain with the "brighter edge on the same ray" failure mode.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Gap 0 px (closes), cost $-58.67$ with 3 618 020 operations. In the lower left (angles around 145°) the cost is only weakly negative over a wide band of radii; the smoothness limit ($\delta = 1$ per 3°) and the penalty make the path continue at the radius of the neighbouring rays, about 40 px, until the strong edge returns. In the cost view the weak part is the pale stretch of the blue band.
+
+**E2.** Open: gap 7 px, does not close (the readout's closed cost $-58.72$ includes the closing step; the open path itself costs $-59.42$), 35 819 operations. Unroll ×3: gap 0, cost $-58.67$, 108 059 operations (3 runs). Exact: gap 0, cost $-58.67$, 3 618 020 operations (one run per start radius). Here the unroll heuristic finds the same closed path as the exact method, 33 times faster.
+
+**E3.** At 0° the path jumps out to the outer edge of the brighter neighbour, radius 94 px, and comes back on the other side of it (the jumps of up to 8 px per angle make that possible). Its cost is **lower**: $-69.99$ against $-58.67$. The energy prefers the neighbour's outer edge, which is a stronger bright → dark edge; the optimiser is doing its job, the model (cost and smoothness) is what decides. With $\alpha = 0.3$ the detour becomes too expensive: the boundary returns to the nucleus (largest radius 51 px), cost $-50.53$.
+
+**E4.** The gap is 15 px: the open path starts at radius 52 px at 0° and ends at 37 px at the last angle. With **exact** the gap becomes 0: both ends now meet at the same radius, and the path near 0° changes so that the curve closes.
+
+**E5.** The right lobe is missing: from a centre in the left lobe, the rays towards the right lobe cross the dent of the bean, so they leave the object, cross background and enter it again. A radius per angle can describe only one crossing; no smoothness setting changes that. Pressing **centre → centroid** moves the centre to (84, 139), (88, 142) and then (92, 145), where it stays: the contour still only covers the left part, so its centroid stays there too. Iterating does not escape. Dragging the centre to the middle of the bean below the dent (the image's default centre (128, 140); choose the image **bean** again) gives a boundary around **both** lobes, but it bridges the dent at a radius of about 61 px instead of dipping into it: the walls of the dent run almost along the rays, and with $\delta = 1$ (or even 4) and $\alpha = 0.1$ going 45 px down and back up costs more than the dent's edge gains. With $\delta = 8$ the path follows the dent (radius 16 px straight up, at 270°). Star-shaped is necessary, but steep parts of the boundary also need a large enough $\delta$.
+
+**E6.** With dark → bright the boundary of the nucleus is the **wrong** sign and costs extra. The path stays close to the centre (radius 8–14 px), following noise, with cost $-3.05$: nearly nothing is found. **Either** finds the nucleus again (cost $-60.39$).
+
+**E7.** At the top, right and bottom the boundary follows the thin dark envelope of the nucleus. On the left it runs outside the envelope, along the parallel dark cell membrane a few pixels further out: on those rays the membrane is an equally good (or better) dark line, and $\delta = 2$ lets the path reach it. A tighter annulus ($r_{\max}$) or a larger $\alpha$ helps here; a different centre changes which line each ray sees first.
+:::
+
+## Where this leads
+
+Polar DP needs an order: angle after angle. A boundary between two points that may wander in any direction, in any image, has no such order. The next unit drops the fixed order and lets the algorithm discover it: **Dijkstra's algorithm** and **live-wire** segmentation.

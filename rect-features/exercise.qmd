@@ -1,0 +1,156 @@
+---
+title: "Exercise: rectangle features"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute a **two-** and a **three-rectangle feature** from an integral image, listing the lookups and their signs,
+- predict which template responds to a given structure, and with which **sign**,
+- **count** the features in a detection window, and explain why the pool is overcomplete,
+- read a **box feature stack** and judge which features separate two classes of pixels,
+- *(math)* derive the number of lookups and the response of an edge feature to a ramp.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Rectangle feature | weighted sum of rectangle sums; the weights sum to zero |
+| Edge (two rectangles) | sum(white) − sum(black), side by side or one above the other: 6 lookups |
+| Line (three rectangles) | $2\cdot$sum(centre) − sum(left) − sum(right): 8 lookups |
+| Diagonal (four rectangles) | top-left + bottom-right − top-right − bottom-left: 9 lookups |
+| Centre − surround | sum(small box) − sum(large box)/9 (large = 3 × 3 small): 8 lookups |
+| Lookups | the distinct table corners with a non-zero coefficient; shared corners are read once |
+| Normalisation | divide by the window's standard deviation (contrast) and by the rectangle area (size) |
+| Box feature stack | box mean, box SD, centre − surround, edge across, edge down, at scales 1, 2, 4, 8, 16 px |
+
+As before, pixels are numbered from 1, $x$ = column, $y$ = row, and $S(x, y)$ is the sum over columns $1..x$ and rows $1..y$ (zero for $x = 0$ or $y = 0$).
+
+## By hand
+
+The $6 \times 6$ image (row $y = 1$ on top) and its integral image:
+
+$$I = \begin{bmatrix} 1&1&1&5&5&5 \\ 1&2&1&6&5&5 \\ 1&1&2&5&6&5 \\ 2&1&1&5&5&6 \\ 1&1&1&5&5&5 \\ 1&2&1&5&6&5 \end{bmatrix}
+\qquad
+S = \begin{bmatrix} 0&0&0&0&0&0&0 \\ 0&1&2&3&8&13&18 \\ 0&2&5&7&18&28&38 \\ 0&3&7&11&27&43&58 \\ 0&5&10&15&36&57&78 \\ 0&6&12&18&44&70&96 \\ 0&7&15&22&53&85&116 \end{bmatrix}$$
+
+($S$ has rows $y = 0..6$ and columns $x = 0..6$.)
+
+**B1.** An edge feature, **left − right**, over rows 2–5: the left rectangle is columns 2–3, the right one columns 4–5.
+(a) Write each rectangle sum with four lookups.
+(b) Combine them. Which corners are shared, and what coefficients do they get? How many distinct lookups remain?
+(c) Compute the response and check it by adding the pixels. What does its sign say about the image?
+
+**B2.** A line feature, $2\cdot$centre − left − right, over rows 2–5 with one column per rectangle: left = column 3, centre = column 4, right = column 5.
+(a) List the 8 lookups with their coefficients.
+(b) Compute the response and check it directly.
+
+**B3.** **Which template?** A $6 \times 6$ image is 1 everywhere except columns 3 and 4, which are 9 (a bright vertical bar). Four features cover the whole image: (i) edge across (columns 1–3 minus 4–6), (ii) edge down (rows 1–3 minus 4–6), (iii) line across with rectangles 2 columns wide ($2\cdot$columns 3–4 − columns 1–2 − columns 5–6), (iv) diagonal with $3 \times 3$ quarters. Predict which respond, then compute all four responses.
+
+**B4.** **Counting.**
+(a) How many edge-across features (two rectangles of $w \times h$ side by side, any $w, h \ge 1$, any position) fit in an $8 \times 8$ window?
+(b) The same window has 64 pixels. Why does a detector want so many more features than pixels?
+
+**B5.** **Lighting.** A face is photographed twice, the second time with twice the contrast and 50 grey levels brighter. What happens to the raw response of the eyes-versus-cheeks feature? What happens after dividing by the window's standard deviation?
+
+**B6.** **Scales for free.** A box feature stack has 5 feature types at 5 scales (1 to 16 px) on a $1000 \times 1000$ image. About how many table lookups does the whole stack take? How would the cost of the box mean at 16 px compare if it were computed directly ($33 \times 33$ window)?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Left: $S(3,5) - S(3,1) - S(1,5) + S(1,1) = 18 - 3 - 6 + 1 = 10$. Right: $S(5,5) - S(5,1) - S(3,5) + S(3,1) = 70 - 13 - 18 + 3 = 42$.
+(b) Left − right $= 2S(3,5) - 2S(3,1) - S(1,5) + S(1,1) - S(5,5) + S(5,1)$. The corners $S(3,5)$ and $S(3,1)$ on the shared side appear in both sums and get coefficients $+2$ and $-2$: **6** distinct lookups.
+(c) $36 - 6 - 6 + 1 - 70 + 13 = -32$. Directly: left $2+1+1+1 + 1+2+1+1 = 10$, right $6+5+5+5 + 5+6+5+5 = 42$, difference $-32$. Negative: the right side is brighter, a dark-to-bright edge from left to right.
+
+**B2.** (a) Corners lie at $x = 2, 3, 4, 5$ and $y = 1, 5$:
+$$S(2,5) - S(2,1) - 3S(3,5) + 3S(3,1) + 3S(4,5) - 3S(4,1) - S(5,5) + S(5,1).$$
+At $x = 3$ the left rectangle's right side ($-1$) meets the centre's left side ($-2$): coefficient $\mp 3$; at $x = 4$ the centre's right side ($+2$) meets the right rectangle's left side ($+1$): $\pm 3$. Eight lookups.
+(b) $-54 + 9 + 12 - 2 + 132 - 24 - 70 + 13 = 16$. Directly: column 3 rows 2–5: $1 + 2 + 1 + 1 = 5$; column 4: $6 + 5 + 5 + 5 = 21$; column 5: $5 + 6 + 5 + 5 = 21$; $2 \cdot 21 - 5 - 21 = 16$.
+
+**B3.** Only (iii) responds. (i): both halves contain one bright column (column 3 left, column 4 right): $0$. (ii): the bar runs through both halves equally: $0$. (iv): each quarter contains the same amount of bar: $0$. (iii): centre columns 3–4: 12 pixels of 9 = 108; each side 12 pixels of 1 = 12; $2 \cdot 108 - 12 - 12 = 192$, positive: a bright line on a dark background.
+
+**B4.** (a) Rectangle width $w = 1..4$ (the feature is $2w$ wide), height $h = 1..8$: $\sum_w (9 - 2w) \cdot \sum_h (9 - h) = (7 + 5 + 3 + 1)(8 + 7 + \dots + 1) = 16 \cdot 36 = 576$, nine times the number of pixels.
+(b) The detector does not know in advance which differences of regions matter. A large, redundant pool contains features tuned to every part, size and orientation of the object; the learning step then picks the few that discriminate.
+
+**B5.** The raw response doubles (twice the contrast); the offset of 50 does not change it, because the weights sum to zero. After dividing by the window SD (which also doubles) the response is the same in both photos.
+
+**B6.** 25 maps of $10^6$ pixels each, each with 4 lookups for a box mean (8 for an SD, which uses two tables; 8 for centre − surround, 6 for an edge): roughly $25 \times 6 \times 10^6 \approx 1.5 \cdot 10^8$ lookups, the same at every scale. The box mean at 16 px directly: $33^2 = 1089$ pixels per window, about 270 times the 4 lookups.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that the edge feature needs 6 distinct corners and the diagonal feature 9, by adding the corner coefficients ($+1, -1, -1, +1$ times the rectangle's weight) of all its rectangles. Why does the centre − surround feature need 8 and not fewer?
+
+**B8.** *(math)* Let $I(x, y) = ax + b$. Show that the edge feature "left − right" with two $w \times h$ rectangles gives $-a w^2 h$, independent of its position and of $b$. What does an edge feature "top − bottom" give on the same image?
+
+**B9.** *(math)* Show that the number of placements of a template of $a \times b$ cells in a $W \times H$ window is $\sum_{w=1}^{\lfloor W/a\rfloor}\sum_{h=1}^{\lfloor H/b\rfloor}(W - aw + 1)(H - bh + 1)$, and compute it for the edge across ($a = 2, b = 1$) in $24 \times 24$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** A rectangle with weight $c$ puts $+c$ at its top-left and bottom-right corners and $-c$ at the other two. Edge: on the shared side $x = x_0 + w$, rectangle 1 ($c = +1$) contributes its top-right ($-1$) and bottom-right ($+1$) corners, and rectangle 2 ($c = -1$) its top-left ($+c = -1$) and bottom-left ($-c = +1$) corners. The shared corners get $-2$ (top) and $+2$ (bottom): they do not cancel, and with the four outer corners there are **6**. Diagonal: the corners form a $3 \times 3$ grid. Each outer corner belongs to one rectangle ($\pm 1$); each edge midpoint to two rectangles of opposite weight, whose contributions have the same sign ($\pm 2$); the centre to all four, each contributing $+1$: $+4$. All **9** are non-zero. Centre − surround: the small box lies strictly inside the large one, so they share no corner: $4 + 4 =$ **8**.
+
+**B8.** Pair each pixel $(x, y)$ of the left rectangle with $(x + w, y)$ of the right one: their difference is $-aw$. There are $wh$ pairs, so the response is $-aw \cdot wh = -aw^2h$; $b$ cancels and the position does not appear. "Top − bottom" pairs pixels with the same $x$: every difference is 0, so the response is 0. The feature responds to the component of the gradient across its two rectangles.
+
+**B9.** For cell sizes $w$ (width) and $h$ (height) the template covers $aw \times bh$ pixels and its top-left corner can be at $W - aw + 1$ horizontal and $H - bh + 1$ vertical positions; $w$ ranges over $1..\lfloor W/a\rfloor$ and $h$ over $1..\lfloor H/b\rfloor$. For $a = 2$, $b = 1$, $W = H = 24$: $\sum_{w=1}^{12}(25 - 2w) = 144$ and $\sum_{h=1}^{24}(25 - h) = 300$, product $43\,200$.
+:::
+
+## Explore: rectangle features on images {#explore}
+
+Drag the template over the image: inside it to move it, the yellow handle to resize it. White rectangles count $+$, black $-$; the dots are the table entries read (green $+$, red $-$), numbered, and the readout lists their coefficients, the response (also per pixel of one rectangle), the number of lookups and the number of pixels a direct sum would add. **response at every position** shows the response with its centre at each pixel (red positive, blue negative).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="haarexplore" data-preset="eyes"></div>
+<script src="../demos/dist/haarexplore.js"></script>
+```
+
+**E1.** Preset **eyes are darker than cheeks**. Read the response, the response per pixel, the lookups and the pixels a direct sum adds. Drag the feature down over the mouth, then onto the background. What happens to the sign and size?
+
+**E2.** Preset **eyes darker than the bridge of the nose**. How many lookups? Compare with B2. Explain the sign of the response.
+
+**E3.** Choose each template in turn and count the dots. Do they match 6, 8, 9 and 8?
+
+**E4.** Preset **vertical edge on a cell boundary**. In the response map, where are the strongest red and blue responses? Switch the template to **edge —** (top − bottom): which membranes light up now?
+
+**E5.** Preset **centre − surround finds cells of its size**. Which cells give the strongest red response? Make the template smaller (resize to about half) and then larger. Which objects respond now?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Response $-13\,230$, per pixel $-9.8$ (the eye band is about 10 grey levels darker on average); 6 lookups instead of 2700 pixels. Over the mouth the upper band (cheeks) is brighter than the lower one (mouth): the sign flips to positive (about $+18.6$ per pixel 40 pixels lower). On flat background the response is small (about $3$ per pixel).
+
+**E2.** 8 lookups (three rectangles in a row, corners at four $x$ positions and two $y$ positions, as in B2). The response is large and positive ($+59\,329$, $114$ per pixel): the centre rectangle, on the bridge of the nose between the eyes, is bright skin, the two side rectangles contain the dark eyes.
+
+**E3.** Edge across and edge down: 6; both line templates: 8; diagonal: 9; centre − surround: 8.
+
+**E4.** The strongest responses lie along nearly vertical boundaries: the left and right sides of the nucleus and the dark membranes of the cytoplasm, red where the left side is brighter, blue where the right side is. With top − bottom the vertical boundaries fade and the upper and lower boundaries of the nucleus and the horizontal membranes light up.
+
+**E5.** With a $16 \times 16$ centre box (48 × 48 in all) the strongest red responses sit on the centres of the larger bright cells, whose size matches the centre box (52 per pixel on the cell under the template). Smaller templates respond to small bright debris and to the bright rims inside cells; larger ones only to the biggest cells, and more weakly. Like the difference of Gaussians on the edges day, centre − surround is a blob detector tuned to one size.
+:::
+
+## Explore: a box feature stack {#explore-stack}
+
+The 25 thumbnails are the box group of a feature stack: rows box mean, box SD, centre − surround, edge across, edge down; columns scales 1, 2, 4, 8, 16 px. Paint pixels of class **A** (orange) and **B** (blue) on the image. The scatter plot shows the painted pixels in two features: click a thumbnail to choose $x$ (red frame); tick **y** and click to choose $y$ (green frame). The slider puts a threshold on $x$; the readout counts A and B on each side and gives the best share any single threshold on $x$ gets right. **inspect** shows the 25 features of one pixel (as z-scores over the image) in the bar plot.
+
+```{=html}
+<div data-demo="haarexplore" data-mode="stack" data-preset="nucleus"></div>
+<script src="../demos/dist/haarexplore.js"></script>
+```
+
+**E6.** Preset **nucleus or cytoplasm?** ($x$ = box mean at 4 px, $y$ = box SD at 2 px). How well does a single threshold on $x$ separate the classes? Look at the image: is the nucleus darker or brighter than the cytoplasm?
+
+**E7.** Click through the thumbnails as $x$ and note the best single-threshold share. Which feature and scale separates best? Why does the scale matter so much here?
+
+**E8.** Preset **cell or background?** on the synthetic cells. Find a feature that separates perfectly. Is that problem easier or harder than E6, and why?
+
+**E9.** Use **inspect** on a pixel in the nucleus and one in the cytoplasm. Which groups of bars differ most?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E6.** Poorly: the best threshold on the box mean at 4 px gets 82 % right (at the slider's 50 % position only 61 %). The nucleus is on average a little brighter than the cytoplasm around it, but the grey levels overlap; so do the clouds along $x$.
+
+**E7.** The box SD at 16 px is best (99.2 %), followed by the box SD at 8 px (92.6 %) and centre − surround at 16 px (91.6 %); the box SD at 4 px gets 86.5 %. The nucleus is uniformly fine-grained, the cytoplasm is full of membranes and vesicles; that difference in texture shows only when the window is large enough to contain several membranes. With the integral image the 16 px features cost exactly as much as the 1 px ones.
+
+**E8.** The box mean at 8 px separates the painted cell and background pixels perfectly (100 %), as do several others: the synthetic cells are much brighter than their surroundings. Easier: here the mean grey level differs; in E6 only the texture does.
+
+**E9.** For example at $(140, 120)$ in the nucleus and $(80, 30)$ in the cytoplasm: the box SD at 8 and 16 px is low in the nucleus (z about $-1.5$ to $-1.9$) and higher in the cytoplasm; centre − surround at 16 px is near 0 in the nucleus and strongly negative in the cytoplasm ($-2.3$); the box means differ less. The edge features are small and change sign from pixel to pixel.
+:::
+
+## Where this leads
+
+Out of about 160 000 rectangle features in a $24 \times 24$ window, which should a detector compute? The next unit lets **boosting** pick a few, one at a time, and arranges them in a **cascade** so that most windows are rejected after one or two of them.

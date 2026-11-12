@@ -44,6 +44,16 @@ function through(e: Ellipse, label: number, frac = 0.6, r = 2): Stroke {
   return { label, pts: [[e.x - c, e.y - s], [e.x + c, e.y + s]], r };
 }
 
+/** A background arc around an ellipse, `gap` px outside its boundary, from angle a0 to a1 (radians). */
+function around(e: Ellipse, gap = 5, a0 = 0, a1 = Math.PI, r = 2): Stroke {
+  const pts: [number, number][] = [], c = Math.cos(e.angle), s = Math.sin(e.angle);
+  for (let q = 0; q <= 16; q++) {
+    const t = a0 + (a1 - a0) * q / 16, u = (e.a + gap) * Math.cos(t), v = (e.b + gap) * Math.sin(t);
+    pts.push([e.x + c * u - s * v, e.y + s * u + c * v]);
+  }
+  return { label: 1, pts, r };
+}
+
 /** Horizontal background strokes of length `len` that keep `margin` px from every object, left of xmax. */
 function backgroundLines(sc: Scene, count: number, len: number, xmin: number, xmax: number, r = 2, margin = 8): Stroke[] {
   const out: Stroke[] = [];
@@ -65,6 +75,7 @@ const right = (sc: Scene, kind: string) => sc.ellipses.filter((e, i) => sc.kinds
 /** The base set: two background strokes, a bright and a dim nucleus, a granular cell (all left of the held-out region). */
 function base(sc: Scene, o: { dim?: boolean; granular?: boolean } = {}): Stroke[] {
   const s: Stroke[] = [...backgroundLines(sc, 2, 34, 4, xLimit - 4)];
+  s.push(around(left(sc, "bright")[0]), around(left(sc, "granular")[0], 5, Math.PI, 2 * Math.PI));
   s.push(through(left(sc, "bright")[0], 2));
   if (o.dim !== false && left(sc, "dim").length) s.push(through(left(sc, "dim")[0], 2));
   if (o.granular !== false) s.push(through(left(sc, "granular")[0], 3));
@@ -98,11 +109,8 @@ export const PIXEL_PRESETS: PixelPreset[] = [
   { id: "small", label: "small scales only", image: "synth", strokes: sc => base(sc), families: ALL_FAMILIES, small: true, large: false, balance: false, heldout: false, view: "seg" },
   { id: "bright", label: "only bright nuclei painted", image: "synth", strokes: sc => base(sc, { dim: false }), families: ALL_FAMILIES, small: true, large: true, balance: false, heldout: false, view: "seg" },
   {
-    id: "imbalance", label: "background 20× larger", image: "synth", families: ALL_FAMILIES, small: true, large: true, balance: false, heldout: false, view: "seg",
-    strokes: sc => [
-      ...backgroundLines(sc, 6, 60, 4, 252, 6, 7),
-      { ...through(left(sc, "bright")[0], 2, 0.3, 1) }, { ...through(left(sc, "dim")[0] ?? left(sc, "bright")[1], 2, 0.3, 1) }, { ...through(left(sc, "granular")[0], 3, 0.3, 1) },
-    ],
+    id: "imbalance", label: "huge background strokes", image: "synth", families: ALL_FAMILIES, small: true, large: true, balance: false, heldout: false, view: "seg",
+    strokes: sc => [...backgroundLines(sc, 6, 60, 4, 252, 6, 7), through(left(sc, "bright")[0], 2, 0.3, 1), through(left(sc, "granular")[0], 3, 0.3, 1)],
   },
   { id: "heldout", label: "OOB vs held-out region", image: "synth", strokes: sc => [...base(sc, { dim: false }), ...heldoutStrokes(sc)], families: ALL_FAMILIES, small: true, large: true, balance: false, heldout: true, view: "seg" },
   { id: "uncertain", label: "uncertainty: where to paint", image: "synth", strokes: sc => base(sc, { granular: false }), families: ALL_FAMILIES, small: true, large: true, balance: false, heldout: false, view: "unc" },

@@ -15,25 +15,26 @@ import { DEFAULTS, PCSettings, IMG, makeCrops, register, texture, Method, Result
 
 const NAME = "phasecorr";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
-[data-demo="${NAME}"] .pc-stack { position: relative; width: 100%; }
-[data-demo="${NAME}"] .pc-stack canvas { width: 100%; display: block; image-rendering: pixelated; border-radius: 3px; }
-[data-demo="${NAME}"] .pc-stack svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
-[data-demo="${NAME}"] .pc-img { flex: 0 1 270px; min-width: 200px; }
-[data-demo="${NAME}"] .pc-mid { flex: 0 1 230px; min-width: 170px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em; }
-[data-demo="${NAME}"] .pc-surf { flex: 0 1 290px; min-width: 210px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .3em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .pc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .pc-credit { font-size: 12px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .pc-wide { grid-column: 1 / 3; }
-.reveal [data-demo="${NAME}"] { font-size: 16px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
-.reveal [data-demo="${NAME}"] .qb-slider { gap: .3em; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
+.qb-demo[data-demo="${NAME}"] .pc-stack { position: relative; width: 100%; }
+.qb-demo[data-demo="${NAME}"] .pc-stack canvas { width: 100%; display: block; image-rendering: pixelated; border-radius: 3px; }
+.qb-demo[data-demo="${NAME}"] .pc-stack svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.qb-demo[data-demo="${NAME}"] .pc-img { flex: 0 1 270px; min-width: 200px; }
+.qb-demo[data-demo="${NAME}"] .pc-mid { flex: 0 1 230px; min-width: 170px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .pc-surf { flex: 0 1 290px; min-width: 210px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .pc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .pc-credit { font-size: 12px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .pc-wide { grid-column: 1 / 3; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider { gap: .3em; }
+.reveal .slides .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; line-height: 1.15; }
 `;
 
 function injectStyle(): void {
@@ -248,7 +249,8 @@ function mount(host: HTMLElement): void {
     sf.cap.textContent = `${label} (shifts ±${W / 2})`;
     trueM.setAttribute("cx", String(st.tx)); trueM.setAttribute("cy", String(st.ty)); trueM.setAttribute("r", String(Math.max(2.5, W / 40)));
     const px = res.tx, py = res.ty, c = Math.max(4, W / 18);
-    peakM.setAttribute("d", `M${px - c},${py}H${px + c}M${px},${py - c}V${py + c}`);
+    const gp = c / 2.5;   // a gap in the middle, so the peak pixel stays visible
+    peakM.setAttribute("d", `M${px - c},${py}H${px - gp}M${px + gp},${py}H${px + c}M${px},${py - c}V${py - gp}M${px},${py + gp}V${py + c}`);
     otherM.replaceChildren();
     for (const p of res.peaks.slice(1, 4)) {
       const o = svgEl("circle", { cx: p.tx, cy: p.ty, r: Math.max(2, W / 50), fill: "none" }, otherM);

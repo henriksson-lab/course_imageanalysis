@@ -35,19 +35,19 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .th-main { flex: 1 1 760px; min-width: 0; max-width: 800px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .th-row { display: flex; gap: .6em; }
-[data-demo="${NAME}"] .th-fig { flex: 1 1 0; min-width: 0; margin: 0; position: relative; }
-[data-demo="${NAME}"] .th-fig figcaption { font-size: 16px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-[data-demo="${NAME}"] .th-fig canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
-[data-demo="${NAME}"] .th-fig svg.th-over { position: absolute; left: 0; bottom: 0; width: 100%; aspect-ratio: 1; touch-action: none; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 320px; gap: .4em; }
-[data-demo="${NAME}"] .th-lab { font-size: 15px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .th-credit { font-size: 12px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .4em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+.qb-demo[data-demo="${NAME}"] .th-main { flex: 1 1 760px; min-width: 0; max-width: 800px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .th-row { display: flex; gap: .6em; }
+.qb-demo[data-demo="${NAME}"] .th-fig { flex: 1 1 0; min-width: 0; margin: 0; position: relative; }
+.qb-demo[data-demo="${NAME}"] .th-fig figcaption { font-size: 16px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qb-demo[data-demo="${NAME}"] .th-fig canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
+.qb-demo[data-demo="${NAME}"] .th-fig svg.th-over { position: absolute; left: 0; bottom: 0; width: 100%; aspect-ratio: 1; touch-action: none; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 320px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .th-lab { font-size: 15px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .th-credit { font-size: 12px; color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .4em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
 `;
 
 function injectStyle(): void {

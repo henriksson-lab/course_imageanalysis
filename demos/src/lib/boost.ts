@@ -27,15 +27,27 @@ export interface FeatureMatrix {
   order: Uint32Array;
 }
 
-/** Sort every feature's values once (the expensive part; done before training). */
+/**
+ * Sort every feature's values once (the expensive part; done before training). Each value
+ * is turned into an order-preserving integer (the float32 bit pattern, sign-flipped) and
+ * packed with its example index into one float64 key, so a plain numeric sort suffices.
+ */
 export function prepareFeatures(values: Float32Array, nFeat: number, nEx: number): FeatureMatrix {
   const order = new Uint32Array(nFeat * nEx);
-  const idx = new Uint32Array(nEx);
+  const bits = new Uint32Array(values.buffer, values.byteOffset, values.length);
+  let mult = 1;
+  while (mult < nEx) mult *= 2;
+  if (mult > 2 ** 21) throw new Error("too many examples");
+  const keys = new Float64Array(nEx);
   for (let f = 0; f < nFeat; f++) {
     const off = f * nEx;
-    for (let i = 0; i < nEx; i++) idx[i] = i;
-    idx.sort((a, b) => values[off + a] - values[off + b]);
-    order.set(idx, off);
+    for (let i = 0; i < nEx; i++) {
+      const b = bits[off + i];
+      const u = b & 0x80000000 ? (~b) >>> 0 : (b | 0x80000000) >>> 0;
+      keys[i] = u * mult + i;
+    }
+    keys.sort();
+    for (let k = 0; k < nEx; k++) order[off + k] = keys[k] % mult;
   }
   return { nFeat, nEx, values, order };
 }
@@ -64,10 +76,12 @@ export function stumpPredict(s: Stump, v: number): 1 | -1 {
  * of the negatives; moving the threshold past example i flips its prediction to −1.
  * Polarity −1 has error (total − e). Only thresholds between distinct values are tried.
  */
-export function bestStumpForFeature(M: FeatureMatrix, f: number, y: ArrayLike<number>, w: ArrayLike<number>): { error: number; threshold: number; polarity: 1 | -1 } {
+export function bestStumpForFeature(M: FeatureMatrix, f: number, y: ArrayLike<number>, w: ArrayLike<number>,
+  totals?: { total: number; neg: number }): { error: number; threshold: number; polarity: 1 | -1 } {
   const off = f * M.nEx, V = M.values, O = M.order;
   let total = 0, e = 0;
-  for (let i = 0; i < M.nEx; i++) { total += w[i]; if (y[i] < 0) e += w[i]; }
+  if (totals) { total = totals.total; e = totals.neg; }
+  else for (let i = 0; i < M.nEx; i++) { total += w[i]; if (y[i] < 0) e += w[i]; }
   let best = Math.min(e, total - e), bestK = -1, bestPol: 1 | -1 = e <= total - e ? 1 : -1;
   for (let k = 0; k < M.nEx; k++) {
     const i = O[off + k];
@@ -87,12 +101,39 @@ export function bestStumpForFeature(M: FeatureMatrix, f: number, y: ArrayLike<nu
 export function bestStump(M: FeatureMatrix, y: ArrayLike<number>, w: ArrayLike<number>, features?: ArrayLike<number>): Stump {
   let best: Stump = { feature: 0, threshold: 0, polarity: 1, error: Infinity, alpha: 0 };
   const n = features ? features.length : M.nFeat;
+  // signed weights: the error changes by +w (positive) or −w (negative) as the threshold passes an example
+  let total = 0, neg = 0;
+  for (let i = 0; i < M.nEx; i++) { total += w[i]; if (y[i] < 0) neg += w[i]; }
+  const sw = new Float64Array(M.nEx);
+  for (let i = 0; i < M.nEx; i++) sw[i] = y[i] > 0 ? w[i] : -w[i];
   for (let j = 0; j < n; j++) {
     const f = features ? features[j] : j;
-    const s = bestStumpForFeature(M, f, y, w);
+    const s = bestStumpSigned(M, f, sw, total, neg);
     if (s.error < best.error) best = { feature: f, threshold: s.threshold, polarity: s.polarity, error: s.error, alpha: 0 };
   }
   return best;
+}
+
+/** The inner loop of bestStump with precomputed signed weights (same result as bestStumpForFeature). */
+function bestStumpSigned(M: FeatureMatrix, f: number, sw: Float64Array, total: number, neg: number): { error: number; threshold: number; polarity: 1 | -1 } {
+  const n = M.nEx, off = f * n, V = M.values, O = M.order;
+  let e = neg, best = Math.min(e, total - e), bestK = -1, bestPol: 1 | -1 = e <= total - e ? 1 : -1;
+  let i = O[off], v = V[off + i];
+  for (let k = 0; k < n; k++) {
+    e += sw[i];
+    const i2 = k + 1 < n ? O[off + k + 1] : -1;
+    const v2 = i2 >= 0 ? V[off + i2] : NaN;
+    if (v2 !== v) {
+      if (e < best) { best = e; bestK = k; bestPol = 1; }
+      if (total - e < best) { best = total - e; bestK = k; bestPol = -1; }
+    }
+    i = i2; v = v2;
+  }
+  let thr: number;
+  if (bestK < 0) thr = V[off + O[off]] - 1;
+  else if (bestK + 1 >= n) thr = V[off + O[off + bestK]] + 1;
+  else thr = 0.5 * (V[off + O[off + bestK]] + V[off + O[off + bestK + 1]]);
+  return { error: best / (total || 1), threshold: thr, polarity: bestPol };
 }
 
 /** Brute-force best stump of one feature (reference for tests): every threshold, both polarities. */

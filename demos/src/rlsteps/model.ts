@@ -44,17 +44,17 @@ export interface Obj3 { beads: [number, number, number][]; filamentX: number; sh
 export const OBJ3: Obj3 = {
   beads: [[-2200, 0, 0], [-1500, 0, 1400]],
   filamentX: -600,
-  sheet: { x0: 500, x1: 2700, z: 0 },
-  sphere: { x: 1500, z: -1900, r: 700 },
+  sheet: { x0: 100, x1: 1500, z: 0 },
+  sphere: { x: 2350, z: -1500, r: 650 },
 };
-/** Voxelise the objects for a z-step (nm), with 2 × 2 × 2 sub-samples per voxel. */
+/** Voxelise the objects for a z-step (nm), with 2 × 2 × 8 sub-samples per voxel (x, y, z). */
 export function volume3d(zstep: number): Float64Array {
   const v = new Float64Array(NX * NY * NZ), o = OBJ3;
   const cx = NX / 2, cy = NY / 2, cz = NZ / 2;
   for (let z = 0; z < NZ; z++) for (let y = 0; y < NY; y++) for (let x = 0; x < NX; x++) {
     let s = 0;
-    for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) for (let c = 0; c < 2; c++) {
-      const X = (x - cx + (a - 0.5) / 2) * PX3, Y = (y - cy + (b - 0.5) / 2) * PX3, Z = (z - cz + (c - 0.5) / 2) * zstep;
+    for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) for (let c = 0; c < 8; c++) {
+      const X = (x - cx + (a - 0.5) / 2) * PX3, Y = (y - cy + (b - 0.5) / 2) * PX3, Z = (z - cz + (c - 3.5) / 8) * zstep;
       let val = 0;
       if (Math.abs(X - o.filamentX) < 75 && Math.abs(Y) < 75) val += 1;                       // vertical filament (along z)
       if (Math.abs(Z - o.sheet.z) < 100 && X > o.sheet.x0 && X < o.sheet.x1) val += 1;         // horizontal sheet, 200 nm thick
@@ -62,7 +62,7 @@ export function volume3d(zstep: number): Float64Array {
       if (Math.abs(r - o.sphere.r) < 120) val += 1;                                           // hollow sphere
       s += val;
     }
-    v[(z * NY + y) * NX + x] = s / 8;
+    v[(z * NY + y) * NX + x] = s / 32;
   }
   for (const [bx, by, bz] of o.beads) {   // beads: one bright voxel each
     const x = Math.round(bx / PX3 + cx), y = Math.round(by / PX3 + cy), z = Math.round(bz / zstep + cz);
@@ -113,6 +113,10 @@ export function measureScene(): SceneFn {
   };
 }
 export const BASE = 0.05;
+/** Spots are counted in rows 1 .. COUNT_ROWS − 1 (pairs and spots, not the disks), above this fixed threshold. */
+export const COUNT_ROWS = 84, COUNT_THR = 0.06;
+/** True number of point objects in the counted rows: 4 pairs + 3 spots. */
+export const TRUE_COUNT = 11;
 
 /** Readouts of an image (values in the same units as the truth; base = flat background level). */
 export interface Readout { peak: number; integral: number; fwhm: number; sep: number; count: number }
@@ -135,9 +139,9 @@ export function measure(img: ArrayLike<number>, n: number, base: number, thr: nu
   }
   maxima.sort((a, b) => pr[Math.round(b)] - pr[Math.round(a)]);
   const sep = maxima.length >= 2 ? Math.abs(maxima[0] - maxima[1]) : NaN;
-  // detected spots: strict local maxima (8 neighbours) above base + thr
+  // detected spots: strict local maxima (8 neighbours) above base + thr, in the rows of the pairs and spots
   let count = 0;
-  for (let y = 1; y < n - 1; y++) for (let x = 1; x < n - 1; x++) {
+  for (let y = 1; y < COUNT_ROWS; y++) for (let x = 1; x < n - 1; x++) {
     const v = at(x, y);
     if (v - base < thr) continue;
     let ok = true;

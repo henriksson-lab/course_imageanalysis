@@ -64,15 +64,15 @@ const STYLE = `
 [data-demo="${NAME}"] .cc-img canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
 [data-demo="${NAME}"] .cc-gl { flex: 1 1 380px; min-width: 260px; max-width: 470px; }
 [data-demo="${NAME}"] .cc-axes, [data-demo="${NAME}"] .cc-credit { font-size: 14px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 330px; gap: .35em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 13.5px; white-space: pre; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 420px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13.5px; white-space: pre; }
 [data-demo="${NAME}"] .cc-row { display: flex; flex-wrap: wrap; gap: .3em; }
 [data-demo="${NAME}"] .cc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .cc-img { flex-basis: 250px; }
 .reveal [data-demo="${NAME}"] .cc-gl { flex-basis: 430px; max-width: 450px; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 `;
 
@@ -228,7 +228,7 @@ export function mountColourCloud(host: HTMLElement, ext: CloudExtensions = {}): 
     { id: "he", label: "H&E: two stains, a sheet", s: { scene: "he", space: "srgb", noise: 0, shading: 0, select: "class", cls: 1 } },
   ];
   for (const p of ext.presets ?? []) presetDefs.push({ id: p.label, label: p.label, s: p.settings });
-  const presetBtns = presets(panel, [
+  const presetBtns = presets(fig, [
     ...presetDefs.map(p => ({ label: p.label, apply: () => applyPreset(p.s) })),
     { label: "reset", apply: () => applyPreset({ scene: "objects", space: "srgb", noise: 0, shading: 0, select: "none", stretch: 0 }) },
   ]);

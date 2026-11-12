@@ -10,12 +10,11 @@ import { htmlEl, presets as presetRow, button, checkbox, autoMount, slider } fro
 import { Plot, seriesColor } from "../lib/plot";
 import * as D from "../lib/deconv";
 import { rng } from "../lib/ui";
-import { phantom, render } from "../deconvlab/scenes";
+import { truthOf, ProfileId } from "./profiles";
 import { injectStyle, baseStyle, select, logSlider, Jobs, fmtSci, legendRow } from "../deconvlab/widgets";
 
 const NAME = "regpath";
 const n = 256;
-type ProfileId = "stepramp" | "peaks" | "cell";
 type Pen = "energy" | "roughness" | "tv" | "nonneg";
 type Tab = "lambda" | "iterate";
 interface State { profile: ProfileId; sigma: number; noise: number; corr: boolean; seed: number; tab: Tab; pen: Pen; lambda: number; kIdx: number; lwNonneg: boolean; show: "residual" | "factors" }
@@ -23,7 +22,7 @@ const DEFAULT: State = { profile: "stepramp", sigma: 3, noise: 0.02, corr: false
 interface Preset { id: string; label: string; s: Partial<State>; pick?: "disc" | "corner" }
 const PRESETS: Preset[] = [
   { id: "small", label: "λ too small: fits the noise", s: { pen: "roughness", lambda: 1e-6 } },
-  { id: "large", label: "λ too large: blurred", s: { pen: "roughness", lambda: 1 } },
+  { id: "large", label: "λ too large: blurred", s: { pen: "roughness", lambda: 100 } },
   { id: "disc", label: "discrepancy principle", s: { pen: "roughness" }, pick: "disc" },
   { id: "corner", label: "L-curve corner", s: { pen: "roughness" }, pick: "corner" },
   { id: "disagree", label: "the two rules disagree", s: { pen: "roughness", corr: true }, pick: "corner" },
@@ -41,14 +40,6 @@ const STYLE = baseStyle(NAME) + `
 [data-demo="${NAME}"] .rp-plots > div { min-width: 0; }
 .reveal [data-demo="${NAME}"] .rp-plots { flex: 0 1 790px; }
 `;
-
-function truthOf(id: ProfileId): Float64Array {
-  const x = new Float64Array(n);
-  if (id === "stepramp") for (let i = 0; i < n; i++) x[i] = 0.1 + (i >= 50 && i < 100 ? 0.7 : 0) + (i >= 130 && i < 200 ? 0.7 * (i - 130) / 70 : 0);
-  else if (id === "peaks") for (let i = 0; i < n; i++) x[i] = 0.8 * Math.exp(-((i - 80) ** 2) / (2 * 1.5 ** 2)) + 0.8 * Math.exp(-((i - 91) ** 2) / (2 * 1.5 ** 2)) + 1.0 * Math.exp(-((i - 170) ** 2) / (2 * 0.7 ** 2)) + (i >= 200 && i < 230 ? 0.4 : 0);
-  else { const img = render(phantom(n), n); for (let i = 0; i < n; i++) x[i] = img[132 * n + i]; }
-  return x;
-}
 
 /** Log-axis ticks at 1, 2, 5 × 10^k (only 1 × 10^k if the range spans more than two decades). */
 function ticks125(lo: number, hi: number): number[] {

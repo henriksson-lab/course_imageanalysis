@@ -35,12 +35,13 @@ const UNIV2 = Math.sqrt(2 * Math.log(N * N)), UNIV1 = Math.sqrt(2 * Math.log(N1)
 const r2 = (v: number) => Math.round(v * 4) / 4;
 const PRESETS2: Preset[] = [
   { id: "universal", label: "universal threshold, soft", s: { image: "shapes", wavelet: "db4", kind: "soft", t: r2(UNIV2) } },
-  { id: "hardsoft", label: "hard vs soft at the same t", s: { image: "cell", wavelet: "db4", kind: "hard", t: 3 } },
+  { id: "hardsoft", label: "hard vs soft at the same t", s: { image: "shapes", wavelet: "db4", kind: "hard", t: 3 } },
   { id: "low", label: "threshold too low: blips", s: { image: "shapes", wavelet: "db4", kind: "hard", t: 1.5 } },
-  { id: "high", label: "too high: blur", s: { image: "cell", wavelet: "db4", kind: "soft", t: 6 } },
+  { id: "high", label: "too high: blur", s: { image: "shapes", wavelet: "db4", kind: "soft", t: 6 } },
   { id: "haar", label: "Haar blocks", s: { image: "shapes", wavelet: "haar", kind: "soft", t: 3, spin: 1 } },
   { id: "spin", label: "… with cycle spinning", s: { image: "shapes", wavelet: "haar", kind: "soft", t: 3, spin: 16 } },
-  { id: "sigma", label: "σ_n estimated from D", s: { image: "cell", sigma: 10, wavelet: "db4", kind: "soft", t: 3 } },
+  { id: "cell", label: "micrograph: texture vs noise", s: { image: "cell", sigma: 40, wavelet: "db4", kind: "soft", t: 1.25 } },
+  { id: "sigma", label: "σ̂_n fooled by texture", s: { image: "cell", sigma: 10, wavelet: "db4", kind: "soft", t: 3 } },
 ];
 const PRESETS1: Preset[] = [
   { id: "blocks", label: "Blocks, Haar", s: { signal: "blocks", wavelet: "haar", kind: "soft", t: r2(UNIV1) } },
@@ -66,7 +67,8 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] figcaption { font-size: 15px; }
 .reveal [data-demo="${NAME}"] .wd-side { flex-basis: 260px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex-basis: 290px; gap: .2em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.reveal [data-demo="${NAME}"] .wd-lab { display: none; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 13px; padding: .1em .4em; }
 `;
@@ -105,8 +107,8 @@ function mount(host: HTMLElement): void {
     }
   }
   const side = htmlEl("div", "wd-side", "", host);
-  const pT = new Plot(htmlEl("div", "", "", side), { width: 360, height: 250, x: [0, 6], y: [0, 1], xlabel: "t / σ̂", ylabel: one ? "RMSE" : "PSNR (dB)" });
-  const pH = new Plot(htmlEl("div", "", "", side), { width: 360, height: 200, x: [-1, 1], y: [0, 1], xlabel: "finest D coefficients", yticks: [] , margin: { l: 14 } });
+  const pT = new Plot(htmlEl("div", "", "", side), { width: 360, height: 270, x: [0, 6], y: [0, 1], xlabel: "t / σ̂", ylabel: one ? "RMSE" : "PSNR (dB)", font: 22 });
+  const pH = new Plot(htmlEl("div", "", "", side), { width: 360, height: 210, x: [-1, 1], y: [0, 1], xlabel: "finest D coefficients", yticks: [], margin: { l: 14 }, font: 22 });
   const ro = htmlEl("div", "qb-readout", "", side);
   const credit = htmlEl("div", "wd-credit", CELL_CREDIT, side);
   const panel = htmlEl("div", "qb-panel", "", host);
@@ -222,7 +224,7 @@ function mount(host: HTMLElement): void {
     const xs = Float64Array.from(TS);
     pT.line(xs, sweep.soft, { color: COL.soft, label: "soft" });
     pT.line(xs, sweep.hard, { color: COL.hard, label: "hard" });
-    pT.vline(UNIV, { color: "var(--qb-muted)", width: 2, text: "√(2 ln N)" });
+    pT.vline(UNIV, { color: "var(--qb-muted)", width: 2, text: "univ." });
     pT.legend(undefined, one ? "tr" : "br");
     tMark = pT.vline(st.t, { color: "var(--qb-fg)", width: 2.5, dash: "" });
   }

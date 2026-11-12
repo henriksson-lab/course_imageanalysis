@@ -4,6 +4,8 @@
 //   geodesic erosion   ε_f(m) = max(min(m(x−1), m(x), m(x+1)), f(x))     (marker above f)
 // Iterated until nothing changes: reconstruction by dilation / by erosion.
 
+import { rng } from "../lib/random";
+
 export type Sig = Int32Array;
 
 /** max (dilate) or min (erode) over x − 1, x, x + 1. */
@@ -85,3 +87,16 @@ export function imposeParts(f: ArrayLike<number>, markers: ArrayLike<number>): {
 
 /** The 12-sample signal of the by-hand exercises (morph-reconstruct, and the watershed day). */
 export const TWELVE = [7, 1, 4, 3, 4, 6, 5, 1, 6, 4, 2, 3];
+
+export const VMAX = 9;
+
+/** A seeded 40-sample landscape of hills with small bumps, values 0..VMAX (the demo's presets). */
+export function hills(seed: number, n = 40): number[] {
+  const r = rng(seed), out: number[] = [];
+  for (let x = 0; x < n; x++) {
+    const v = 4.6 + 2.6 * Math.sin(2 * Math.PI * x / 19 + 0.6) + 1.4 * Math.sin(2 * Math.PI * x / 6.5 + 1.3) + 0.9 * r.norm();
+    out.push(Math.max(0, Math.min(VMAX, Math.round(v))));
+  }
+  return out;
+}
+export const HILLS = hills(4);

@@ -18,21 +18,20 @@ import { assignStep, updateStep, initCentres, kmeans, type KMeansInit } from "..
 
 const NAME = "kmeans2d";
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .km-left { flex: 0 1 470px; min-width: 260px; }
-[data-demo="${NAME}"] .km-right { flex: 1 1 420px; min-width: 260px; max-width: 560px; display: flex; flex-direction: column; gap: .4em; }
-[data-demo="${NAME}"] .km-plots { display: flex; gap: .5em; }
-[data-demo="${NAME}"] .km-plots > div { flex: 1 1 50%; min-width: 0; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
-[data-demo="${NAME}"] .km-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] select { font: inherit; font-size: 15px; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .km-left { flex: 0 0 500px; }
-.reveal [data-demo="${NAME}"] .km-right { flex: 1 1 600px; max-width: 640px; gap: .25em; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
-@media (max-width: 760px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .km-left { flex: 0 1 470px; min-width: 260px; }
+.qb-demo[data-demo="${NAME}"] .km-right { flex: 1 1 420px; min-width: 260px; max-width: 560px; display: flex; flex-direction: column; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .km-plots { display: flex; gap: .5em; }
+.qb-demo[data-demo="${NAME}"] .km-plots > div { flex: 1 1 50%; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .km-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] select { font: inherit; font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .km-left { flex: 0 0 500px; }
+.reveal .qb-demo[data-demo="${NAME}"] .km-right { flex: 1 1 600px; max-width: 640px; gap: .25em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -113,7 +112,7 @@ function mount(host: HTMLElement): void {
   const remBtn = button(row2, "remove points", () => { pg.tool = pg.tool === "remove" ? "add" : "remove"; sync(); });
   button(row2, "clear", () => { stop(); pg.setPoints([]); });
   const kS: Slider = slider(right, "K (centres)", 1, 8, 1, st.k, v => { st.k = v; restart(true); });
-  const yS: Slider = slider(right, "y axis × (2D)", 0.25, 4, 0.05, st.yscale, v => { st.yscale = v; restart(false); });
+  const yS: Slider = slider(right, "y axis × (2D)", 0.25, 4, 0.05, st.yscale, v => { st.yscale = v; restart(true); });
   htmlEl("div", "qb-note", "Click to add a point, drag to move it. Drag a centre to place it by hand. Shading: the Voronoi cell of each centre (the points it would get).", right);
   const presetBtns = presets(right, PRESETS.map(p => ({ label: p.label, apply: () => load(p) })));
   const resetAll = button(right, "Reset demo", () => load(p0));

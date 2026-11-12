@@ -307,11 +307,12 @@ export function wiggle(unif: () => number, n = NB): Float64Array {
 }
 
 /** A metamer of s for the observer A: s + t·d with d = P(wiggle) in the null space of A,
- *  and t as large as possible (times `fill`) while keeping every bin in [0, hi]. Then
+ *  (or d = P(dir) for a given direction) and t as large as possible (times `fill`) while
+ *  keeping every bin in [0, hi]. Then
  *  A·(result) = A·s exactly (up to rounding), although the spectra differ. */
-export function makeMetamer(s: ArrayLike<number>, A: ArrayLike<number>, unif: () => number, fill = 0.92, hi = Infinity): Float64Array {
+export function makeMetamer(s: ArrayLike<number>, A: ArrayLike<number>, unif: () => number, fill = 0.92, hi = Infinity, dir?: ArrayLike<number>): Float64Array {
   const P = nullProjector(A);
-  const d = P(wiggle(unif));
+  const d = P(dir ?? wiggle(unif));
   const maxStep = (sign: number) => {
     let t = Infinity;
     for (let i = 0; i < NB; i++) {

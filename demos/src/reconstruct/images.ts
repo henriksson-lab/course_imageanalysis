@@ -5,6 +5,11 @@ import { rng } from "../lib/random";
 
 export const N = 256;
 
+/** The synthetic nuclei of this demo (smoother than the lib default, so h-maxima work without a
+ *  pre-filter), and the h of the "one dot per nucleus?" preset. */
+export const NUCLEI_OPTS = { seed: 3, count: 22, texture: 6, noise: 4, blur: 1.5 };
+export const NUCLEI_H = 15;
+
 function disc(m: Uint8Array, cx: number, cy: number, r: number, v: number): void {
   for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(N - 1, Math.ceil(cy + r)); y++)
     for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(N - 1, Math.ceil(cx + r)); x++)

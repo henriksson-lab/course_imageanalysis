@@ -4,6 +4,10 @@
 import { rng } from "../src/lib/random";
 import * as IN from "../src/lib/integral";
 import * as B from "../src/lib/boost";
+import * as SY from "../src/boostdetect/synth";
+import * as MO from "../src/boostdetect/model";
+import * as DEF from "../src/boostdetect/defaults";
+import * as TR from "../src/boostdetect/trained";
 
 declare const process: { exit(code: number): never };
 
@@ -238,5 +242,23 @@ current = "boost";
   check(pool.length > 100, `pool size ${pool.length}`);
 }
 
+
+// ---- boostdetect: the shipped (precomputed) models match a fresh training run
+current = "boostdetect";
+{
+  const S = SY, M = MO;
+  const pool = M.makePool();
+  const v = DEF.VARIANTS[0];
+  const train = S.makeDataset(v.target as "faces", DEF.DEFAULTS.nPos, DEF.DEFAULTS.nNeg, v.seed, { glasses: "random" });
+  const r = M.nextStage(v.target as "faces", pool, train.patches.slice(0, DEF.DEFAULTS.nPos), [], DEF.DEFAULTS.dStage, DEF.DEFAULTS.fStage, DEF.DEFAULTS.maxStumps, DEF.DEFAULTS.nMine, 100);
+  const shipped = TR.TRAINED[v.id].cascade[0];
+  check(!!r.stage && r.stage.stumps.length === shipped.stumps.length && r.stage.stumps.every((s, i) => s.feature === shipped.stumps[i].feature && close(s.threshold, shipped.stumps[i].threshold, 1e-6)),
+    "trained.ts is up to date (re-run demos/src/boostdetect/precompute.ts)");
+  // negative and positive feature values sort correctly
+  const vals = Float32Array.of(0.5, -2, 3, -0.25, 0, -7, 1e-3);
+  const FM = B.prepareFeatures(vals, 1, vals.length);
+  const sorted = Array.from(FM.order).map(i => vals[i]);
+  check(sorted.every((x, i) => i === 0 || sorted[i - 1] <= x), `sort with negatives: ${sorted}`);
+}
 console.log(`${failures === 0 ? "OK" : "FAILED"}: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

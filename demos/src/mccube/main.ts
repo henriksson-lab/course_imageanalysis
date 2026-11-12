@@ -35,19 +35,26 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; }
-[data-demo="${NAME}"] .mc-view { flex: 1 1 440px; min-width: 260px; max-width: 560px; position: relative; }
-[data-demo="${NAME}"] .mc-lbl { position: absolute; font: 600 18px ui-monospace, monospace; pointer-events: none; transform: translate(-50%, -135%);
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .mc-view { flex: 1 1 440px; min-width: 260px; max-width: 560px; position: relative; }
+.qb-demo[data-demo="${NAME}"] .mc-lbl { position: absolute; font: 600 18px ui-monospace, monospace; pointer-events: none; transform: translate(-50%, -135%);
   padding: 0 .25em; border-radius: 4px; background: rgba(255,255,255,.75); color: #222; white-space: nowrap; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 320px; max-width: 420px; gap: .35em; }
-[data-demo="${NAME}"] .mc-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
-[data-demo="${NAME}"] .mc-bits { font: 600 20px ui-monospace, monospace; letter-spacing: .05em; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .mc-view { max-width: 520px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 320px; max-width: 420px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .mc-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .mc-bits { font: 600 20px ui-monospace, monospace; letter-spacing: .05em; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .mc-view { max-width: 520px; }
+.reveal .qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .mc-view { flex: 0 0 470px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 520px; max-width: 560px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider, .reveal .qb-demo[data-demo="${NAME}"] .qb-check { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .mc-bits { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .mc-lab { font-size: 13px; }
 `;
 
 function injectStyle(): void {

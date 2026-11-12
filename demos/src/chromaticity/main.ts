@@ -19,11 +19,11 @@ const STYLE = `
 [data-demo="${NAME}"] .ch-plot { flex: 1 1 470px; min-width: 300px; max-width: 540px; }
 [data-demo="${NAME}"] .ch-plot svg { touch-action: none; }
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 420px; gap: .4em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; }
 [data-demo="${NAME}"] .ch-row { display: flex; flex-wrap: wrap; gap: .3em .8em; align-items: center; }
 [data-demo="${NAME}"] .ch-warn { color: var(--qb-c2); font-weight: 600; min-height: 1.3em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .ch-plot { flex-basis: 500px; max-width: 520px; }
+.reveal [data-demo="${NAME}"] .ch-plot { flex-basis: 440px; max-width: 440px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 `;
@@ -147,7 +147,7 @@ autoMount(NAME, host => {
     impossible: () => { st.mode = "display"; st.tri = { srgb: true, p3: false, rec2020: false }; st.disp = { r: [0.7, 0.3], g: [0.05, 0.9], b: [0.15, 0.06], w: [...SP.D65_XY] as XY }; st.T = [0.25, 0.55]; },
   };
   const list: [string, string][] = [["mix", "mixing two lights"], ["dim", "a dim blue and a bright yellow"], ["srgbp3", "sRGB vs P3"], ["laser", "a laser display"], ["impossible", "a primary outside the locus"]];
-  const pb = presets(panel, [...list.map(([id, label]) => ({ label, apply: () => { P[id](); sync(); update(); } })),
+  const pb = presets(box, [...list.map(([id, label]) => ({ label, apply: () => { P[id](); sync(); update(); } })),
     { label: "reset", apply: () => { P[st.mode === "mix" ? "mix" : "srgbp3"](); st.tri = { srgb: true, p3: false, rec2020: false }; sync(); update(); } }]);
   function sync(): void { yaS.set(st.YA); ybS.set(st.YB); wS.set(st.w); triC.srgb.checked = st.tri.srgb; triC.p3.checked = st.tri.p3; triC.rec2020.checked = st.tri.rec2020; }
 

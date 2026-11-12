@@ -101,7 +101,7 @@ export function legendRow(parent: Element, items: { label: string; color: string
 export function baseStyle(name: string): string {
   const D = `[data-demo="${name}"]`;
   return `
-${D} figure { margin: 0; }
+${D} figure { margin: 0; min-width: 0; }
 ${D} figcaption { font-size: 16px; text-align: center; line-height: 1.2; margin: 0 0 .15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 ${D} .dc-img canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 2px; }
 ${D} .dc-select { display: grid; grid-template-columns: auto 1fr; gap: .5em; align-items: center; }

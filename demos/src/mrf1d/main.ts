@@ -15,19 +15,36 @@ import { N1, Profile, PRESETS, Preset, mixedProfile, stepsProfile, noisy, rmse }
 
 const NAME = "mrf1d";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .9em; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] .m1-left { flex: 1 1 560px; max-width: 680px; min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .m1-two { display: grid; grid-template-columns: 1fr 1fr; gap: .4em; align-items: start; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 330px; gap: .3em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .m1-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .m1-credit { font-size: 12px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .m1-cap { font-size: 16px; text-align: center; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.qb-demo[data-demo="${NAME}"] { gap: .9em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] .m1-left { flex: 1 1 560px; max-width: 680px; min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .m1-two { display: grid; grid-template-columns: 1fr 1fr; gap: .4em; align-items: start; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 330px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .m1-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .m1-credit { font-size: 12px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .m1-cap { font-size: 16px; text-align: center; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .12em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .15em; flex-basis: 330px; max-width: 360px; }
+.reveal .qb-demo[data-demo="${NAME}"] .m1-left { flex-basis: 560px; max-width: 580px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; }
 `;
+
+/** lib/plot.ts numbers its clip paths per bundle (qb-clip-1, ...), so two demos on one page
+ *  can share an id and one plot clips to another's box. Give this plot's clip path a unique id. */
+function uniqueClip(p: Plot): Plot {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) {
+    const w = window as unknown as { __qbClipSeq?: number };
+    w.__qbClipSeq = (w.__qbClipSeq ?? 0) + 1;
+    const id = `${NAME}-clip-${w.__qbClipSeq}`;
+    cp.id = id;
+    p.layer.setAttribute("clip-path", `url(#${id})`);
+  }
+  return p;
+}
 
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -58,7 +75,7 @@ function mount(host: HTMLElement): void {
   ];
   // fit tab
   const fitBox = htmlEl("div", "", "", left);
-  const pf = new Plot(fitBox, { width: 680, height: 380, x: [0, N1 - 1], y: [-1, 3.2], xlabel: "position", ylabel: "value" });
+  const pf = uniqueClip(new Plot(fitBox, { width: 600, height: 360, x: [0, N1 - 1], y: [-1, 3.2], xlabel: "position", ylabel: "value" }));
   const mY = pf.scatter([], [], { color: "var(--qb-muted)", r: 3, label: "noisy data y" });
   const mT = pf.line([], [], { color: seriesColor(2), width: 2.5, dash: "7 4", label: "truth" });
   const mX = pf.line([], [], { color: seriesColor(0), width: 3.5, label: "estimate x̂" });
@@ -70,9 +87,9 @@ function mount(host: HTMLElement): void {
   const figQ = htmlEl("div", "", "", two), figT = htmlEl("div", "", "", two);
   htmlEl("div", "m1-cap", "quadratic prior: Gaussian steps", figQ);
   htmlEl("div", "m1-cap", "TV prior: Laplace steps (same sd)", figT);
-  const pq = new Plot(figQ, { width: 340, height: 260, x: [0, N1 - 1], y: [-5, 5], xlabel: "position" });
-  const pt = new Plot(figT, { width: 340, height: 260, x: [0, N1 - 1], y: [-5, 5], xlabel: "position" });
-  const pdf = new Plot(priorBox, { width: 680, height: 170, x: [-4, 4], y: [0, 1], xlabel: "one step, in units of its standard deviation", yticks: 2, margin: { l: 56 } });
+  const pq = uniqueClip(new Plot(figQ, { width: 340, height: 260, x: [0, N1 - 1], y: [-5, 5], xlabel: "position" }));
+  const pt = uniqueClip(new Plot(figT, { width: 340, height: 260, x: [0, N1 - 1], y: [-5, 5], xlabel: "position" }));
+  const pdf = uniqueClip(new Plot(priorBox, { width: 600, height: 170, x: [-4, 4], y: [0, 1], xlabel: "one step, in units of its standard deviation", yticks: 2, margin: { l: 56 } }));
   // matrix tab
   const matBox = htmlEl("div", "m1-two", "", left);
   const matFig = htmlEl("div", "", "", matBox);
@@ -80,7 +97,7 @@ function mount(host: HTMLElement): void {
   const matHost = htmlEl("div", "", "", matFig);
   const respFig = htmlEl("div", "", "", matBox);
   htmlEl("div", "m1-cap", "quadratic smoothing as a filter", respFig);
-  const pr = new Plot(respFig, { width: 340, height: 320, x: [0, 0.5], y: [0, 1.05], xlabel: "frequency (cycles/sample)", ylabel: "gain" });
+  const pr = uniqueClip(new Plot(respFig, { width: 340, height: 320, x: [0, 0.5], y: [0, 1.05], xlabel: "frequency (cycles/sample)", ylabel: "gain" }));
   const mResp = pr.fn(() => 0, { color: seriesColor(0), width: 3.5 }, 300);
 
   const panel = htmlEl("div", "qb-panel", "", host);
@@ -142,8 +159,8 @@ function mount(host: HTMLElement): void {
       `prior ${PRIOR_LABEL[st.prior]}, λ = ${lam}`,
       `E = ${e.data.toFixed(2)} (data) + ${e.prior.toFixed(2)} (prior)`,
       `  = ${e.total.toFixed(2)}`,
-      `error vs truth (RMSE): ${rmse(x, t).toFixed(3)}`,
-      `noisy data (RMSE):     ${rmse(y, t).toFixed(3)}`,
+      `RMSE vs truth: ${rmse(x, t).toFixed(3)}`,
+      `(noisy data:   ${rmse(y, t).toFixed(3)})`,
     ].join("\n");
     if (st.tab === "prior") drawPrior();
     if (st.tab === "matrix") drawMatrix();

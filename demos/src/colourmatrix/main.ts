@@ -13,7 +13,7 @@ import { htmlEl, slider, presets, button, autoMount } from "../lib/ui";
 import { srgbToLinear, linearToSrgb, linearRgbToXyz, xyzToLab, RGB, M_RGB_TO_XYZ } from "../lib/colour";
 import { rgbToXyzMatrix, P3_DISPLAY, SRGB_DISPLAY, inv3, mat3mul } from "../lib/spectra";
 import { Scene, SceneId, SCENE_LABELS, makeScene } from "../colourcloud/scenes";
-import { rgbToYcbcr, ycbcrToRgb } from "../colourcloud/colourx";
+import { ycbcrRoundTrip, meanDeltaE } from "./ops";
 
 const NAME = "colourmatrix";
 const STYLE = `
@@ -23,17 +23,19 @@ const STYLE = `
 [data-demo="${NAME}"] .cm-imgs figure.cm-big { grid-row: span 1; }
 [data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin-bottom: .1em; white-space: nowrap; overflow: hidden; }
 [data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 360px; gap: .4em; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 420px; gap: .4em; }
 [data-demo="${NAME}"] .cm-mat { display: grid; grid-template-columns: repeat(3, 4.2em) 1.2em 4.2em; gap: 3px; align-items: center; font-size: 15px; }
 [data-demo="${NAME}"] .cm-mat input { width: 100%; font: inherit; font-family: ui-monospace, monospace; font-size: 14px; padding: 1px 2px; box-sizing: border-box; }
 [data-demo="${NAME}"] .cm-row { display: flex; flex-wrap: wrap; gap: .3em; }
 [data-demo="${NAME}"] .cm-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+[data-demo="${NAME}"] .cm-pre { grid-column: 1 / -1; }
 [data-demo="${NAME}"] .cm-credit { font-size: 13px; color: var(--qb-muted); grid-column: 1 / -1; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .cm-imgs { max-width: 600px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .cm-credit { display: none; }
+.reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .cm-pre { grid-column: 1 / -1; }
+[data-demo="${NAME}"] .cm-credit { display: none; }
 `;
 
 type Mode = "ycbcr" | "grey" | "matrix";
@@ -43,40 +45,6 @@ function injectStyle(): void {
   const s = document.createElement("style");
   s.id = "qb-style-" + NAME; s.textContent = STYLE;
   document.head.appendChild(s);
-}
-
-/** Average a channel over k x k blocks and spread the mean back (subsample + upsample). */
-export function subsample(ch: Float32Array, w: number, h: number, k: number): Float32Array {
-  if (k <= 1) return ch;
-  const out = new Float32Array(w * h);
-  for (let by = 0; by < h; by += k) for (let bx = 0; bx < w; bx += k) {
-    let s = 0, n = 0;
-    for (let y = by; y < Math.min(h, by + k); y++) for (let x = bx; x < Math.min(w, bx + k); x++) { s += ch[y * w + x]; n++; }
-    s /= n;
-    for (let y = by; y < Math.min(h, by + k); y++) for (let x = bx; x < Math.min(w, bx + k); x++) out[y * w + x] = s;
-  }
-  return out;
-}
-
-/** Y'CbCr round trip with subsampling of chroma (target "chroma") or luma ("luma"). Input
- *  and output: encoded R'G'B' in 0..255 (planar). */
-export function ycbcrRoundTrip(R: Float32Array, G: Float32Array, B: Float32Array, w: number, h: number, k: number, target: "chroma" | "luma") {
-  const n = w * h, Y = new Float32Array(n), Cb = new Float32Array(n), Cr = new Float32Array(n);
-  for (let p = 0; p < n; p++) { const v = rgbToYcbcr(R[p], G[p], B[p]); Y[p] = v[0]; Cb[p] = v[1]; Cr[p] = v[2]; }
-  const Ys = target === "luma" ? subsample(Y, w, h, k) : Y;
-  const Cbs = target === "chroma" ? subsample(Cb, w, h, k) : Cb, Crs = target === "chroma" ? subsample(Cr, w, h, k) : Cr;
-  const oR = new Float32Array(n), oG = new Float32Array(n), oB = new Float32Array(n);
-  for (let p = 0; p < n; p++) { const c = ycbcrToRgb(Ys[p], Cbs[p], Crs[p]); oR[p] = c[0]; oG[p] = c[1]; oB[p] = c[2]; }
-  return { Y: Ys, Cb: Cbs, Cr: Crs, R: oR, G: oG, B: oB };
-}
-
-/** Mean ΔE*ab between two encoded (0..255) images. */
-export function meanDeltaE(a: Float32Array[], b: Float32Array[]): number {
-  const n = a[0].length;
-  const lab = (c: Float32Array[], p: number) => xyzToLab(linearRgbToXyz([0, 1, 2].map(k => srgbToLinear(Math.min(1, Math.max(0, c[k][p] / 255)))) as RGB));
-  let s = 0;
-  for (let p = 0; p < n; p++) { const x = lab(a, p), y = lab(b, p); s += Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); }
-  return s / n;
 }
 
 const MATS: Record<string, { label: string; M: number[][] }> = {
@@ -158,7 +126,8 @@ autoMount(NAME, host => {
   const greyPresets = [["luminance", [0.2126, 0.7152, 0.0722], "linear"], ["luma", [0.299, 0.587, 0.114], "encoded"], ["mean", [1 / 3, 1 / 3, 1 / 3], "encoded"], ["G only", [0, 1, 0], "encoded"]] as const;
   const gpRow = htmlEl("div", "cm-row", "", gBox);
   for (const [lab, w, d] of greyPresets) button(gpRow, lab, () => { st.wts = [...w]; st.domain = d; update(); });
-  const pb = presets(panel, [...list.map(([id, label]) => ({ label, apply: () => { P[id](); update(); } })),
+  const preBox = htmlEl("div", "cm-pre", "", imgs);
+  const pb = presets(preBox, [...list.map(([id, label]) => ({ label, apply: () => { P[id](); update(); } })),
     { label: "reset", apply: () => { P[mode0 === "ycbcr" ? "ycc" : mode0 === "grey" ? "isolum" : "xyz"](); update(); } }]);
 
   const drawRGB = (c: HTMLCanvasElement, R: ArrayLike<number>, G: ArrayLike<number>, B: ArrayLike<number>, w: number, h: number, scale = 255) => {

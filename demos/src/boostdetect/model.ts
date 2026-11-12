@@ -9,8 +9,9 @@ import {
 import { WIN, Dataset } from "./synth";
 
 /** The feature pool: all templates, positions on a stride-2 grid, cell sizes 2..8 (several thousand). */
-export const POOL_SIZES = [2, 3, 4, 6, 8];
-export function makePool(): FeatureSpec[] { return featurePool(WIN, 2, POOL_SIZES); }
+export const POOL_SIZES = [2, 4, 6, 8];
+export const POOL_STRIDE = 3;
+export function makePool(): FeatureSpec[] { return featurePool(WIN, POOL_STRIDE, POOL_SIZES); }
 
 export interface PatchTables { T1: Table; sd: number }
 
@@ -141,3 +142,72 @@ export function matches(a: { x: number; y: number; size: number }, b: { x: numbe
 }
 
 export { TEMPLATES };
+
+// ---------------------------------------------------------------------------------------
+// Cascade training with bootstrapped negatives (Viola & Jones): each stage is trained on
+// the positives and on background windows that all earlier stages wrongly accepted.
+
+import { rng } from "../lib/random";
+import { trainStage, StageReport, runCascade } from "../lib/boost";
+import { background, Target } from "./synth";
+
+/** Resample the window [x, x+size)² of a scene to a 24 × 24 patch (area average). */
+export function windowPatch(img: Float64Array, W: number, x: number, y: number, size: number): Float64Array {
+  const out = new Float64Array(WIN * WIN), f = size / WIN;
+  for (let j = 0; j < WIN; j++) for (let i = 0; i < WIN; i++) {
+    let s = 0, n = 0;
+    for (let yy = y + Math.floor(j * f); yy < y + Math.ceil((j + 1) * f); yy++)
+      for (let xx = x + Math.floor(i * f); xx < x + Math.ceil((i + 1) * f); xx++) { s += img[yy * W + xx]; n++; }
+    out[j * WIN + i] = s / n;
+  }
+  return out;
+}
+
+/**
+ * Collect up to `count` background windows (from scenes without targets) that pass every
+ * stage of the cascade so far. Returns the patches and the pass rate of the windows tried.
+ */
+export function mineNegatives(target: Target, pool: FeatureSpec[], stages: Stage[], count: number, seed: number,
+  maxTries = 60000): { patches: Float64Array[]; tried: number; passRate: number } {
+  const R = rng(seed), W = 256, patches: Float64Array[] = [];
+  let tried = 0, scene: Float64Array | null = null, T1: Table | null = null, T2: Table | null = null;
+  const caches = SCALES.map(() => new Map<number, ScaledFeature>());
+  while (patches.length < count && tried < maxTries) {
+    if (tried % 1500 === 0) {
+      scene = background(W, W, R, target, 0.9);
+      for (let i = 0; i < scene.length; i++) scene[i] = Math.max(0, Math.min(255, scene[i] + 7 * R.norm()));
+      T1 = integralImage(scene, W, W); T2 = integralImage(scene, W, W, "f64", v => v * v);
+    }
+    tried++;
+    const si = Math.floor(R.unif() * SCALES.length), sc = SCALES[si], size = Math.round(WIN * sc);
+    const x = Math.floor(R.unif() * (W - size + 1)), y = Math.floor(R.unif() * (W - size + 1));
+    const { sd } = windowStats(T1!, T2!, x, y, size);
+    const cache = caches[si];
+    const val = (f: number) => { let s = cache.get(f); if (!s) { s = scaleFeature(pool[f], sc); cache.set(f, s); } return featureValue(T1!, s, x, y, sd); };
+    if (runCascade(stages, val).rejectedAt < 0) patches.push(windowPatch(scene!, W, x, y, size));
+  }
+  return { patches, tried, passRate: tried ? patches.length / tried : 0 };
+}
+
+export interface CascadeStep {
+  stage: Stage | null;
+  report: StageReport | null;
+  /** Fraction of background windows that passed all earlier stages (measured while mining). */
+  passBefore: number;
+  negatives: number;
+}
+
+/**
+ * Train the next stage of a cascade: mine negatives that pass the current stages, train a
+ * boosted stage to detection ≥ dTarget and false positives ≤ fTarget on them.
+ */
+export function nextStage(target: Target, pool: FeatureSpec[], posTables: Float64Array[], stages: Stage[],
+  dTarget: number, fTarget: number, maxStumps: number, nNeg: number, seed: number): CascadeStep {
+  const mined = mineNegatives(target, pool, stages, nNeg, seed);
+  if (mined.patches.length < 20) return { stage: null, report: null, passBefore: mined.passRate, negatives: mined.patches.length };
+  const data: Dataset = { patches: [...posTables, ...mined.patches], y: Int8Array.from({ length: posTables.length + mined.patches.length }, (_, i) => (i < posTables.length ? 1 : -1)), nPos: posTables.length };
+  const { M } = featureMatrix(pool, data);
+  const mask = new Float64Array(data.y.length).fill(1);
+  const { stage, report } = trainStage(M, data.y, mask, dTarget, fTarget, maxStumps);
+  return { stage, report, passBefore: mined.passRate, negatives: mined.patches.length };
+}

@@ -1,0 +1,180 @@
+---
+title: "When there is no order: Dijkstra and live-wire"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+The DP table needs an **order**: row after row, angle after angle. A boundary that may wander in any direction has no such order. Today the algorithm **finds the order as it runs**.
+
+- Pixels as a **graph**; the same Bellman equations, but no fixed order.
+- **Dijkstra's algorithm**: the unfinished pixel with the smallest tentative cost is final. A **priority queue** gives the order.
+- The result is a **shortest-path tree**: every pixel knows its best predecessor.
+- **Live-wire** (intelligent scissors): click a seed, and the cheapest path to the mouse follows in real time.
+- Same tree, other uses: length along a neurite, distances, watershed.
+
+*Slides titled **The math** give the formulas and proofs; the ideas are complete without them.*
+
+::: notes
+Prerequisites: the DP table and backtracking (first unit of this day), graphs from the graph-cut day (recalled in two lines), the gradient magnitude and the Laplacian of Gaussian from the filtering/edges units (used as costs, not re-taught). Watershed (day 10) is recalled on one slide.
+:::
+
+## The detour
+
+Recall the "detour" grid of the first unit: a cheap channel that runs down, right, **up** and down again.
+
+- The best **monotone** path (one cell per row) costs **24**: it has to cross two expensive cells.
+- Following the channel costs **19**, but that path goes **up**: not one cell per row.
+- Worse: the cheapest way to a cell in row 2 may come from row 5, which a row-by-row table fills **later**.
+
+The same happened to the distance transform: one raster pass is wrong where the shortest path goes up or left. We need a method that works without a fixed order.
+
+## Pixels as a graph
+
+Recall from the graph-cut day: a **graph** is a set of nodes and edges between them, each edge with a weight.
+
+- Node = pixel; edges to the **4** (or **8**) neighbours.
+- Weight of a move $u \to v$: here the **cost of the pixel entered**, $C(v)$ (times the step length 1 or $\sqrt 2$ for 8 neighbours).
+- A path from the seed $s$ pays the sum of its weights. On the grids of this unit the seed's own cost counts too, as in the first unit.
+
+The question: the cheapest path from $s$ to **every** pixel.
+
+## The same equations, no order
+
+The principle of optimality still holds: the best path to $v$ ends with a step from some neighbour $u$, and its part up to $u$ is the best path to $u$. So
+
+> $d(v)$ = the smallest $d(u) + w(u, v)$ over the neighbours $u$ of $v$, and $d(s)$ = its start value.
+
+These are the same equations as the DP table. But now $d(v)$ may depend on a neighbour **below** it, and that neighbour on $v$ itself: the equations go round in circles. There is no row order in which every right-hand side is known first.
+
+## Dijkstra's idea
+
+All weights are **non-negative**. Keep a **tentative** cost for every pixel (∞ at first, the start value at the seed).
+
+1. Take the **unfinished pixel with the smallest tentative cost**. Its cost is **final**: any other route to it would pass through some unfinished pixel, which already costs at least as much, and can only add.
+2. **Update its neighbours**: if going through it is cheaper, lower their tentative cost and remember it as their predecessor.
+3. Repeat until every pixel is final.
+
+A **priority queue** hands out the smallest tentative pixel quickly. This is DP where the order is **discovered** while the algorithm runs (Dijkstra, 1959).
+
+## The math: why the smallest is final {.math}
+
+Let $F$ be the set of final pixels, with $d(u)$ correct for $u \in F$, and let $v \notin F$ have the smallest tentative value $\tilde d(v) = \min_{u \in F,\, u \sim v} d(u) + w(u, v)$.
+
+Take any path from $s$ to $v$. It leaves $F$ somewhere: let $y \notin F$ be the first pixel on it outside $F$, entered from $x \in F$. Its cost is at least
+
+$$d(x) + w(x, y) + (\text{rest}) \;\ge\; \tilde d(y) + 0 \;\ge\; \tilde d(v),$$
+
+because the rest has non-negative weights and $v$ had the smallest tentative value. So no path beats $\tilde d(v)$: it is final. Induction over the pops proves that every final value is correct.
+
+With a binary heap, each pop and each update costs $O(\log N)$: $O(N \log N)$ for an image with $N$ pixels and a fixed number of neighbours.
+
+## Try it: Dijkstra step by step
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="dpgrid" data-mode="dijkstra" data-preset="exercise"></div>
+<script src="../demos/dist/dpgrid.js"></script>
+```
+
+::: notes
+Left: the costs; right: the tentative cost d (∞ = not reached yet). "step" makes the smallest pixel of the queue final (blue, numbered in the order they become final) and updates its 4 neighbours (outlined); the queue, smallest first, is listed under the controls. Arrows point to each pixel's predecessor (grey while tentative, orange when final). At the end "backtrack" follows the arrows from the target. Tour: by-hand grid (from the top-left corner; target bottom-right, cost 18). "the detour": the same grid as in the first unit, now solved: 19. "a wall with one gap": from the top-left to the bottom-left corner: the path goes right, through the gap and back left (16). Switch to "one raster pass": the same grids with one top-to-bottom, left-to-right pass: wrong cells in red, with the true value as the small number.
+:::
+
+## The shortest-path tree
+
+When Dijkstra stops, every pixel has a final cost and a **predecessor**: the neighbour its best path comes from.
+
+- The predecessors form a **tree** rooted at the seed: following them from any pixel leads back to the seed.
+- The cheapest path to **any** pixel is read off by **backtracking**, as in the DP table: a few steps, no new computation.
+- Work: every pixel is made final once and updates its neighbours: about $N \log N$ for $N$ pixels. A $256 \times 256$ image takes some tens of milliseconds.
+
+## When Dijkstra fails, and when we don't need it
+
+- A **negative** weight breaks the argument: a pixel declared final could still be reached more cheaply by a later detour through the negative edge. (Costs of pixels, which are $\ge 0$, are fine.)
+- If the moves only go **forward** (down, as in the first unit), the graph has **no cycles**, and a fixed order exists: the row-by-row table. Monotone-path DP is the special case where the order is known in advance.
+
+| | order of evaluation | needs |
+|---|---|---|
+| DP table | fixed (rows, angles) | moves only forward |
+| Dijkstra | discovered (smallest first) | non-negative weights |
+
+## Live-wire: an edge-following cost
+
+**Intelligent scissors** (Mortensen & Barrett, 1995; Falcão et al., 1998): the user clicks on a boundary, and the cheapest path follows the edges. The local cost of entering a pixel is low on edges:
+
+- **gradient magnitude**: low where the gradient is strong, $1 - G/G_{\max}$;
+- **Laplacian zero crossing**: 0 on the zero crossing of the Laplacian of Gaussian (the centre of the edge), 1 elsewhere;
+- **gradient direction**: a penalty for running **across** the edge direction instead of along it;
+
+each with a weight, after Gaussian smoothing with scale $\sigma$ (the edges day owns these filters). For a thin bright or dark line, the line response itself.
+
+## The math: the link cost {.math}
+
+For a move from $p$ to a neighbour $q$ of length $\ell = |q - p|$ ($1$ or $\sqrt2$):
+
+$$w(p, q) = \ell\,\big(\varepsilon + w_G\, f_G(q) + w_Z\, f_Z(q)\big) + w_D\, f_D(p, q),$$
+
+with $f_G = 1 - G/G_{\max}$, $f_Z \in \{0, 1\}$, and, for unit vectors $\mathbf u_p, \mathbf u_q$ **along** the edge (the gradient turned by $90°$) and the unit link $\mathbf l$ (turned to agree with $\mathbf u_p$),
+
+$$f_D(p, q) = \tfrac{2}{3\pi}\big(\arccos(\mathbf u_p \cdot \mathbf l) + \arccos(\mathbf l \cdot \mathbf u_q)\big) \in [0, 1].$$
+
+Weights $w_Z = w_G = 0.43$, $w_D = 0.14$ (Mortensen & Barrett); $\varepsilon = 0.02$ keeps every step slightly expensive, so flat regions do not give free detours. All terms are $\ge 0$: Dijkstra applies.
+
+## Live-wire: how it is used
+
+1. **Click a seed** on the boundary. One Dijkstra run computes the tree from the seed to **every** pixel.
+2. **Move the mouse**: the wire is the backtracked path from the mouse to the seed. Only backtracking, so it follows in real time.
+3. When the wire leaves the boundary, **click** to fix the good part: that point becomes an **anchor** and the seed of a new tree.
+4. **Close** the contour by joining the last anchor to the first seed.
+
+The user steers, the algorithm does the precise tracing. "Path cooling" fixes anchors automatically where the wire has been stable for a while.
+
+## Try it: live-wire
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="livewire" data-preset="nucleus"></div>
+<script src="../demos/dist/livewire.js"></script>
+```
+
+::: notes
+Click: seed / anchor; move the mouse, or drag the round handle (for touch and projectors), and the yellow wire follows; orange = fixed segments. "close" joins the last anchor to the first seed. Tour: "trace the nucleus" (micrograph, dark-line cost, 4 anchors, closed: 362.7 px). "weak edge": seed at the top of the nucleus, free end at the bottom: the wire cuts straight through the nucleus (143.4 px for a straight line of 135.3 px): add an anchor on the left envelope. "no smoothing" (σ = 0.5) on the weak arc of the synthetic nucleus: the wire wanders; raise σ to 1.5. "the neighbour steals the path": the wire runs around the outer edge of the brighter neighbour (195.2 px for 68.2 px straight); an anchor at the contact fixes it. "measure along a neurite": bright-line cost, 240.1 px along the neurite against 188.4 px straight. View "distance from seed": the tree's costs with iso-lines.
+:::
+
+## How live-wire behaves
+
+- **Short-cuts**: the cost is a **sum** along the path, so a long detour along a weak edge can cost more than a short cut across a uniform region. More anchors, or a stronger edge term, help.
+- **The neighbour steals the path**: a stronger edge nearby (another cell) is cheaper per pixel; the wire jumps over to it.
+- **Smoothing**: too little ($\sigma$ small) and the noise makes cheap pixels everywhere; too much and the edge is displaced and nearby edges merge.
+- The **user** is part of the method: the result is as good as the anchors.
+
+## Same tree, other uses
+
+- **Length along a structure**: the distance along a neurite or a vessel between two points: the cheapest path with a cost that is low on the structure; its length counts steps of 1 and $\sqrt2$ (as on the skeleton day).
+- **Distance from a point**: with cost 1 per step, the tree gives the grid distance from the seed: city block with 4 neighbours, octagons with 8. Exact for the graph, not for the Euclidean plane (next unit).
+- **Watershed** (day 10) floods from markers with the same priority queue. It minimises the **maximum** height along the path (the lowest pass), where live-wire minimises the **sum**.
+- **Fast marching**, the next unit: Dijkstra's order with a different update, for continuous, round fronts.
+
+## Summary
+
+- When no fixed order exists, the Bellman equations $d(v) = \min_u d(u) + w(u, v)$ still hold.
+- **Dijkstra**: the unfinished pixel with the smallest tentative cost is final (non-negative weights); a **priority queue** gives the order; $O(N \log N)$.
+- The result is a **shortest-path tree**: the cheapest path to any pixel by backtracking.
+- **Live-wire**: edge-following local costs, one tree per anchor, real-time backtracking to the mouse; watch for short-cuts and stronger neighbouring edges.
+- The monotone DP table is the special case with a known order; watershed uses the same queue with the maximum instead of the sum.

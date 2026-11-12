@@ -167,8 +167,9 @@ export class Search {
     const n = nPoints(this.X), N = shapeNormals(this.X), Y = new Float64Array(this.X.length), f = 2 ** this.level;
     for (let i = 0; i < n; i++) {
       const c = offsetCosts(this.M, this.pyr[this.level], this.level, this.X, N, i, this.o);
-      let best = 0;
-      for (let t = 1; t < c.length; t++) if (c[t] < c[best]) best = t;
+      // ties (a flat profile) keep the point where it is
+      let best = this.o.m;
+      for (let t = 0; t < c.length; t++) if (c[t] < c[best] - 1e-12) best = t;
       const off = (best - this.o.m) * f;
       Y[2 * i] = this.X[2 * i] + off * N[2 * i]; Y[2 * i + 1] = this.X[2 * i + 1] + off * N[2 * i + 1];
     }

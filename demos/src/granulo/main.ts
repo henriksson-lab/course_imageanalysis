@@ -35,17 +35,17 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; }
-[data-demo="${NAME}"] .gr-img { flex: 0 1 420px; min-width: 0; }
-[data-demo="${NAME}"] .gr-img canvas { width: 100%; aspect-ratio: 1; image-rendering: pixelated; display: block; border: 1px solid var(--qb-grid); }
-[data-demo="${NAME}"] .gr-plots { flex: 1 1 300px; min-width: 0; max-width: 380px; display: flex; flex-direction: column; gap: .2em; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 300px; gap: .4em; }
-[data-demo="${NAME}"] .gr-lab { font-size: 15px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .gr-key { font-size: 14px; display: flex; align-items: center; gap: .4em; flex-wrap: wrap; margin-top: .2em; }
-[data-demo="${NAME}"] .gr-key span.sw { display: inline-block; width: 14px; height: 14px; border-radius: 2px; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .gr-img { flex: 0 1 420px; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .gr-img canvas { width: 100%; aspect-ratio: 1; image-rendering: pixelated; display: block; border: 1px solid var(--qb-grid); }
+.qb-demo[data-demo="${NAME}"] .gr-plots { flex: 1 1 300px; min-width: 0; max-width: 380px; display: flex; flex-direction: column; gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 300px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .gr-lab { font-size: 15px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .gr-key { font-size: 14px; display: flex; align-items: center; gap: .4em; flex-wrap: wrap; margin-top: .2em; }
+.qb-demo[data-demo="${NAME}"] .gr-key span.sw { display: inline-block; width: 14px; height: 14px; border-radius: 2px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
 `;
 
 function injectStyle(): void {

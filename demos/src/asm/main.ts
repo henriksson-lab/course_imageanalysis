@@ -44,13 +44,14 @@ const STYLE = `
 [data-demo="${NAME}"] .as-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .qb-btn:disabled { opacity: .4; cursor: default; }
 [data-demo="${NAME}"] .qb-btn.next { border-color: var(--qb-accent); border-width: 2px; }
-.reveal [data-demo="${NAME}"] { font-size: 16px; gap: .5em; }
-.reveal [data-demo="${NAME}"] .as-fig { flex-basis: 410px; }
-.reveal [data-demo="${NAME}"] .as-mid { flex-basis: 280px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .12em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .as-fig { flex-basis: 410px; }
+.reveal .qb-demo[data-demo="${NAME}"] .as-mid { flex-basis: 280px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .12em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
 `;
 
 function injectStyle(): void {
@@ -91,7 +92,7 @@ function mount(host: HTMLElement): void {
   const mCost = pCost.line([], [], { color: seriesColor(0) });
   const mCostDots = pCost.scatter([], [], { color: seriesColor(0), r: 4 });
   const mBest = pCost.vline(0, { color: seriesColor(1) });
-  const pB = new Plot(mid, { width: 330, height: 215, x: [0.4, 5.6], y: [-4, 4], xlabel: "mode k", ylabel: "b_k / √λ_k", title: "shape parameters", font: 17, xticks: [1, 2, 3, 4, 5], yticks: [-3, 0, 3], margin: { t: 30 } });
+  const pB = new Plot(mid, { width: 330, height: 215, x: [0.4, 5.6], y: [-4, 4], xlabel: "mode k", ylabel: "b / √λ", title: "shape parameters", font: 17, xticks: [1, 2, 3, 4, 5], yticks: [-3, 0, 3], margin: { t: 30 } });
   const bStyle: { color: string; colors?: string[] } = { color: seriesColor(0) };
   const mB = pB.bars([], [], bStyle);
   const mBraw = pB.scatter([], [], { color: seriesColor(1), r: 5 });

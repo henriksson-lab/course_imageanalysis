@@ -160,7 +160,7 @@ void main() {
 [data-demo="${G}"] .cc-img canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
 [data-demo="${G}"] .cc-gl { flex: 1 1 380px; min-width: 260px; max-width: 470px; }
 [data-demo="${G}"] .cc-axes, [data-demo="${G}"] .cc-credit { font-size: 14px; color: var(--qb-muted); }
-[data-demo="${G}"] .qb-panel { flex: 1 1 250px; max-width: 330px; gap: .35em; }
+[data-demo="${G}"] .qb-panel { flex: 1 1 250px; max-width: 420px; gap: .35em; }
 [data-demo="${G}"] .qb-readout { font-size: 13.5px; white-space: pre; }
 [data-demo="${G}"] .cc-row { display: flex; flex-wrap: wrap; gap: .3em; }
 [data-demo="${G}"] .cc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }

@@ -35,7 +35,7 @@ const STYLE = `
 [data-demo="${NAME}"] .ps-axis { font-size: 15px; color: var(--qb-muted); display: flex; justify-content: space-between; }
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 330px; gap: .35em; }
 [data-demo="${NAME}"] .ps-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
+[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
 [data-demo="${NAME}"] .ps-credit { font-size: 12px; color: var(--qb-muted); }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .ps-left { flex-basis: 360px; }
@@ -68,11 +68,22 @@ const PRESETS: Record<string, { label: string; s: Partial<State> }> = {
   cell: { label: "micrograph nucleus", s: { image: "cell", cx: 150, cy: 116, polarity: "line", sigma: 2, rMin: 30, rMax: 85, delta: 2, alpha: 0.05 } },
 };
 
+/** Centre, polarity and annulus that suit each image (applied when the image is chosen). */
+const IMG_DEF: Record<ImageId, Partial<State>> = {
+  nucleus: { cx: NUCLEUS.cx, cy: NUCLEUS.cy, polarity: "bright-dark", rMin: 5, rMax: 105 },
+  bean: { cx: BEAN.cx, cy: BEAN.cy, polarity: "bright-dark", rMin: 3, rMax: 105 },
+  cell: { cx: 150, cy: 116, polarity: "line", rMin: 30, rMax: 85 },
+};
+
 function mount(host: HTMLElement): void {
   injectStyle();
   const startKey = host.dataset.preset && PRESETS[host.dataset.preset] ? host.dataset.preset : "done";
-  const init = (): State => ({ ...BASE, ...PRESETS[startKey].s, ...(host.dataset.image ? { image: host.dataset.image as ImageId } : {}),
-    ...(host.dataset.view ? { view: host.dataset.view as View } : {}) });
+  const init = (): State => {
+    const im = host.dataset.image as ImageId | undefined;
+    const s0: State = { ...BASE, ...PRESETS[startKey].s, ...(im && IMG_DEF[im] ? { image: im, ...IMG_DEF[im] } : {}) };
+    if (host.dataset.view) s0.view = host.dataset.view as View;
+    return s0;
+  };
   let st = init();
 
   // ---- layout
@@ -147,9 +158,8 @@ function mount(host: HTMLElement): void {
   }
   function setImage(id: ImageId): void {
     st.image = id;
-    if (id === "cell") Object.assign(st, { cx: 150, cy: 116, polarity: "line", rMin: 30, rMax: 85, delta: Math.max(2, st.delta) });
-    else if (id === "bean") Object.assign(st, { cx: BEAN.cx, cy: BEAN.cy, polarity: "bright-dark", rMin: 3, rMax: 105 });
-    else Object.assign(st, { cx: NUCLEUS.cx, cy: NUCLEUS.cy, polarity: "bright-dark", rMin: 5, rMax: 105 });
+    Object.assign(st, IMG_DEF[id]);
+    if (id === "cell") st.delta = Math.max(2, st.delta);
     syncControls(); loadImage();
   }
   function applyPreset(k: string): void {
@@ -170,7 +180,12 @@ function mount(host: HTMLElement): void {
     const [x, y] = svgPoint(lsvg, ev);
     return [Math.max(0, Math.min(SIZE - 1, Math.round(x))), Math.max(0, Math.min(SIZE - 1, Math.round(y)))];
   };
-  draggable(handle, toImg, (x, y) => { st.cx = x; st.cy = y; presetBtns.forEach(b => b.classList.remove("active")); schedule(); });
+  // while the centre is dragged, the exact closure (R runs) is replaced by the 3-run unroll
+  // heuristic so the contour follows the pointer; the exact result is computed on release
+  let dragging = false;
+  draggable(handle, toImg, (x, y) => { dragging = true; st.cx = x; st.cy = y; presetBtns.forEach(b => b.classList.remove("active")); schedule(); });
+  handle.addEventListener("pointerup", () => { if (dragging) { dragging = false; schedule(); } });
+  handle.addEventListener("pointercancel", () => { if (dragging) { dragging = false; schedule(); } });
   lsvg.addEventListener("pointerdown", ev => {
     if (ev.target === handle) return;
     const [x, y] = toImg(ev);
@@ -186,7 +201,7 @@ function mount(host: HTMLElement): void {
   }
   function compute(): void {
     if (!cur) return;
-    last = segmentPolar(cur.smooth, st);
+    last = segmentPolar(cur.smooth, dragging && st.closure === "exact" ? { ...st, closure: "unroll" } : st);
     drawLeft(); drawMid(); readout();
   }
 
@@ -243,10 +258,11 @@ function mount(host: HTMLElement): void {
     if (!last) return;
     const d = last.dp;
     ro.textContent = [
-      `gap |r(0°) − r(last)|  ${d.gap} px  ${d.closes ? "(closes)" : "(does not close)"}`,
-      `path cost (closed)     ${d.closedCost.toFixed(2)}`,
-      `operations             ${d.ops.toLocaleString("en-US").replace(/,/g, " ")}`,
-      `time                   ${last.ms.toFixed(0)} ms`,
+      `gap |r(0°) − r(last)|: ${d.gap} px`,
+      d.closes ? "  closes (gap ≤ δ)" : "  does NOT close (gap > δ)",
+      `path cost: ${d.closedCost.toFixed(2)}`,
+      `operations: ${d.ops.toLocaleString("en-US").replace(/,/g, " ")}`,
+      `time: ${last.ms.toFixed(0)} ms`,
     ].join("\n");
   }
 

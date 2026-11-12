@@ -68,6 +68,7 @@ function mount(host: HTMLElement): void {
   const panels = new Set((host.dataset.panels ?? "image,table,curve,controls").split(/[\s,]+/));
   const p0 = M.PRESETS.find(p => p.id === host.dataset.preset) ?? M.PRESETS[0];
   const scene = M.makeScene(1);
+  const onSlide = !!host.closest(".reveal"), font = onSlide ? 26 : 18;
   const imgBytes = toBytes(scene.image, { mode: "clip", lo: 20, hi: 220 });
   const st = {
     settings: { ...p0.settings } as M.Settings, tau: p0.tau, method: p0.method as "greedy" | "optimal",
@@ -318,7 +319,7 @@ function mount(host: HTMLElement): void {
         rc.style.fill = ok ? `rgba(44,160,44,${0.15 + 0.6 * v})` : "var(--qb-panel)";
         if (matched) { rc.style.stroke = "var(--qb-fg)"; rc.style.strokeWidth = "3"; }
         const tx = svgEl("text", { x: lw + (c + 0.5) * cell, y: th + (r + 0.5) * cell + 6, "text-anchor": "middle", "font-size": 16 }, tableSvg);
-        tx.textContent = v > 0 ? f2(v) : "·";
+        tx.textContent = v >= 0.005 ? f2(v) : v > 0 ? "<.01" : "·";
         tx.style.fill = ok ? "var(--qb-fg)" : "var(--qb-muted)";
         if (matched) tx.style.fontWeight = "700";
       });
@@ -329,7 +330,7 @@ function mount(host: HTMLElement): void {
     tabBtns.forEach((b, i) => b.classList.toggle("active", (i === 0) === (st.tab === "f1")));
     plotHost.replaceChildren();
     if (st.tab === "f1") {
-      plot = new Plot(plotHost, { x: [0.1, 0.95], y: [0, 1.02], xlabel: "IoU threshold τ", ylabel: "object F1", height: 380, xticks: [0.1, 0.3, 0.5, 0.7, 0.9] });
+      plot = new Plot(plotHost, { x: [0.1, 0.95], y: [0, 1.02], xlabel: "IoU threshold τ", ylabel: "object F1", font, width: onSlide ? 460 : 560, height: onSlide ? 500 : 380, xticks: [0.1, 0.3, 0.5, 0.7, 0.9] });
       if (st.annotator) plot.band(M.TAUS, evB.f1, M.TAUS.map(() => 1.02), { color: "#888", fillOpacity: 0.25, label: "above annotator B" });
       if (st.annotator) plot.line(M.TAUS, evB.f1, { color: "#888", width: 2, label: "annotator B vs A" });
       plot.hline(ev.dice, { color: seriesColor(4), width: 2, text: "pixel Dice " + f2(ev.dice) });
@@ -338,7 +339,7 @@ function mount(host: HTMLElement): void {
       plot.scatter([st.tau], [k >= 0 ? ev.f1[k] : ev.scores.f1], { color: seriesColor(1), r: 8 });
       plot.legend(undefined, "bl");
     } else {
-      plot = new Plot(plotHost, { x: [0, 1], y: [0, 1.02], xlabel: "recall", ylabel: "precision", height: 380, title: `τ = ${f2(st.tau)}: AP ${f3(ev.pr.ap)}` });
+      plot = new Plot(plotHost, { x: [0, 1], y: [0, 1.02], xlabel: "recall", ylabel: "precision", font, width: onSlide ? 460 : 560, height: onSlide ? 500 : 380, title: `τ = ${f2(st.tau)}: AP ${f3(ev.pr.ap)}` });
       const R = [0, ...ev.pr.recall], I = [ev.pr.interp[0] ?? 1, ...ev.pr.interp];
       plot.band(R, R.map(() => 0), I, { color: seriesColor(0), fillOpacity: 0.15 });
       plot.line(R, I, { color: seriesColor(0), label: "interpolated" });
@@ -352,12 +353,12 @@ function mount(host: HTMLElement): void {
   function drawReadout(): void {
     const s = ev.scores;
     ro.textContent =
-      `τ = ${f2(st.tau)} (${st.method})   ${scene.truth.count} true, ${st.objs.length} predicted\n` +
-      `TP ${s.tp}   FP ${s.fp}   FN ${s.fn}   splits ${ev.splits.length}   merges ${ev.merges.length}\n` +
-      `precision ${f3(s.precision)}   recall ${f3(s.recall)}\n` +
-      `F1 ${f3(s.f1)}   TP/(TP+FP+FN) ${f3(s.accuracy)}\n` +
+      `τ = ${f2(st.tau)} (${st.method})\n${scene.truth.count} true, ${st.objs.length} predicted\n` +
+      `TP ${s.tp}  FP ${s.fp}  FN ${s.fn}\nsplits ${ev.splits.length}  merges ${ev.merges.length}\n` +
+      `precision ${f3(s.precision)}  recall ${f3(s.recall)}\n` +
+      `F1 ${f3(s.f1)}  TP/(TP+FP+FN) ${f3(s.accuracy)}\n` +
       `pixel Dice ${f3(ev.dice)}\n` +
-      `AP at τ ${f3(ev.pr.ap)}   AP over 0.5–0.95 ${f3(ev.apMean)}`;
+      `AP at τ ${f3(ev.pr.ap)}\nAP over 0.5–0.95 ${f3(ev.apMean)}`;
   }
 
   load(p0);

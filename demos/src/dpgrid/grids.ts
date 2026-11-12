@@ -38,7 +38,21 @@ export const LW_PRESETS: GridPreset[] = [
   { ...DPGRID_PRESETS[3], id: "detour", label: "the detour" },
   // the by-hand grid of the livewire exercise (B1): from the top-left corner
   parse("exercise", "by-hand exercise grid", ["1 7 8 9", "1 5 7 5", "1 3 5 4", "1 5 3 6"], "corner", "br"),
-  // a wall of 9s with one gap at the far end: the path goes right, through the gap, and back left
-  parse("wall", "a wall with one gap", ["1 1 1 1 1 1 1 1", "1 1 1 1 1 1 1 1", "9 9 9 9 9 9 9 1", "1 1 1 1 1 1 1 1",
-    "1 1 1 1 1 1 1 1", "1 1 1 1 1 1 1 1"], "corner", "bl"),
+  // a thick wall of 9s with one gap at the far end: the path goes right, through the gap, and back left
+  parse("wall", "a wall with one gap", ["1 1 1 1 1 1", "1 1 1 1 1 1", "9 9 9 9 9 1", "9 9 9 9 9 1",
+    "1 1 1 1 1 1", "1 1 1 1 1 1"], "corner", "bl"),
 ];
+
+/** Greedy: cheapest top cell, then always the cheapest of the (up to) three cells below. */
+export function greedy(C: ArrayLike<number>, rows: number, cols: number): { path: number[]; cost: number } {
+  let j = 0;
+  for (let k = 1; k < cols; k++) if (C[k] < C[j]) j = k;
+  const path = [j];
+  let cost = C[j];
+  for (let i = 1; i < rows; i++) {
+    let bj = -1;
+    for (const d of [0, -1, 1]) { const jj = j + d; if (jj >= 0 && jj < cols && (bj < 0 || C[i * cols + jj] < C[i * cols + bj])) bj = jj; }
+    j = bj; path.push(i * cols + j); cost += C[i * cols + j];
+  }
+  return { path, cost };
+}

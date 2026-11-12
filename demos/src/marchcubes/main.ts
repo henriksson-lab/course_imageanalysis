@@ -12,37 +12,13 @@
 import { htmlEl, slider, presets, button, checkbox, autoMount, svgEl } from "../lib/ui";
 import { GLView, OrbitCamera, viewButtons } from "../lib/gl3d";
 import * as M4 from "../lib/mat4";
-import {
-  Volume, metaballs, volumeFromFunction, softStep, ellipsoidVolume, nucleiStack, rotY, addNoise3d, gaussianBlur3d,
-  padVolume, gradientNormals, volumeRange, sliceAxis, Vec3, cloneVolume,
-} from "../lib/volume";
+import { Volume, addNoise3d, gaussianBlur3d, padVolume, gradientNormals, volumeRange, sliceAxis, Vec3, cloneVolume } from "../lib/volume";
+import { VolumeId, VOLUME_NAMES, makeVolume } from "./volumes";
 import { marchingCubes, marchingSquares, padGrid, FaceRule, Algorithm } from "../lib/marching";
 import { meshArea, meshVolume, meshTopology, boundarySegments } from "../lib/mesh";
 import { histC } from "../isocontour/histc";
 
 const NAME = "marchcubes";
-
-export type VolumeId = "blobs" | "torus" | "sphere" | "ellipsoid" | "nuclei";
-const VOLUME_NAMES: Record<VolumeId, string> = { blobs: "two blobs", torus: "torus", sphere: "sphere", ellipsoid: "ellipsoid (Δz = 2.5)", nuclei: "nuclei stack" };
-
-/** The clean (noise-free) volumes, values about 0..1, and their true spacing. */
-export function makeVolume(id: VolumeId): Volume {
-  const n = 48, mid = (n - 1) / 2;
-  switch (id) {
-    case "blobs": return metaballs(n, [[mid - 10, mid, mid], [mid + 10, mid, mid]], 6);
-    case "torus": return volumeFromFunction(n, n, n, [1, 1, 1], (x, y, z) => softStep(5.5 - Math.hypot(Math.hypot(x - mid, y - mid) - 13, z - mid), 1));
-    case "sphere": return volumeFromFunction(n, n, n, [1, 1, 1], (x, y, z) => softStep(15 - Math.hypot(x - mid, y - mid, z - mid), 1));
-    case "ellipsoid": {
-      const v = ellipsoidVolume(n, n, 20, [1, 1, 2.5], [{ centre: [mid, mid, 23.75], radii: [17, 9, 12], rot: rotY(35 * Math.PI / 180) }], { edge: 1 });
-      return v;
-    }
-    case "nuclei": {
-      const v = nucleiStack({ noise: 0 });
-      for (let i = 0; i < v.data.length; i++) v.data[i] /= 200;
-      return v;
-    }
-  }
-}
 
 export interface MCState {
   volume: VolumeId; c: number; sigma: number; noise: number; normals: "face" | "gradient"; wire: boolean;
@@ -63,21 +39,28 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .mq-view { flex: 1 1 420px; min-width: 260px; max-width: 520px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 400px; gap: .3em; }
-[data-demo="${NAME}"] .mq-side { flex: 0 1 220px; min-width: 160px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .mq-slice { position: relative; }
-[data-demo="${NAME}"] .mq-slice canvas, [data-demo="${NAME}"] .mq-slice svg { width: 100%; display: block; image-rendering: pixelated; }
-[data-demo="${NAME}"] .mq-slice svg { position: absolute; left: 0; top: 0; height: 100%; }
-[data-demo="${NAME}"] .mq-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .qb-slider { font-size: 15px; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .12em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .mq-view { max-width: 470px; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+.qb-demo[data-demo="${NAME}"] .mq-view { flex: 1 1 420px; min-width: 260px; max-width: 520px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 400px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .mq-side { flex: 0 1 220px; min-width: 160px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .mq-slice { position: relative; }
+.qb-demo[data-demo="${NAME}"] .mq-slice canvas, [data-demo="${NAME}"] .mq-slice svg { width: 100%; display: block; image-rendering: pixelated; }
+.qb-demo[data-demo="${NAME}"] .mq-slice svg { position: absolute; left: 0; top: 0; height: 100%; }
+.qb-demo[data-demo="${NAME}"] .mq-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-slider { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .4em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .12em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .mq-view { max-width: 470px; }
+.reveal .qb-demo[data-demo="${NAME}"] { gap: .6em; flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .mq-view { flex: 0 0 400px; }
+.reveal .qb-demo[data-demo="${NAME}"] .mq-side { flex: 0 0 190px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 470px; max-width: 500px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider, .reveal .qb-demo[data-demo="${NAME}"] .qb-check { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .mq-lab { font-size: 14px; }
 `;
 
 function injectStyle(): void {
@@ -231,11 +214,12 @@ function mount(host: HTMLElement): void {
     // readout
     const T = meshTopology(mesh), unit = st.volume === "nuclei" ? "µm" : "vx";
     ro.textContent = [
-      `vertices ${String(T.vertices).padStart(7)}   triangles ${String(T.faces).padStart(7)}`,
-      `area     ${meshArea(mesh).toFixed(1).padStart(9)} ${unit}²`,
-      `volume   ${meshVolume(mesh).toFixed(1).padStart(9)} ${unit}³`,
-      `components ${T.components}   χ = V − E + F = ${T.euler}`,
-      `cracks (boundary edges) ${T.boundaryEdges}`,
+      `vertices  ${String(T.vertices).padStart(9)}`,
+      `triangles ${String(T.faces).padStart(9)}`,
+      `area      ${meshArea(mesh).toFixed(1).padStart(9)} ${unit}²`,
+      `volume    ${meshVolume(mesh).toFixed(1).padStart(9)} ${unit}³`,
+      `components ${T.components}, χ = ${T.euler}`,
+      `cracks (boundary edges): ${T.boundaryEdges}`,
       `extraction ${tMesh.toFixed(0)} ms`,
     ].join("\n");
   }

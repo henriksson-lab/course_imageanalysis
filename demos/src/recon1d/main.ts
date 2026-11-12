@@ -1,17 +1,17 @@
 // recon1d: geodesic dilation and reconstruction on a 1D integer signal, one iteration at a
 // time (morphology day, unit morph-reconstruct; embedded on the watershed day with
-// data-mode="hmin"). Grey bars: the signal f (drag a bar to change it). Modes:
-//   reconstruct  marker = clicked samples (value f there, 0 elsewhere); R_f(m) by dilation
-//   hmax         marker f − h; R_f(f − h) = HMAX_h(f): peaks lowered by h, low ones vanish
-//   hmin         marker f + h; R^ε_f(f + h) = HMIN_h(f): basins shallower than h fill up
-//   impose       click samples to make markers; f_m = 0 there, max f + 1 elsewhere;
-//                R^ε_g(f_m) with g = min(f + 1, f_m): minima only at the markers
+// data-mode="hmin"). Grey bars: the signal I (drag a bar to change it). Modes:
+//   reconstruct  marker M = clicked samples (value I there, 0 elsewhere); R_I(M) by dilation
+//   hmax         marker I − h; R_I(I − h) = HMAX_h(I): peaks lowered by h, low ones vanish
+//   hmin         marker I + h; R^ε_I(I + h) = HMIN_h(I): basins shallower than h fill up
+//   impose       click samples to make markers; M = 0 there, max I + 1 elsewhere;
+//                R^ε_G(M) with G = min(I + 1, M): minima only at the markers
 // "step" applies one geodesic dilation (erosion): the dashed line is the marker dilated
 // (eroded) before clipping, the hatched part is what the mask clips away.
 // Options: data-mode, data-preset (seed | hmax | hmin | impose | twelve), data-signal
 // ("7 1 4 ..." integers 0..9), data-h.
-import { autoMount, htmlEl, slider, button, presets, checkbox, svgEl, numList, rng } from "../lib/ui";
-import { Sig, flat3, iterates, regionalMax, runs, imposeParts, TWELVE } from "./r1d";
+import { autoMount, htmlEl, slider, button, presets, checkbox, svgEl, numList } from "../lib/ui";
+import { Sig, flat3, iterates, regionalMax, runs, imposeParts, TWELVE, HILLS, VMAX } from "./r1d";
 
 const NAME = "recon1d";
 type Mode = "reconstruct" | "hmax" | "hmin" | "impose";
@@ -19,19 +19,9 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "reconstruct", label: "reconstruct" }, { id: "hmax", label: "h-maxima" },
   { id: "hmin", label: "h-minima" }, { id: "impose", label: "impose minima" },
 ];
-const VMAX = 9;
 const W = 1100, H = 362, ML = 64, MR = 12, MT = 26, MB = 92;
 
-/** A seeded 40-sample landscape of hills with small bumps, values 0..9. */
-function hills(seed: number, n = 40): number[] {
-  const r = rng(seed), out: number[] = [];
-  for (let x = 0; x < n; x++) {
-    const v = 4.6 + 2.6 * Math.sin(2 * Math.PI * x / 19 + 0.6) + 1.4 * Math.sin(2 * Math.PI * x / 6.5 + 1.3) + 0.9 * r.norm();
-    out.push(Math.max(0, Math.min(VMAX, Math.round(v))));
-  }
-  return out;
-}
-export const HILLS = hills(4);
+
 
 interface Preset { id: string; label: string; mode: Mode | null; f: number[]; h: number; marks?: number[] }
 const argmaxIn = (f: number[], a: number, b: number) => { let k = a; for (let i = a; i <= b; i++) if (f[i] > f[k]) k = i; return k; };
@@ -45,17 +35,17 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { flex-direction: column; gap: .5em; }
-[data-demo="${NAME}"] .r1-plot { width: 100%; max-width: 1100px; }
-[data-demo="${NAME}"] .r1-plot svg { touch-action: none; cursor: pointer; }
-[data-demo="${NAME}"] .r1-row { display: flex; flex-wrap: wrap; gap: .5em 1.2em; align-items: center; width: 100%; }
-[data-demo="${NAME}"] .r1-lab { font-size: 15px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .qb-slider { min-width: 200px; }
-[data-demo="${NAME}"] svg .num { font-size: 18px; font-family: ui-monospace, monospace; }
-[data-demo="${NAME}"] svg .rowlab { font-size: 18px; font-weight: 600; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] { flex-direction: column; gap: .5em; }
+.qb-demo[data-demo="${NAME}"] .r1-plot { width: 100%; max-width: 1100px; }
+.qb-demo[data-demo="${NAME}"] .r1-plot svg { touch-action: none; cursor: pointer; }
+.qb-demo[data-demo="${NAME}"] .r1-row { display: flex; flex-wrap: wrap; gap: .5em 1.2em; align-items: center; width: 100%; }
+.qb-demo[data-demo="${NAME}"] .r1-lab { font-size: 15px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .qb-slider { min-width: 200px; }
+.qb-demo[data-demo="${NAME}"] svg .num { font-size: 18px; font-family: ui-monospace, monospace; }
+.qb-demo[data-demo="${NAME}"] svg .rowlab { font-size: 18px; font-weight: 600; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
 `;
 
 function injectStyle(): void {
@@ -219,7 +209,7 @@ function mount(host: HTMLElement): void {
     // number rows
     const rowY = [H - MB + 42, H - MB + 66, H - MB + 88];
     const lab = (y: number, s: string) => { const t = svgEl("text", { x: ML - 8, y, "text-anchor": "end", class: "rowlab" }, g); t.textContent = s; };
-    lab(rowY[0], "f"); lab(rowY[1], st.mode === "impose" ? "g" : "m"); if (st.mode === "impose") lab(rowY[2], "m");
+    lab(rowY[0], "I"); lab(rowY[1], st.mode === "impose" ? "G" : "M"); if (st.mode === "impose") lab(rowY[2], "M");
     for (let i = 0; i < N; i++) {
       const cx = X(i) + w / 2;
       const t1 = svgEl("text", { x: cx, y: rowY[0], "text-anchor": "middle", class: "num" }, g); t1.textContent = String(f[i]);
@@ -235,12 +225,12 @@ function mount(host: HTMLElement): void {
     const ext0 = runs(regionalMax(f, !dil)), ext1 = runs(regionalMax(last, !dil));
     const what = dil ? "regional maxima" : "regional minima";
     stepBtn.disabled = st.k >= K;
-    ro.textContent = `iteration ${st.k} of ${K}${st.k === K ? " (stable)" : ""} · ${what}: f has ${ext0}, result ${ext1}`;
+    ro.textContent = `iteration ${st.k} of ${K}${st.k === K ? " (stable)" : ""} · ${what}: I has ${ext0}, result ${ext1}`;
     const txt: Record<Mode, string> = {
-      reconstruct: st.marks.size ? "Orange: the marker, grown by one sample per step and clipped under f; at the end it fills every hill a seed is on, up to the seed's height." : "Choose \"sets a marker\" and click samples to place seeds.",
-      hmax: `Marker f − ${st.h}. At the end every peak is lowered by ${st.h}; peaks less than ${st.h} above their surroundings are gone. The grey left above the orange = the domes f − HMAX.`,
-      hmin: `Marker f + ${st.h} (blue = water). At the end every basin is filled by ${st.h}; basins shallower than ${st.h} are full and no longer minima.`,
-      impose: st.marks.size ? "Purple: the markers (value 0). Dotted green: the mask g = min(f + 1, f_m). Blue: the imposed landscape above f; its only minima are the markers." : "Choose \"sets a marker\" and click samples to place markers.",
+      reconstruct: st.marks.size ? "Orange: the marker M, grown by one sample per step and clipped under I; at the end it covers everything the seed can reach without climbing above its own height." : "Choose \"sets a marker\" and click samples to place seeds.",
+      hmax: `Marker M = I − ${st.h}. At the end every peak is lowered by ${st.h}; peaks that rise ${st.h} or less above the pass to a higher peak are gone. The grey left above the orange = the domes I − HMAX.`,
+      hmin: `Marker M = I + ${st.h} (blue = water). At the end every basin is filled by ${st.h}; basins ${st.h} deep or less are full and no longer minima.`,
+      impose: st.marks.size ? "▲: the markers (value 0). Dotted green: the mask G = min(I + 1, M). Blue: the imposed landscape above I; its only minima are the markers." : "Choose \"sets a marker\" and click samples to place markers.",
     };
     note.textContent = txt[st.mode];
   }

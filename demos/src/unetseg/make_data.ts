@@ -7,7 +7,7 @@
 import { sample, N } from "./data";
 declare const require: (m: string) => any;
 declare const process: { argv: string[] };
-declare const Buffer: { from(b: ArrayBuffer): unknown };
+declare const Buffer: { from(b: ArrayBufferLike): unknown };
 const { writeFileSync } = require("fs");
 
 const out = process.argv[2] ?? ".";

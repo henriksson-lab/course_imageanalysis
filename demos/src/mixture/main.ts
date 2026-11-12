@@ -61,8 +61,8 @@ function mount(host: HTMLElement): void {
   const st = { ...pr0.p, method: (host.dataset.method as Method) ?? pr0.m };
 
   const plots = htmlEl("div", "mx-plots", "", host);
-  const top = new Plot(plots, { width: 520, height: 300, x: [0, 255], y: [0, 0.03], xlabel: "grey level", ylabel: "density", xticks: [0, 50, 100, 150, 200, 250] });
-  const bot = new Plot(plots, { width: 520, height: 180, x: [0, 255], y: [0, 1], ylabel: "criterion", xticks: [0, 50, 100, 150, 200, 250], yticks: 3 });
+  const top = new Plot(plots, { width: 520, height: 300, x: [0, 255], y: [0, 0.03], xlabel: "grey level", ylabel: "density", xticks: [0, 50, 100, 150, 200, 250], margin: { l: 100 } });
+  const bot = new Plot(plots, { width: 520, height: 180, x: [0, 255], y: [0, 1], ylabel: "criterion", xticks: [0, 50, 100, 150, 200, 250], yticks: 3, margin: { l: 100 } });
   const mid = htmlEl("div", "mx-mid", "", host);
   const fig = htmlEl("figure", "", "", mid);
   const cap = htmlEl("figcaption", "", "", fig);

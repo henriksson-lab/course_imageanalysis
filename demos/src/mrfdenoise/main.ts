@@ -15,23 +15,40 @@ import {
 
 const NAME = "mrfdenoise";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .9em; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin: 0 0 .15em; white-space: nowrap; }
-[data-demo="${NAME}"] .md-left { flex: 1 1 560px; max-width: 640px; min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .md-imgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5em; }
-[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border: 1px solid var(--qb-grid); }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 340px; gap: .3em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .md-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .md-credit { font-size: 12px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .md-tabs .qb-btn { font-size: 13px; padding: .05em .45em; }
-.reveal [data-demo="${NAME}"] { font-size: 16px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .12em; }
-.reveal [data-demo="${NAME}"] .md-left { flex-basis: 600px; max-width: 600px; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
+.qb-demo[data-demo="${NAME}"] { gap: .9em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin: 0 0 .15em; white-space: nowrap; }
+.qb-demo[data-demo="${NAME}"] .md-left { flex: 1 1 560px; max-width: 640px; min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .md-imgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5em; }
+.qb-demo[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border: 1px solid var(--qb-grid); }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 340px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .md-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .md-credit { font-size: 12px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .md-tabs .qb-btn { font-size: 13px; padding: .05em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .12em; }
+.reveal .qb-demo[data-demo="${NAME}"] .md-left { flex-basis: 600px; max-width: 600px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; }
+.qb-demo[data-demo="${NAME}"] .md-tabs { flex-wrap: nowrap; gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .md-tabs .qb-btn { font-size: 13px; padding: 0 .3em; }
 `;
+
+/** lib/plot.ts numbers its clip paths per bundle (qb-clip-1, ...), so two demos on one page
+ *  can share an id and one plot clips to another's box. Give this plot's clip path a unique id. */
+function uniqueClip(p: Plot): Plot {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) {
+    const w = window as unknown as { __qbClipSeq?: number };
+    w.__qbClipSeq = (w.__qbClipSeq ?? 0) + 1;
+    const id = `${NAME}-clip-${w.__qbClipSeq}`;
+    cp.id = id;
+    p.layer.setAttribute("clip-path", `url(#${id})`);
+  }
+  return p;
+}
 
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -66,7 +83,7 @@ function mount(host: HTMLElement): void {
   const tabs = htmlEl("div", "qb-presets md-tabs", "", fErr.c);
   fErr.c.style.display = "flex"; fErr.c.style.justifyContent = "center";
   const thirdBtns = [button(tabs, "truth", () => { st.third = "truth"; draw(); }), button(tabs, "errors", () => { st.third = "errors"; draw(); }), button(tabs, "p(object)", () => { st.third = "marginal"; draw(); })];
-  const plot = new Plot(left, { width: 600, height: 250, x: [1, 3000], xlog: true, y: [0, 1], xlabel: "sweep", ylabel: "energy", margin: { l: 90 }, yfmt: v => v.toFixed(0) });
+  const plot = uniqueClip(new Plot(left, { width: 600, height: 250, x: [1, 3000], xlog: true, y: [0, 1], xlabel: "sweep", ylabel: "energy", margin: { l: 90 }, yfmt: v => v.toFixed(0) }));
   const credit = htmlEl("div", "md-credit", CELL_CREDIT, left);
 
   const panel = htmlEl("div", "qb-panel", "", host);

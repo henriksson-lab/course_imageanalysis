@@ -1,0 +1,157 @@
+---
+title: "Exercise: mixtures on images"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- fit and read a **grey-level mixture**: labels, **posteriors** (probability maps), Bayes boundaries, and their relation to the minimum-error threshold and multi-level Otsu;
+- explain why a histogram mixture gives **speckle** on noisy images;
+- explain why a **full-covariance** mixture keeps a shadowed object whole in colour space where k-means splits it;
+- read **population fractions** from mixture weights;
+- flag **anomalies** by low likelihood or Mahalanobis distance.
+
+Do the pen-and-paper part first, then the two demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Histogram EM | bins $g_j$ with counts $h_j$ act as weighted points; every sum over pixels becomes $\sum_j h_j(\cdot)$ |
+| Label image | most probable class per pixel; for grey values a multi-level threshold at the Bayes boundaries |
+| Posterior map | responsibility of one class at every pixel (a soft segmentation) |
+| Population fractions | the fitted weights $\pi_k$ |
+| Anomaly | $p(\mathbf x) < \tau$, or Mahalanobis distance $> t$ to every component |
+
+## By hand
+
+**B1.** A grey-level mixture with three classes: $\pi = (0.50, 0.35, 0.15)$, $\mu = (70, 130, 185)$, $\sigma = (12, 13, 13)$.
+(a) Compute the posteriors of the three classes for the grey values 95, 155 and 165, and give their labels.
+(b) Between classes 2 and 3 the variances are equal. Compute the Bayes boundary, and compare it with the midpoint of the means. Why are they different?
+(c) Which grey value near 100 is the most "uncertain"? What would a posterior map of class 1 look like there?
+
+**B2.** Populations. A mixture fitted to the integrated DNA intensity of 1500 nuclei (in units of the G1 peak) has components G1 ($\pi = 0.55$, $\mu = 1.00$), S ($\pi = 0.15$, $\mu = 1.48$, wide) and G2 ($\pi = 0.30$, $\mu = 1.97$).
+(a) How many cells are in each phase?
+(b) Is the G2 mean plausible? What would you suspect if it came out at 1.6?
+(c) Why must the S component be wide?
+
+**B3.** Anomalies. Two 2D components: $\mathcal N_1$ with $\boldsymbol\mu_1 = (0, 0)$, $\Sigma_1 = I$; $\mathcal N_2$ with $\boldsymbol\mu_2 = (5, 0)$, $\Sigma_2 = \operatorname{diag}(4, 1)$. Using the rule "anomaly if $d_M > 3$ to every component", classify the points $(2.5, 2.5)$ and $(0, 4)$.
+
+**B4.** Predict, with a sketch of the colour space and of the label image: a red ball whose right half is in deep shadow, a green and a blue object, and a beige background; $K = 4$.
+(a) k-means in RGB.
+(b) A Gaussian mixture with full covariances in RGB.
+(c) Which of the two achieves the lower $J$ (the k-means objective) in (a), the "correct" grouping or the split one? What does that tell you?
+
+**B5.** A noisy image with two classes (means 80 and 160, σ = 30 each, equal weights).
+(a) Where is the Bayes boundary? What fraction of each class's pixels ends up on the wrong side?
+(b) How does this show in the label image, and why do more EM iterations not help?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) At 95: $(0.87, 0.13, 0.00)$, class 1. At 155: $(0.00, 0.84, 0.16)$, class 2. At 165: $(0.00, 0.17, 0.83)$, class 3.
+(b) $x^* = \frac{130 + 185}{2} + \frac{13^2}{55}\ln\frac{0.35}{0.15} = 157.5 + 2.6 = 160.1$. The midpoint is 157.5; class 2 is more than twice as frequent, so it gets the grey values just above the midpoint too.
+(c) Around 100 the posteriors of classes 1 and 2 are about equal (at 100: 0.49 and 0.51): the posterior map of class 1 passes through 0.5 there, a band of intermediate values along the edges between the two classes.
+
+**B2.** (a) G1: $0.55 \times 1500 = 825$, S: 225, G2: 450.
+(b) Yes: G2 cells have twice the DNA of G1 cells; 1.97 is close to 2. A G2 mean of 1.6 would suggest saturation of bright nuclei, a wrong background subtraction, or a poor fit (for instance the S and G2 components swapped roles).
+(c) S-phase cells are spread over all DNA contents between 1 and 2: the S component has to cover the whole plateau between the peaks.
+
+**B3.** $(2.5, 2.5)$: $d_1 = \sqrt{12.5} = 3.54$, $d_2 = \sqrt{(2.5/2)^2 + 2.5^2} = 2.80$: within 3 of component 2, **not** an anomaly. $(0, 4)$: $d_1 = 4$, $d_2 = \sqrt{(5/2)^2 + 16} = 4.72$: beyond 3 of both: an **anomaly**.
+
+**B4.** (a) In RGB the ball's pixels form a long streak from bright red towards black. k-means needs two round groups to cover it, so the ball is split into a lit and a shaded half; with only four groups, the green and the blue object (or the table and another object) share one group. (b) One long ellipse along the red streak: the ball is one group, and the four objects are separated. (c) The split grouping has the lower $J$ (in the demo: $1.09 \times 10^6$ against $1.46 \times 10^6$): k-means converges to it because it is better by its own measure. The objective, not the optimiser, is the problem.
+
+**B5.** (a) At 120 (the midpoint). A class pixel is wrong if it is more than $40 = 1.33\sigma$ beyond its mean towards the other class: $P(Z > 1.33) = 0.09$, about 9 % of each class.
+(b) As scattered single wrong pixels (speckle) in both regions. The fit is already correct: the classes simply overlap in grey value, and a label that depends only on the grey value cannot do better. Neighbours (smoothing, graph cuts, an MRF prior) are needed.
+:::
+
+### Math questions
+
+**B6.** *(math)* Write the EM updates ($N_k$, $\pi_k$, $\mu_k$, $\sigma_k^2$) for a histogram with counts $h_j$ at grey values $g_j$, and show that they equal per-pixel EM.
+
+**B7.** *(math)* Show that for two classes with equal variances the Bayes boundary is $x^* = \frac{\mu_1 + \mu_2}{2} + \frac{\sigma^2}{\mu_2 - \mu_1}\ln\frac{\pi_1}{\pi_2}$. Check it with B1(b).
+
+**B8.** *(math)* Why compute $\log\sum_k e^{a_k}$ as $a_{\max} + \log\sum_k e^{a_k - a_{\max}}$? Give an example where the direct formula fails in double precision.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** All $h_j$ pixels with value $g_j$ have the same responsibilities $r_{jk} = \pi_k\mathcal N(g_j \mid \mu_k, \sigma_k^2)/\sum_l\pi_l\mathcal N(g_j \mid \mu_l, \sigma_l^2)$. The per-pixel sums $\sum_i r_{ik}$, $\sum_i r_{ik}x_i$, $\sum_i r_{ik}(x_i - \mu_k)^2$ group by grey value: $N_k = \sum_j h_jr_{jk}$, $\pi_k = N_k/\sum_jh_j$, $\mu_k = \sum_jh_jr_{jk}g_j/N_k$, $\sigma_k^2 = \sum_jh_jr_{jk}(g_j - \mu_k)^2/N_k$. Identical results, at a cost of (number of bins) instead of (number of pixels) per iteration. (The demos' test file checks this numerically.)
+
+**B7.** $\ln\pi_1 - \frac{(x - \mu_1)^2}{2\sigma^2} = \ln\pi_2 - \frac{(x - \mu_2)^2}{2\sigma^2}$ (the normalisers cancel). $(x - \mu_2)^2 - (x - \mu_1)^2 = 2x(\mu_1 - \mu_2) + \mu_2^2 - \mu_1^2$, so $2\sigma^2\ln\frac{\pi_2}{\pi_1} = 2x(\mu_1 - \mu_2) + (\mu_2 - \mu_1)(\mu_2 + \mu_1)$. Dividing by $2(\mu_2 - \mu_1)$: $x = \frac{\mu_1 + \mu_2}{2} + \frac{\sigma^2}{\mu_2 - \mu_1}\ln\frac{\pi_1}{\pi_2}$. B1(b): $157.5 + \frac{169}{55}\ln\frac73 = 160.1$.
+
+**B8.** The terms $a_k = \log\pi_k + \log\mathcal N_k(x)$ can be very negative for a point far from every component (e.g. $-800$): $e^{-800}$ underflows to 0 in double precision (the smallest positive double is about $e^{-745}$), so the direct formula gives $\log 0 = -\infty$ and the responsibilities $0/0$. Subtracting the maximum makes the largest term $e^0 = 1$: $\log(e^{-800} + e^{-802}) = -800 + \log(1 + e^{-2}) = -799.87$. The identity holds because $\sum_k e^{a_k} = e^{a_{\max}}\sum_k e^{a_k - a_{\max}}$.
+:::
+
+## Explore: grey-level mixtures {#explore-histgmm}
+
+Left: the image with the label of each pixel, the posterior of one class, or the pixels with $p(I) < \tau$ (**low p(I)**). Right: the histogram with the fitted weighted components (dashed), their sum (black), the Bayes boundaries (black vertical lines) and, optionally, the multi-level Otsu thresholds (dotted purple); next to it BIC for $K = 1..6$ (button). Images: the course micrograph (128 × 128) and a synthetic image of three classes with known truth (noise and blur sliders). **step EM** does one iteration; changing $K$ re-fits to convergence.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="histgmm" data-preset="k2"></div>
+<script src="../demos/dist/histgmm.js"></script>
+```
+
+**H1.** Preset **K = 2: the minimum-error threshold again**. Read the two components and the Bayes boundary. Compare it with the Otsu threshold. Why do they differ?
+
+**H2.** Preset **K = 3 on the micrograph**. Which structures does each class contain? Look at the posterior map of class 2 (choose **posterior**, then class 2): where is it uncertain?
+
+**H3.** Preset **equal variances: Otsu-like**. Compare the Bayes boundaries with the Otsu thresholds and read the fraction of correctly labelled pixels. Untick **equal variances**: what changes?
+
+**H4.** Preset **K too large: components split a peak**. How are the six components distributed over the three peaks? Press **BIC for K = 1..6**: which $K$ does BIC choose?
+
+**H5.** Preset **noise: speckle in the label image**. Describe the label image. Read the fraction of correct pixels. Lower the noise to 12 and compare.
+
+**H6.** Preset **small bright class: weights matter**. Read the weight and the boundary of the bright class, and compare the boundary with the midpoint between the means of classes 2 and 3.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**H1.** Component 1: $\pi = 0.55$, $\mu = 127.9$, $\sigma = 39.1$; component 2: $\pi = 0.45$, $\mu = 218.8$, $\sigma = 22.1$. Bayes boundary 183; Otsu 164. The dark class is much wider than the bright one: the minimum-error boundary moves towards the narrow class (the wide one wins further out), while Otsu assumes equally wide classes.
+
+**H2.** Weights 0.50, 0.34, 0.16; means 122, 204, 240; boundaries 173 and 229. Class 1: the dark cell material (nucleus, cytoplasm, membranes); class 2: the light grey background; class 3: the brightest regions. The posterior of class 2 is uncertain (intermediate values) along the edges of the cell and in textured grey areas, where the grey values sit near 173 or 229.
+
+**H3.** Bayes boundaries 101 and 160, Otsu 100 and 155; 97.4 % of the pixels are labelled as in the truth. The fitted means are 70.7, 129.9, 181.9 with σ = 12.7 for all. Otsu's second threshold is lower than the mixture's because the mixture takes the small weight (0.12) of the bright class into account. With free variances the fit hardly changes (boundaries 100 and 160, again 97.4 %): the true classes have equal widths.
+
+**H4.** Three components share the background peak (means 64, 69, 81), two the middle peak (126, 133), one the bright peak (182); the extra boundaries cut through peaks. BIC is smallest at $K = 3$.
+
+**H5.** Salt-and-pepper: isolated pixels of the wrong class inside every region. With noise 22, 85.7 % of the pixels are correct (boundaries 101 and 157); with noise 12, 97.4 %. The classes overlap in the histogram, and a per-pixel label cannot use the neighbours.
+
+**H6.** Weight 0.04, mean 180.8; Bayes boundary 163, while the midpoint between 129.3 and 180.8 is 155: the rare bright class gets a smaller range of grey values (98.0 % correct pixels overall).
+:::
+
+## Explore: colour segmentation {#explore}
+
+Left: a synthetic colour image (a scene with a shadowed ball, the same scene with an odd object, or a stained tissue section), all with known truth. Middle: its pixels as a 2D histogram in two feature dimensions, with the fitted components as 2σ ellipses (k-means: its centres). Right: the label image, the posterior of one component, or the pixels further than a Mahalanobis distance $t$ from every component. Choose the features (RGB, Lab, Lab + position with a weight), k-means or a Gaussian mixture with spherical, diagonal or full covariances, $K$, and the start. **best of 6 starts** runs from starts 1–6 and keeps the best. The readout gives Dice per class (each cluster mapped to the class it overlaps most).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="colourgmm" data-preset="shadow"></div>
+<script src="../demos/dist/colourgmm.js"></script>
+```
+
+**E1.** Preset **shadowed ball: k-means splits it, full GMM keeps it**. Look at the label image and the Dice values. Press **best of 6 starts**: which $J$ is the lowest, and which grouping has it? Then choose **Gaussian mixture** (full) and **run**. Compare with B4.
+
+**E2.** Still in the shadow scene with the Gaussian mixture: choose **spherical** and run. What happens, and why?
+
+**E3.** Preset **RGB vs Lab** (k-means in Lab). Is the ball split now? Look at the plot in L\*–a\*: why does Lab help here?
+
+**E4.** Preset **add position: compact regions**. Describe the label image. Move the position weight down to 0.5 and up to 2. What happens at each end?
+
+**E5.** Preset **stained tissue: three stains**. Read the Dice values for the full mixture. Try diagonal and spherical covariances. Which works best here?
+
+**E6.** Preset **an odd object has low likelihood**. How many pixels are flagged at $t = 4.5$, and where? Lower $t$ to 3.5. Explain the difference with the χ² tail numbers from the lecture.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** k-means (start 5) splits the ball into a lit and a shaded half (both mapped to "red ball"), and the green block and the blue ellipse share one cluster: Dice green 0.68, blue 0.00, mean 0.67, $J = 1.086 \times 10^6$. Best of starts 1–6: one start reaches the correct grouping with $J = 1.462 \times 10^6$, five reach the split with $J = 1.086 \times 10^6$, the lowest: the split is k-means' own optimum. The full Gaussian mixture from start 5 converges to the correct grouping: all four objects found (Dice 1.00), $\log p = -137\,740$. Its ellipse for the ball is long and thin, along the shadow streak.
+
+**E2.** With spherical covariances the mixture behaves like k-means: the ball is split again and the green and blue objects merge (Dice 0.68 and 0.00). Round components cannot follow the streak.
+
+**E3.** No: k-means in Lab finds all four objects (Dice 1.00). The shadow mostly lowers L\* and changes a\* and b\* less, and the other colours are far apart in a\*b\*: the ball's cloud is elongated mainly along L\*, which is short compared with the distances between the colour groups.
+
+**E4.** With Lab + position, $K = 6$ and weight 1, the clusters are compact patches: the large table is split into several regions (three clusters map to "table"), each object gets its own cluster or shares one with a nearby table patch (Dice green 0.80). At weight 0.5 colour dominates again and all four objects are found (Dice 1.00 for all); at weight 2 position dominates and the clusters become blocks of the image that cut through objects (Dice of green and blue fall to 0). This is the idea behind superpixels.
+
+**E5.** Full covariances: matrix 0.99, nuclei 1.00, lumen 0.87. Diagonal: 1.00 for all three. Spherical: the lumen is lost (Dice 0.00; matrix 0.96). The lumen is a very tight cluster of near-white pixels and the matrix a wide, elongated one (its stain density varies); diagonal covariances describe this with fewer parameters and get it right here, while one round width per component cannot.
+
+**E6.** At $t = 4.5$: 119 pixels, the 113 pixels of the yellow object and 6 noise pixels elsewhere. At $t = 3.5$ many more noise pixels on the table and objects are flagged (for a 3D Gaussian about 1 in 150 normal pixels lies beyond 3.5, against 1 in 6600 beyond 4.5; with 16 384 pixels that is about 100 against 2).
+:::
+
+## Where this leads
+
+The mixture models in this unit label each pixel from its own value. The **graph-cut** day adds the neighbours through a smoothness term, with $-\log$ of a fitted mixture as the data term (GrabCut alternates the two). The **Ising** elective does the same with a Markov random field and re-estimates the mixture by EM. Generative models of whole images, rather than of single pixels, are the subject of the **VAE** day.

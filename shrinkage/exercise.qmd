@@ -1,0 +1,150 @@
+---
+title: "Exercise: denoising by wavelet shrinkage"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- apply **hard** and **soft** thresholding by hand and say what each does to edges and to noise,
+- compute the **universal threshold** and the robust noise estimate $\hat\sigma_n$,
+- explain why the threshold is applied to the details only, and what **cycle spinning** fixes,
+- connect soft thresholding to an energy "data + λ · prior".
+
+Do the pen-and-paper part first, then the demo. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Model | $y = x + n$, independent Gaussian noise of standard deviation $\sigma_n$ (camera noise unit) |
+| Noise in an orthonormal basis | every coefficient gets noise of the same $\sigma_n$ |
+| Hard threshold | $\eta_H(w) = w$ if $|w| > t$, else 0 |
+| Soft threshold | $\eta_S(w) = \operatorname{sign}(w)\max(|w| - t, 0)$ |
+| Universal threshold | $t = \hat\sigma_n\sqrt{2\ln N}$ for $N$ coefficients |
+| Noise estimate | $\hat\sigma_n = \operatorname{median}(|w|)/0.6745$ over the finest diagonal band D |
+| Cycle spinning | shift, denoise, shift back, average over shifts |
+
+## By hand
+
+**B1.** Apply hard and soft thresholding with $t = 2$ to $w = (5, -1.5, 0.4, -3, 2.1, -0.2)$.
+
+**B2.** Compute $\sqrt{2\ln N}$ for $N = 256^2$ and for $N = 1024$, using $\ln 2 \approx 0.693$. For $\sigma_n = 20$ and a $256 \times 256$ image, what is the universal threshold?
+
+**B3.** Nine D coefficients of a noisy image: $(0.8, -2.1, 0.3, 14.0, -1.2, 0.5, -0.9, 1.6, -25.0)$.
+(a) Estimate $\hat\sigma_n$ with the median rule.
+(b) Compute the root mean square of the nine values. Why is it a bad noise estimate here?
+
+**B4.** An edge in its simplest form: two pixels $(0, 100)$, one level of orthonormal Haar: $s = (a+b)/\sqrt2$, $d = (a-b)/\sqrt2$.
+(a) Compute $s$ and $d$.
+(b) Soft-threshold $d$ with $t = 20$ (leave $s$ alone) and transform back. What is the new contrast $b - a$?
+(c) And with hard thresholding at $t = 20$? At $t = 80$?
+
+**B5.** An image has $\sigma_n = 20$. In a flat region, what standard deviation do the orthonormal detail coefficients have? And the LL coefficients after 4 levels, in grey-level units of the 16 × 16-pixel average they represent? (An LL coefficient after $L$ levels is $2^L$ times the average of its $2^L \times 2^L$ block.)
+
+**B6.** For pure noise and $N = 65\,536$ coefficients, the probability that one coefficient exceeds $4.71\,\sigma_n$ in magnitude is $2.5 \cdot 10^{-6}$. How many noise coefficients do you expect above the universal threshold? What happens to real image coefficients of size $3\sigma_n$?
+
+**B7.** A Haar-denoised image shows faint square blocks aligned to an 8-pixel grid. Explain where they come from, and how averaging over shifts removes them.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** Hard: $(5, 0, 0, -3, 2.1, 0)$. Soft: $(3, 0, 0, -1, 0.1, 0)$. Hard keeps the survivors at full size; soft subtracts 2 from each survivor's magnitude.
+
+**B2.** $\ln 65\,536 = 16\ln 2 = 11.09$, $\sqrt{2 \cdot 11.09} = \sqrt{22.18} = 4.71$. $\ln 1024 = 10\ln 2 = 6.93$, $\sqrt{13.86} = 3.72$. Universal threshold for $\sigma_n = 20$: $4.71 \cdot 20 = 94.2$ grey levels.
+
+**B3.** (a) Sorted $|w|$: $0.3, 0.5, 0.8, 0.9, 1.2, 1.6, 2.1, 14, 25$; median $1.2$; $\hat\sigma_n = 1.2/0.6745 = 1.78$.
+(b) $\sqrt{\tfrac19\sum w^2} = 9.6$. The two edge coefficients (14 and $-25$) dominate the sum of squares; the median ignores them.
+
+**B4.** (a) $s = 100/\sqrt2 = 70.7$, $d = -100/\sqrt2 = -70.7$.
+(b) Soft: $d \to -50.7$. Back: $a = (s + d)/\sqrt2 = 14.1$, $b = (s - d)/\sqrt2 = 85.9$: contrast $71.7$ instead of 100, i.e. reduced by $\sqrt2\,t = 28.3$. (The mean, 50, is unchanged.)
+(c) Hard at 20: $|d| = 70.7 > 20$, kept: contrast 100, unchanged. Hard at 80: $d$ killed, both pixels become 50: the edge vanishes completely.
+
+**B5.** Details: $\sigma_n = 20$ (orthonormal). LL after 4 levels: also standard deviation 20 as a coefficient; the corresponding block average is the coefficient divided by $2^4 = 16$, with standard deviation $20/16 = 1.25$ grey levels (averaging 256 pixels divides by $\sqrt{256} = 16$). Thresholding LL would mostly change real brightness, not noise.
+
+**B6.** $65\,536 \cdot 2.5 \cdot 10^{-6} = 0.16$: usually none. Real coefficients of size $3\sigma_n$ are below the threshold and are killed too: the universal threshold over-smooths faint structure.
+
+**B7.** With the decimated Haar transform, each coefficient covers a fixed square of the grid (at level 3: an $8 \times 8$ square). When a noisy coefficient is killed or shrunk, its square pattern is missing in the result, so the error is made of grid-aligned squares. Shifting the image moves the grid relative to the content; the squares land in different places for each shift, and their average is smooth. Averaging over all shifts equals the undecimated transform.
+:::
+
+### Math questions
+
+**B8.** *(math)* Show that if $n$ has independent $\mathcal N(0, \sigma_n^2)$ entries and $W$ is orthogonal, then $Wn$ also has independent $\mathcal N(0, \sigma_n^2)$ entries.
+
+**B9.** *(math)* Show that $\eta_S(w)$ minimises $f(c) = \tfrac12(w - c)^2 + \lambda|c|$ with $t = \lambda$, and that $\eta_H(w)$ minimises $g(c) = \tfrac12(w - c)^2 + \tfrac{t^2}{2}[c \ne 0]$. Then show that for orthonormal $W$, soft thresholding the coefficients of $y$ minimises $\tfrac12\|y - x\|^2 + \lambda\|Wx\|_1$.
+
+**B10.** *(math)* Using $P(|Z| > u) \le \frac{2}{u\sqrt{2\pi}}e^{-u^2/2}$ for standard normal $Z$, show that the expected number of $N$ pure-noise coefficients beyond $\sigma_n\sqrt{2\ln N}$ goes to 0 as $N \to \infty$.
+
+**B11.** *(math)* Show that the median of $|Z|$ for $Z \sim \mathcal N(0, \sigma^2)$ is $0.6745\,\sigma$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** $Wn$ is a linear transform of a Gaussian vector, hence Gaussian, with mean $W\,\mathbb E[n] = 0$ and covariance $W(\sigma_n^2 I)W^\top = \sigma_n^2 I$. For Gaussian vectors, zero covariance means independence.
+
+**B9.** $f$ is convex. For $c \ne 0$, $f'(c) = c - w + \lambda\operatorname{sign}(c)$. A minimiser $c > 0$ needs $c = w - \lambda > 0$, i.e. $w > \lambda$; $c < 0$ needs $c = w + \lambda < 0$, i.e. $w < -\lambda$. If $|w| \le \lambda$, then $c = 0$: the subdifferential at 0 is $-w + [-\lambda, \lambda] \ni 0$. This is $\eta_S$ with $t = \lambda$. For $g$: with $c \ne 0$ the best is $c = w$, cost $t^2/2$; with $c = 0$ the cost is $w^2/2$. Keep $w$ if $w^2/2 > t^2/2$, i.e. $|w| > t$: $\eta_H$. For the vector problem: $\|y - x\|^2 = \|W(y - x)\|^2 = \sum_i (w_i - c_i)^2$ with $w = Wy$, $c = Wx$, so the energy is $\sum_i f_i(c_i)$, minimised coefficient by coefficient.
+
+**B10.** With $u = \sqrt{2\ln N}$, $e^{-u^2/2} = 1/N$, so $N\,P(|Z| > u) \le \frac{2}{u\sqrt{2\pi}} = \frac{2}{\sqrt{2\pi}\sqrt{2\ln N}} \to 0$. (For $N = 65\,536$ the bound is $0.17$; the exact value is $0.16$.)
+
+**B11.** The median $m$ of $|Z|$ satisfies $P(|Z| \le m) = \tfrac12$, i.e. $2\Phi(m/\sigma) - 1 = \tfrac12$, $\Phi(m/\sigma) = \tfrac34$, $m/\sigma = \Phi^{-1}(0.75) = 0.6745$.
+:::
+
+## Explore: denoising an image {#explore}
+
+A $256 \times 256$ image with Gaussian noise of standard deviation $\sigma_n$ (fixed seed). It is transformed, the detail coefficients are thresholded (hard or soft) at $t$, set in units of $\hat\sigma_n$, and transformed back. Panels: the noisy image, the denoised one, the **removed** part (noisy − denoised; should look like noise) and the **error** (denoised − truth). The plot shows PSNR against $t$ for hard and soft (filled in gradually), with the universal threshold and the current $t$ marked; below, the histogram of the finest D coefficients with $\pm t$. **cycle spinning** averages over 4 or 16 shifts.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="wavedenoise" data-preset="universal"></div>
+<script src="../demos/dist/wavedenoise.js"></script>
+```
+
+**E1.** Preset **universal threshold, soft** (shapes, $\sigma_n = 20$, db4, 4 levels). Compare $\hat\sigma_n$ with the true $\sigma_n$. Read the PSNR before and after and the percentage of details kept. From the plot, which $t$ would be best for soft, and for hard?
+
+**E2.** Preset **hard vs soft at the same t** ($t = 3\hat\sigma_n$). Compare hard and soft: PSNR, and what the removed part and the error look like near the edges.
+
+**E3.** Presets **threshold too low** (hard, $t = 1.5$) and **too high** (soft, $t = 6$). Describe what goes wrong in each. Switch the first to soft: what changes?
+
+**E4.** Preset **Haar blocks**, then **… with cycle spinning** (and try 4 shifts). Read the PSNRs. What do the artefacts look like before and after?
+
+**E5.** Preset **micrograph: texture vs noise** ($\sigma_n = 40$, soft, $t = 1.25$). How much does denoising help, and what is lost? Look at the removed part.
+
+**E6.** Preset **σ̂ fooled by texture** (micrograph, $\sigma_n = 10$). Compare $\hat\sigma_n$ with $\sigma_n$ and read the PSNR. Then switch to the shapes image at the same $\sigma_n$. Explain.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** $\hat\sigma_n = 20.26$ for $\sigma_n = 20$. $t = 4.75\hat\sigma_n = 96$: PSNR $22.1 \to 27.0$ dB with 0.7 % of the details kept. The curves peak near $t = 1.75\hat\sigma_n$ for soft (30.5 dB) and $3.25\hat\sigma_n$ for hard (30.4 dB): the universal threshold is far too high for soft here and over-smooths (with hard at the same $t$: 29.3 dB).
+
+**E2.** Hard 30.2 dB, soft 28.8 dB. With soft, the removed part shows the outlines of the shapes (edge contrast taken away, B4) and the error is concentrated along the edges; with hard the edges stay sharp and the removed part looks more like pure noise.
+
+**E3.** Too low (hard, $1.5\hat\sigma_n$): 24.6 dB; many noise coefficients survive at full size and appear as isolated blips (small wavelet-shaped spots). Soft at the same $t$: 30.4 dB: the surviving noise coefficients are shrunk almost to zero. Too high (soft, $6\hat\sigma_n$): 26.1 dB; smooth but blurred, edges have low contrast and the removed part shows the shapes.
+
+**E4.** Haar, soft, $t = 3\hat\sigma_n$: 29.1 dB, with visible square blocks along the edges and in flat regions. 4 shifts: 30.3 dB; 16 shifts: 31.0 dB; the blocks average out into smooth transitions.
+
+**E5.** $16.1 \to 20.2$ dB. The noise is reduced, but the fine texture of the micrograph is removed as well: the removed part contains texture, not only noise. Texture and noise both live in the small fine-scale coefficients, and thresholding cannot tell them apart.
+
+**E6.** $\hat\sigma_n = 15.7$ for a true $\sigma_n = 10$: the D band contains the image's own texture (on the clean micrograph $\hat\sigma_n$ would be 11). The threshold is too high, and the result (21.1 dB) is **worse** than the noisy input (28.1 dB). On the shapes image $\hat\sigma_n$ matches $\sigma_n$ closely (D has almost no signal there).
+:::
+
+## Explore: denoising a 1D signal {#explore-1d}
+
+The same method on a 1D test signal of 1024 samples (standard deviation 7) with noise of standard deviation $\sigma_n$: noisy samples (grey dots), truth (black) and the estimate (blue). The plot on the right gives the RMSE against $t$.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="wavedenoise" data-mode="1d" data-preset="blocks"></div>
+<script src="../demos/dist/wavedenoise.js"></script>
+```
+
+**E7.** Preset **Blocks, Haar** (soft, universal threshold). RMSE before and after? Switch to hard. Which is better here, and why?
+
+**E8.** Preset **HeaviSine, db4**. RMSE? What happens near the two jumps?
+
+**E9.** Preset **Doppler, hard vs soft** (db8, $t = 3$): compare hard and soft. Preset **Bumps: too high**: what is lost?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E7.** Soft: RMSE $1.004 \to 0.703$; hard: $0.320$. Blocks has a few very large Haar coefficients at the jumps; hard keeps them at full size, soft shrinks every one of them by $t$ and so lowers every jump.
+
+**E8.** RMSE $1.004 \to 0.389$, with 0.2 % of the details kept. The smooth parts are clean; near the jumps there is some ringing and the jumps are slightly rounded.
+
+**E9.** Doppler: hard 0.492, soft 0.695. The fast oscillations at the left are lost by both, but soft also damps the oscillations it keeps. Bumps with soft $t = 6$: RMSE 1.986, worse than the noisy signal (1.004): the narrow bumps have their tops cut off; at the universal threshold it is 1.398, still worse than doing nothing. Spiky signals need lower thresholds.
+:::
+
+## Where this leads
+
+This was the last core unit of the wavelets day. The **compression day** (next in this elective) turns sparse coefficients into bits: quantisation, entropy coding, JPEG and JPEG 2000. Denoising with other priors and the general comparison of denoisers are on the **deconvolution** day; total variation and MRF priors on the **Ising** day.

@@ -3,7 +3,8 @@
 // Offsets are [dx, dy] (x right, y down) relative to the SE origin.
 //   erosion   (A ⊖ B)(x) = 1  iff  x + b ∈ A for every b ∈ B      ("the SE fits")
 //   dilation  (A ⊕ B)(x) = 1  iff  x − b ∈ A for some b ∈ B       ("the reflected SE hits")
-// Pixels outside the grid have the value `outside` (0 or 1).
+// Pixels outside the grid have the value `outside`: 0, 1, or −1 = "ignored" (neutral: 1 for
+// erosion, 0 for dilation; the convention that keeps opening ⊆ A ⊆ closing at the border).
 
 export type Off = [number, number];
 
@@ -22,8 +23,8 @@ export function at(a: ArrayLike<number>, w: number, h: number, x: number, y: num
 
 /** Values under the SE at pixel (x, y): x + b for erosion, x − b for dilation. */
 export function probe(a: ArrayLike<number>, w: number, h: number, x: number, y: number, se: Off[], kind: "erode" | "dilate", outside: number): number[] {
-  const s = kind === "erode" ? 1 : -1;
-  return se.map(([dx, dy]) => at(a, w, h, x + s * dx, y + s * dy, outside));
+  const s = kind === "erode" ? 1 : -1, o = outside < 0 ? (kind === "erode" ? 1 : 0) : outside;
+  return se.map(([dx, dy]) => at(a, w, h, x + s * dx, y + s * dy, o));
 }
 
 export function erodeGrid(a: ArrayLike<number>, w: number, h: number, se: Off[], outside = 0): Uint8Array {

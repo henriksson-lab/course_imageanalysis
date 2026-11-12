@@ -18,13 +18,13 @@ const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; }
 [data-demo="${NAME}"] .sp-plots { flex: 1 1 520px; min-width: 300px; max-width: 640px; display: flex; flex-direction: column; gap: .1em; }
 [data-demo="${NAME}"] .sp-plots svg.sp-edit { touch-action: none; cursor: ns-resize; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 400px; gap: .4em; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 420px; gap: .4em; }
 [data-demo="${NAME}"] .sp-sw { display: flex; gap: .5em; }
 [data-demo="${NAME}"] .sp-sw div { flex: 1; height: 92px; border-radius: 6px; border: 1px solid #999; display: flex; align-items: flex-end; justify-content: center; font-size: 15px; padding-bottom: 4px; box-sizing: border-box; }
 [data-demo="${NAME}"] .sp-match { font-size: 1.1em; font-weight: 600; text-align: center; }
 [data-demo="${NAME}"] .sp-row { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
 [data-demo="${NAME}"] .sp-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .sp-plots { flex-basis: 560px; max-width: 600px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
@@ -135,7 +135,13 @@ autoMount(NAME, host => {
       }
       st.b = bestB; st.seed = bestSeed + 1;
     },
-    dichromat: () => { setMode("lights", false); st.obs = "deutan"; st.a = Float64Array.from(SP.WL, l => 70 + 40 * Math.exp(-0.5 * ((l - 520) / 50) ** 2)); st.b = null; st.seed = 4; makeMetamer(false); },
+    dichromat: () => {
+      // B - A in the null space of the deuteranope's (L, S) map, chosen along the M cone's
+      // sensitivity: the largest change that only M cones could see
+      setMode("lights", false); st.obs = "deutan"; st.a = Float64Array.from(SP.WL, l => 70 + 40 * Math.exp(-0.5 * ((l - 520) / 50) ** 2));
+      const lms = SP.sensitivity("lms"), m = lms.slice(SP.NB, 2 * SP.NB);
+      st.b = SP.makeMetamer(st.a, SP.sensitivity("deutan"), () => 0, 0.92, Infinity, m);
+    },
     yellow: () => {
       setMode("lights", false); st.obs = "lms"; st.a = SP.monochromatic(580, 150);
       const comps = [SP.monochromatic(540, 1), SP.monochromatic(640, 1)], w = SP.fitMixture(st.a, comps, SP.sensitivity("lms"));
@@ -286,13 +292,14 @@ autoMount(NAME, host => {
     const lines = ["     " + used.map(c => nm[c].padStart(7)).join(""), "A    " + f(na)];
     if (nb) {
       lines.push("B    " + f(nb));
-      const rel = Math.max(...used.map(c => Math.abs(na[c] - nb[c]) / Math.max(Math.abs(na[c]), Math.abs(nb[c]), 1e-9)));
-      match.textContent = rel < 0.005 ? `A and B match for the ${OBS_LABEL[st.obs]}` : `A and B differ (up to ${(100 * rel).toFixed(1)} % in one channel)`;
+      const big = Math.max(...used.map(c => Math.max(Math.abs(na[c]), Math.abs(nb[c]))), 1e-9);
+      const rel = Math.max(...used.map(c => Math.abs(na[c] - nb[c]))) / big;
+      match.textContent = rel < 0.005 ? `A and B match for the ${OBS_LABEL[st.obs]}` : `A and B differ (by up to ${(100 * rel).toFixed(1)} % of the largest number)`;
       match.style.color = rel < 0.005 ? "var(--qb-c3)" : "var(--qb-c2)";
     } else match.textContent = "";
     const xa = SP.xyzToXy(SP.spectrumToXyz(lightOf(st.a)));
-    lines.push(`A: chromaticity x = ${xa[0].toFixed(3)}, y = ${xa[1].toFixed(3)}`);
-    if (st.b) { const xb = SP.xyzToXy(SP.spectrumToXyz(lightOf(st.b))); lines.push(`B: chromaticity x = ${xb[0].toFixed(3)}, y = ${xb[1].toFixed(3)}`); }
+    lines.push(`A: x = ${xa[0].toFixed(3)}, y = ${xa[1].toFixed(3)}`);
+    if (st.b) { const xb = SP.xyzToXy(SP.spectrumToXyz(lightOf(st.b))); lines.push(`B: x = ${xb[0].toFixed(3)}, y = ${xb[1].toFixed(3)}`); }
     read.textContent = lines.join("\n");
   }
 

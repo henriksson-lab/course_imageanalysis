@@ -52,13 +52,16 @@ const STYLE = `
 [data-demo="${NAME}"] .d2-credit { font-size: 12px; color: var(--qb-muted); }
 [data-demo="${NAME}"] .qb-slider.off { opacity: .35; pointer-events: none; }
 .reveal [data-demo="${NAME}"] { font-size: 16px; gap: .5em; }
-.reveal [data-demo="${NAME}"] .d2-grid { flex-basis: 470px; gap: .1em .4em; }
+.reveal [data-demo="${NAME}"] .d2-grid { flex: 0 0 430px; gap: .1em .4em; }
+.reveal [data-demo="${NAME}"] .d2-lab { display: none; }
+.reveal [data-demo="${NAME}"] .qb-presets { gap: .25em; }
+.reveal [data-demo="${NAME}"] .qb-check { font-size: 15px; }
 .reveal [data-demo="${NAME}"] figcaption { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .d2-side { flex-basis: 270px; }
-.reveal [data-demo="${NAME}"] .qb-panel { flex-basis: 290px; gap: .2em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal [data-demo="${NAME}"] .d2-side { flex: 0 1 260px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 340px; max-width: 380px; gap: .25em; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 13px; padding: .1em .4em; }
+.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .05em .4em; }
 `;
 
 function injectStyle(): void {
@@ -98,7 +101,7 @@ function mount(host: HTMLElement): void {
   const F = [fig("image"), fig("subbands"), fig("reconstruction"), fig("error")];
   const side = htmlEl("div", "d2-side", "", host);
   const pBox = htmlEl("div", "", "", side);
-  const plot = new Plot(pBox, { width: 360, height: 300, x: [0.5, 100], y: [10, 60], xlog: true, xlabel: "% kept", ylabel: "PSNR (dB)", xticks: [1, 10, 100] });
+  const plot = new Plot(pBox, { width: 360, height: 320, x: [0.5, 100], y: [10, 60], xlog: true, xlabel: "% kept", ylabel: "PSNR (dB)", xticks: [1, 10, 100], font: 24 });
   const ro = htmlEl("div", "qb-readout", "", side);
   const credit = htmlEl("div", "d2-credit", CELL_CREDIT, side);
   const panel = htmlEl("div", "qb-panel", "", host);
@@ -119,7 +122,7 @@ function mount(host: HTMLElement): void {
     button(mRow, "zero bands (click)", () => { st.mode = "zero"; changed(); rebuild(); }),
   ];
   const kS = slider(panel, "keep %", 0, KEEPS.length - 1, 1, KEEPS.indexOf(st.keep), v => { st.keep = KEEPS[v]; st.mode = "keep"; changed(); rebuild(); }, v => String(KEEPS[v]));
-  const cmpBox = checkbox(panel, "compare: Fourier and 8×8 DCT", st.compare, v => { st.compare = v; changed(); rebuild(); });
+  const cmpBox = checkbox(panel, "compare Fourier, 8×8 DCT", st.compare, v => { st.compare = v; changed(); rebuild(); });
   const shBox = checkbox(panel, "shift by 1 px", st.shift, v => { st.shift = v; changed(); newImage(); });
   const dRow = htmlEl("div", "qb-presets", "", panel);
   const dBtns = [
@@ -235,7 +238,7 @@ function mount(host: HTMLElement): void {
     drawPyramid(F[1].cv, coef, N, L, st.display, st.mode === "zero" ? dropped : new Set(), st.mode === "keep" ? keptMask : undefined);
     F[1].c.textContent = st.mode === "zero" ? `${w.label}, ${L} level${L > 1 ? "s" : ""}: click a band` : `${w.label} subbands, ${L} level${L > 1 ? "s" : ""}`;
     const k = nKept;
-    const lines: string[] = [`kept ${k} of ${N * N} (${(100 * k / (N * N)).toFixed(1)} %)`, `PSNR ${w.label.padEnd(8)} ${f1(pW)} dB`];
+    const lines: string[] = [`kept ${k} of ${N * N} (${(100 * k / (N * N)).toFixed(1)} %)`, `PSNR ${w.label.padEnd(8)} ${f1(pW)}${pW < 100 ? " dB" : ""}`];
     if (st.compare) {
       const kk = Math.min(k, N * N);
       const re = new Float64Array(N * N), im = new Float64Array(N * N);

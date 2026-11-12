@@ -1,0 +1,227 @@
+---
+title: "Exercise: edges, Gaussian derivatives and Canny"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- smooth a signal with a small Gaussian kernel and explain why its derivative is cleaner than the raw finite difference,
+- compute the **gradient magnitude and direction** at a pixel,
+- run **non-maximum suppression** and **hysteresis** by hand on a small patch,
+- predict what σ and the two thresholds of **Canny** do to the result,
+- *(math)* derive the derivative-of-Gaussian kernel and the noise it lets through.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Gaussian of width σ | weights $\propto e^{-x^2/2\sigma^2}$, sum 1; cut at 3σ to 4σ (the demos: 4σ) |
+| Separable | 2D Gaussian = 1D along rows, then 1D along columns: $2k$ instead of $k^2$ multiplications |
+| Derivative of a Gaussian | smoothing + derivative in one kernel; response = slope of the smoothed image |
+| Gradient | $\nabla L = (L_x, L_y)$; strength $\sqrt{L_x^2 + L_y^2}$; direction counter-clockwise on the screen, $\theta = \operatorname{atan2}(-L_y, L_x)$ ($y$ down) |
+| Non-maximum suppression (NMS) | keep a pixel if its magnitude is ≥ both neighbours along θ rounded to 0°, 45°, 90°, 135° |
+| Neighbours compared by NMS | 0°: left/right · 45°: up-right/down-left · 90°: up/down · 135°: up-left/down-right |
+| Hysteresis | seeds ≥ $t_\text{high}$; weak pixels ($t_\text{low}$ to $t_\text{high}$) kept if 8-connected to a seed through pixels ≥ $t_\text{low}$ |
+
+## By hand
+
+**B1.** A noisy step, $x = 0, \dots, 13$:
+
+| $x$ | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| $f$ | 10 | 8 | 13 | 15 | 9 | 12 | 8 | 30 | 27 | 33 | 29 | 31 | 26 | 30 |
+
+(a) Compute the central difference $\tfrac12[f(x+1) - f(x-1)]$ for $x = 1, \dots, 8$. Where is the edge? How large are the values in the flat part?
+(b) Smooth with the 5-tap Gaussian $(0.05, 0.25, 0.4, 0.25, 0.05)$ (σ ≈ 1). The smoothed values at $x = 2$ and $x = 3$ are 11.9 and 12.5; compute them for $x = 4, \dots, 8$.
+(c) Take the central difference of the smoothed signal at $x = 3, \dots, 7$. Compare with (a): the flat part, and the height and width of the edge response.
+(d) Write down the single 7-tap kernel that does (b) and (c) in one step. Check it at $x = 7$.
+
+**B2.** Gradient magnitude and direction (counter-clockwise on the screen, $y$ down) for
+(a) $L_x = 3$, $L_y = -4$; (b) $L_x = -2$, $L_y = 0$; (c) $L_x = 1$, $L_y = 1$; (d) $L_x = 0$, $L_y = 5$.
+For each, which side of the edge is brighter? To which of 0°, 45°, 90°, 135° does NMS round the direction?
+
+**B3.** **NMS by hand.** A 5 × 5 gradient-magnitude patch, and the rounded directions of its inner 3 × 3 pixels:
+
+:::: {.columns}
+::: {.column width="50%"}
+| | c0 | c1 | c2 | c3 | c4 |
+|---|---|---|---|---|---|
+| r0 | 2 | 4 | 9 | 5 | 1 |
+| r1 | 1 | 5 | 10 | 6 | 2 |
+| r2 | 2 | 6 | 8 | 7 | 3 |
+| r3 | 1 | 3 | 9 | 4 | 2 |
+| r4 | 0 | 4 | 8 | 6 | 1 |
+:::
+::: {.column width="50%"}
+| | c1 | c2 | c3 |
+|---|---|---|---|
+| r1 | 0° | 0° | 0° |
+| r2 | 0° | 45° | 0° |
+| r3 | 90° | 0° | 0° |
+:::
+::::
+
+For each of the nine inner pixels, name the two neighbours it is compared with and decide: kept or removed. Describe the result.
+
+**B4.** **Hysteresis by hand.** A 6 × 6 magnitude image after NMS, $t_\text{low} = 4$, $t_\text{high} = 8$, 8-neighbours:
+
+| | c0 | c1 | c2 | c3 | c4 | c5 |
+|---|---|---|---|---|---|---|
+| r0 | 0 | 2 | 9 | 5 | 1 | 0 |
+| r1 | 1 | 3 | 6 | 0 | 0 | 2 |
+| r2 | 0 | 5 | 1 | 0 | 3 | 3 |
+| r3 | 2 | 4 | 0 | 0 | 5 | 0 |
+| r4 | 6 | 1 | 0 | 2 | 6 | 1 |
+| r5 | 5 | 0 | 3 | 7 | 0 | 0 |
+
+(a) Mark the seeds and the weak pixels.
+(b) Grow from the seeds one ring of neighbours at a time. Give the ring at which each kept pixel joins. Which weak pixels are removed?
+(c) How many edge pixels would a single threshold of 8 give? Of 4? Which result looks like an edge?
+
+**B5.** **Predict.** Two upward steps of equal height lie 4 pixels apart (a staircase). The derivative of a Gaussian gives two bumps, one per step.
+(a) With σ = 1, how many maxima does the response have, and where?
+(b) With σ = 4?
+(c) Rule of thumb: two equal Gaussian bumps a distance $d$ apart show one maximum when $d \le 2\sigma$. What does this mean for Canny on two parallel edges 6 pixels apart?
+
+**B6.** For each situation, say which Canny parameter you would change and in which direction:
+(a) The contour of a cell is found, but it is broken into pieces where the cell is faint.
+(b) Many short wiggly edges appear in the background.
+(c) Two membranes 3 pixels apart come out as a single edge.
+(d) Short "hairs" of noise stick out from the real edges.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $x = 1..8$: 1.5, 3.5, −2, −1.5, −0.5, **9**, **9.5**, 1.5. The edge lies between $x = 6$ and 7. In the flat part the values reach 3.5 in size: the noise of $f$ (a few grey levels) comes straight through.
+(b) $x = 4$: $0.05 \cdot 13 + 0.25 \cdot 15 + 0.4 \cdot 9 + 0.25 \cdot 12 + 0.05 \cdot 8 = 11.4$; $x = 5$: 11.3; $x = 6$: 15.5; $x = 7$: 23.0; $x = 8$: 28.4.
+(c) $x = 3..7$: −0.25, −0.6, 2.05, 5.85, 6.45. The flat part drops to below 1, a factor of about 5 smaller. The edge response is lower (6.45 instead of 9.5) and wider (spread over $x = 5..8$): smoothing trades localisation for noise.
+(d) Convolving $(0.05, 0.25, 0.4, 0.25, 0.05)$ with $\tfrac12[-1\;0\;1]$ gives the correlation kernel $(-0.025, -0.125, -0.175, 0, 0.175, 0.125, 0.025)$ on offsets −3 … 3. At $x = 7$: $-0.025 \cdot 9 - 0.125 \cdot 12 - 0.175 \cdot 8 + 0.175 \cdot 27 + 0.125 \cdot 33 + 0.025 \cdot 29 = 6.45$. It is a small derivative of a Gaussian.
+
+**B2.** (a) Strength 5, θ = atan2(4, 3) = 53.1°: brighter to the upper right; rounds to 45°. (b) 2, θ = 180°: brighter to the left; rounds to 0° (the same axis). (c) 1.41, θ = atan2(−1, 1) = −45°: brighter to the lower right; rounds to 135° (−45° and 135° are the same axis). (d) 5, θ = −90°: brighter below; rounds to 90°.
+
+**B3.** Rows r1–r3, columns c1–c3:
+
+| pixel | direction | compared with | verdict |
+|---|---|---|---|
+| r1 c1 (5) | 0° | 1 (left), 10 (right) | removed |
+| r1 c2 (10) | 0° | 5, 6 | **kept** |
+| r1 c3 (6) | 0° | 10, 2 | removed |
+| r2 c1 (6) | 0° | 2, 8 | removed |
+| r2 c2 (8) | 45° | 6 (up-right, r1 c3), 3 (down-left, r3 c1) | **kept** |
+| r2 c3 (7) | 0° | 8, 3 | removed |
+| r3 c1 (3) | 90° | 5 (up, r2 c1), 4 (down, r4 c1) | removed |
+| r3 c2 (9) | 0° | 3, 4 | **kept** |
+| r3 c3 (4) | 0° | 9, 2 | removed |
+
+The kept pixels form a one-pixel-wide vertical line down column c2: the crest of the ridge. Note that r2 c2 (8) survives even though r1 c2 (10) is larger: they are not compared, because they lie along the edge, not across it.
+
+**B4.** (a) Seed: r0 c2 (9). Weak: r0 c3 (5), r1 c2 (6), r2 c1 (5), r3 c1 (4), r3 c4 (5), r4 c0 (6), r4 c4 (6), r5 c0 (5), r5 c3 (7).
+(b) Ring 0: r0 c2. Ring 1: r0 c3 and r1 c2. Ring 2: r2 c1. Ring 3: r3 c1. Ring 4: r4 c0. Ring 5: r5 c0. That is 7 edge pixels, a connected curve from the top to the bottom left. Removed: r3 c4, r4 c4, r5 c3 (a weak chain with no seed).
+(c) Threshold 8: 1 pixel, only the seed; the edge is gone. Threshold 4: 10 pixels, the edge plus the unconnected weak chain. Hysteresis gives the 7 pixels of the edge only.
+
+**B5.** (a) Two maxima, at the two steps (0 and 4 if the first step is at 0): $d = 4 > 2\sigma = 2$. (b) One maximum, halfway (at 2): $d = 4 \le 2\sigma = 8$. (c) Edges 6 pixels apart are still separate for σ < 3 and merge into one edge, in the middle, for σ ≥ 3 (the gaussderiv demo shows this at σ ≈ 3).
+
+**B6.** (a) Lower $t_\text{low}$ (so the faint parts connect to the seeds), or slightly lower $t_\text{high}$. (b) Increase σ (or raise both thresholds). (c) Decrease σ to below about half the distance (σ < 1.5). (d) Raise $t_\text{low}$ (the hairs are weak pixels attached to seeds).
+:::
+
+### Math questions
+
+**B7.** *(math)* (a) Show that $\partial_x(G_\sigma * I) = (\partial_x G_\sigma) * I$ by differentiating under the integral. (b) Write $\partial_x G_\sigma(x, y)$ for the 2D Gaussian $G_\sigma(x, y) = \frac{1}{2\pi\sigma^2}e^{-(x^2 + y^2)/2\sigma^2}$ and show that it is the product of a 1D derivative kernel in $x$ and a 1D Gaussian in $y$.
+
+**B8.** *(math)* White noise of variance $s^2$ (independent pixels). (a) What is the noise variance after $\tfrac12[-1\;0\;1]$? (b) After Sobel x divided by 8, $\tfrac18\begin{bmatrix}-1&0&1\\-2&0&2\\-1&0&1\end{bmatrix}$? (c) Check that both kernels give exactly 1 on the ramp $I(x, y) = x$. Which one is the better slope estimator?
+
+**B9.** *(math)* **Sub-pixel NMS.** A 3 × 3 magnitude patch (rows $y = -1, 0, 1$ from top to bottom, columns $x = -1, 0, 1$):
+
+| 6 | 9 | 7 |
+|---|---|---|
+| 8 | **10** | 9 |
+| 5 | 7 | 6 |
+
+The unit gradient direction at the centre is $(0.8, 0.6)$ in image coordinates ($y$ down).
+(a) To which direction does the 4-direction NMS round it, which two pixels does it compare, and is the centre kept?
+(b) Interpolate the magnitude bilinearly at $(0.8, 0.6)$ and at $(-0.8, -0.6)$. Is the centre kept?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** (a) $\partial_x \int G_\sigma(x - u, y - v)\,I(u, v)\,du\,dv = \int \partial_x G_\sigma(x - u, y - v)\,I(u, v)\,du\,dv = (\partial_x G_\sigma) * I$: the image does not depend on $x$, only the kernel does (and the Gaussian is smooth and decays fast enough to swap derivative and integral). (b) $G_\sigma(x, y) = g_\sigma(x)\,g_\sigma(y)$ with $g_\sigma(t) = \frac{1}{\sqrt{2\pi}\sigma}e^{-t^2/2\sigma^2}$, so $\partial_x G_\sigma = g'_\sigma(x)\,g_\sigma(y) = -\frac{x}{\sigma^2}\,g_\sigma(x)\,g_\sigma(y)$: the 1D derivative kernel along rows times the 1D Gaussian along columns.
+
+**B8.** (a) $s^2(\tfrac14 + 0 + \tfrac14) = 0.5\,s^2$. (b) $\frac{s^2}{64}(1 + 1 + 4 + 4 + 1 + 1) = \frac{12}{64}s^2 = 0.1875\,s^2$. (c) $\tfrac12[-1\;0\;1]$ on $x$: $\tfrac12(-(x - 1) + (x + 1)) = 1$. Sobel/8: each row contributes $(x + 1) - (x - 1) = 2$ times its weight (1, 2, 1), total $2 \cdot 4 / 8 = 1$. Same slope, but Sobel lets through less than half the noise variance, because it also averages over three rows: the smoothing pays off.
+
+**B9.** (a) θ = atan2(−0.6, 0.8) = −36.9°, which rounds to −45°, i.e. 135°: compare with the down-right pixel (6) and the up-left pixel (6). 10 ≥ 6: kept. (b) At $(0.8, 0.6)$, between 10, 9 (top) and 7, 6 (bottom): $0.4\,(0.2 \cdot 10 + 0.8 \cdot 9) + 0.6\,(0.2 \cdot 7 + 0.8 \cdot 6) = 7.40$. At $(-0.8, -0.6)$, between 6, 9 (top) and 8, 10 (bottom): $0.6\,(0.8 \cdot 6 + 0.2 \cdot 9) + 0.4\,(0.8 \cdot 8 + 0.2 \cdot 10) = 7.32$. 10 is larger than both: kept. The interpolated neighbours lie on the true gradient line, not on the rounded one.
+:::
+
+## Explore: smoothing before differentiating {#explore-gaussderiv}
+
+A 1D profile of 256 pixels: a step (x = 48), a ramp, a thin bright line (x = 160–161) and two steps 6 pixels apart (x = 200 and 206), plus seeded noise; or a line through the micrograph. Rows: the signal with its blur; the finite difference of the raw signal; the derivative-of-Gaussian response; the kernel to scale. Click any row to move the kernel. **Order** switches between smoothing (0), slope (1) and curvature (2).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="gaussderiv" data-preset="noise"></div>
+<script src="../demos/dist/gaussderiv.js"></script>
+```
+
+**D1.** Preset **finite difference on noise** (σ = 0.5). Rows 2 and 3 look alike: why? Now set σ = 2, then σ = 4. Estimate by eye how much smaller the wiggles in the flat part (x < 48) become.
+
+**D2.** Still at noise 8: what are the kernel taps and the cost of a 2D filter (direct and separable) at σ = 2 and σ = 8?
+
+**D3.** Preset **σ = 8: two close steps merge**. Lower σ slowly. At which σ do the steps at 200 and 206 give two separate bumps again? Compare with B5.
+
+**D4.** Preset **a thin line gives two lobes**. Why two lobes of opposite sign? Click on them: how far apart are they at σ = 1, 2 and 4?
+
+**D5.** Preset **curvature: zero crossing at the edge** (order 2). Where does the response cross zero? What happens at the corners of the ramp in the mixed profile?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** At σ = 0.5 the Gaussian is so narrow that the derivative of a Gaussian is almost the finite difference ½[−1 0 1]. In the flat part (noise 8) the wiggles have a standard deviation of about 5.8 for both; at σ = 2 about 1.2 (5 times smaller), at σ = 4 about 0.4. The step response also drops (from 60 to about 23 at σ = 2, to 6 at σ = 8), but much less than the noise, and it gets wider.
+
+**D2.** σ = 2: 17 taps, 289 multiplications per pixel directly, 34 separably. σ = 8: 65 taps, 4225 against 130.
+
+**D3.** The two bumps are separate below σ ≈ 3 (at σ = 2.5 the maxima are at 200 and 205) and merge into one maximum from σ ≈ 3: the distance 6 equals 2σ, as in B5.
+
+**D4.** A line is two edges: brightness goes up at its left side (positive slope) and down at its right side (negative slope). Noise-free, the lobes are at 159 and 162 for σ = 1, at 158 and 163 for σ = 2, at 156 and 165 for σ = 4: for σ larger than the line width, the lobes sit about σ either side of the line, not at its edges. A Canny edge on a thin line is displaced outwards; the Hessian unit detects the line itself instead.
+
+**D5.** The curvature changes sign exactly at the step (between x = 127 and 128): positive on the dark side, negative on the bright side, as in the filtering unit's [1 −2 1] example. At a corner of the ramp the curvature has a single bump (no sign change): the ramp's ends are not edges in this sense, but the ramp as a whole shows up as a pair of opposite bumps.
+:::
+
+## Explore: Canny step by step {#explore}
+
+A synthetic 128 × 128 scene (a rectangle, a disc, a staircase of two upward steps 4 pixels apart at the left, a T-junction and, on the right, a faint rectangle whose contrast fades from 45 at the top to 8 at the bottom; noise 12), or the micrograph (256 × 256 on this page). The tabs show every stage. Click a pixel: the panel shows its 3 × 3 magnitudes, the two neighbours NMS compares (cyan), the gradient arrow and the verdict. The histogram shows the post-NMS magnitudes and both thresholds. **Grow 1 ring** and **play** replay hysteresis from the seeds.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="canny" data-preset="hyst" data-size="256"></div>
+<script src="../demos/dist/canny.js"></script>
+```
+
+**E1.** Go through the tabs from **input** to **edges on input** at the default settings (σ = 1.5, $t_\text{low}$ = 3, $t_\text{high}$ = 10). Describe in one sentence what each step does to the rectangle's edges.
+
+**E2.** Preset **NMS thins the ridge**: pixel (46, 30) on the right edge of the rectangle. Read its magnitude and those of its two neighbours. Is it kept? Click the pixels to its right until you find the one that survives. How wide was the ridge, counting pixels with magnitude above 10?
+
+**E3.** Preset **hysteresis closes the gap**. Press **grow 1 ring** a few times, then **play**. In which direction does the flood travel along the faint rectangle, and why? At which ring does pixel (96, 100) join? Read the numbers of seeds, weak pixels and kept weak pixels.
+
+**E4.** Preset **one threshold** ($t_\text{low} = t_\text{high} = 10$). How many edge pixels, and what happens to the faint rectangle? Now set both thresholds to 3. How many edge pixels now, and where do the extra ones come from? Compare with hysteresis (3 and 10).
+
+**E5.** Preset **σ too small** (σ = 0.7), then **σ too large** (σ = 4). Describe the failure in each case. What happens to the staircase (left) and to the corners of the rectangle at σ = 4?
+
+**E6.** Tick **sub-pixel NMS** at the default settings. Does the number of edge pixels change much? Where would sub-pixel NMS matter more?
+
+**E7.** Preset **micrograph**. Which structures does Canny find, and which edges are texture rather than cell outlines? Try σ = 3 and adjust the thresholds with the histogram to keep mainly the nuclear envelope.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Input: noisy image. Smoothed: noise reduced, edges slightly blurred. Magnitude: a bright ridge two or three pixels wide along each edge, plus faint noise everywhere. Direction: the colour shows the gradient direction, the same all along a straight edge and opposite on the two sides of the rectangle. After NMS: one-pixel-wide lines on the crests, plus many weak noise crests. Hysteresis: the strong lines (seeds, red) and the weak pixels connected to them (orange) remain; isolated weak crests (blue) go. Edges on input: the result.
+
+**E2.** (46, 30) has magnitude 20.99; its neighbours along θ ≈ 180° (left and right) are 9.30 and 32.38: removed. (47, 30) = 32.38 is beaten by (48, 30) = 32.55, which survives (its other neighbour is 21.29). Above 10 the ridge spans x = 46 to 49 (20.99, 32.38, 32.55, 21.29), and x = 50 has exactly 10.00: about 4 pixels, which NMS reduces to 1.
+
+**E3.** The flood starts from the strong upper part of the faint rectangle (where its contrast is high and its pixels are seeds) and moves down the sides towards the faint bottom, where only weak pixels remain. Pixel (96, 100) joins at ring 34. Seeds: 824; weak: 338, of which 128 are kept; 952 edge pixels. The weak pixels that are not kept are isolated noise crests (blue).
+
+**E4.** With one threshold of 10: 824 edge pixels (only the seeds); the faint rectangle keeps only its upper part. With one threshold of 3: 1162 edge pixels; the faint rectangle is complete, but 210 more pixels than with hysteresis appear as short noise chains in the background. Hysteresis (952) keeps the faint rectangle and drops the noise.
+
+**E5.** σ = 0.7: the noise is hardly smoothed; 4755 edge pixels, the background is full of noise edges, and the real edges are ragged. σ = 4: very few noise edges, but the two steps of the staircase merge into one edge between them (around x = 9; their distance 4 is less than 2σ = 8, as in B5), and the corners of the rectangle are cut off diagonally.
+
+**E6.** Hardly: 961 instead of 952 edge pixels (3788 against 3986 nonzero pixels after NMS). Sub-pixel NMS changes which pixel wins on diagonal edges and curves, where rounding the direction to 45° steps compares slightly wrong neighbours; it matters most when the edge position is measured to a fraction of a pixel.
+
+**E7.** At σ = 2 with thresholds 8 and 16 Canny finds the nuclear envelope (partly), the outlines of the cell and many edges in the fibrous background and inside the nucleus (texture). With σ = 3 the texture edges thin out and the envelope becomes more continuous; raising $t_\text{high}$ keeps only the strongest outlines. There is no setting that finds "the cell outline" alone: Canny knows only about local contrast.
+:::
+
+## Where this leads
+
+Canny's σ picks one scale for the whole image. The next unit asks what happens across **all** scales at once: **scale space**, blob detection with the Laplacian of Gaussian, and image pyramids.

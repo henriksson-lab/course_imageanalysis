@@ -362,21 +362,33 @@ export function residual1d(x: ArrayLike<number>, y: ArrayLike<number>, B: Blur1D
 }
 
 /**
- * Index of the L-curve corner: the point of maximal curvature of the curve
- * (log ρ_i, log η_i), i = 0..m−1, ordered by increasing λ (ρ = residual norm,
- * η = penalty norm). Curvature from finite differences in the parameter i.
+ * Index of the L-curve corner of the curve (log ρ_i, log η_i), i = 0..m−1, ordered by
+ * increasing λ (ρ = residual norm, η = penalty norm).
+ *  - "nearest" (default): the point nearest the lower-left corner after scaling both log
+ *    axes to [0, 1]; robust on sampled curves of iterative solvers, which wiggle;
+ *  - "curvature": the point of maximal curvature (finite differences in i), the textbook
+ *    definition; good on smooth curves (quadratic penalties).
  */
-export function lcurveCorner(rho: ArrayLike<number>, eta: ArrayLike<number>): number {
+export function lcurveCorner(rho: ArrayLike<number>, eta: ArrayLike<number>, rule: "nearest" | "curvature" = "nearest"): number {
   const m = rho.length;
   if (m < 3) return 0;
   const X = Array.from(rho, v => Math.log(v)), Y = Array.from(eta, v => Math.log(v));
+  if (rule === "nearest") {
+    const x0 = Math.min(...X), x1 = Math.max(...X), y0 = Math.min(...Y), y1 = Math.max(...Y);
+    let best = 0, bd = Infinity;
+    for (let i = 0; i < m; i++) {
+      const d = Math.hypot((X[i] - x0) / (x1 - x0 || 1), (Y[i] - y0) / (y1 - y0 || 1));
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
+  }
   let best = 1, bestK = -Infinity;
   for (let i = 1; i < m - 1; i++) {
     const x1 = (X[i + 1] - X[i - 1]) / 2, y1 = (Y[i + 1] - Y[i - 1]) / 2;
     const x2 = X[i + 1] - 2 * X[i] + X[i - 1], y2 = Y[i + 1] - 2 * Y[i] + Y[i - 1];
     const den = Math.pow(x1 * x1 + y1 * y1, 1.5);
     if (!(den > 0)) continue;
-    // sign: with λ increasing, ρ grows and η falls; the corner bends towards the origin
+    // with λ increasing, ρ grows and η falls; the corner bends towards the origin
     const k = (x1 * y2 - y1 * x2) / den;
     if (k > bestK) { bestK = k; best = i; }
   }

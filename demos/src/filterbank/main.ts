@@ -45,11 +45,14 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
 [data-demo="${NAME}"] .qb-slider.off, [data-demo="${NAME}"] .qb-check.off { opacity: .35; pointer-events: none; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .fb-left { flex-basis: 700px; max-width: 720px; }
-.reveal [data-demo="${NAME}"] .qb-panel { flex-basis: 330px; max-width: 380px; gap: .2em; }
+.reveal [data-demo="${NAME}"] .fb-left { flex: 1 1 640px; max-width: 660px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 420px; max-width: 440px; gap: .2em; }
+.reveal [data-demo="${NAME}"] .fb-lab { display: none; }
+.reveal [data-demo="${NAME}"] .qb-presets { gap: .25em; }
+.reveal [data-demo="${NAME}"] .qb-slider.off, .reveal [data-demo="${NAME}"] .qb-check.off { display: none; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
+.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .05em .4em; }
 `;
 
 function injectStyle(): void {

@@ -9,9 +9,9 @@ import {
   fourierShift2d, solveGlobal, maxSpanningTree, chainPositions, hann, signed, idftAt, peakRatio, type TileEdge,
 } from "../src/lib/registration";
 import { simulate1d, PROFILE } from "../src/xcorr1d/signals";
-import { makeTiles, registerPairs } from "../src/stitch/model";
+import { makeTiles, registerPairs, DEFAULTS as STITCH, weighted } from "../src/stitch/model";
 import { sweep } from "../src/subpixel/model";
-import { makeFrames, registerFrames } from "../src/drift/model";
+import { makeFrames, registerFrames, makeSmlm, smlmDrift, SMLM_DEFAULTS } from "../src/drift/model";
 import { rng } from "../src/lib/random";
 
 declare const process: { exit(code: number): never };
@@ -159,32 +159,39 @@ check(close(hann(5)[2], 1) && hann(5)[0] === 0, "hann");
 
 // ---- the demos' own pipelines ----
 {
-  const sim = simulate1d({ ...PROFILE_DEFAULT() });
-  check(sim.f.length > 0 && sim.g.length > 0, "xcorr1d simulate");
+  // xcorr1d: B is A's window at the true shift, so SSD = 0 and NCC = 1 there (no noise, gain 1)
+  const o = { ...PROFILE, L: 16, t: 22 }, sim = simulate1d(o);
+  const sc = overlapScores1d(sim.f, sim.g, o.t);
+  check(sc.ssd === 0 && close(sc.ncc, 1), "xcorr1d: exact match at the true shift");
 }
 {
-  const tiles = makeTiles({ seed: 3, noise: 4, empty: -1, badPair: -1 }, null);
+  // SMLM: block drifts from the least-squares solution follow the truth
+  const m = makeSmlm(SMLM_DEFAULTS), d = smlmDrift(m);
+  let maxErr = 0;
+  d.centres.forEach((c, b) => { const t = Math.round(c), t0 = Math.round(d.centres[0]); maxErr = Math.max(maxErr, Math.abs(d.x[b] - (m.dx[t] - m.dx[t0])), Math.abs(d.y[b] - (m.dy[t] - m.dy[t0]))); });
+  check(maxErr < 0.8, `SMLM block drift within 0.8 px (${maxErr.toFixed(2)})`);
+}
+{
+  const tiles = makeTiles({ ...STITCH, vignette: 0.15 }, null);
   const pr = registerPairs(tiles);
-  const g = solveGlobal(9, pr.edges.map(p => p.edge))!;
+  const g = solveGlobal(9, weighted(pr.edges, 0.7))!;
   let maxErr = 0;
   for (let k = 0; k < 9; k++) maxErr = Math.max(maxErr, Math.hypot(g.x[k] - (tiles.pos[k][0] - tiles.pos[0][0]), g.y[k] - (tiles.pos[k][1] - tiles.pos[0][1])));
   check(maxErr < 1.5, `stitch: global positions within 1.5 px (${maxErr.toFixed(2)})`);
 }
 {
-  const sw = sweep({ signal: "bumps", noise: 0, U: 20, method: "phase", steps: 21 });
+  const sw = sweep({ signal: "bumps", noise: 0, U: 20, method: "phase", frac: 0, steps: 21 });
   const maxUp = Math.max(...sw.up.map(Math.abs)), maxPar = Math.max(...sw.parabola.map(Math.abs));
   check(maxUp < 0.05, `subpixel sweep: upsampled DFT error < 0.05 (${maxUp.toFixed(3)})`);
   check(maxPar > maxUp, "subpixel sweep: parabola worse than upsampled DFT");
 }
 {
-  const fr = makeFrames({ seed: 5, n: 12, noise: 5, bleach: 0.5, step: 0.6 }, null);
+  const fr = makeFrames({ seed: 5, n: 12, noise: 5, bleach: 0.5, step: 0.6, change: 0 }, null);
   const reg = registerFrames(fr, "first");
   let maxErr = 0;
   for (let k = 0; k < fr.n; k++) maxErr = Math.max(maxErr, Math.hypot(reg.x[k] - fr.dx[k], reg.y[k] - fr.dy[k]));
   check(maxErr < 0.5, `drift: to-first errors < 0.5 px (${maxErr.toFixed(3)})`);
 }
-
-function PROFILE_DEFAULT() { return PROFILE; }
 
 console.log(`fftregistration: ${checks - failures}/${checks} checks passed`);
 if (failures) process.exit(1);

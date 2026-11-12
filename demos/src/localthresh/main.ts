@@ -95,8 +95,10 @@ function mount(host: HTMLElement): void {
     credit.style.display = st.source === "cell" ? "" : "none";
   }
 
+  let BASE_METHOD: Method | null = null;
   function load(p: typeof PRESETS[number]): void {
     Object.assign(st, BASE, p.s);
+    if (BASE_METHOD) { st.method = BASE_METHOD; BASE_METHOD = null; }
     presetBtns.forEach((b, i) => b.classList.toggle("active", PRESETS[i] === p));
     sync();
     makeImage();
@@ -153,6 +155,7 @@ function mount(host: HTMLElement): void {
   cv.addEventListener("pointerup", () => { down = false; });
   cv.addEventListener("pointercancel", () => { down = false; });
 
+  if (host.dataset.method && METHODS.some(m => m.id === host.dataset.method)) { BASE_METHOD = host.dataset.method as Method; }
   load(p0);
 }
 

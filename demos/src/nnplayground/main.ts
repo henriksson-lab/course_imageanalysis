@@ -35,6 +35,12 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] { font-size: 18px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .1em .45em; }
 .reveal [data-demo="${NAME}"] .np-left { flex-basis: 430px; }
+.reveal [data-demo="${NAME}"].np-full .np-left { flex-basis: 370px; }
+.reveal [data-demo="${NAME}"].np-full .np-right { gap: .15em; }
+.reveal [data-demo="${NAME}"].np-full .np-loss { max-width: 400px; }
+.reveal [data-demo="${NAME}"].np-full .np-layer canvas { width: 34px; height: 34px; }
+.reveal [data-demo="${NAME}"].np-full .qb-readout { font-size: 13px; padding: .2em .5em; }
+.reveal [data-demo="${NAME}"].np-full .qb-slider { font-size: 16px; }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -82,6 +88,7 @@ const THUMB = 32;
 function mount(host: HTMLElement): void {
   injectStyle();
   const full = host.dataset.train === "full";
+  if (full) host.classList.add("np-full");
   const set = host.dataset.presets === "unit2" || (host.dataset.presets === undefined && full) ? "unit2" : "unit1";
   const start = PRESETS.find(p => p.id === host.dataset.preset) ?? PRESETS.find(p => p.set === set)!;
 
@@ -142,7 +149,7 @@ function mount(host: HTMLElement): void {
   button(btnRow, "new start", () => { stop(); st.cfg.seed++; rebuild(); });
   const readout = htmlEl("div", "qb-readout", "", right);
   const presetItems = PRESETS.filter(p => p.set === set);
-  const presetBtns = presetRow(right, presetItems.map(p => ({ label: p.label, apply: () => applyPreset(p) })));
+  const presetBtns = presetRow(full ? left : right, presetItems.map(p => ({ label: p.label, apply: () => applyPreset(p) })));
 
   // ---- the neuron's line (no hidden layer, two classes) ----
   const lineG = svgEl("g", {}, pg.top);

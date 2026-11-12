@@ -16,21 +16,20 @@ import { eigSym2 } from "../lib/linalg";
 
 const NAME = "gauss2d";
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .g2-plot { flex: 0 1 480px; min-width: 260px; }
-[data-demo="${NAME}"] .g2-plot svg { touch-action: none; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 380px; max-width: 520px; gap: .4em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
-[data-demo="${NAME}"] .g2-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .g2-bars { display: flex; height: 26px; border-radius: 4px; overflow: hidden; border: 1px solid #bbb; }
-[data-demo="${NAME}"] .g2-bars span { display: grid; place-items: center; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .g2-plot { flex: 0 0 500px; }
-.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 600px; max-width: 640px; gap: .25em; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
-@media (max-width: 760px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .g2-plot { flex: 0 1 480px; min-width: 260px; }
+.qb-demo[data-demo="${NAME}"] .g2-plot svg { touch-action: none; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 380px; max-width: 520px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .g2-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .g2-bars { display: flex; height: 26px; border-radius: 4px; overflow: hidden; border: 1px solid #bbb; }
+.qb-demo[data-demo="${NAME}"] .g2-bars span { display: grid; place-items: center; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .g2-plot { flex: 0 0 500px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 600px; max-width: 640px; gap: .25em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;

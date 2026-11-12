@@ -8,6 +8,11 @@
 // distance to the nearest background pixel in the matching metric. So r(c) = the largest r
 // with d(c) > r, and A ∘ B_r = ∪ {c + B_r : r(c) ≥ r}; painting c + B_r(c) for every c gives OF.
 // Pixels outside the image are ignored (neutral), as in lib/morph.ts.
+// {OF ≥ r} is the union of the openings by B_r' over all r' ≥ r. For the square, diamond and
+// line this is exactly A ∘ B_r (a larger one is a union of translates of a smaller one); a
+// digital disc is not always a union of smaller digital discs, so for discs it can be a few
+// pixels larger than A ∘ D_r. It is the usual "granulometry by discs of radius ≥ r", which
+// keeps a(r) decreasing.
 import { edt, chamfer } from "../lib/distance";
 
 export type SEKind = "disc" | "square" | "diamond" | "hline";

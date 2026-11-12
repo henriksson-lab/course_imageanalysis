@@ -16,10 +16,10 @@ import { htmlEl, button, checkbox, autoMount } from "../lib/ui";
 import { gridStepper, GridAlgorithm, GridFrame, CellMark, CellArrow, GridStepper, N4 } from "../lib/gridui";
 import { pathDP, verticalSteps, cornerSteps, countPaths, PathDPOptions } from "../lib/dp";
 import { dijkstraTrace, vertexCost, tracePath } from "../lib/shortestpath";
-import { DPGRID_PRESETS, LW_PRESETS, GridPreset, Source, Target } from "./grids";
+import { DPGRID_PRESETS, LW_PRESETS, GridPreset, Source, Target, greedy } from "./grids";
 
 const NAME = "dpgrid";
-const EMPTY = -1, INF = 1_000_000_000;
+const EMPTY = -1, UNREACHED = -2, INF = 1_000_000_000;
 const C_PATH = "var(--qb-c4, #ff7f0e)", C_CHOSEN = "var(--qb-c3, #2ca02c)", C_FINAL = "var(--qb-c1, #1f77b4)", C_WRONG = "var(--qb-c2, #d62728)";
 
 const STYLE = `
@@ -30,12 +30,12 @@ const STYLE = `
 [data-demo="${NAME}"] .dg-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .dg-help { font-size: 14px; color: var(--qb-muted); }
 .reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-gridstep-log { font-size: 15px; max-height: 5.2em; }
+.reveal [data-demo="${NAME}"] .qb-gridstep-log { font-size: 16px; max-height: 5.2em; }
 .reveal [data-demo="${NAME}"] .qb-gridstep-panel { flex-basis: 340px; gap: .25em; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .qb-slider { display: none; }
 .reveal [data-demo="${NAME}"] .dg-help { display: none; }
-.reveal [data-demo="${NAME}"] .qb-gridstep-count + .qb-note { font-size: 15px; }
+.reveal [data-demo="${NAME}"] .qb-gridstep-count + .qb-note { font-size: 17px; }
 `;
 
 function injectStyle(): void {
@@ -48,7 +48,7 @@ function injectStyle(): void {
 
 const rc = (p: number, cols: number) => `(${Math.floor(p / cols)},${p % cols})`;
 const fmtBig = (b: bigint) => b.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-const fmtV = (v: number) => (v >= INF / 2 || !Number.isFinite(v) ? "∞" : String(v));
+const fmtV = (v: number) => (v === UNREACHED || v >= INF / 2 || !Number.isFinite(v) ? "∞" : String(v));
 
 interface Settings { moves: "3" | "rd"; pointers: boolean; source: Source; target: Target }
 
@@ -58,20 +58,6 @@ function targetOf(t: Target, d: ArrayLike<number>, rows: number, cols: number): 
   let best = (rows - 1) * cols;
   for (let j = 1; j < cols; j++) if (d[(rows - 1) * cols + j] < d[best]) best = (rows - 1) * cols + j;
   return best;
-}
-
-/** Greedy: cheapest top cell, then always the cheapest of the (up to) three cells below. */
-function greedy(C: ArrayLike<number>, rows: number, cols: number): { path: number[]; cost: number } {
-  let j = 0;
-  for (let k = 1; k < cols; k++) if (C[k] < C[j]) j = k;
-  const path = [j];
-  let cost = C[j];
-  for (let i = 1; i < rows; i++) {
-    let bj = -1;
-    for (const d of [0, -1, 1]) { const jj = j + d; if (jj >= 0 && jj < cols && (bj < 0 || C[i * cols + jj] < C[i * cols + bj])) bj = jj; }
-    j = bj; path.push(i * cols + j); cost += C[i * cols + j];
-  }
-  return { path, cost };
 }
 
 function dpAlgorithm(id: "3" | "rd", st: Settings): GridAlgorithm {
@@ -159,7 +145,7 @@ function dijkstraAlgorithm(st: Settings): GridAlgorithm {
     *run(C, rows, cols): Iterable<GridFrame> {
       const n = rows * cols;
       const { result, events, initialQueue } = dijkstraTrace({ width: cols, height: rows, conn: 4, edge: vertexCost(C), sources: sourcesOf(C, cols, st) });
-      const d = new Int32Array(n).fill(INF), pred = new Int32Array(n).fill(-1);
+      const d = new Int32Array(n).fill(UNREACHED), pred = new Int32Array(n).fill(-1);   // ∞, drawn light
       for (const [q, v] of initialQueue) d[q] = v;
       const final: CellMark[] = [];
       const qtext = (q: [number, number][]) => q.length ? q.slice(0, 7).map(([p, v]) => `${v}${rc(p, cols)}`).join(" ") + (q.length > 7 ? ` … (+${q.length - 7})` : "") : "empty";
@@ -291,7 +277,7 @@ function mount(host: HTMLElement): void {
     btns.forEach(b => b.classList.remove("active"));
   });
   htmlEl("div", "dg-help", mode === "dp"
-    ? "Click the upper half of a cost cell to raise it, the lower half to lower it. Green outline: the candidates; green shading: the chosen minimum; arrows point to where the minimum came from."
+    ? "Click the upper half of a cost cell to raise it, the lower half to lower it. Blue outline: the candidates; green shading: the chosen minimum; arrows point to where the minimum came from."
     : "Blue cells are final (number = order). Outlined: the neighbours being updated. The queue lists d(row,col), smallest first.", panel);
 }
 

@@ -66,6 +66,7 @@ const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
 [data-demo="${NAME}"] .pc-col { flex: 0 1 340px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
 [data-demo="${NAME}"] .qb-paint { flex: none; width: 100%; }
+[data-demo="${NAME}"] .pc-col > .qb-panel { flex: none; }
 [data-demo="${NAME}"] .qb-paint-canvas { cursor: crosshair; }
 [data-demo="${NAME}"] .pc-view { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; image-rendering: pixelated; }
 [data-demo="${NAME}"] .pc-cap { font-size: 15px; text-align: center; color: var(--qb-muted); }
@@ -73,14 +74,15 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 340px; gap: .35em; }
 [data-demo="${NAME}"] .pc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .pc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .05em .4em; font-size: .9em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; overflow-x: auto; }
+[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; overflow-x: auto; flex: none; }
 [data-demo="${NAME}"] .pc-small .qb-btn { font-size: 14px; padding: .05em .4em; }
 [data-demo="${NAME}"] .pc-tab { border-top: 1px solid var(--qb-grid); padding-top: .3em; }
 .reveal [data-demo="${NAME}"] { font-size: 16px; }
-.reveal [data-demo="${NAME}"] .pc-col { flex-basis: 330px; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; max-height: 560px; overflow-y: auto; }
+.reveal [data-demo="${NAME}"] .pc-col { flex: 0 0 300px; }
+.reveal [data-demo="${NAME}"] > .qb-panel { gap: .2em; max-height: 570px; overflow-y: auto; flex: 1 1 380px; max-width: 440px; font-size: 15px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .05em .4em; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .05em .4em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 12px; }
 `;
 
@@ -362,7 +364,7 @@ function mount(host: HTMLElement): void {
     if (st.heldout) s += `\nheld-out painted px: ${sc.paintedN ? pct(sc.paintedAcc) + ` of ${sc.paintedN}` : "none painted"}`;
     if (e.truth && sc.confusion) {
       s += `\ntruth, ${where}: accuracy ${pct(sc.truthAcc)}`;
-      s += `\n  Dice ${["bg", "nucleus", "granular"].map((n, c) => `${n} ${Number.isFinite(sc.dice[c]) ? sc.dice[c].toFixed(2) : "–"}`).join(" · ")}`;
+      s += `\n  Dice ${["bg", "nuc", "gran"].map((n, c) => `${n} ${Number.isFinite(sc.dice[c]) ? sc.dice[c].toFixed(2) : "–"}`).join(" · ")}`;
       const tot = sc.confusion.reduce((a, b) => a + b, 0);
       s += `\n  truth \\ predicted (% of px)\n` + SCENE_CLASSES.map((n, t) => `  ${n.split(" ")[0].padEnd(11)}` + [0, 1, 2].map(q => (100 * sc.confusion![t * 3 + q] / tot).toFixed(1).padStart(6)).join("")).join("\n");
     }

@@ -17,7 +17,7 @@ export function synthTruth(small = false): Int32Array {
   const lab = new Int32Array(N * N);
   const cell: Ellipse = { x: 64, y: 64, a: 58, b: 46, angle: 0.35 };
   const orgs: Ellipse[] = small
-    ? [{ x: 50, y: 56, a: 5, b: 4, angle: 0 }, { x: 80, y: 78, a: 4, b: 3, angle: 0.5 }]
+    ? [{ x: 50, y: 56, a: 9, b: 8, angle: 0 }, { x: 84, y: 80, a: 8, b: 7, angle: 0.5 }, { x: 78, y: 40, a: 10, b: 8, angle: 0.2 }]
     : [{ x: 46, y: 54, a: 19, b: 14, angle: 0.4 }, { x: 84, y: 80, a: 16, b: 12, angle: -0.3 }, { x: 78, y: 40, a: 10, b: 8, angle: 0 }, { x: 38, y: 88, a: 11, b: 7, angle: 1 }];
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     let c = ellipseDistance(cell, x, y) <= 1 ? 1 : 0;

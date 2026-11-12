@@ -23,27 +23,27 @@ import {
 
 const NAME = "histgmm";
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin-bottom: .2em; }
-[data-demo="${NAME}"] .hg-left { flex: 0 1 330px; min-width: 200px; display: flex; flex-direction: column; gap: .35em; }
-[data-demo="${NAME}"] .hg-left canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
-[data-demo="${NAME}"] .hg-right { flex: 1 1 480px; min-width: 260px; max-width: 640px; display: flex; flex-direction: column; gap: .35em; }
-[data-demo="${NAME}"] .hg-plots { display: flex; gap: .4em; align-items: flex-start; }
-[data-demo="${NAME}"] .hg-plots > div:first-child { flex: 3 1 0; min-width: 0; }
-[data-demo="${NAME}"] .hg-plots > div:last-child { flex: 1.3 1 0; min-width: 0; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
-[data-demo="${NAME}"] .hg-two { display: grid; grid-template-columns: 1fr 1fr; gap: .2em 1em; }
-[data-demo="${NAME}"] .hg-lab { font-size: 14px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .hg-credit { font-size: 12px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 16px; }
-.reveal [data-demo="${NAME}"] .hg-left { flex: 0 0 330px; }
-.reveal [data-demo="${NAME}"] .hg-right { flex: 1 1 780px; max-width: 790px; gap: .2em; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .hg-plots svg { max-height: 200px; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .45em; }
-@media (max-width: 760px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin-bottom: .2em; }
+.qb-demo[data-demo="${NAME}"] .hg-left { flex: 0 1 330px; min-width: 200px; display: flex; flex-direction: column; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .hg-left canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
+.qb-demo[data-demo="${NAME}"] .hg-right { flex: 1 1 480px; min-width: 260px; max-width: 640px; display: flex; flex-direction: column; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .hg-plots { display: flex; gap: .4em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .hg-plots > div:first-child { flex: 3 1 0; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .hg-plots > div:last-child { flex: 1.3 1 0; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .hg-two { display: grid; grid-template-columns: 1fr 1fr; gap: .2em 1em; }
+.qb-demo[data-demo="${NAME}"] .hg-lab { font-size: 14px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .hg-credit { font-size: 12px; color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .hg-left { flex: 0 0 330px; }
+.reveal .qb-demo[data-demo="${NAME}"] .hg-right { flex: 1 1 780px; max-width: 790px; gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .hg-plots svg { max-height: 200px; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .45em; }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -61,8 +61,8 @@ const PRESETS: Preset[] = [
   { id: "k3cell", label: "K = 3 on the micrograph", img: "cell", k: 3, init: "quantiles", equal: false, noise: 12, blur: 1, view: "labels", otsu: false },
   { id: "toomany", label: "K too large: components split a peak", img: "synth", k: 6, init: "quantiles", equal: false, noise: 12, blur: 1, view: "labels", otsu: false, bicNow: true },
   { id: "equal", label: "equal variances: Otsu-like", img: "synth", k: 3, init: "quantiles", equal: true, noise: 12, blur: 1, view: "labels", otsu: true },
-  { id: "noise", label: "noise: speckle in the label image", img: "synth", k: 3, init: "quantiles", equal: false, noise: 28, blur: 1, view: "labels", otsu: false },
-  { id: "small", label: "small bright class: weights matter", img: "small", k: 3, init: "quantiles", equal: false, noise: 18, blur: 1, view: "posterior", otsu: false },
+  { id: "noise", label: "noise: speckle in the label image", img: "synth", k: 3, init: "quantiles", equal: false, noise: 22, blur: 1, view: "labels", otsu: false },
+  { id: "small", label: "small bright class: weights matter", img: "small", k: 3, init: "quantiles", equal: false, noise: 12, blur: 1, view: "posterior", otsu: false },
 ];
 const COLS = QUALITATIVE.slice(0, 6);
 const RGB = COLS.map(h => hexToRgb(h).map(v => 255 * v));
@@ -101,7 +101,7 @@ function mount(host: HTMLElement): void {
   const sum = hp.fn(() => NaN, { color: "var(--qb-fg, #222)", width: 3 }, 300);
   const gB: ReturnType<Plot["vline"]>[] = [], gO: ReturnType<Plot["vline"]>[] = [];
   for (let i = 0; i < 5; i++) { gB.push(hp.vline(NaN, { color: "var(--qb-fg, #222)", width: 2.5 })); gO.push(hp.vline(NaN, { color: seriesColor(4), width: 2.5, dash: "2 4" })); }
-  const bp = new Plot(bDiv, { width: 220, height: 250, x: [0.4, 6.6], y: [0, 1], xlabel: "K", ylabel: "BIC", xticks: [1, 2, 3, 4, 5, 6], font: 17, margin: { l: 72 } });
+  const bp = new Plot(bDiv, { width: 220, height: 250, x: [0.4, 6.6], y: [0, 100000], xlabel: "K", ylabel: "BIC (thousands)", xticks: [1, 2, 3, 4, 5, 6], font: 17, margin: { l: 72 }, yfmt: v => (v / 1000).toFixed(1) });
   const bStyle = { color: seriesColor(0), barWidth: 0.6, base: 0 };
   const bBars = bp.bars([], [], bStyle);
   const ro = htmlEl("div", "qb-readout", "", right);

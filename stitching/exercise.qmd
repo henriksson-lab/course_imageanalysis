@@ -1,0 +1,194 @@
+---
+title: "Exercise: from a peak to a mosaic"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- list the **four candidate shifts** of a circular peak and choose between them,
+- estimate a **sub-pixel** shift with a parabola, and explain pixel locking and the upsampled DFT,
+- compute **global tile positions** by least squares on the tile graph and read the residuals,
+- choose a reference for **drift correction**, and convert a 3D shift to µm.
+
+Do the pen-and-paper part first, then the three demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Four candidates | an unpadded peak at $(p, q)$ in $N \times N$ tiles means $t_x \in \{p, p - N\}$, $t_y \in \{q, q - N\}$ |
+| Resolving them | NCC on the actual overlap of each candidate, with a minimum overlap; the best NCC is the pair's confidence |
+| Parabola | $\delta = \dfrac{c_{-1} - c_{+1}}{2(c_{-1} - 2c_0 + c_{+1})}$ through the peak and its two neighbours |
+| Upsampled DFT | the inverse DFT of the cross-power evaluated on a fine grid near the peak |
+| Global alignment | positions minimising $\sum w_{ij}(x_j - x_i - d_{ij})^2$, one tile fixed; residual = $x_j - x_i - d_{ij}$ |
+| Drift | register each frame to the first, to the previous (and add up), or to key frames |
+
+## By hand
+
+**B1.** Four candidates.
+(a) 1D tiles of width $N = 8$ give a circular peak at $p = 6$. List the candidate shifts and their overlap widths. Which candidate would you test first if the stage says "about 6"?
+(b) $100 \times 100$ tiles, peak at $(80, 10)$: list the four candidates and their overlaps in pixels. Which is too small to judge with a minimum overlap of 1000 px?
+
+**B2.** Sub-pixel.
+(a) Samples $(c_{-1}, c_0, c_{+1}) = (0.5, 0.9, 0.7)$: the parabola estimate? The centroid estimate $\frac{c_{+1} - c_{-1}}{c_{-1} + c_0 + c_{+1}}$?
+(b) Samples $(0.6, 0.9, 0.6)$: what do both give, and what does that tell you about the true peak?
+(c) The true shift is 3.5 px and the peak is sharp (phase correlation). What do the two middle samples look like? Why is that the hardest case for "take the highest sample"?
+
+**B3.** Three tiles in a row, measured shifts $d_{12} = 100$, $d_{23} = 102$, $d_{13} = 199$ (pixels, $x$ only).
+(a) Positions by chaining 1 → 2 → 3, and by chaining 1 → 3 directly?
+(b) Least squares with equal weights and $x_1 = 0$: write the energy, set its derivatives to zero, solve. What are the residuals?
+(c) Now the direct pair 1–3 is four times as trustworthy ($w_{13} = 4$). Predict whether $x_3$ moves towards 199 or 202.
+
+**B4.** A square of four tiles: 1 top left, 2 top right, 3 bottom right, 4 bottom left. Measured $x$-shifts: $d_{12} = 100$, $d_{43} = 102$, $d_{14} = 0$, $d_{23} = 0$. (a) Do they add up around the loop? (b) Solve by least squares ($x_1 = 0$, equal weights) and give the residuals.
+
+**B5.** Drift. A time-lapse of 200 frames drifts by about 0.1 px per frame. One registration has an error of about 0.05 px (standard deviation).
+(a) How large is the total drift?
+(b) Registering to the previous frame and adding up: how large is the expected error at frame 200?
+(c) When would you still prefer the previous frame?
+
+**B6.** A 3D stack has voxels of $0.1 \times 0.1 \times 0.3$ µm. Phase correlation gives a shift of $(3, -2, 1.5)$ voxels. What is the shift in µm? Why must you not report it as "3.9 voxels"?
+
+**B7.** Two colour channels are aligned with phase correlation on beads in the centre of the field. Near the corners the channels are still off. Why, and what kind of transform is needed?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $t = 6$ (overlap $8 - 6 = 2$) or $t = 6 - 8 = -2$ (overlap 6). The stage says about 6: test $t = 6$ first; but with an overlap of only 2 pixels the NCC is unreliable, so check both, and treat a 2-pixel overlap with suspicion. (b) $(80, 10)$: $20 \cdot 90 = 1800$ px; $(-20, 10)$: $80 \cdot 90 = 7200$; $(80, -90)$: $20 \cdot 10 = 200$; $(-20, -90)$: $80 \cdot 10 = 800$. The last two are below 1000 px and are not judged.
+
+**B2.** (a) Parabola: $\delta = \frac{0.5 - 0.7}{2(0.5 - 1.8 + 0.7)} = \frac{-0.2}{-1.2} = 0.167$ px. Centroid: $\frac{0.7 - 0.5}{2.1} = 0.095$ px. (b) Both give 0: the samples are symmetric, so the peak is (as far as three samples can tell) exactly on the middle pixel. (c) The two middle samples (at 3 and 4) are equal, about 0.64 of the peak height for phase correlation (the Dirichlet kernel, the phasecorr unit B7): the spike is split between two pixels, and the highest sample is off by half a pixel, the largest possible error. The three samples around either of them give an asymmetric fit.
+
+**B3.** (a) Chain: $x_2 = 100$, $x_3 = 202$. Directly: $x_3 = 199$. They disagree by 3. (b) $E = (x_2 - 100)^2 + (x_3 - x_2 - 102)^2 + (x_3 - 199)^2$. $\partial E/\partial x_2 = 2(x_2 - 100) - 2(x_3 - x_2 - 102) = 0 \Rightarrow 2x_2 - x_3 = -2$; $\partial E/\partial x_3 = 2(x_3 - x_2 - 102) + 2(x_3 - 199) = 0 \Rightarrow -x_2 + 2x_3 = 301$. Solution $x_2 = 99$, $x_3 = 200$; residuals $99 - 100 = -1$, $200 - 99 - 102 = -1$, $200 - 199 = +1$. (c) Towards 199: the heavier pair pulls harder. (With $w_{13} = 4$: $x_2 = 98.67$, $x_3 = 199.33$; residuals $-1.33$, $-1.33$, $+0.33$.)
+
+**B4.** (a) Around the loop $1 \to 2 \to 3 \to 4 \to 1$: $100 + 0 - 102 - 0 = -2 \ne 0$. (b) $x_2 = 100.5$, $x_3 = 101$, $x_4 = -0.5$. Residuals: $x_2 - x_1 - 100 = +0.5$, $x_3 - x_4 - 102 = -0.5$, $x_4 - x_1 - 0 = -0.5$, $x_3 - x_2 - 0 = +0.5$. The mismatch of 2 around the loop is shared equally by the four pairs.
+
+**B5.** (a) About $200 \cdot 0.1 = 20$ px. (b) The errors of 199 steps add up like a random walk: about $0.05\sqrt{200} = 0.71$ px, fourteen times the error of one step. (c) When the sample changes over the experiment (cells move or divide, the field bleaches unevenly), so that late frames no longer resemble the first; a compromise are key frames every few frames.
+
+**B6.** $(3 \cdot 0.1,\ -2 \cdot 0.1,\ 1.5 \cdot 0.3) = (0.3, -0.2, 0.45)$ µm. Voxels are not cubes: one voxel in $z$ is three times longer than in $x$ or $y$. A length in voxels mixes different units; the shift in $z$ is the largest one in µm although it is the smallest in voxels.
+
+**B7.** Chromatic aberration makes the two colours focus at slightly different magnifications: one channel is a slightly **scaled** copy of the other, plus a shift. A scaling looks like a shift that grows with the distance from the centre. A shift measured in the centre is wrong in the corners; you need a transform with scale (an affine transform, fitted from beads all over the field).
+:::
+
+### Math questions
+
+**B8.** *(math)* Derive the parabola formula: fit $c(\delta) = a\delta^2 + b\delta + c$ through $(-1, c_{-1})$, $(0, c_0)$, $(1, c_{+1})$ and find the vertex. When is the vertex a maximum? Show that $|\delta| \le \tfrac12$ when $c_0$ is the largest of the three samples.
+
+**B9.** *(math)* For B3, write the normal equations of the full problem (all three positions free) as $L\mathbf x = \mathbf b$. Show that $L$ is the graph Laplacian of the triangle, that $L\mathbf 1 = 0$, and that fixing $x_1 = 0$ gives the system of B3(b).
+
+**B10.** *(math)* The upsampled DFT evaluates $c(x, y)$ on a $31 \times 31$ grid (1/20 px, $\pm 0.75$ px) around the peak of two $512 \times 512$ images, as $E_y R E_x^{\top}$. Count the complex multiply-adds (first $RE_x^{\top}$, then $E_y(\cdot)$). Compare with zero-padding the cross-power spectrum to $(20 \cdot 512)^2$ and taking one FFT ($5M\log_2M$ operations).
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** $c(0) = c = c_0$; $c(1) = a + b + c_0 = c_{+1}$; $c(-1) = a - b + c_0 = c_{-1}$. So $b = \tfrac12(c_{+1} - c_{-1})$, $a = \tfrac12(c_{+1} + c_{-1}) - c_0$. The vertex $c'(\delta) = 2a\delta + b = 0$ is at $\delta = -\frac{b}{2a} = \frac{c_{-1} - c_{+1}}{2(c_{-1} - 2c_0 + c_{+1})}$; it is a maximum when $a < 0$, i.e. $c_0 > \tfrac12(c_{-1} + c_{+1})$. If $c_0 \ge c_{\pm1}$, then $-2a = (c_0 - c_{-1}) + (c_0 - c_{+1}) \ge |c_{+1} - c_{-1}| = 2|b|$, so $|\delta| = |b|/(-2a) \le \tfrac12$.
+
+**B9.** $E = w_{12}(x_2 - x_1 - d_{12})^2 + w_{23}(x_3 - x_2 - d_{23})^2 + w_{13}(x_3 - x_1 - d_{13})^2$ with all $w = 1$. The derivatives give
+$$\begin{pmatrix} 2 & -1 & -1 \\ -1 & 2 & -1 \\ -1 & -1 & 2\end{pmatrix}\begin{pmatrix}x_1\\x_2\\x_3\end{pmatrix} = \begin{pmatrix} -d_{12} - d_{13} \\ d_{12} - d_{23} \\ d_{23} + d_{13}\end{pmatrix} = \begin{pmatrix}-299\\-2\\301\end{pmatrix}.$$
+Diagonal = degree (2 neighbours each), off-diagonal $-1$ per edge: the Laplacian of the triangle. Each row sums to 0, so $L\mathbf 1 = 0$ (and the right-hand side sums to 0, so the system is consistent). Deleting row and column 1 (with $x_1 = 0$) leaves $2x_2 - x_3 = -2$, $-x_2 + 2x_3 = 301$: B3(b).
+
+**B10.** $RE_x^{\top}$: $512 \times 512$ times $512 \times 31$: $512^2 \cdot 31 = 8.1 \cdot 10^6$ multiply-adds. $E_y(\cdot)$: $31 \times 512$ times $512 \times 31$: $31^2 \cdot 512 = 4.9 \cdot 10^5$. Total $8.6 \cdot 10^6$ complex multiply-adds. The padded FFT: $M = (10240)^2 = 1.05 \cdot 10^8$, $5M\log_2M \approx 1.4 \cdot 10^{10}$ operations, and $M$ complex numbers of memory (1.7 GB in double precision). The upsampled DFT is about a thousand times cheaper and evaluates only where it matters.
+:::
+
+## Explore: stitching a mosaic {#explore}
+
+Nine $128 \times 128$ tiles at jittered stage positions, each with noise, its own brightness and darker corners. The mosaic shows the tiles at the chosen positions (later tiles on top, or blended); the graph has one node per tile and one edge per overlapping pair, **green** if its overlap NCC is trusted (≥ the threshold), **red dashed** if not. Click an edge: the middle panel shows that pair's phase-correlation surface (shift 0 in the centre; cyan circle: the peak used), its four candidates with overlap and NCC, and the residual after global alignment. The readout gives each tile's distance from its true position.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="stitch" data-preset="stage"></div>
+<script src="../demos/dist/stitch.js"></script>
+```
+
+**E1.** Preset **stage positions: seams**. What is the largest position error? Where are the seams most visible?
+
+**E2.** Preset **the four candidates**: the pair 1-2 is selected. List its candidates with their overlaps and NCC. Which one is chosen, and why are two of them not scored? Click a vertical edge (e.g. 0-3) and compare.
+
+**E3.** With the default noise, compare the position errors of **chain 0-1-2-5-4-3-6-7-8**, **tree (most confident)** and **global least squares**. Then preset **chained pairs: errors add up** (noise 12) and **global: errors spread**. Where along the chain are the errors largest?
+
+**E4.** Preset **an empty tile** (tile 4 shows no sample). Which edges are untrusted, and with what NCC? Compare chain, tree and global. Which tiles are wrong in each case, and why can no method place tile 4?
+
+**E5.** Preset **a wrong pair**: the region shared by tiles 4 and 5 is empty. What is the confidence of pair 4-5, and its residual after global alignment? Now set **trust NCC ≥** to 0.3 so that the pair is trusted, and press **drop worst edge**. What happens?
+
+**E6.** Preset **global + blending**. Compare with the unblended mosaic. Then raise **vignetting** to 0.5: what happens to the seams, and to the confidences?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Up to 10.1 px (tile 7), rms 6.4 px. The seams show as steps in structures crossing a tile border, and as brightness edges (each tile has its own brightness and dark corners).
+
+**E2.** Pair 1-2: $(107, 5)$, overlap 2583 px, NCC 0.96; $(-21, 5)$, 13161 px, NCC −0.11; $(107, -123)$ and $(-21, -123)$ with 105 and 535 px: below the minimum overlap of 1000 px, not scored. $(107, 5)$ is chosen (true shift $(107.7, 4.9)$; with the sub-pixel parabola the measurement is $(107.2, 5.0)$). For the vertical pair 0-3 the roles of $x$ and $y$ swap: the winner is $(-3, 105)$ with 2875 px and NCC 0.97.
+
+**E3.** Default noise: chain max 1.66 px (rms 0.94), tree max 0.66 (0.35), global max 0.60 (0.42). Noise 12: chain max 1.94 px, growing along the chain (0.4 px at tile 1, 1.9 at tile 8, the end); global max 0.83. The tree uses only the most confident pairs and is about as good as global here; global uses all trusted pairs and spreads the errors.
+
+**E4.** The four edges of tile 4 are untrusted: 3-4 and 1-4 with NCC 0.27, 4-5 with 0.43, 4-7 with 0.51. Chain: it runs through tile 4, so tiles 3 to 8 are all off by about 130–150 px. Tree: only tile 4 is wrong (37.7 px). Global: only tile 4 is wrong (81 px), all other tiles within 0.9 px. A blank tile has nothing to match: its position must come from the stage.
+
+**E5.** Pair 4-5 has NCC 0.42 (untrusted, almost no weight); its residual after global alignment is 127.7 px, every other residual is below 1 px: the wrong pair stands out, and all tiles are within 0.74 px. At threshold 0.3 the pair is trusted and pulls the solution: tile 5 is now 21.5 px off, tiles 2 and 8 about 12 px, and the residuals of the good pairs grow to up to 10 px while 4-5 keeps the largest (100 px). **drop worst edge** removes 4-5, and the solution is as good as before (max 0.74 px). Dropping edges by residual works as long as the good pairs outnumber the bad ones around each loop. (With the threshold at 0.7 the button would drop the worst **trusted** pair, a good one: only drop edges whose residual is clearly out of line.)
+
+**E6.** Feathering hides the seams: the brightness changes smoothly in each overlap. With vignetting 0.5 every tile has dark corners; blending cannot remove them, so the mosaic looks patchy. The confidences drop (the lowest pair from 0.85 to 0.70; at 0.5 vignetting several pairs are close to the threshold), because the same dark corners in both tiles do not move with the shift; the positions are still within 0.7 px here. Correct vignetting with a flat-field image before stitching.
+:::
+
+## Explore: sub-pixel estimates {#explore-subpixel}
+
+B is A shifted by $3 + f$ pixels through the phase ramp, so the truth is exact. Left: the correlation samples near the peak (dots), the parabola through the top three (red dashed) and the upsampled-DFT curve (blue); vertical lines: the truth (green), parabola (red), centroid (orange) and upsampled DFT (blue). Right: the error of each method for every true fraction $f$ from 0 to 1 (the vertical line is the current $f$).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="subpixel" data-preset="parabola"></div>
+<script src="../demos/dist/subpixel.js"></script>
+```
+
+**E7.** Preset **parabola: pixel locking** (phase correlation, $f = 0.3$). Read the three estimates. Describe the parabola's error curve: where is it zero, where largest? How large is the worst error of each method?
+
+**E8.** Preset **a broad CC peak**. How well do the parabola and the centroid do now, and why so differently from E7?
+
+**E9.** Preset **upsampling too coarse** ($U = 4$). What is the upsampled estimate, and its worst error? Raise $U$ to 20, then 50.
+
+**E10.** Preset **noise sets the floor** (CC, noise 10). Compare the errors. Then switch to phase correlation with noise 5. What happens, and why (the phasecorr unit)?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E7.** Truth 3.300; parabola 3.262 (−0.038), centroid 3.259 (−0.041), upsampled 3.300. The parabola's error is an S-curve: zero at $f = 0$, 0.5 and 1, negative below 0.5 and positive above, at most 0.038 px: the estimates are pulled towards the nearest whole pixel. Worst errors: parabola 0.038, centroid 0.065, upsampled DFT 0.020 (limited by its grid of 1/20 px).
+
+**E8.** Parabola 3.296 (worst 0.004 over all fractions): a broad, smooth peak is very close to a parabola near its top. The centroid gives 3.019 (worst 0.47): the three samples are almost equal, so their centroid stays near the middle sample. Which simple method works depends on the shape of the peak.
+
+**E9.** With $U = 4$ the grid has steps of 1/4 px: the estimate is 3.500 (error −0.1), worst 0.12. With $U = 20$ the worst error is 0.020; with $U = 50$ it is 0.000 on this sweep, because the sweep's fractions (steps of 0.02) lie exactly on the grid of 1/50 px; in general the error is at most half a grid step. The cost grows only linearly with $U$.
+
+**E10.** With noise 10 (CC): parabola 3.449, centroid 3.018, upsampled 3.550; worst errors 0.17, 0.62 and 0.30. Noise moves the peak itself, and no interpolation can recover what the noise has changed: noise sets the floor. Phase correlation with noise 5: at $f = 0.3$ all estimates are off by about 0.3 px, and for fractions below about 0.2 the highest peak lands 7 px away (off the plot). The smooth test signal has almost no strength at high frequencies, so after normalising, the noise there gets full votes (the phasecorr unit).
+:::
+
+## Explore: drift correction {#explore-drift}
+
+Frames mode: 40 frames of the micrograph drifting by a random walk; noise, bleaching (the last frame keeps 1 − bleaching of its brightness) and a slow change of the sample (the field fades into its mirror image). The plot shows the true drift (lines; $x$ blue, $y$ red) and the estimate (dots); the images show one frame, frame 0, and the average of all frames before and after correction.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="drift" data-preset="bleach"></div>
+<script src="../demos/dist/drift.js"></script>
+```
+
+**E11.** Preset **bleaching: no problem**. How large is the largest error when registering to the first frame? Compare the two averages. Look at frame 39.
+
+**E12.** Preset **to the previous: errors add up** (noise 30). How does the error develop over the frames? Switch to **the first**.
+
+**E13.** Preset **sample changes: to the first fails**. Where does registration to the first frame go wrong? Try **the previous** and **key frames**.
+
+Localisation-microscopy mode: blinking molecules on rings and lines, localised in 4000 camera frames while the sample drifts. Each time block is rendered as an image; every pair of blocks is correlated and the drift per block follows from least squares on the graph of pairs.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="drift" data-mode="smlm"></div>
+<script src="../demos/dist/drift.js"></script>
+```
+
+**E14.** Preset **corrected localisations sharpen**. How many localisations, block pairs, and how large is the drift error? Compare the two images.
+
+**E15.** Try **3 blocks**, **40 blocks** and **strong drift**. Explain the errors. Why does correlating **all pairs** of blocks, rather than each block with the next, help?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E11.** Max error 0.19 px (frame 28), rms 0.08 px, although the last frame keeps only 20 % of the brightness: a gain does not change the phases. The uncorrected average is blurred over the 6 px of drift; the corrected average is sharp, and much less noisy than a single frame.
+
+**E12.** The error grows over time: about 0.1–0.3 px in the first 15 frames, 0.6–0.8 px around frame 20–30, then 1.3 px and finally 5.1 px at frame 39, where the frames are dimmest (each step's error adds to all later frames, and the last steps compare two dim, noisy frames). Registered to the first frame, the largest error is 0.29 px.
+
+**E13.** Late frames: from about frame 35 on, the frame looks more like the mirror image than like frame 0, and the estimate jumps (max error 8.4 px at frame 37). Key frames every 10 frames: max 0.44 px; the previous frame: 0.76 px. When the sample changes, compare frames that are close in time.
+
+**E14.** 7981 localisations, 10 blocks, 45 pairs; drift error max 1.57 px, rms 0.74 px (the drift reaches 6.2 px). The uncorrected image is a smear; the corrected one shows thin rings and lines.
+
+**E15.** 3 blocks (3 pairs): max error 2.72 px: a single drift per block of 1333 frames cannot follow the drift. 40 blocks (780 pairs): max 0.43 px: finer time steps, and many redundant pairs make up for the fewer localisations per block. Strong drift (35 px): max 15 px; within one block the molecules move so far that the block images are smeared and the block drift is meaningless: use more, shorter blocks. All pairs: every block is compared with every other one, so each drift is determined by many measurements; one bad pair is outvoted, and errors do not add up along a chain (the mosaic's least squares, in time).
+:::
+
+## Where this leads
+
+A shift is the simplest transform. Rotation and scale can be turned into shifts in log-polar coordinates of the magnitude spectrum (the Fourier–Mellin method); deforming tissue and moving cells need non-rigid registration, optical flow and tracking (the Motion elective). The graph Laplacian of global alignment returns on the graph-cuts day, in **normalized cuts**.

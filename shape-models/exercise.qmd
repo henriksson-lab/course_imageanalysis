@@ -1,0 +1,186 @@
+---
+title: "Exercise: shape models"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- align two landmark sets by **Procrustes** (centre, scale, rotate) with the 2D formula,
+- explain what **generalised Procrustes** does with a training set,
+- compute a tiny **point distribution model**: mean, covariance, mode, projection and clamping,
+- recognise the failure modes: bad **correspondence**, no **alignment**, too few shapes, **implausible** parameters,
+- *(math)* derive the closed-form Procrustes solution and the small-matrix trick for PCA.
+
+Do the pen-and-paper part first, then the two demos. Questions marked *(math)* are for those who want the derivations.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Shape vector | $\mathbf x = (x_1, y_1, \dots, x_n, y_n)$: $n$ corresponding landmarks |
+| Procrustes (2D) | centre both sets ($\mathbf p_i$, $\mathbf q_i$), then $a = \sum\mathbf p_i\cdot\mathbf q_i / \sum\lvert\mathbf p_i\rvert^2$, $b = \sum(p_{i,x}q_{i,y} - p_{i,y}q_{i,x})/\sum\lvert\mathbf p_i\rvert^2$ |
+| The fitted similarity | $\begin{pmatrix} a & -b \\ b & a\end{pmatrix}$: scale $\sqrt{a^2 + b^2}$, angle $\operatorname{atan2}(b, a)$; then move the centroid onto the target's |
+| GPA | align all shapes to the mean, recompute the mean, repeat |
+| PDM | $\mathbf x \approx \bar{\mathbf x} + \Phi\mathbf b$; $\mathbf b = \Phi^\top(\mathbf x - \bar{\mathbf x})$; plausible if $\lvert b_j\rvert \le 3\sqrt{\lambda_j}$ |
+
+Covariances are divided by the number of shapes, as in the PCA unit.
+
+## By hand
+
+**B1.** Align the triangle $\mathbf p$: $(0, 0)$, $(2, 0)$, $(0, 1)$ onto $\mathbf q$: $(-1, -1.5)$, $(1.4, 0.3)$, $(-1.9, -0.3)$ (corresponding in this order).
+(a) Compute both centroids and the centred coordinates.
+(b) Compute $\sum|\mathbf p_i|^2$, $\sum\mathbf p_i\cdot\mathbf q_i$ and $\sum(p_{i,x}q_{i,y} - p_{i,y}q_{i,x})$ (centred), then $a$ and $b$.
+(c) Scale and angle of the fit. Check that the matrix maps the centred $(2, 0)$ corner onto the centred $(1.4, 0.3)$.
+(d) What is the translation $\mathbf t$ in $\mathbf q = \begin{pmatrix} a & -b \\ b & a\end{pmatrix}\mathbf p + \mathbf t$?
+
+**B2.** Same triangles, but **rigid** alignment (no scaling allowed).
+(a) What are $a$ and $b$ now?
+(b) Compute the aligned triangle and the remaining sum of squared distances. Why is it not zero?
+
+**B3.** You align the left-hand outline of a person onto a right-hand outline, without allowing reflection. Predict the result. When would you allow reflection?
+
+**B4.** **A tiny shape model.** A "shape" is a segment on a line, given by its two end points $(x_1, x_2)$. Three training shapes: $(1, 3)$, $(0, 4)$, $(2, 2)$. (No alignment here.)
+(a) Compute the mean shape and the $2 \times 2$ covariance matrix.
+(b) Its eigenvalues and eigenvectors. Describe the mode in words. Why is the second eigenvalue zero?
+(c) Project the new shape $(0.5, 3.5)$ onto the mode: $b$, and the model shape $\bar{\mathbf x} + b\boldsymbol\phi$.
+(d) The same for $(-4, 8)$. Is $b$ plausible? Clamp it to $\pm 3\sqrt\lambda$ and give the clamped shape.
+(e) The same for $(2, 5)$. What does the model miss, and why?
+
+**B5.** The PCA of 40 aligned hands has the variance shares (%) $62.1$, $23.7$, $7.8$, $0.9$, $0.7$, $0.4$, ...
+(a) How many modes for 90 %? For 95 %?
+(b) The hands were generated from 3 hidden parameters plus landmark noise. What do the modes from 4 on probably describe?
+(c) Why is it sensible to stop at 3 modes, even though 95 % needs 5?
+
+**B6.** Predict what the first mode looks like when
+(a) the shapes are not aligned and were photographed at different positions,
+(b) 10 of 40 hands have their landmarks numbered one position off,
+(c) only 3 hands are used. How many modes can there be at most?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Centroids $\bar{\mathbf p} = (2/3, 1/3)$, $\bar{\mathbf q} = (-0.5, -0.5)$. Centred: $\mathbf p$: $(-0.667, -0.333)$, $(1.333, -0.333)$, $(-0.667, 0.667)$; $\mathbf q$: $(-0.5, -1)$, $(1.9, 0.8)$, $(-1.4, 0.2)$.
+(b) $\sum|\mathbf p|^2 = 10/3 = 3.333$; $\sum\mathbf p\cdot\mathbf q = 0.667 + 2.267 + 1.067 = 4$; $\sum(p_xq_y - p_yq_x) = 0.5 + 1.7 + 0.8 = 3$ (each term: $0.667 - 0.167$, $1.067 + 0.633$, $-0.133 + 0.933$). $a = 4/3.333 = 1.2$, $b = 3/3.333 = 0.9$.
+(c) Scale $\sqrt{1.44 + 0.81} = 1.5$, angle $\operatorname{atan2}(0.9, 1.2) = 36.9°$. $(1.2 \cdot 1.333 - 0.9\cdot(-0.333),\ 0.9\cdot1.333 + 1.2\cdot(-0.333)) = (1.9, 0.8)$. ✓
+(d) $\mathbf t = \bar{\mathbf q} - \begin{pmatrix} 1.2 & -0.9 \\ 0.9 & 1.2\end{pmatrix}\bar{\mathbf p} = (-0.5, -0.5) - (0.5, 1) = (-1, -1.5)$.
+
+**B2.** (a) Same angle, unit scale: $(a, b) = (1.2, 0.9)/1.5 = (0.8, 0.6)$.
+(b) Rotated centred triangle plus $\bar{\mathbf q}$: $(-0.833, -1.167)$, $(0.767, 0.033)$, $(-1.433, -0.367)$. Squared distances to $\mathbf q$ sum to $0.833$. The target is 1.5 times larger; a rigid fit can only centre the triangle on it and turn it, and splits the size difference over all three corners.
+
+**B3.** Without reflection the best rotation of a mirror image is a compromise: the outlines are roughly superimposed, the thumb ends up on the wrong side, a large error remains, and with scaling allowed the fit even shrinks the shape to reduce the error. Allow reflection only when mirror images count as the same shape (left and right kidneys in one model, symmetric objects); for hands it is usually wrong.
+
+**B4.** (a) Mean $(1, 3)$. Centred: $(0, 0)$, $(-1, 1)$, $(1, -1)$. $S = \frac13\begin{pmatrix} 2 & -2 \\ -2 & 2\end{pmatrix} = \begin{pmatrix} 0.667 & -0.667 \\ -0.667 & 0.667\end{pmatrix}$.
+(b) $\lambda_1 = 4/3 = 1.333$ with $\boldsymbol\phi = (1, -1)/\sqrt2$; $\lambda_2 = 0$ with $(1, 1)/\sqrt2$. The mode moves the two ends in opposite directions: the **length** of the segment (with the centre fixed at 2). The second eigenvalue is zero because all three segments have the same centre: nothing varies along $(1, 1)$, a shift.
+(c) $b = \boldsymbol\phi\cdot((0.5, 3.5) - (1, 3)) = ((-0.5) - 0.5)/\sqrt2 = -0.707$. Model shape $(1, 3) - 0.707\,(0.707, -0.707) = (0.5, 3.5)$: exact, it is a segment of length 3 centred at 2.
+(d) $b = ((-5) - 5)/\sqrt2 = -7.07$. Limit $3\sqrt{1.333} = 3.46$: implausible (5.1 standard deviations). Clamped: $b = -3.46$, shape $(1, 3) - 3.46\,(0.707, -0.707) = (-1.45, 5.45)$: the longest segment the model allows.
+(e) $b = (1 - 2)/\sqrt2 = -0.707$, model shape $(0.5, 3.5)$. The new segment is centred at 3.5, the model can only centre at 2: shifts never occurred in the training set, so the model cannot represent them. (In a real shape model, alignment removes the position before projecting.)
+
+**B5.** (a) 90 %: 3 modes ($62.1 + 23.7 + 7.8 = 93.6$, the demo shows 93.7 from unrounded values). 95 %: 5 modes ($94.5$ after 4, $95.2$ after 5).
+(b) Landmark noise, and the small nonlinear effects of the three parameters (a rotation of a finger is not exactly linear in the landmark coordinates).
+(c) The last modes are noise. Keeping them adds no real shape freedom, only the freedom to follow noise in the image.
+
+**B6.** (a) Position: the largest variation between the shape vectors is where the shapes are, so the first modes are shifts (and rotation and size), not shape. (b) A mode that moves every landmark towards its neighbour: the renumbering. It is the largest mode (in the demo 87 % instead of 62 %) and has nothing to do with hands. (c) At most $3 - 1 = 2$ non-zero eigenvalues: the 3 centred shapes span at most a plane. The two modes describe these three hands, not hands in general.
+:::
+
+### Math questions
+
+**B7.** *(math)* Derive the closed-form Procrustes solution: write $E(a, b) = \sum_i|M\mathbf p_i - \mathbf q_i|^2$ with $M = \begin{pmatrix} a & -b \\ b & a\end{pmatrix}$ and centred points, compute $\partial E/\partial a$ and $\partial E/\partial b$, and solve. Why does centring make the translation separate?
+
+**B8.** *(math)* Show that the minimum of B7 is $E_\text{min} = \sum|\mathbf q_i|^2 - (a^2 + b^2)\sum|\mathbf p_i|^2$, and that the rigid fit leaves $\sum|\mathbf p_i|^2 + \sum|\mathbf q_i|^2 - 2\sqrt{(\sum\mathbf p_i\cdot\mathbf q_i)^2 + (\sum \mathbf p_i\times\mathbf q_i)^2}$. Check both on B1 and B2.
+
+**B9.** *(math)* $s$ centred shape vectors form the columns of $Y$ ($2n \times s$), so $S = \frac1s YY^\top$. Show that if $Y^\top Y\mathbf u = \mu\mathbf u$ with $\mu \ne 0$, then $Y\mathbf u$ is an eigenvector of $YY^\top$ with eigenvalue $\mu$. Why are there at most $s - 1$ non-zero eigenvalues?
+
+**B10.** *(math)* Show that with orthonormal $\Phi$, $\mathbf b = \Phi^\top(\mathbf x - \bar{\mathbf x})$ minimises $|\mathbf x - \bar{\mathbf x} - \Phi\mathbf b|^2$, and that over the training set $b_j$ has mean 0 and variance $\lambda_j$. If $b_j$ were Gaussian, which fraction of shapes would $|b_j| \le 3\sqrt{\lambda_j}$ keep?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $M\mathbf p = (ap_x - bp_y,\ bp_x + ap_y)$, so $E = \sum (ap_x - bp_y - q_x)^2 + (bp_x + ap_y - q_y)^2$. $\partial E/\partial a = 2\sum[(ap_x - bp_y - q_x)p_x + (bp_x + ap_y - q_y)p_y] = 2[a\sum|\mathbf p|^2 - \sum\mathbf p\cdot\mathbf q]$ (the $b$ terms cancel). $\partial E/\partial b = 2\sum[-(ap_x - bp_y - q_x)p_y + (bp_x + ap_y - q_y)p_x] = 2[b\sum|\mathbf p|^2 - \sum(p_xq_y - p_yq_x)]$. Setting both to zero gives the formulas. With a translation $\mathbf t$, $\partial/\partial\mathbf t = 2\sum(M\mathbf p_i + \mathbf t - \mathbf q_i) = 2(M\sum\mathbf p_i + s\mathbf t - \sum\mathbf q_i)$, which is zero at $\mathbf t = 0$ once both sets are centred: the translation decouples.
+
+**B8.** Expand: $E = (a^2 + b^2)\sum|\mathbf p|^2 - 2a\sum\mathbf p\cdot\mathbf q - 2b\sum\mathbf p\times\mathbf q + \sum|\mathbf q|^2$ (using $|M\mathbf p|^2 = (a^2 + b^2)|\mathbf p|^2$). Insert the optimal $a, b$: $E_\text{min} = \sum|\mathbf q|^2 - (a^2 + b^2)\sum|\mathbf p|^2$. B1: $7.5 - 2.25 \cdot 3.333 = 0$. Rigid: $a^2 + b^2 = 1$ and $(a, b)$ is the unit vector along $(\sum\mathbf p\cdot\mathbf q, \sum\mathbf p\times\mathbf q)$, so the middle terms give $-2\sqrt{4^2 + 3^2} = -10$: B2: $3.333 + 7.5 - 10 = 0.833$. ✓
+
+**B9.** $YY^\top(Y\mathbf u) = Y(Y^\top Y\mathbf u) = \mu\,Y\mathbf u$, and $Y\mathbf u \ne 0$ because $|Y\mathbf u|^2 = \mathbf u^\top Y^\top Y\mathbf u = \mu|\mathbf u|^2 \ne 0$. The rank of $YY^\top$ is at most the rank of $Y$, at most $s$; the columns sum to zero (they are centred), so the rank is at most $s - 1$. For 40 hands with 58 coordinates: diagonalise a $40 \times 40$ instead of a $58 \times 58$ matrix; for 3D meshes with thousands of points the saving is huge.
+
+**B10.** $|\mathbf y - \Phi\mathbf b|^2$ with $\mathbf y = \mathbf x - \bar{\mathbf x}$ has gradient $-2\Phi^\top(\mathbf y - \Phi\mathbf b) = -2(\Phi^\top\mathbf y - \mathbf b)$ since $\Phi^\top\Phi = I$: zero at $\mathbf b = \Phi^\top\mathbf y$. Over the training set the mean of $\mathbf y$ is 0, so the mean of $b_j = \boldsymbol\phi_j^\top\mathbf y$ is 0, and its variance is $\boldsymbol\phi_j^\top S\boldsymbol\phi_j = \lambda_j$ (as in the PCA unit). For a Gaussian, $\pm3$ standard deviations keep 99.7 %.
+:::
+
+## Explore: Procrustes {#explore-procrustes}
+
+Two landmark sets, orange and blue, numbered so that equal numbers correspond. Dashed lines join corresponding landmarks. **1 centre**, **2 scale**, **3 rotate** apply the steps of the best fit of orange onto blue (animated); **all** does the three; **undo all** goes back. Drag any landmark; the orange square moves the whole orange set, the ring rotates and scales it. The readout gives the best fit: $a$, $b$, scale, angle, the matrix, the residual after the fit, and the residual as the sets are now.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="procrustes" data-preset="exact"></div>
+<script src="../demos/dist/procrustes.js"></script>
+```
+
+**P1.** Preset **pure rotation recovers exactly** (the triangle of B1, the orange one moved a little). Compare the readout with B1. Apply the three steps. What is the residual at the end? Why did moving the orange triangle not change $a$ and $b$?
+
+**P2.** Preset **rigid: no scaling allowed**. Compare the residual with B2. Apply the steps: which one is skipped?
+
+**P3.** Preset **noise: best fit is not exact**. Read the fit. Then drag one orange landmark far away: how do $a$, $b$ and the residual change? What does that say about outliers?
+
+**P4.** Preset **mirror image: reflection or not**. Read the fit without reflection: scale and residual. Tick **allow reflection**. Explain the difference, in particular the small scale without reflection.
+
+**P5.** Preset **one landmark mislabelled**. Apply the steps. Which landmark is wrong, and how can you see it? Is its error the only one? Drag the wrong blue landmark to where it should be (between its neighbours) and watch the residual.
+
+**P6.** Preset **GPA on a set** (10 leaves). Press **GPA step** repeatedly. Note the residual to the mean and the change of the mean after each step. How many steps are needed?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**P1.** $a = 1.200$, $b = 0.900$, scale 1.500, angle 36.9°, residual after the fit 0.000 (as drawn: 17.530). After the three steps the triangles coincide and the residual is 0. Moving the orange triangle only changes its position, and the fit centres both sets first: the translation is removed before $a$ and $b$ are computed.
+
+**P2.** $a = 0.800$, $b = 0.600$ (scale 1, angle 36.9°), residual 0.833, as in B2. The scaling step does nothing: the orange triangle stays its size, and the residual after centring and rotating is 0.833.
+
+**P3.** $a = 0.743$, $b = -0.534$: scale 0.915, angle $-35.7°$, residual 0.130: the landmark noise cannot be removed by any similarity. One landmark dragged far away changes the angle and the scale noticeably and the residual jumps: least squares weighs a large error squared, so a single outlier pulls the whole fit (as in the PCA unit). Robust variants downweight the worst landmarks.
+
+**P4.** Without reflection: scale 0.393, angle $-71.6°$, residual 6.281. With reflection allowed: scale 0.949, angle 18.4° plus a mirror, residual 0. No rotation turns an L into its mirror image; the best compromise overlaps the shapes poorly, and shrinking the orange set towards the blue centroid lowers the squared error, so the "best" scale is far too small.
+
+**P5.** Residual 0.418 instead of nearly 0; the dashed line at landmark 4 stays long after the fit (0.62, against 0.05–0.07 at all the others): the blue landmark 4 sits where landmark 10 should be. Its error also pulls the fit (scale 0.905 and angle $-36.25°$ instead of 0.930 and $-36.25°$), so every landmark gets a small error. Fitting without landmark 4 gives a residual of practically 0; dragging the blue landmark 4 back between landmarks 3 and 5 brings the residual close to 0.
+
+**P6.** Step 1 centres and normalises the shapes and takes leaf 1 as the mean: residual 4.859. Step 2 aligns all to it: residual 0.163 (change of the mean 0.013). Step 3: 0.161 (change $10^{-6}$), step 4: change $10^{-10}$. Two rounds after the start are enough; the residual that is left is the real shape variation (and noise) of the leaves.
+:::
+
+## Explore: a point distribution model {#explore}
+
+Left: the training set, **raw** or **aligned** (aligned: every landmark's scatter as coloured dots, the mean in black), and the % variance per mode with the cumulative curve. Centre: the model shape $\bar{\mathbf x} + \Phi\mathbf b$ (blue) and the mean (dashed); sliders $b_j/\sqrt{\lambda_j}$ for the first five modes, limited to $\pm3$ unless **unlimited** is ticked; **animate** runs one mode between $\pm3$. **project: drag** gives you a new shape (orange) to drag; the model then shows its projection with *modes kept* modes (dashed blue) and the clamped one (green).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="shapepca" data-preset="spread"></div>
+<script src="../demos/dist/shapepca.js"></script>
+```
+
+**E1.** Preset **first mode of the hand: finger spread**. Animate modes 1, 2 and 3: describe each in words, and give its share of the variance. Compare with B5.
+
+**E2.** Preset **without alignment: pose becomes a mode**. Look at the raw training set and animate mode 1. What is it? How many modes for 95 % now, and why is that number misleading?
+
+**E3.** Preset **3 training shapes**. How many modes have non-zero variance? Move $b_3$: what happens, and why?
+
+**E4.** Preset **bad correspondence**. Which shapes are marked red? Animate mode 1. Compare its share with E1.
+
+**E5.** Preset **unlimited: implausible shapes** ($b_3 = 5\sqrt{\lambda_3}$). What is wrong with this hand? Untick **unlimited**.
+
+**E6.** Preset **drag a finger: the model follows**. Drag the tip of a finger sideways, a little and then a lot. How do the dashed (projected) and green (clamped) hands react? Then drag one finger tip far upwards, making it much longer than the others. Can the model follow? Set *modes kept* to 1 and to 5.
+
+**E7.** Back to the hands (**hand**, *align* on). Set the landmark noise to 0, then to 0.05. How many modes are needed for 95 % in each case? What does this say about choosing $k$ by a percentage?
+
+**E8.** Presets **nuclei** and **leaves**. How many hidden parameters do these families have (count the modes that matter)? Describe the first mode of each.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Mode 1 (62.1 %): the fingers fan out and close together. Mode 2 (23.7 %): mostly the thumb swinging out and in. Mode 3 (7.8 %): the fingers become longer or shorter. Together 93.7 %; modes 4 and 5 add 0.9 and 0.7 %, so 95 % needs 5 modes, as in B5. The three main modes are the three hidden parameters of the generator.
+
+**E2.** The raw hands lie at different positions, sizes and orientations. Mode 1 (49.6 %) moves the whole hand sideways, mode 2 (41.4 %) up and down, mode 3 (6.3 %) mostly turns it; the real shape variation is mixed into these and the later modes. 95 % is reached with 3 modes, but almost all of that is pose: the percentages measure variance, whatever its cause, and pose dwarfs the shape differences.
+
+**E3.** Two (89.2 % and 10.8 %); from mode 3 on the sliders are greyed out, their variance is zero. Three centred shapes span a plane, so only two directions vary (B6c). The model can only interpolate between these three hands.
+
+**E4.** 10 of the 40 hands (red in the left panel) have their landmarks numbered one position off. Mode 1 now holds 87.3 % and moves every landmark along the outline towards its neighbour: the renumbering, not a deformation of hands. The real finger spread is pushed down to the later modes.
+
+**E5.** The fingers are far too long (mode 3 at 5 standard deviations): no hand in the training set looks like this. With the limit back on, $b_3$ is clamped to 3.
+
+**E6.** A small sideways move of a finger tip is followed partly: the projected hand spreads its fingers (mode 1), but all fingers move together, because that is how the training hands vary. A larger move cannot be followed by one finger alone, and once $b_1$ passes $3\sqrt{\lambda_1}$ the green hand stops at the limit. A finger made much longer than the others cannot be represented: the model only knows "all fingers longer", so it lengthens all a little. With 1 mode only the spread is available; with 5 modes small extra freedoms appear, mostly noise.
+
+**E7.** Noise 0: 3 modes give 98.7 % (95 % needs 3). Noise 0.05: 95 % needs 25 modes, and the first three modes hold only 46.7 %: the noise spreads variance evenly over all 58 directions. A fixed percentage then keeps many noise modes. Look for the gap in the eigenvalues (the "elbow") instead, here after 3 modes.
+
+**E8.** Both have three parameters; the first three modes carry 93.5 % (nuclei) and 96.2 % (leaves) and the rest is small. Nuclei: mode 1 (69.4 %) makes the outline longer and thinner or rounder (the elongation), mode 2 bends it, mode 3 deepens the dent. Leaves: mode 1 (66.1 %) changes the width and the bend of the midrib together, and mode 3 moves the widest point. PCA finds the directions of largest variance, not the parameters of the generator: when two parameters happen to vary together in the training set, a mode mixes them.
+:::
+
+## Where this leads
+
+A point distribution model says which shapes are plausible. The next unit uses it to **search an image**: move each landmark towards a better position, like a snake, then pull the whole set back to the nearest plausible shape: the **active shape model**.

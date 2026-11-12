@@ -6,13 +6,16 @@
 import { Grey, fromFunction } from "../lib/imageops";
 import { addGaussianNoise, filaments } from "../lib/synth";
 
-export const QUAD_UNIT = 8;
+export const QUAD_UNIT = 8, QUAD_GAIN = 1.5;
 
-/** f = a x² + b x y + c y² with x, y in units of QUAD_UNIT pixels from the centre, scaled to ±100 around 128. */
+/** f = a x² + b x y + c y² with x, y in units of QUAD_UNIT pixels from the centre (y down), as grey levels 128 + QUAD_GAIN·f. */
 export function quadratic(N: number, a: number, b: number, c: number): Grey {
   const m = (N - 1) / 2, u = QUAD_UNIT * N / 128;
-  return fromFunction(N, N, (X, Y) => { const x = (X - m) / u, y = (Y - m) / u; return 128 + 4 * (a * x * x + b * x * y + c * y * y); });
+  return fromFunction(N, N, (X, Y) => { const x = (X - m) / u, y = (Y - m) / u; return 128 + QUAD_GAIN * (a * x * x + b * x * y + c * y * y); });
 }
+
+/** Factor that turns the pixel Hessian of the quadratic image back into the Hessian of f in its own units ([[2a, b], [b, 2c]]). */
+export const quadUnits = (N: number): number => (QUAD_UNIT * N / 128) ** 2 / QUAD_GAIN;
 
 /** Distance from (x, y) to the segment (x0, y0)–(x1, y1). */
 function segDist(x: number, y: number, x0: number, y0: number, x1: number, y1: number): number {

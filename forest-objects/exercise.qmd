@@ -1,0 +1,120 @@
+---
+title: "Exercise: forests on feature tables, and feature importance"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute the **impurity importance** of the features of a small tree,
+- compute **permutation importances** from errors before and after shuffling,
+- predict what **correlated** and **duplicated** features do to both importances,
+- explain why importance describes the model and not the biology,
+- *(math)* show why an exact copy halves the impurity importance.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Feature table | one row per segmented object, one column per measurement |
+| Impurity importance (MDI) | per feature: sum of $\tfrac{n_t}{n}\Delta I_t$ over its splits, averaged over the trees |
+| Permutation importance | rise of the OOB (or held-out) error when the feature's column is shuffled |
+| Correlated features | carry (almost) the same information: area, perimeter, equivalent diameter |
+| Group permutation | shuffle several columns with the same permutation, so they stay consistent with each other |
+
+::: {.callout-note collapse="true" title="The math: the impurity importance of one tree adds up"}
+Each split replaces the weighted impurity $\tfrac{n_t}{n}I_t$ of a node by the weighted impurities of its two children; the difference is $\tfrac{n_t}{n}\Delta I_t$. Summed over all splits of a tree, the inner nodes cancel: the total importance is the root impurity minus $\sum_{\text{leaves}}\tfrac{n_\ell}{n}I_\ell$. For a tree grown until its leaves are pure, it is just the root impurity, shared among the features that did the splitting.
+:::
+
+## By hand
+
+**B1.** A depth-2 tree on 100 cells, 50 interphase (I) and 50 mitotic (M). Node counts are written (I, M).
+
+- Root: split on **texture** into (45, 10) and (5, 40).
+- Left child (45, 10): split on **area** into (40, 2) and (5, 8).
+- Right child (5, 40): split on **texture** into (5, 5) and (0, 35).
+
+(a) Compute the Gini impurity of every node.
+(b) Compute $\tfrac{n_t}{n}\Delta G$ for each of the three splits.
+(c) Give the impurity importance of texture and area, and their shares of the total.
+
+**B2.** A forest is tested on 10 held-out cells: 1 is misclassified. Shuffling the texture column among the 10 cells (several times, on average) gives 4 errors; shuffling area gives 2; shuffling the noise feature gives 1. What are the permutation importances (as rises in error rate)?
+
+**B3.** A table has area and equivalent diameter $d = 2\sqrt{A/\pi}$, and size matters for the classes.
+(a) Is equivalent diameter new information? Will a tree that splits on it ever separate cells differently than a split on area?
+(b) Predict the impurity importance of area when both are in the table, compared with area alone.
+(c) Predict the permutation importance of area when both are in the table. What happens to it if you remove the diameter column?
+
+**B4.** You add a column of random numbers (uniform between 0 and 1) to the table and grow deep trees. Will its impurity importance be zero? Its permutation importance? Why the difference?
+
+**B5.** The forest says texture is by far the most important feature for "mitotic". A colleague concludes that texture is what causes or defines mitosis. What can and cannot be concluded?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Root (50, 50): $G = 0.5$. (45, 10): $1 - (45/55)^2 - (10/55)^2 = 0.298$. (5, 40): $0.198$. (40, 2): $0.091$. (5, 8): $0.473$. (5, 5): $0.5$. (0, 35): 0.
+(b) Root: $\Delta G = 0.5 - 0.55 \cdot 0.298 - 0.45 \cdot 0.198 = 0.247$; weight $100/100$: **0.247**. Left: $\Delta G = 0.298 - \tfrac{42}{55}0.091 - \tfrac{13}{55}0.473 = 0.116$; weight $55/100$: **0.064**. Right: $\Delta G = 0.198 - \tfrac{10}{45}0.5 - 0 = 0.086$; weight $45/100$: **0.039**.
+(c) Texture: $0.247 + 0.039 = 0.286$ (82 %); area: $0.064$ (18 %).
+
+**B2.** Base error 0.1. Texture: $0.4 - 0.1 = 0.3$. Area: $0.2 - 0.1 = 0.1$. Noise: $0.1 - 0.1 = 0$. (With only 10 cells these numbers are very noisy; in practice use many objects and several shuffles.)
+
+**B3.** (a) No: $d$ is an increasing function of $A$, so any split on $d$ separates exactly the same cells as some split on $A$ (B5 of the decision-trees exercise). It is the same feature in other units.
+(b) The trees use area or diameter about equally often for the same splits, so area gets roughly **half** of what it had alone (and diameter the other half).
+(c) Small: when area is shuffled, the trees that split on diameter still see the true size, and size is not lost. Remove the diameter column, and the forest has to use area; its permutation importance rises to the full importance of size.
+
+**B4.** Impurity importance: not zero. Deep trees keep splitting small nodes until they are pure, and among the candidate features the noise column, with its many distinct values, often offers the best split in a small node by chance; the decreases are counted on the training data. Permutation importance on OOB data: about zero (possibly slightly negative), because shuffling the noise column does not change how well the forest predicts new objects.
+
+**B5.** Only that this forest, on this data, relies on texture to tell the classes apart. Texture may be a consequence of mitosis (condensed chromatin), it may stand in for another, correlated feature, and features with low importance may carry the same information (they were simply not needed). Importance is a property of the model; causation needs experiments.
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that the impurity importances of all features in one tree add up to the root impurity minus $\sum_{\text{leaves}}\frac{n_\ell}{n}I_\ell$.
+
+**B7.** *(math)* Feature $j'$ is an exact copy of feature $j$. At each split the candidate features are a random subset of size $m$, and ties are broken at random. Argue that the expected impurity importances of $j$ and $j'$ are equal, and that their sum is about the importance $j$ would have alone.
+
+**B8.** *(math)* Show that permutation importance can be negative, and give a reason why a small negative value should be read as zero.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** Write $W_t = \tfrac{n_t}{n}I_t$. A split of node $t$ into $L$ and $R$ contributes $\tfrac{n_t}{n}\Delta I_t = W_t - W_L - W_R$. Summing over all splits, every inner node other than the root appears once with $+$ (as the parent of its split) and once with $-$ (as a child of its parent's split); the root appears only with $+$, the leaves only with $-$. The sum is $W_{\text{root}} - \sum_{\text{leaves}} W_\ell = I_{\text{root}} - \sum_\ell \tfrac{n_\ell}{n}I_\ell$.
+
+**B7.** $j$ and $j'$ are interchangeable: every split on one has an identical split on the other with the same decrease, and the random candidate subsets treat them symmetrically. So any tree has the same probability as the tree with $j$ and $j'$ swapped, and the expected importances are equal. With the copy present, a split that $j$ would have made alone is made by $j$ or by $j'$ (when at least one is a candidate), with the same decrease, so their sum is about $\mathrm{MDI}_j$ alone. (Not exactly: with the copy, size is a candidate more often, which changes the trees a little. In the demo: area alone 42 %, area + copy 28 % + 23 %.)
+
+**B8.** It is a difference of two error rates measured on a finite set; shuffling a useless column can by chance fix a few predictions as easily as break them, so the difference can be negative. Its size is about the sampling noise of the error rate (for $n$ objects and error $e$, roughly $\sqrt{e(1-e)/n}$, 1.7 points for $e = 0.13$, $n = 400$): values within that range mean "no detectable importance".
+:::
+
+## Explore {#explore}
+
+400 synthetic segmented cells, 200 interphase and 200 mitotic, with eight measured features: **area**, **perimeter** and **equivalent diameter** (three measures of size), **intensity**, **texture**, **solidity**, a continuous **noise** feature and a random yes/no feature (**coin**). Left: a scatter plot of any two features (choose $x$ and $y$). Middle: for each feature in use, the **impurity importance** (share of the total Gini decrease, blue) and the **permutation importance** (rise of the OOB error in percentage points when its column is shuffled, orange; average of 5 shuffles). The forest has 100 trees; $m$ is the number of features tried per split. Tick features on or off; **add an exact copy of area** appends a duplicate column; **permute the size block together** adds a bar for shuffling area, perimeter, diameter (and the copy) with one permutation.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="featimp" data-preset="texture"></div>
+<script src="../demos/dist/featimp.js"></script>
+```
+
+**E1.** Preset **texture decides**. Read the OOB error and both importances of texture. Plot area against texture: why is texture so useful? Which features have a negative permutation importance, and what does that mean?
+
+**E2.** Preset **duplicate area: credit splits** (area, intensity, solidity and the two noise features, plus an exact copy of area). Note both importances of area and of its copy. Untick **add an exact copy of area**: what are area's importances now?
+
+**E3.** Preset **size block: permutation hides it** (texture removed; area, perimeter, diameter in). Read the three impurity and permutation importances of the size features. Then tick **permute the size block together**. What does the block bar show? Is size important?
+
+**E4.** Preset **noise: impurity vs permutation**. Compare the noise and coin features under both measures. Then remove texture: what happens to the noise feature's impurity share, and why?
+
+**E5.** With all eight features, set $m$ to 1 and to 8 and compare the impurity importances of the three size features. Explain the 0 % of equivalent diameter at $m = 8$.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** OOB error 12.8 %. Texture: impurity 48 %, permutation +24.0 points. In the scatter plot the classes overlap strongly in area but are almost separated by texture (class means 8.2 and 14.1). Negative permutation importance: area −0.7, perimeter −0.4, diameter −0.4, noise −0.1, coin −0.2. Shuffling these columns did not make the forest worse (by chance even slightly better): no detectable importance, here partly because the size information is held three times.
+
+**E2.** With the copy: area 28 % and copy 23 % by impurity (51 % together); by permutation +5.9 and +3.3 points. Without the copy: area 42 % and +13.6 points. The impurity credit is split roughly in half; each permutation importance drops even more, because when one copy is shuffled the other still carries the size.
+
+**E3.** Impurity: area 19 %, perimeter 22 %, diameter 16 %: together 57 %, the largest group. Permutation: −0.7, +1.8, +1.5 points: each looks almost useless. The block bar: **+14.9** points. Size is important (with texture removed it is the main information); each single size feature is redundant given the other two. OOB error 24.0 %, almost twice that with texture.
+
+**E4.** Texture decides: noise 4 % and coin 1 % by impurity, −0.1 and −0.2 by permutation. Without texture (the "size block" settings): noise 10 %, coin 2 % by impurity; +1.1 and +0.5 by permutation. Without a strong feature, the trees need many more splits to purify the nodes; in the small nodes deep in the trees the continuous noise feature, with 400 distinct values, often wins by chance. The yes/no coin offers only one threshold and wins rarely. Permutation stays near zero for both.
+
+**E5.** $m = 1$: area 15 %, perimeter 12 %, diameter 15 % (the feature is a coin toss at every split, so the three share almost equally). $m = 8$: area 12 %, perimeter 6 %, diameter 0 %. With every feature a candidate at every split, area and diameter always offer exactly the same best split; the tie goes to the feature listed first (area), so diameter is never used. The split of credit between duplicates depends on details like this; it says nothing about the features themselves.
+:::
+
+## Where this leads
+
+The last unit of the day applies the forest to **every pixel** of an image, with features computed by filters at several scales, and trains it from a few painted strokes. Feature importance returns there as "which filters does the forest use?", and the OOB error meets a new trap: neighbouring pixels are not independent.

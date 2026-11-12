@@ -12,22 +12,37 @@ import { lattice, enumerate, energy, stateIndex, Enumeration, Lattice, condition
 
 const NAME = "isingenum";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .9em; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
-[data-demo="${NAME}"] .ie-left { flex: 0 1 260px; min-width: 200px; display: flex; flex-direction: column; gap: .4em; }
-[data-demo="${NAME}"] .ie-plot { flex: 1 1 380px; min-width: 260px; max-width: 520px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 330px; gap: .35em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
-[data-demo="${NAME}"] .ie-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .ie-cell { cursor: pointer; }
-[data-demo="${NAME}"] .qb-btn:disabled { opacity: .4; cursor: default; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; }
-.reveal [data-demo="${NAME}"] .ie-left { flex-basis: 240px; }
+.qb-demo[data-demo="${NAME}"] { gap: .9em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
+.qb-demo[data-demo="${NAME}"] .ie-left { flex: 0 1 260px; min-width: 200px; display: flex; flex-direction: column; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .ie-plot { flex: 1 1 380px; min-width: 260px; max-width: 520px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 330px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .ie-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .ie-cell { cursor: pointer; }
+.qb-demo[data-demo="${NAME}"] .qb-btn:disabled { opacity: .4; cursor: default; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .12em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .ie-left { flex-basis: 240px; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; }
 `;
+
+/** lib/plot.ts numbers its clip paths per bundle (qb-clip-1, ...), so two demos on one page
+ *  can share an id and one plot clips to another's box. Give this plot's clip path a unique id. */
+function uniqueClip(p: Plot): Plot {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) {
+    const w = window as unknown as { __qbClipSeq?: number };
+    w.__qbClipSeq = (w.__qbClipSeq ?? 0) + 1;
+    const id = `${NAME}-clip-${w.__qbClipSeq}`;
+    cp.id = id;
+    p.layer.setAttribute("clip-path", `url(#${id})`);
+  }
+  return p;
+}
 
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -133,7 +148,7 @@ function mount(host: HTMLElement): void {
     spins = new Int8Array(L.n);
     for (let i = 0; i < L.n; i++) spins[i] = (st.start >> i) & 1 ? 1 : -1;
     plotBox.replaceChildren();
-    plot = new Plot(plotBox, { width: 520, height: 400, x: [0, 1], y: [0, 1], xlabel: "energy E", ylabel: "probability" });
+    plot = uniqueClip(new Plot(plotBox, { width: 520, height: 400, x: [0, 1], y: [0, 1], xlabel: "energy E", ylabel: "probability" }));
     recompute();
   }
 

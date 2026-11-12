@@ -13,22 +13,37 @@ import { lattice, Lattice, metropolisSweep, gibbsSweep, magnetisation, energy, r
 
 const NAME = "isinglattice";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .9em; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
-[data-demo="${NAME}"] .il-main { flex: 0 1 370px; min-width: 220px; }
-[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
-[data-demo="${NAME}"] .il-side { flex: 1 1 330px; min-width: 240px; max-width: 440px; display: flex; flex-direction: column; gap: .2em; }
-[data-demo="${NAME}"] .il-scan { display: flex; gap: .5em; align-items: flex-start; }
-[data-demo="${NAME}"] .il-scan canvas { width: 96px; flex: 0 0 96px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .3em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
-[data-demo="${NAME}"] .il-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
-.reveal [data-demo="${NAME}"] .il-main { flex-basis: 360px; }
+.qb-demo[data-demo="${NAME}"] { gap: .9em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
+.qb-demo[data-demo="${NAME}"] .il-main { flex: 0 1 370px; min-width: 220px; }
+.qb-demo[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
+.qb-demo[data-demo="${NAME}"] .il-side { flex: 1 1 330px; min-width: 240px; max-width: 440px; display: flex; flex-direction: column; gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .il-scan { display: flex; gap: .5em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .il-scan canvas { width: 96px; flex: 0 0 96px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .il-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .12em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.reveal .qb-demo[data-demo="${NAME}"] .il-main { flex-basis: 360px; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; }
 `;
+
+/** lib/plot.ts numbers its clip paths per bundle (qb-clip-1, ...), so two demos on one page
+ *  can share an id and one plot clips to another's box. Give this plot's clip path a unique id. */
+function uniqueClip(p: Plot): Plot {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) {
+    const w = window as unknown as { __qbClipSeq?: number };
+    w.__qbClipSeq = (w.__qbClipSeq ?? 0) + 1;
+    const id = `${NAME}-clip-${w.__qbClipSeq}`;
+    cp.id = id;
+    p.layer.setAttribute("clip-path", `url(#${id})`);
+  }
+  return p;
+}
 
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -80,17 +95,17 @@ function mount(host: HTMLElement): void {
   let tab: "traces" | "scan" = host.dataset.tab === "scan" ? "scan" : "traces";
   const tabBtns = [button(tabRow, "m and E per sweep", () => setTab("traces")), button(tabRow, "T-scan", () => setTab("scan"))];
   const traceBox = htmlEl("div", "", "", side);
-  const pm = new Plot(traceBox, { width: 440, height: 210, x: [0, TRACE], y: [-1, 1], ylabel: "m", yticks: [-1, -0.5, 0, 0.5, 1], margin: { b: 30 } });
-  const pe = new Plot(traceBox, { width: 440, height: 230, x: [0, TRACE], y: [-2, 0], xlabel: "sweep", ylabel: "E / n" });
+  const pm = uniqueClip(new Plot(traceBox, { width: 440, height: 210, x: [0, TRACE], y: [-1, 1], ylabel: "m", yticks: [-1, -0.5, 0, 0.5, 1], margin: { b: 30 } }));
+  const pe = uniqueClip(new Plot(traceBox, { width: 440, height: 230, x: [0, TRACE], y: [-2, 0], xlabel: "sweep", ylabel: "E / n" }));
   pm.hline(0, { color: "var(--qb-muted)", width: 1.5 });
   const lm = pm.line([], [], { color: seriesColor(0) });
   const le = pe.line([], [], { color: seriesColor(1) });
   const scanBox = htmlEl("div", "", "", side);
-  const ps = new Plot(scanBox, { width: 440, height: 340, x: [0.5, 4.5], y: [0, 1.05], xlabel: "temperature T", ylabel: "⟨|m|⟩" });
+  const ps = uniqueClip(new Plot(scanBox, { width: 440, height: 340, x: [0.5, 4.5], y: [0, 1.05], xlabel: "temperature T", ylabel: "⟨|m|⟩" }));
   ps.fn(T => onsagerM(T), { color: seriesColor(0), width: 3, label: "exact (Onsager)" }, 400);
   ps.vline(TC, { color: "var(--qb-muted)", dash: "6 4", width: 2, text: "T_c" });
   const scanDots = ps.scatter([], [], { color: seriesColor(1), r: 6, label: "64 × 64 lattice" });
-  ps.legend(undefined, "tr");
+  ps.legend(undefined, "bl");
   const scanRow = htmlEl("div", "il-scan", "", scanBox);
   const scv = htmlEl("canvas", "", "", scanRow);
   const scanCtl = htmlEl("div", "", "", scanRow);
@@ -239,10 +254,11 @@ function mount(host: HTMLElement): void {
     const m = tr.m[tr.m.length - 1], e = tr.e[tr.e.length - 1];
     const Tc = TC * st.J;
     ro.textContent = [
-      `sweep ${sweep}   T = ${st.T.toFixed(2)}  (T/T_c = ${(st.T / Tc).toFixed(2)})${cooling ? "  cooling" : ""}`,
+      `sweep ${sweep}  T = ${st.T.toFixed(2)}${cooling ? " (cooling)" : ""}`,
+      `T/T_c = ${(st.T / Tc).toFixed(2)}`,
       `m = ${m.toFixed(3)}   E/n = ${e.toFixed(3)}`,
     ].join("\n");
-    cap.textContent = `${st.size} × ${st.size} spins, periodic (orange +1, blue −1)`;
+    cap.textContent = `${st.size} × ${st.size}, periodic: orange +1, blue −1`;
   }
 
   function draw(): void {

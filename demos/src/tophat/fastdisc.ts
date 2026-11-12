@@ -9,18 +9,19 @@
 export function rowExtremum(f: ArrayLike<number>, w: number, h: number, hw: number, isMax: boolean): Float32Array {
   const out = new Float32Array(w * h);
   if (hw === 0) { for (let i = 0; i < w * h; i++) out[i] = f[i]; return out; }
-  const k = 2 * hw + 1, L = Math.ceil((w + 2 * hw) / k) * k, neutral = isMax ? -Infinity : Infinity;
+  const k = 2 * hw + 1, L = Math.ceil((w + 2 * hw) / k) * k, sg = isMax ? -1 : 1;
+  // work with sg·f so that one min-routine serves both (max f = −min(−f))
   const p = new Float64Array(L), g = new Float64Array(L), s = new Float64Array(L);
-  const better = isMax ? (a: number, b: number) => (a > b ? a : b) : (a: number, b: number) => (a < b ? a : b);
   for (let y = 0; y < h; y++) {
-    for (let i = 0; i < L; i++) { const x = i - hw; p[i] = x >= 0 && x < w ? f[y * w + x] : neutral; }
+    const o = y * w;
+    for (let i = 0; i < L; i++) { const x = i - hw; p[i] = x >= 0 && x < w ? sg * f[o + x] : Infinity; }
     for (let b = 0; b < L; b += k) {
-      g[b] = p[b];
-      for (let i = b + 1; i < b + k; i++) g[i] = better(g[i - 1], p[i]);
-      s[b + k - 1] = p[b + k - 1];
-      for (let i = b + k - 2; i >= b; i--) s[i] = better(s[i + 1], p[i]);
+      let m = p[b]; g[b] = m;
+      for (let i = b + 1; i < b + k; i++) { const v = p[i]; if (v < m) m = v; g[i] = m; }
+      m = p[b + k - 1]; s[b + k - 1] = m;
+      for (let i = b + k - 2; i >= b; i--) { const v = p[i]; if (v < m) m = v; s[i] = m; }
     }
-    for (let x = 0; x < w; x++) out[y * w + x] = better(s[x], g[x + k - 1]);
+    for (let x = 0; x < w; x++) { const a = s[x], c = g[x + k - 1]; out[o + x] = sg * (a < c ? a : c); }
   }
   return out;
 }

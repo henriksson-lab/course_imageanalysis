@@ -1,0 +1,191 @@
+---
+title: "Finding a shift by sliding and scoring"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+Two images show the same thing, but one is **shifted** against the other. How far? This is the simplest **registration** problem, and today's tool is the most direct one: try every shift and score it.
+
+- Where shifts come from: mosaic **tiles**, **drift** in a time-lapse, offset **colour channels**.
+- **Slide** image B over image A and **score** the pixels on top of each other.
+- Three scores: **SSD**, **cross-correlation** (CC) and **normalised cross-correlation** (NCC), and how each one is fooled.
+- The **cost** of trying every shift: the question for the next unit.
+- The same machine with a small image: **template matching**.
+
+*Slides titled **The math** give the formulas and proofs; the ideas are complete without them.*
+
+::: notes
+This is the first of four units on finding shifts with the FFT; it needs only the idea of an image as an array (the images unit). Shifts here are whole pixels; sub-pixel shifts come in the stitching unit. Throughout the day, "the shift t of B" means where B must be placed on A so that the two agree: B(x) = A(x + t).
+:::
+
+## One unknown vector
+
+:::: {.columns}
+::: {.column width="50%"}
+- **Mosaic tiles.** A microscope images a large sample as overlapping tiles. The stage is not exact: each overlap is off by a few pixels.
+- **Drift.** In a time-lapse, the sample or the stage creeps: frame 50 is a few pixels away from frame 1.
+- **Colour channels.** Two cameras, or two filters, see the sample slightly offset.
+:::
+::: {.column width="50%"}
+In all three: image **B** is image **A** moved by a vector $t = (t_x, t_y)$.
+
+- Only the overlap can be compared; the rest of each image is new.
+- The brightness may differ (exposure, bleaching, another dye).
+- Find $t$, then place B at $t$ on A.
+
+Today: $t$ in whole pixels, nothing but a shift (no rotation).
+:::
+::::
+
+## Slide and score
+
+Place B at a candidate shift $t$ on top of A. Every pixel of B now lies on a pixel of A.
+
+- Compare the pairs of pixels in the **overlap** and give the shift a **score**.
+- Do this for **every** $t$: the scores form a curve in 1D, a surface in 2D.
+- The best score marks the shift. A clear, single **peak** is what we hope for.
+
+The interesting part is the score. Three classics follow, each with its own way of being fooled.
+
+## Three scores
+
+| score | in words | best when | fooled by |
+|---|---|---|---|
+| **SSD** | sum of squared differences of the pixel pairs | smallest | a change of **brightness or contrast** between A and B |
+| **CC** | sum of products of the pixel pairs | largest | **bright regions**: a bright blob scores high wherever it lands |
+| **NCC** | correlation of the pairs after removing the mean and dividing by the spread, in the overlap | largest (at most 1) | **little information**: tiny overlaps, flat regions, repeated patterns |
+
+NCC does not care whether B is brighter or has more contrast than A: it compares **patterns**, not grey levels. It is the default score for registration and template matching.
+
+## The math: three scores {.math}
+
+Over the overlap $\Omega_t$ of A at $x + t$ and B at $x$ (with $n_t$ pixels):
+
+$$\mathrm{SSD}(t) = \sum_{x \in \Omega_t} \big(f(x+t) - g(x)\big)^2 = \sum f(x+t)^2 + \sum g(x)^2 - 2\,\mathrm{CC}(t), \qquad \mathrm{CC}(t) = \sum_{x\in\Omega_t} f(x+t)\,g(x).$$
+
+SSD and CC differ only by the two **energies** $\sum f^2$, $\sum g^2$ over the overlap, which change with $t$ when the images are uneven: they are not equivalent.
+
+$$\mathrm{NCC}(t) = \frac{\sum (f - \bar f)(g - \bar g)}{\sqrt{\sum (f - \bar f)^2\,\sum (g - \bar g)^2}} = \cos\angle\big(\mathbf f_t - \bar f,\ \mathbf g_t - \bar g\big),$$
+
+with means over $\Omega_t$: the cosine of the angle between the two mean-free overlap vectors. Cauchy–Schwarz gives $|\mathrm{NCC}| \le 1$, with $1$ exactly when $g = a f + b$, $a > 0$, on the overlap. Replacing $g$ by $a g + b$ ($a > 0$) leaves NCC unchanged.
+
+## Try it: slide B over A
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="xcorr1d" data-preset="bump" data-presets="bump,bright,blob,periodic,tiny" data-controls="shift t,true,gain,offset"></div>
+<script src="../demos/dist/xcorr1d.js"></script>
+```
+
+::: notes
+Signals of 64 samples (seeded bumps). B is a window of 16 samples; its true shift is 22. Tour: move "shift t" from left to right and watch the three curves being drawn (scaled to their own range, best = dot). "a matching bump": all three find 22. "brighter copy: SSD fails" (gain 1.6, offset 40, B as long as A): SSD's minimum moves to 48, CC is one off (10), NCC stays at 9. "bright blob: CC fails": a blob of height 150 only in A pulls CC to 42; SSD and NCC find 12. "periodic": NCC is 1 every 12 samples (−39, −27, …, 45). "tiny overlap": with noise 15 and overlaps down to 2 samples, NCC's best is at 62, an overlap of 2 samples. Multiply-adds: the readout counts them as B slides.
+:::
+
+## By hand: three scores of one template
+
+Template $B = (1, 3, 1)$ placed at positions $t = 0 \ldots 5$ of $A = (0, 1, 3, 1, 0, 2, 6, 2)$:
+
+| $t$ | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| pixels of A under B | 0 1 3 | 1 3 1 | 3 1 0 | 1 0 2 | 0 2 6 | 2 6 2 |
+| CC (sum of products) | 6 | 11 | 6 | 3 | 12 | **22** |
+| SSD | 9 | **0** | 9 | 10 | 27 | 11 |
+| NCC | −0.19 | **1** | −0.19 | −0.87 | −0.19 | **1** |
+
+- A contains B **twice**: an exact copy at $t = 1$ and a copy twice as bright at $t = 5$.
+- CC prefers the bright copy, SSD the exact one, NCC calls both perfect.
+- For tiles that differ in exposure, which one would you trust?
+
+## The cost of trying every shift
+
+Two $N \times N$ images, every shift with any overlap: shift $t$ costs one multiply-add per pixel of the overlap, $(N - |t_x|)(N - |t_y|)$.
+
+- $1024 \times 1024$ tiles, every shift: $1024^4 \approx 1.1 \cdot 10^{12}$ multiply-adds. At about $10^9$ per second: **18 minutes** for one pair.
+- If the stage is good to $\pm 32$ pixels: $65^2$ shifts of about $10^6$ pixels each, $4.3 \cdot 10^9$: about **4 seconds**.
+- A mosaic of $20 \times 20$ tiles has 760 neighbouring pairs.
+
+In general: $S$ shifts of about $N$ pixels each cost about $N \cdot S$; all shifts, $S \approx N$, cost about $N^2$ for $N$ pixels. **Next unit:** all shifts at once for little more than the cost of one.
+
+## The math: counting the multiply-adds {.math}
+
+For signals of length $N$, shift $t$ has an overlap of $N - |t|$ samples, so all shifts together cost
+
+$$\sum_{t=-(N-1)}^{N-1} (N - |t|) = N + 2\sum_{k=1}^{N-1} k = N + N(N-1) = N^2.$$
+
+In 2D the overlap is $(N - |t_x|)(N - |t_y|)$ and the sum factorises: $\sum_{t_x}\sum_{t_y} (N - |t_x|)(N - |t_y|) = N^2 \cdot N^2 = N^4$, i.e. the square of the number of pixels. A window $|t_x|, |t_y| \le w$ costs $\big(\sum_{|t| \le w}(N - |t|)\big)^2 = \big((2w+1)N - w(w+1)\big)^2 \approx (2w+1)^2 N^2$.
+
+## Template matching
+
+The same machine with a **small** image B (the template, e.g. a cell, a bead, a granule) slid over a large image A:
+
+- The NCC at every position is a **map**; its peaks are the places that look like the template, up to brightness and contrast.
+- Keep the peaks above a threshold: a simple **detector**. It finds every copy that has the same size and orientation.
+- The denominators of NCC need the mean and spread of A under the template at every position: local sums, cheap with an FFT (next unit) or with integral images (the integral-images elective).
+
+## Try it: template matching
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="phasecorr" data-template="1"></div>
+<script src="../demos/dist/phasecorr.js"></script>
+```
+
+::: notes
+Drag the yellow template box; the NCC map (blue = negative, red = positive) is recomputed with two FFTs. "dark granules": a 20 × 20 template on the dark granule at (99, 59); it matches itself with NCC 1, and the next best places, (203, 10), (225, 162), (79, 207), only reach about 0.5: dark specks, not real copies. "nuclei (synthetic)": many similar blobs, many peaks. Raise the threshold and the weak matches disappear. Point out the grey border: the template must fit completely.
+:::
+
+## Two kinds of evidence
+
+:::: {.columns}
+::: {.column width="50%"}
+**Template matching** (here)
+
+- Every pixel of the template takes part in the score.
+- Output: a map with a peak per occurrence.
+- Needs the same size and orientation.
+:::
+::: {.column width="50%"}
+**Voting** (the Hough elective)
+
+- Only edge points take part; each votes for the shapes it could belong to.
+- Output: also a map with peaks, in the space of shape parameters.
+- Copes with partly hidden objects.
+:::
+::::
+
+A third variant compares shape descriptors that do not change under rotation (moment invariants, the moments elective).
+
+## Intensity-based vs landmark-based
+
+| | intensity-based (this day) | landmark-based |
+|---|---|---|
+| uses | all the pixels of the overlap | a few matched points (beads, corners) |
+| needs | nothing but the images | the correspondences, found first |
+| gives | a shift (rotation and scale: optional unit) | shift, rotation and scale in one closed-form step (Procrustes, the snakes elective) |
+| fails on | empty or repeated texture | wrong correspondences |
+
+Feature points and how to match them: the edges day (structure tensor) and the Motion elective.
+
+## Summary
+
+- Registration of a shift: slide B over A, score every candidate shift, take the best.
+- **SSD** is fooled by brightness changes, **CC** by bright regions; **NCC** compares patterns and lies between −1 and 1.
+- NCC also has limits: tiny overlaps, flat regions, repeated patterns.
+- Trying every shift of two $N$-pixel images costs about $N^2$ multiply-adds: minutes for one pair of megapixel tiles.
+- **Template matching** is the same score with a small image; its peaks find the copies.

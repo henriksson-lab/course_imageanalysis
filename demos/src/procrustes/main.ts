@@ -58,11 +58,11 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
 [data-demo="${NAME}"] .pr-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
 [data-demo="${NAME}"] .pr-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .pr-plot { flex-basis: 640px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .pr-plot { flex-basis: 640px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
 `;
 
 function injectStyle(): void {

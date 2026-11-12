@@ -71,7 +71,7 @@ registerMode({
       algorithms: [mk("cityblock", "city-block (4 steps)"), mk("chessboard", "chessboard (8 steps)")],
       display: "binary", edit: "toggle", cell: 40, title: "mask (click to edit)",
       presets: [
-        { id: "hand", label: "8 × 8 (exercise)", algorithm: "cityblock", apply: () => set(2), grid: ["00000000", "01111110", "01111110", "01111111", "01111111", "00011111", "00011110", "00000000"] },
+        { id: "hand", label: "8 × 8 (exercise)", algorithm: "cityblock", apply: () => set(2), grid: ["00000000", "01111110", "01111110", "01111110", "01111110", "00011110", "00011110", "00000000"] },
         { id: "rect", label: "rectangle", algorithm: "cityblock", apply: () => set(1), grid: ["000000000", "011111110", "011111110", "011111110", "011111110", "011111110", "000000000"] },
         { id: "blob", label: "blob", algorithm: "chessboard", apply: () => set(1), grid: ["0000000000", "0001111000", "0011111100", "0111111110", "0111111110", "0111111110", "0011111100", "0001111000", "0000000000", "0000000000"] },
         { id: "edge", label: "object at the edge", algorithm: "cityblock", apply: () => set(1), grid: ["11111000", "11111000", "11111100", "11111100", "11110000", "00000000"] },

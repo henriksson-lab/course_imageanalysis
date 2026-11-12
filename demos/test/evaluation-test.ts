@@ -163,11 +163,12 @@ function testStats(): void {
   let fpMeans = 0, fpCells = 0, fpPaired = 0;
   const N = 4000;
   for (let i = 0; i < N; i++) {
-    const d = ST.simulateTwoLevel(rr, { experiments: 4, cells: 20, sdBetween: 1, sdWithin: 2, effect: 0, design: "paired" });
-    const a = ST.analyseTwoLevel(d);
+    // independent design: cells-as-n inflates, experiment means do not; paired design: paired test at 5 %
+    const a = ST.analyseTwoLevel(ST.simulateTwoLevel(rr, { experiments: 4, cells: 20, sdBetween: 1, sdWithin: 2, effect: 0, design: "independent" }));
     if (a.means.p < 0.05) fpMeans++;
     if (a.cells.p < 0.05) fpCells++;
-    if (a.paired!.p < 0.05) fpPaired++;
+    const b = ST.analyseTwoLevel(ST.simulateTwoLevel(rr, { experiments: 4, cells: 20, sdBetween: 1, sdWithin: 2, effect: 0, design: "paired" }));
+    if (b.paired!.p < 0.05) fpPaired++;
   }
   check(Math.abs(fpPaired / N - 0.05) < 0.015, `paired FPR ≈ 0.05 (${fpPaired / N})`);
   check(fpMeans / N < 0.065, `means (unpaired) FPR ≤ 0.05 (${fpMeans / N})`);
@@ -228,6 +229,12 @@ function testDemoModels(): void {
   current = "pseudorep";
   const fr = PR.runMany({ ...PR.DEFAULTS, effect: 0 }, 1000, 3);
   check(fr.cells > 0.2 && Math.abs(fr.means - 0.05) < 0.025, `null: cells ${fr.cells.toFixed(3)}, means ${fr.means.toFixed(3)}`);
+
+  // summary-statistic repetitions agree with full simulations
+  const sm = PR.runMany({ ...PR.DEFAULTS, m: 10 }, 3000, 5);
+  let fc = 0;
+  for (let i = 0; i < 3000; i++) if (PR.runOnce({ ...PR.DEFAULTS, m: 10 }, 1000 + i).res.cells.p < 0.05) fc++;
+  check(Math.abs(sm.cells - fc / 3000) < 0.03, `summary vs full simulation, cells-as-n FPR ${sm.cells.toFixed(3)} vs ${(fc / 3000).toFixed(3)}`);
 
   current = "featurescan";
   const pl = FS.makePlate({ ...FS.DEFAULTS, fracReal: 0, rowGradient: 0, colGradient: 0, edge: 0, features: 300 }, 1);

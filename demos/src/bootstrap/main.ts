@@ -111,7 +111,7 @@ function mount(host: HTMLElement): void {
     { label: "ρ = 0", apply: () => { st.rho = 0; rS.set(0); drawB(); } },
     { label: "ρ = 0.3", apply: () => { st.rho = 0.3; rS.set(0.3); drawB(); } },
     { label: "ρ = 0.5: the floor", apply: () => { st.rho = 0.5; rS.set(0.5); drawB(); } },
-    { label: "small n", apply: () => { st.n = 5; nS.set(5); r = rng(1); st.sampleNo = 0; st.counts = null; st.many = null; drawA(); } },
+    ...(which === "variance" ? [] : [{ label: "small n", apply: () => { st.n = 5; nS.set(5); r = rng(1); st.sampleNo = 1; st.counts = bootstrapCounts(st.n, r); st.many = null; drawA(); } }]),
   ]);
   const roB = htmlEl("div", "qb-readout", "", colB);
 

@@ -29,11 +29,14 @@ Each group can be taken after the core day named.
 |---|---|---|
 | Objects | Skeletons, moments | Labelling |
 | Curves and energies | Snakes/ASM → level sets → dynamic programming; Ising/MRF | Graph cuts |
+| Curves and energies: splines *(requested 2026-11-12, not yet planned)* | **Splines and NURBS**: polynomial interpolation and its wiggles, piecewise cubics and continuity (C⁰/C¹/C²), Bézier curves and de Casteljau, B-splines as a basis (knots, local control, partition of unity, Cox–de Boor), interpolating vs approximating vs smoothing splines (a regularised fit: data + λ·curvature), **NURBS** (rational weights, exact circles/conics, homogeneous coordinates from the images unit), spline surfaces briefly; image uses: B-spline/cubic image interpolation (beyond the bilinear of the images unit), spline-based active contours, free-form-deformation (B-spline) non-rigid registration, smooth outlines and length/curvature from fitted splines | Part I (images unit: interpolation, homogeneous coordinates) |
 | Detection | Hough, integral images | Edges, blobs and ridges |
 | More learning | SVM, Gaussian mixtures | Random forests |
+| Generative models *(requested 2026-11-12, not yet planned)* | **Diffusion models** as their own day: forward noising and noise schedules, denoising as the core operation, score functions and denoising score matching (intuition first), sampling (ancestral/DDPM-style and deterministic/DDIM-style, number of steps), conditioning and classifier-free guidance, latent diffusion (links to the VAE day), diffusion priors for inverse problems (links to deconvolution: posterior sampling vs the regularised estimate), evaluation of generated images, scientific uses (denoising, super-resolution, virtual staining) and the risk of hallucinated detail | Modern deep learning (day 18) |
 | Transforms | Wavelets → compression; Radon | Part I |
 | Spectral | Spectral unmixing | Colour |
 | 3D | Marching cubes → 3D graphics (gets `gpuformats/`) | Part I |
+| 3D: geometry from images *(requested 2026-11-12, not yet planned)* | **Reconstructing geometry from multiple images**: the pinhole camera (intrinsics, extrinsics, calibration), two-view geometry (epipolar lines, the fundamental/essential matrix), stereo (rectification, disparity → depth, matching costs), triangulation, structure from motion and bundle adjustment (least squares over cameras and points), multi-view stereo, depth from focus/defocus briefly, and modern view synthesis: neural radiance fields and **3D Gaussian splatting** (https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/). Links: camera matrices from the 3D graphics day, feature matching + RANSAC from the Hough day, scanline stereo from the dynamic programming day (becomes an application pointer), volume rendering/compositing from the 3D graphics day (same compositing as splatting) | 3D graphics |
 | Motion *(should-have, not yet planned)* | **Optical flow** as its own day (requested 2026-11-12): brightness constancy and the aperture problem, Lucas–Kanade (local least squares, the structure tensor link to the edges day), Horn–Schunck (global smoothness, a regularised energy), coarse-to-fine pyramids for large motion, flow visualisation and evaluation, applications (cell/tissue flow, kymographs, PIV-style analysis); non-rigid registration as a related unit or day; **Tracking** as its own day (requested 2026-11-12): linking detections over time (nearest neighbour, global assignment / Hungarian, gating), motion models and prediction (Kalman filter), gaps and missed detections, **dividing objects** (splits/merges, lineage trees), appearing/disappearing objects, track evaluation, and track analysis (MSD, velocities). Inspiration for methods: the user's tool blockflow (/home/mahogny/github/claude/blockflow) has several tracking methods — read it when planning, but no tool names in student material | FFT registration; tracking after labelling (needs objects) and the point-detection day |
 | Point detection *(requested 2026-11-12, not yet planned — plan after the current build)* | Spot/point detection: local maxima, LoG/DoG and à trous detectors, thresholds on detection statistics, sub-pixel localisation by fitting, evaluation by matching | Edges, blobs and ridges |
 | Fluorescence quantification *(requested 2026-11-12, not yet planned — plan after the current build)* | **Colocalisation** (Pearson, Manders with thresholds, Costes, object-based colocalisation, bleed-through and resolution as confounds); **FRET** (sensitised emission with bleed-through/cross-excitation correction, acceptor photobleaching, FRET efficiency and distance, ratiometric imaging); **FLIM** (lifetimes, time-domain/TCSPC and frequency-domain, exponential fitting, phasor analysis, FLIM-FRET) | Colour; spectral unmixing helps for FRET |
@@ -91,6 +94,13 @@ slide with a pointer.
 - Phasor analysis: the FLIM day owns phasors; the unmixing day's optional `phasor/` unit
   becomes a recall.
 - FRET bleed-through correction builds on the unmixing day's crosstalk unit (recall).
+- Splines: the splines day owns spline theory; snakes (spline snakes), non-rigid registration
+  (B-spline free-form deformation), image interpolation and outline fitting recall it.
+- Diffusion: the diffusion day owns diffusion models in depth; the modern deep learning day's
+  `diffusion/` unit (being built) becomes a short introduction with a pointer, or moves to
+  the diffusion day as its first unit — decide when planning.
+- Stereo: the geometry-from-images day owns stereo; the dynamic programming day's optional
+  scanline stereo becomes an application of its DP with a pointer.
 
 ## Topic pages (planned 2026-11-12, build after the current day build)
 
@@ -113,3 +123,29 @@ Candidates (first one requested: point detection):
   shape models, moments.
 - Energy minimisation: graph cuts, Ising, snakes, level sets, dynamic programming,
   deconvolution (regularisation).
+
+## Prerequisite map (planned 2026-11-12, build after the current day build)
+
+For learners who want one topic and only what it needs.
+
+- **One database** of the course structure, the single source for navigation: e.g.
+  `days.yml` at the repo root (machine-readable; this coursemap stays the human
+  rationale). Per day: id, title, part or elective group, number, units (folder, title),
+  **hard prerequisites** (days or units that must come first), **soft prerequisites**
+  (nice-to-have back-references), concepts it owns (from the owners table). Units may
+  list their own prerequisites at unit level (finer than day level). Seed it from
+  `review-ordering.md`'s dependency table and the plans' "prerequisite gap" sections.
+- **Overview page** (`overview.qmd`, linked from the home page and navbar): all days as
+  an interactive dependency graph (a TypeScript demo reading the database: parts as
+  columns, electives grouped, hard edges solid, soft edges dashed). Click a day or
+  unit → highlight its transitive hard prerequisites and show an ordered **learning
+  path** (topological order of just those prerequisites). Also a plain list view for
+  print/accessibility.
+- **Per-page prerequisite box**: every lec.qmd/exercise.qmd shows "Before this unit:"
+  with links to its direct hard prerequisites (and "see also" for soft ones), generated
+  from the database at render time (a Quarto pre-render script or Lua filter, so no unit
+  hand-maintains the list). Reverse links ("Used later in: …") can come from the same data.
+- A check in `make test` (or a separate `make check-prereqs`): every unit in the sidebar is
+  in the database, every prerequisite exists, the graph has no cycles, and the sidebar
+  order respects hard prerequisites.
+- The sidebar in `_quarto.yml` could later be generated from the same database.

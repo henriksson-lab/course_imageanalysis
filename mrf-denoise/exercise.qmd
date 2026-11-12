@@ -1,0 +1,139 @@
+---
+title: "Exercise: Bayesian image denoising"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- turn a **noise model** into a data term, and add the Ising prior to get the **posterior energy**,
+- find the **MAP** of a tiny image by listing its energies, and the **MPM** from its marginals,
+- run **ICM** by hand and show that it can get stuck, depending on the order of visits,
+- predict which structures a too large **prior weight** $\lambda$ removes,
+- compare ICM, annealing, sampling, mean field and the exact minimum cut on a real-size image.
+
+Do the pen-and-paper part first, then the interactive part. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Labels | $L_p \in \{0, 1\}$, 1 = object; observed binary image $\mathbf y$ |
+| Flip noise | each pixel flipped independently with probability $\varepsilon$ |
+| Data term (flip noise) | 0 if $L_p = y_p$, $\log\frac{1 - \varepsilon}{\varepsilon}$ if not |
+| Data term (Gaussian noise) | $D_p(\ell) = (y_p - \mu_\ell)^2/2\sigma_n^2$, grey levels $\mu_0$, $\mu_1$ |
+| Posterior energy | $E(L) = \sum_p D_p(L_p) + \lambda\sum_{(p,q)}[L_p \ne L_q]$, posterior $\propto e^{-E}$ |
+| MAP | the labelling with the lowest energy |
+| Marginal | $p(L_p = 1 \mid \mathbf y)$: the summed probability of all labellings with $L_p = 1$ |
+| MPM | $L_p = 1$ where the marginal exceeds 0.5 |
+| ICM | visit pixels in turn, give each its cheaper label given its neighbours, until nothing changes |
+
+## By hand
+
+**B1.** **Data costs.** Compute $\log\frac{1 - \varepsilon}{\varepsilon}$ for $\varepsilon = 0.1$, $0.2$, $0.3$ and $0.45$. What happens to the data term as $\varepsilon \to 0.5$, and what does that mean?
+
+**B2.** **Three pixels.** $\mathbf y = (1, 0, 1)$, $\varepsilon = 0.2$, $\lambda = 2$.
+(a) Compute the energy of all 8 labellings. Which is the MAP?
+(b) Turn the energies into probabilities ($e^{-E}$, normalised).
+(c) For which $\lambda$ would the MAP be $\mathbf y$ itself?
+
+**B3.** **ICM.** Same image and $\lambda$, start from $\mathbf y$.
+(a) Run ICM visiting pixels 1, 2, 3 (repeat until nothing changes). Where does it stop, and with which energy?
+(b) Run it again visiting 2, 1, 3. Where does it stop now?
+(c) Is the result of (a) a local minimum? In what sense?
+
+**B4.** **MPM.** From B2(b), compute $p(L_1 = 1)$ and $p(L_2 = 1)$. What is the MPM labelling? Does it agree with the MAP? What does $p(L_2 = 1)$ tell you that the MAP does not?
+
+**B5.** **Choosing $\lambda$** (flip noise, 4-neighbours).
+(a) A single wrong pixel in a large uniform region: above which $\lambda$ does the MAP correct it? Evaluate for $\varepsilon = 0.2$ and $\varepsilon = 0.1$.
+(b) A long, clean line of width $k$ pixels: above which $\lambda$ is it cheaper to remove it? Evaluate for $k = 1$ and $k = 3$ at $\varepsilon = 0.2$.
+(c) Can $\lambda$ be chosen to remove all single-pixel noise and keep a 1-pixel line at $\varepsilon = 0.2$?
+
+**B6.** **Gaussian noise.** Grey levels $\mu_0 = 0$, $\mu_1 = 1$, $\sigma_n = 0.5$. Compute $D_p(0) - D_p(1)$ for $y_p = 0.2$, $0.5$ and $0.9$. Which pixel gives no evidence at all? Which gives the strongest?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** 2.197, 1.386, 0.847, 0.201. As $\varepsilon \to 0.5$ the cost goes to 0: a pixel's observed value says nothing about its true value, and only the prior decides.
+
+**B2.** (a) Data cost 1.386 per pixel that differs from $\mathbf y$, plus $2 \times$ the number of boundaries:
+
+| labelling | 111 | 000 | 001, 100 | 101 | 011, 110 | 010 |
+|---|---|---|---|---|---|---|
+| energy | 1.386 | 2.773 | 3.386 | 4.000 | 4.773 | 8.159 |
+| probability | 0.601 | 0.150 | 0.081 each | 0.044 | 0.020 each | 0.0007 |
+
+The MAP is $111$.
+(b) In the table ($\sum e^{-E} = 0.416$).
+(c) $\mathbf y = 101$ costs $2\lambda$, $111$ costs 1.386: $\mathbf y$ is the MAP for $\lambda < 0.693$.
+
+**B3.** (a) Pixel 1 (neighbour 0): label 1 costs $0 + 2 = 2$, label 0 costs $1.386$: switch to 0. Pixel 2 (neighbours 0 and 1): label 0 costs $0 + 2$, label 1 costs $1.386 + 2$: stays 0. Pixel 3 (neighbour 0): switch to 0. Next sweep: no changes. Result $000$, energy 2.773.
+(b) Pixel 2 first (neighbours 1 and 1): label 1 costs 1.386, label 0 costs $0 + 4$: switch to 1. Pixels 1 and 3 are now happy. Result $111$, energy 1.386: the MAP.
+(c) Yes: no **single** pixel change lowers the energy of $000$ ($100$, $010$, $001$ cost 3.386, 8.159, 3.386), but changing all three at once does. ICM only looks at one pixel at a time.
+
+**B4.** $p(L_1 = 1) = 0.601 + 0.081 + 0.044 + 0.020 = 0.747$ (labellings $111$, $100$, $101$, $110$). $p(L_2 = 1) = 0.601 + 0.020 + 0.020 + 0.0007 = 0.643$. MPM: $111$, the same as the MAP here. But the marginal 0.64 says the middle pixel is far from certain: the MAP alone does not show that.
+
+**B5.** (a) Correcting it saves 4 boundaries ($4\lambda$) and costs $\log\frac{1 - \varepsilon}{\varepsilon}$: $\lambda > 1.386/4 = 0.35$ ($\varepsilon = 0.2$) and $\lambda > 2.197/4 = 0.55$ ($\varepsilon = 0.1$). Rarer noise is more trusted, so it needs a larger $\lambda$ to override.
+(b) Per unit length, keeping the line costs 2 boundaries ($2\lambda$); removing it costs $k \cdot 1.386$. Removed for $\lambda > 0.69$ ($k = 1$) and $\lambda > 2.08$ ($k = 3$).
+(c) Barely: any $\lambda$ between 0.35 and 0.69 does both for a clean line. But the line pixels are noisy too (a fifth of them are flipped), which makes the line cheaper to remove; in the demo the 1-pixel line is already partly lost at $\lambda = 0.6$.
+
+**B6.** $D_p(0) - D_p(1) = \big(y_p^2 - (y_p - 1)^2\big)/(2 \cdot 0.25) = 2(2y_p - 1)$: $-1.2$ (evidence for 0), $0$ (no evidence), $+1.6$ (evidence for 1, the strongest). The data term is linear in $y_p$.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that for flip noise, in spin form ($x_p, y_p = \pm 1$), $\log p(y_p \mid x_p) = \text{const} + h\,x_py_p$ with $h = \tfrac12\log\frac{1 - \varepsilon}{\varepsilon}$. Hence show that the posterior is an Ising model with field $h_p = h\,y_p$ and $J = \lambda/2$.
+
+**B8.** *(math)* Show that the expected number of wrong pixels, $\mathbb E\big[\sum_p[\hat x_p \ne x_p] \,\big|\, \mathbf y\big]$, is minimised by the MPM estimate, and that the probability of getting the whole image right is maximised by the MAP.
+
+**B9.** *(math)* **Mean field** on B2 in spin form: $J = 1$, $h_p = 0.693\,y_p$, $T = 1$. Start from $m_p = \tanh(h_p)$ and update $m_p \leftarrow \tanh(J\sum_{q\sim p}m_q + h_p)$ in the order 1, 2, 3. Give $m$ after one sweep. The fixed point is $m = (0.905, 0.807, 0.905)$: compare $(1 + m_p)/2$ with the exact marginals of B4.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $p(y_p \mid x_p) = (1 - \varepsilon)^{(1 + x_py_p)/2}\varepsilon^{(1 - x_py_p)/2}$, so $\log p = \tfrac12\log(\varepsilon(1 - \varepsilon)) + \tfrac12 x_py_p\log\frac{1 - \varepsilon}{\varepsilon}$. Summing over pixels and adding the log-prior $J\sum x_px_q$: $\log p(\mathbf x \mid \mathbf y) = J\sum x_px_q + \sum_p h\,y_px_p + \text{const} = -E_{\text{Ising}}(\mathbf x)$ with $h_p = h\,y_p$. In labels (unit 1): $\lambda = 2J$ and $D_p(1) - D_p(0) = -2h_p = -y_p\log\frac{1 - \varepsilon}{\varepsilon}$, as in the table.
+
+**B8.** $\mathbb E\sum_p[\hat x_p \ne x_p] = \sum_p\big(1 - p(x_p = \hat x_p \mid \mathbf y)\big)$. Each term depends on $\hat x_p$ only, so choose $\hat x_p$ to maximise $p(x_p = \hat x_p \mid \mathbf y)$: the MPM. $P(\hat{\mathbf x} = \mathbf x \mid \mathbf y) = p(\hat{\mathbf x} \mid \mathbf y)$ is maximised by the most probable image: the MAP.
+
+**B9.** Start $m = (0.6, -0.6, 0.6)$. Pixel 1: $\tanh(-0.6 + 0.693) = 0.093$. Pixel 2: $\tanh(0.093 + 0.6 - 0.693) = -0.0003$. Pixel 3: $\tanh(-0.0003 + 0.693) = 0.600$. After one sweep $m = (0.093, -0.0003, 0.600)$. At the fixed point $(1 + m)/2 = (0.95, 0.90, 0.95)$, against the exact $(0.75, 0.64, 0.75)$: the same decisions ($111$), but far too confident. Mean field ignores that neighbours fluctuate together.
+:::
+
+## Explore {#explore}
+
+A $128 \times 128$ binary image (test shapes: a disc, a square, a 1-pixel and a 3-pixel line, a small square; or the micrograph, blurred and thresholded to make a binary "truth"), corrupted by **flip noise** $\varepsilon$ or **Gaussian noise** $\sigma_n$ on the grey levels 0 and 1. Choose the prior weight $\lambda$ and a **method**; **play** runs it sweep by sweep. Panels: the noisy input, the current estimate, and the truth / the **errors** (red: false object, blue: missed object) / the marginal **p(object)** for Gibbs and mean field. The plot shows the energy against sweeps for every method run so far, and the exact minimum (min-cut) dashed. Changing the image, the noise or $\lambda$ starts afresh.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="mrfdenoise" data-preset="icm"></div>
+<script src="../demos/dist/mrfdenoise.js"></script>
+```
+
+**E1.** Preset **ICM: fast, stuck** ($\varepsilon = 0.2$, $\lambda = 0.8$). How many sweeps does ICM take? Compare its energy and its wrong pixels with the exact MAP. Where are ICM's extra errors?
+
+**E2.** Preset **slow cooling** (annealing over 1000 sweeps), then **quench** (10 sweeps). Compare the final energies and wrong pixels with ICM and the exact MAP. What does the energy curve of annealing do in the first sweeps, and why?
+
+**E3.** Preset **MAP vs MPM** ($\lambda = 1.2$; Gibbs sampling at $T = 1$ for 300 sweeps after 20 sweeps of burn-in). Compare the MPM's wrong pixels with the MAP's. Show **p(object)**: where is the model uncertain? Is the MPM's energy higher or lower than the MAP's, and is that a contradiction?
+
+**E4.** Choose **exact MAP** and raise $\lambda$ from 0.4 to 3 in steps. In which order do the structures disappear? Relate the $\lambda$ values to B5.
+
+**E5.** Preset **λ = 0 is thresholding**. Check that the exact MAP and the thresholded image are the same. Then raise $\lambda$ slowly from 0: at which $\lambda$ does the MAP first change? Compare with B5(a).
+
+**E6.** Preset **exact MAP not the best image** ($\lambda = 1.6$). Compare wrong pixels and energies of exact MAP, ICM and mean field. Which has the lowest energy, which the fewest errors? What does this say about the prior?
+
+**E7.** Preset **Gaussian noise, micrograph** ($\sigma_n = 0.8$, $\lambda = 1$). Compare thresholding, ICM, mean field and the exact MAP (wrong pixels). Then try $\lambda = 0.5$ and $\lambda = 2$ for the exact MAP.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** ICM stops after 14 sweeps (the last one changes nothing), at energy 5171.6 against the exact minimum 5121.2, with 427 wrong pixels against 242 (thresholding: 3321). ICM keeps small clumps of noise pixels that support each other (224 false object pixels in 60 clumps, and 203 missed pixels in 43 holes; the exact MAP has only 71 false object pixels): flipping any single pixel of a clump raises the energy, so ICM never removes it.
+
+**E2.** Slow cooling: energy 5124.2, only 3 above the minimum, and 235 wrong pixels (by chance even 7 fewer than the exact MAP). Quench: 5161.2 and 381 wrong, close to ICM. At the start ($T_0 = 4$) annealing **raises** the energy far above the noisy image's: at high $T$ the sampler moves almost freely, and only as $T$ falls does the energy come down.
+
+**E3.** MPM 276 wrong pixels, MAP 314. The marginal is uncertain (grey) along all edges and especially on the 3-pixel line, which the MAP removes in part (184 of its 312 pixels kept) while the MPM keeps more of it (250). The MPM's energy (5434.3) is **higher** than the MAP's (5384.0): no contradiction, the MPM does not aim at low energy, it aims at few expected wrong pixels.
+
+**E4.** At $\lambda = 0.4$ much noise survives (2106 wrong). The 1-pixel line goes first (partly at 0.6, completely by 0.8), then the 3-pixel line (between 1.2 and 1.6), then the small $12 \times 12$ square (between 2 and 3). The disc and the large square stay. The order follows B5(b): the cost of keeping a structure grows with its boundary, the gain with its area. Noise in the structures lowers the gain, so they go earlier than the clean-line estimates.
+
+**E5.** At $\lambda = 0$ both have 3321 wrong pixels. The MAP stays equal to the thresholded image up to $\lambda \approx 0.35$ (at 0.3 still 3321 wrong; at 0.4, 2106): the threshold of B5(a), $\log 4/4 = 0.347$, where isolated wrong pixels start to be corrected.
+
+**E6.** Exact MAP: lowest energy (5581.8) but 469 wrong pixels. ICM: energy 5931.9 but 401 wrong. Mean field: 5660.6 and only 207 wrong. The lowest energy is not the most correct image: at this $\lambda$ the prior says that thin lines are improbable, and the exact optimiser obeys it fully. Approximate methods that stop earlier happen to keep more of the lines. Greig, Porteous and Seheult (1989) found the same.
+
+**E7.** Thresholding: 4378 wrong (at $\sigma_n = 0.8$ about a quarter of the pixels fall on the wrong side of 0.5); ICM: 793; mean field: 256; exact MAP: 260. With $\lambda = 0.5$ the exact MAP has 739 wrong, with $\lambda = 2$ 365: the best $\lambda$ is somewhere in between. Note the "truth" here is itself a thresholded micrograph.
+:::
+
+## Where this leads
+
+The binary prior counts disagreeing neighbours. For **grey values**, the natural prior penalises differences between neighbours: squared differences (a Gaussian MRF, solved by one linear system) or absolute differences (total variation, which keeps edges). That is the next unit. For more than two labels (several tissues) the same model is the **Potts model**; its exact MAP is no longer a single cut.

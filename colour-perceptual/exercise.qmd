@@ -1,0 +1,160 @@
+---
+title: "Exercise: HSV, CIELAB and colour segmentation"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute **HSV** coordinates, and handle hue as an **angle** (wrapping intervals, circular mean),
+- explain where hue is **undefined** and why a saturation floor is needed,
+- compute **$L^*$** and **ΔE** in CIELAB, and compare colour differences in Lab and in RGB,
+- choose a colour space and a rule (threshold, wedge, ball, clusters) for a **colour segmentation**.
+
+Do the pen-and-paper part first, then the demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Pixel cloud | every pixel is a point in a 3D colour space; a segmentation is a region of it |
+| HSV | $V = \max(R, G, B)$, $S = (\max - \min)/\max$, $H$ = angle (0° red, 60° yellow, 120° green, 180° cyan, 240° blue, 300° magenta) |
+| Hue of a grey | undefined ($\max = \min$) |
+| Circular mean | angle of the mean of the unit vectors $(\cos H, \sin H)$ |
+| Normalised rgb | $r = R/(R+G+B)$, $g = G/(R+G+B)$ |
+| CIELAB | $L^* = 116 f(Y/Y_n) - 16$, $a^*$, $b^*$ from $f(X/X_n)$, $f(Y/Y_n)$, $f(Z/Z_n)$, $f(t) \approx t^{1/3}$ |
+| ΔE | $\Delta E^*_{ab} = \sqrt{\Delta L^{*2} + \Delta a^{*2} + \Delta b^{*2}}$; about 1–2.3 is just noticeable |
+| k-means | assign each pixel to the nearest centre, move each centre to its pixels' mean, repeat |
+
+## By hand
+
+**B1.** Compute $H$, $S$ and $V$ (with $V$ in $[0, 1]$) of the codes (a) $(255, 0, 0)$, (b) $(0, 128, 0)$, (c) $(200, 100, 50)$, (d) $(128, 128, 128)$.
+
+**B2.** (a) Compute the circular mean of the hues 350° and 10°, and their ordinary mean. Which colour is each?
+(b) What is the circular mean of 90° and 270°? What does that tell you?
+(c) Write the hue condition "red within ±20°" as one or two intervals of $[0°, 360°)$.
+
+**B3.** A surface has linear RGB $(0.60, 0.10, 0.08)$ in the light and $(0.30, 0.05, 0.04)$ in a shadow that halves the light.
+(a) Compute $H$, $S$, $V$ for both. Which change?
+(b) Compute the normalised $(r, g)$ for both.
+(c) Which of the rules "R > 0.4", "H within ±20° of 0° and S > 0.4" keeps both?
+
+**B4.** A grey wall has $(R, G, B) = (0.50, 0.50, 0.50)$. Noise changes two pixels to $(0.50, 0.52, 0.49)$ and $(0.50, 0.49, 0.51)$. Compute their hue and saturation. What does this mean for a hue threshold?
+
+**B5.** (a) Compute $L^*$ for a grey with 18 % of white's luminance, and for one with 50 %. (Use $L^* = 116\,(Y/Y_n)^{1/3} - 16$.)
+(b) Compute $\Delta E^*_{ab}$ between $(50, 20, 10)$ and $(55, 17, 14)$. Visible?
+(c) In Lab, the yellow codes $(255, 255, 0)$ and $(255, 255, 40)$ are $(97.1, -21.6, 94.5)$ and $(97.2, -21.1, 89.9)$; the dark green codes $(0, 80, 0)$ and $(0, 120, 0)$ are $(28.7, -37.2, 35.9)$ and $(43.4, -49.4, 47.6)$. Compute the RGB distance and $\Delta E^*_{ab}$ of each pair. What do you conclude?
+
+**B6.** You must segment (i) yellow fruit on a table with soft shadows, (ii) all pixels that "look like" a reference skin colour, (iii) purple nuclei on a pink background. For each, propose a colour space and a rule, and say what could go wrong.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $H = 0°$, $S = 1$, $V = 1$. (b) $H = 120°$, $S = 1$, $V = 128/255 = 0.502$. (c) $\max = 200$ (R), $\min = 50$, $d = 150$: $V = 0.784$, $S = 150/200 = 0.75$, $H = 60° \cdot (100 - 50)/150 = 20°$ (orange). (d) $S = 0$, $V = 0.502$, $H$ undefined (a grey).
+
+**B2.** (a) Unit vectors $(\cos 350°, \sin 350°) = (0.985, -0.174)$ and $(0.985, 0.174)$: the mean is $(0.985, 0)$, angle 0°: red. The ordinary mean is 180°: cyan, wrong.
+(b) The unit vectors $(0, 1)$ and $(0, -1)$ cancel: the mean vector is zero and the circular mean is undefined. Two opposite hues have no meaningful average (the length of the mean vector, 0, says the hues are maximally spread).
+(c) $[340°, 360°) \cup [0°, 20°]$.
+
+**B3.** (a) Light: $\max = 0.60$, $\min = 0.08$, $d = 0.52$: $V = 0.60$, $S = 0.867$, $H = 60° \cdot (0.10 - 0.08)/0.52 = 2.3°$. Shadow: $V = 0.30$, $S = 0.867$, $H = 2.3°$. Only $V$ changes.
+(b) Both: $r = 0.60/0.78 = 0.769$, $g = 0.10/0.78 = 0.128$; the shadow gives $0.30/0.39$ and $0.05/0.39$, the same.
+(c) "R > 0.4" keeps the light part only. The hue/saturation rule keeps both.
+
+**B4.** $(0.50, 0.52, 0.49)$: $\max = G$, $d = 0.03$, $H = 60°(0.49 - 0.50)/0.03 + 120° = 100°$, $S = 0.03/0.52 = 0.058$. $(0.50, 0.49, 0.51)$: $\max = B$, $d = 0.02$, $H = 60°((0.50 - 0.49)/0.02 + 4) = 270°$, $S = 0.039$. A noise of 1–2 % sends the hue from green to violet: on grey and dark pixels hue is meaningless, and a hue threshold selects some of them at random. A floor $S > 0.2$ (say) removes them.
+
+**B5.** (a) $116 \cdot 0.18^{1/3} - 16 = 49.5$; $116 \cdot 0.5^{1/3} - 16 = 76.1$. A grey that looks halfway is only 18 % of the light.
+(b) $\sqrt{5^2 + 3^2 + 4^2} = \sqrt{50} = 7.07$: clearly visible.
+(c) Both pairs are 40 apart in RGB. Yellows: $\sqrt{0.1^2 + 0.5^2 + 4.6^2} = 4.63$; dark greens: $\sqrt{14.7^2 + 12.2^2 + 11.7^2} = 22.40$. The same RGB distance is a barely visible difference in the yellows and an obvious one in the dark greens: RGB distances do not measure perceived difference.
+
+**B6.** (i) HSV: a hue wedge around yellow (about 40°–70°) with a saturation floor; robust to the shadows. Risk: the floor must be low enough for the shadowed fruit (in encoded values saturation drops slightly in deep shadow) and high enough to drop the table. (ii) Lab: a ball of radius ΔE around the reference; the radius sets what counts as "looks like". Risk: lighting changes $L^*$, so a ball also rejects the same skin in shadow; a ball in $a^*b^*$ only, or a larger radius along $L^*$, is more tolerant. (iii) Otsu on one channel that separates the stains (the red channel or $a^*$, see the colour-matrix demo of the last unit), or k-means with $k = 2$ or 3. Risk: unequal class sizes and stain variation between slides.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that in CIELAB any grey $(X, Y, Z) = k\,(X_n, Y_n, Z_n)$, $k > 0$, has $a^* = b^* = 0$, and that the white has $L^* = 100$. Which property of $f$ do you use?
+
+**B8.** *(math)* Show that the circular mean $\bar H = \operatorname{atan2}(\sum\sin H_i, \sum\cos H_i)$ minimises $\sum_i \big(1 - \cos(H_i - \theta)\big)$ over $\theta$ (the sum of squared chord lengths, up to a factor). When is the minimiser not unique?
+
+**B9.** *(math)* One step of k-means on the 1D values $\{0, 1, 2, 8, 9, 10\}$ with centres starting at 0 and 1. Do the assignment and update steps until nothing changes. Then show, for general data, that the update step (centre = mean of its points) minimises the sum of squared distances of the points to their centre.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** With $X/X_n = Y/Y_n = Z/Z_n = k$, all three $f$ values are $f(k)$, so $a^* = 500(f(k) - f(k)) = 0$ and $b^* = 0$. White: $k = 1$, $f(1) = 1$, $L^* = 116 - 16 = 100$. Only that $f$ is one and the same function for the three coordinates (and $f(1) = 1$).
+
+**B8.** $\sum_i(1 - \cos(H_i - \theta)) = n - \cos\theta\sum\cos H_i - \sin\theta\sum\sin H_i = n - R\cos(\theta - \bar H)$ with $R\,(\cos\bar H, \sin\bar H) = (\sum\cos H_i, \sum\sin H_i)$. It is smallest when $\cos(\theta - \bar H) = 1$, at $\theta = \bar H$, provided $R > 0$. If $R = 0$ (the unit vectors cancel, e.g. 90° and 270°) every $\theta$ gives the same value: no unique mean. And $1 - \cos\delta = \tfrac12\,(2\sin(\delta/2))^2$ is half the squared chord.
+
+**B9.** Centres 0 and 1. Assign: $\{0\}$ to 0; $\{1, 2, 8, 9, 10\}$ to 1. Update: centres 0 and 6. Assign: $\{0, 1, 2\}$ to 0 (2 is closer to 0 than to 6), $\{8, 9, 10\}$ to 6. Update: 1 and 9. Assign: unchanged. Done: centres 1 and 9. For a cluster with points $\mathbf x_i$, $\sum_i\|\mathbf x_i - \mathbf c\|^2$ is a convex quadratic in $\mathbf c$ with gradient $2\sum_i(\mathbf c - \mathbf x_i)$; zero at $\mathbf c = \frac1n\sum_i\mathbf x_i$. So both steps lower (or keep) the total squared distance, and the algorithm stops after finitely many steps.
+:::
+
+## Explore: the colour cloud {#explore}
+
+Left: an image (synthetic); right: its pixels as a point cloud (WebGL), each point in its own colour, inside the outline of the sRGB gamut in the chosen space. The black line is the grey axis. **Drag** the cloud to rotate it; *front*, *top*, *3/4 view* reset the view. Choose a **colour space**: the cloud morphs from the old coordinates to the new ones. **Click** a pixel to see its coordinates in all spaces; a **ball** of the chosen radius around its colour (in the current space) selects points, and their pixels stay bright in the image. **Brush**: paint over the image, and the painted pixels light up in the cloud. *Noise* adds noise to the stored codes; *shading* darkens the image from left to right.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="colourcloud" data-preset="hsv"></div>
+<script src="../demos/dist/colourcloud.js"></script>
+```
+
+**E1.** Preset **cube → HSV cone**. The image contains every hue at every saturation and value. Describe the cloud in sRGB (click *sRGB (encoded)*) and then in HSV. Where are the greys, the pure colours, black?
+
+**E2.** Switch the same image to **CIELAB** and **Y′CbCr**. Which way is up? Why is the CIELAB solid lopsided: where are yellow and blue?
+
+**E3.** Preset **shadows are rays through black** (the red apple, in linear RGB). What shape do the apple's pixels make, and why? Set *shading* to 0.6: what happens to the clouds of the other objects?
+
+**E4.** Preset **grey pixels scatter in hue** (noise 0.03, the grey card selected). Where are the card's pixels in HSV? Switch to CIELAB: where are they now? Which space is better behaved near grey?
+
+**E5.** **Reset**, then click the red apple at pixel (60, 55) (the readout shows the pixel you clicked). Note its HSV and Lab. With *ball radius* 0.08, compare how many pixels are selected in sRGB, linear RGB, HSV and CIELAB. Why is a ball not the natural shape in HSV?
+
+**E6.** Preset **H&E: two stains, a sheet** (in sRGB). Rotate the cloud. Is it a 3D blob, a 2D sheet or a 1D line? What would you expect for an image stained with only one dye?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** In sRGB the chart fills the surface layers of the cube: the top half of the image (white to pure colours) covers the faces around the white corner, the bottom half (pure colours to black) the faces around the black corner. Greys lie on the diagonal from black to white. In HSV the cube becomes a cone with black at the tip: the greys are on the vertical axis, the pure colours on the rim at the top, hue goes around.
+
+**E2.** In CIELAB and Y′CbCr the lightness axis ($L^*$, Y′) points up and greys stay on it. The CIELAB solid is lopsided: yellow is light (high $L^*$, large $b^*$) while blue is dark (low $L^*$, negative $b^*$), and saturated blue reaches far from the axis. Y′CbCr is a linear map of the encoded cube, so it stays a (tilted, sheared) parallelepiped.
+
+**E3.** A straight line from near black up to the lit red (plus a curve towards white from the specular highlight): every apple pixel is the same red times a different amount of light. With shading 0.6 every object's cloud stretches along its own ray towards black. A threshold on one channel cuts across these rays; a hue (angle) does not.
+
+**E4.** The card (mean code about 99, $V \approx 0.39$) has saturations up to 0.32 (mean 0.125) once noise is added, and hues all around the circle (about equally many in each 60° sector). In the HSV cone they form a ring-shaped smear around the axis: their hue is random. In CIELAB they form a compact ball around the $L^*$ axis (chroma $\sqrt{a^{*2} + b^{*2}}$ 7.3 on average): the noise is just noise, with no special behaviour near grey. CIELAB is smooth near grey; HSV is singular there.
+
+**E5.** The pixel has codes (162, 20, 22), HSV (359.3°, 0.873, 0.634) and Lab (34.4, 54.2, 38.5). Of the apple's 2809 pixels the ball selects 985 in sRGB, 810 in linear RGB, 976 in HSV and 1321 in CIELAB, and nothing from other objects. In the HSV cone, $V$ is the height, so the shadowed part of the apple is far away even though its hue and saturation are the same: the natural region in HSV is a **wedge** (a hue interval with a saturation floor, at any $V$), not a ball. CIELAB selects the most because its lightness is compressed (a cube root) relative to its opponent axes.
+
+**E6.** A thin, curved 2D sheet: the pixels are mixtures of two stains in different amounts (plus white), so they have two degrees of freedom. (It is curved because absorption multiplies the light; in optical density it becomes flat, see the spectral unmixing elective.) With one dye the cloud would be a single curve from white to the dye's darkest colour.
+:::
+
+## Explore: colour segmentation {#explore-seg}
+
+The image (click to set a reference colour), a 2D histogram of two chromatic coordinates (grey: all pixels, log counts; orange: the selected ones; the axes are written underneath), and the result: selected pixels at full brightness, or the k-means clusters in their mean colours. Methods: per-channel **RGB thresholds**; **hue + floors** (a hue interval that may wrap through 0°, minimum saturation and value); a **ΔE ball** around the reference colour (ΔE76 in Lab, ΔE2000, or plain RGB distance in code units); **Otsu** on one channel; **k-means** in RGB or Lab (*step* or *run*). Dice compares the result with the true red apple (1810 pixels) or the true nuclei of the synthetic scene.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="colourseg" data-preset="rgb"></div>
+<script src="../demos/dist/colourseg.js"></script>
+```
+
+**S1.** Preset **R threshold fails in the shadow** ($R' \ge 120$, $G' \le 90$, $B' \le 90$). Which part of the apple is found, and what is the Dice? Can you find RGB thresholds that do better?
+
+**S2.** Preset **hue survives the shadow**. What is the hue interval, and the Dice? Where are the selected pixels in the H–S histogram?
+
+**S3.** Preset **red wraps around 0°** (the chart of all hues). Which columns of the chart are selected, and why both edges?
+
+**S4.** Preset **grey and dark pixels speckle** (noise 0.03, no floors). Which objects get selected by mistake? Raise *S ≥* step by step: at which floor do the speckles disappear, and what is the Dice?
+
+**S5.** Preset **ΔE ball in Lab vs RGB distance** (radius 25 around a lit apple pixel). Compare ΔE76, ΔE2000 and RGB distance at radius 25. Then increase the ΔE76 radius: what is the best Dice, and what happens if the radius is too large?
+
+**S6.** Preset **k-means in RGB vs in Lab** ($k = 4$). Which clusters does RGB find, and what is the best cluster's Dice? Switch to **in Lab**. Then try **Otsu on a channel** with $a^*$.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**S1.** Only the lit upper half of the apple (1036 pixels): Dice 0.728. Lowering the thresholds to $R' \ge 60$ with $G', B' \le 90$ reaches 0.890 (1455 pixels, two of them table), but any fixed $R'$ threshold trades the shadowed apple against dark non-red pixels: the shadow is a brightness change, and every RGB channel carries brightness.
+
+**S2.** Hue in 340°–20° (shown as 0–20° ∪ 340–360°), $S \ge 0.40$, $V \ge 0.10$: 1728 pixels, Dice 0.977; only the specular highlight (white, low saturation) is missed. In the H–S histogram the selected pixels sit at the left and right edges (hue near 0° and 360°) and high saturation.
+
+**S3.** The leftmost and rightmost columns of the chart (hues near 0° and near 360°), saturated rows only (1344 pixels). The interval wraps through 0°: it is the union of two intervals, which in the image are the two edges.
+
+**S4.** With no floors, 3930 pixels are selected: 2096 table pixels (mostly in the dark shadow), 34 of the grey card and 17 of the dark stone, Dice 0.621. With $S \ge 0.2$: 456 table pixels remain, Dice 0.872. With $S \ge 0.4$: none, 1723 selected, Dice 0.973.
+
+**S5.** At radius 25: ΔE76 Dice 0.761 (1111 pixels), ΔE2000 0.889 (1807, but 200 of them the dark stone), RGB distance 0.566 (715). ΔE76 at radius 60 reaches 0.986; at 80 the ball swallows the table (14 622 pixels, Dice 0.218). A ball in a lightness-including space must be wide enough to include the shadowed apple, which is far away in lightness; at some point it includes other things first.
+
+**S6.** RGB, $k = 4$: clusters sized 5797, 968, 4119, 5500; the best matches the apple with Dice 0.422: the dark half of the apple joins the dark (shadowed) pixels, the lit half joins other bright saturated pixels. Lab: best cluster Dice 0.765: better, since $a^*$ separates red, but $L^*$ still splits by shadow. Otsu on $a^*$: threshold 21.2, Dice 0.943: one well-chosen number beats clustering in three.
+:::
+
+## Where this leads
+
+Colour is now a set of coordinates in which a class can be a simple region. The next unit turns the question around: how to **display** data with colour (colour maps, channel merges, colour-blind viewers) and how PCA of the colour cloud brings out faint colour differences. A colour model per class becomes the data term of a **graph cut** (day 13), which adds smoothness to the pixel-wise decisions.

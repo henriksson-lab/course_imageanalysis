@@ -11,17 +11,18 @@ import { estimate, sweep, signalOf, SubSettings, SubSignal } from "./model";
 
 const NAME = "subpixel";
 const STYLE = `
-[data-demo="${NAME}"] .sp-plots { flex: 1 1 560px; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .8em; max-width: 860px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .35em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .sp-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
-@media (max-width: 700px) { [data-demo="${NAME}"] .sp-plots { grid-template-columns: 1fr; } }
+.qb-demo[data-demo="${NAME}"] .sp-plots { flex: 1 1 560px; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .8em; max-width: 860px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .sp-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+@media (max-width: 700px) { .qb-demo[data-demo="${NAME}"] .sp-plots { grid-template-columns: 1fr; } }
+.reveal .slides .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; line-height: 1.15; }
 `;
 
 function injectStyle(): void {
@@ -50,10 +51,10 @@ function mount(host: HTMLElement): void {
 
   const plots = htmlEl("div", "sp-plots", "", host);
   const panel = htmlEl("div", "qb-panel", "", host);
-  const f1 = plotFigure(plots, "correlation near the peak");
-  const P1 = new Plot(f1, { width: 430, height: 300, x: [0, 6], y: [0, 1], xlabel: "shift t", ylabel: "c(t)" });
+  const f1 = plotFigure(plots, "near the peak: samples, parabola (red), upsampled DFT (blue)");
+  const P1 = uniqueClip(new Plot(f1, { width: 430, height: 300, x: [0, 6], y: [0, 1], xlabel: "shift t", ylabel: "c(t)" }));
   const f2 = plotFigure(plots, "error for every true fraction");
-  const P2 = new Plot(f2, { width: 430, height: 300, x: [0, 1], y: [-0.2, 0.2], xlabel: "true fraction of a pixel", ylabel: "estimate − truth (px)" });
+  const P2 = uniqueClip(new Plot(f2, { width: 430, height: 300, x: [0, 1], y: [-0.2, 0.2], xlabel: "true fraction of a pixel", ylabel: "estimate − truth (px)" }));
 
   htmlEl("div", "sp-lab", "presets", panel);
   const presetBtns = presets(panel, PRESETS.map(p => ({ label: p.label, apply: () => load(p) })));
@@ -101,7 +102,6 @@ function mount(host: HTMLElement): void {
     marks.push(P1.vline(e.parabola, { color: COL.par, width: 2.5 }));
     marks.push(P1.vline(e.centroid, { color: COL.cen, width: 2.5 }));
     marks.push(P1.vline(e.up, { color: COL.up, width: 2.5 }));
-    P1.legend(undefined, "tl");
     // right plot
     const all = [...sw.parabola, ...sw.centroid, ...sw.up].map(Math.abs).filter(v => v < 0.6);
     const ym = Math.max(0.05, Math.min(0.6, 1.15 * Math.max(...all, 0)));
@@ -120,11 +120,26 @@ function mount(host: HTMLElement): void {
       `centroid    ${f(e.centroid)}  (${d(e.centroid)})`,
       `upsampled   ${f(e.up)}  (${d(e.up)})`,
       `worst error over all fractions:`,
-      `  parabola ${mx(sw.parabola)}  centroid ${mx(sw.centroid)}  upsampled ${mx(sw.up)}`,
+      `  parabola  ${mx(sw.parabola)}`,
+      `  centroid  ${mx(sw.centroid)}`,
+      `  upsampled ${mx(sw.up)}`,
     ].join("\n");
   }
 
   load(p0);
+}
+
+
+/** lib/plot.ts numbers its clip paths per bundle, so two demos on one page can share an id;
+ *  give this plot's clip path a page-unique id (local workaround). */
+function uniqueClip(p: Plot): Plot {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) {
+    const id = "subpixel-clip-" + Math.random().toString(36).slice(2, 10);
+    cp.id = id;
+    p.layer.setAttribute("clip-path", `url(#${id})`);
+  }
+  return p;
 }
 
 autoMount(NAME, mount);

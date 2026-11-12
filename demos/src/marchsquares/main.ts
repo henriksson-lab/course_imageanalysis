@@ -33,25 +33,30 @@ const PRESETS: Preset[] = [
   { id: "join", label: "saddle: the decider joins", n: 4, c: 5, saddle: "decider", interpolant: true, select: [1, 1], values: [2, 3, 4, 2, 3, 8, 4, 3, 2, 3, 7, 3, 1, 2, 3, 2] },
   { id: "separate", label: "saddle: the decider separates", n: 4, c: 5, saddle: "decider", interpolant: true, select: [1, 1], values: [2, 3, 4, 2, 3, 6, 4, 3, 2, 3, 6.5, 3, 1, 2, 3, 2] },
   { id: "midpoint", label: "midpoint vs linear", n: 8, values: bump(8), c: 3, interp: "midpoint", interpolant: true },
-  { id: "exercise", label: "exercise grid", n: 4, c: 5, values: [1, 3, 6, 2, 2, 7, 4, 3, 6, 4, 8, 4, 2, 3, 6, 1], select: [0, 1] },
+  { id: "exercise", label: "exercise grid", n: 4, c: 5, values: [4, 9, 3, 7, 3, 1, 9, 6, 2, 4, 8, 3, 2, 1, 3, 4], select: [1, 0] },
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; }
-[data-demo="${NAME}"] .ms-plot { flex: 1 1 440px; min-width: 0; max-width: 560px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 400px; gap: .4em; }
-[data-demo="${NAME}"] .ms-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; min-height: 9.5em; }
-[data-demo="${NAME}"] svg text { font-size: 18px; }
-[data-demo="${NAME}"] svg .val { font-family: ui-monospace, monospace; font-weight: 600; pointer-events: none; }
-[data-demo="${NAME}"] svg .case { fill: var(--qb-muted); pointer-events: none; }
-[data-demo="${NAME}"] svg .corner { cursor: ns-resize; }
-[data-demo="${NAME}"] svg .cell { cursor: pointer; }
-.reveal [data-demo="${NAME}"] { font-size: 19px; }
-.reveal [data-demo="${NAME}"] .ms-plot { max-width: 520px; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .ms-plot { flex: 1 1 440px; min-width: 0; max-width: 560px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 400px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .ms-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; min-height: 9.5em; }
+.qb-demo[data-demo="${NAME}"] svg text { font-size: 18px; }
+.qb-demo[data-demo="${NAME}"] svg .val { font-family: ui-monospace, monospace; font-weight: 600; pointer-events: none; }
+.qb-demo[data-demo="${NAME}"] svg .case { fill: var(--qb-muted); pointer-events: none; }
+.qb-demo[data-demo="${NAME}"] svg .corner { cursor: ns-resize; }
+.qb-demo[data-demo="${NAME}"] svg .cell { cursor: pointer; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 19px; }
+.reveal .qb-demo[data-demo="${NAME}"] .ms-plot { max-width: 520px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .25em; }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .ms-plot { flex: 0 0 500px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 480px; max-width: 560px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider, .reveal .qb-demo[data-demo="${NAME}"] .qb-check { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; min-height: 0; }
 `;
 
 function injectStyle(): void {

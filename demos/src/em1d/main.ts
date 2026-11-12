@@ -14,23 +14,22 @@ import { type Mixture, makeMixture, eStep, mStep, normalPdf, cloneMixture } from
 
 const NAME = "em1d";
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .e1-left { flex: 0 1 660px; min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 420px; gap: .4em; }
-[data-demo="${NAME}"] table { border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 15px; }
-[data-demo="${NAME}"] td, [data-demo="${NAME}"] th { padding: .1em .45em; text-align: right; border-bottom: 1px solid var(--qb-grid); }
-[data-demo="${NAME}"] th { font-weight: 600; text-align: left; }
-[data-demo="${NAME}"] .e1-tables { display: flex; flex-wrap: wrap; gap: .4em 1.2em; align-items: flex-start; overflow-x: auto; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
-[data-demo="${NAME}"] .e1-stale td { color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .e1-left { flex: 0 0 680px; }
-.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 420px; gap: .3em; }
-.reveal [data-demo="${NAME}"] table { font-size: 14px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
-@media (max-width: 760px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .e1-left { flex: 0 1 660px; min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 420px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] table { border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] td, .qb-demo[data-demo="${NAME}"] th { padding: .1em .45em; text-align: right; border-bottom: 1px solid var(--qb-grid); }
+.qb-demo[data-demo="${NAME}"] th { font-weight: 600; text-align: left; }
+.qb-demo[data-demo="${NAME}"] .e1-tables { display: flex; flex-wrap: wrap; gap: .4em 1.2em; align-items: flex-start; overflow-x: auto; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .e1-stale td { color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .e1-left { flex: 0 0 680px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 420px; gap: .3em; }
+.reveal .qb-demo[data-demo="${NAME}"] table, .reveal .qb-demo[data-demo="${NAME}"] td, .reveal .qb-demo[data-demo="${NAME}"] th { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; padding: .25em .5em; }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -47,7 +46,7 @@ interface Preset { id: string; label: string; x: number[]; mu: number[]; v: numb
 const PRESETS: Preset[] = [
   { id: "hand", label: "the by-hand example", x: [1, 2, 4, 7, 9, 10], mu: [2, 8], v: [4, 4], pi: [0.5, 0.5] },
   { id: "ambiguous", label: "an ambiguous point in the middle", x: [1, 2, 3, 5.5, 8, 9, 10], mu: [2, 9], v: [1, 1], pi: [0.5, 0.5] },
-  { id: "collapse", label: "collapse: one component on one point", x: [1, 1.5, 2.5, 3, 4, 4.5, 10], mu: [3, 10], v: [2, 8], pi: [0.5, 0.5], floor: false },
+  { id: "collapse", label: "collapse: one component on one point", x: [1, 1.5, 2.5, 3, 4, 4.5, 10], mu: [3, 10], v: [2, 8], pi: [0.5, 0.5] },
   { id: "kmeans", label: "hard EM = k-means", x: [1, 2, 4, 7, 9, 10], mu: [1, 2], v: [4, 4], pi: [0.5, 0.5], hard: true, equal: true },
   { id: "three", label: "three components", x: [1, 1.5, 2.5, 5, 5.5, 6.5, 9.5, 10, 11], mu: [2, 4, 9], v: [3, 3, 3], pi: [1 / 3, 1 / 3, 1 / 3] },
 ];
@@ -59,7 +58,7 @@ function mount(host: HTMLElement): void {
   const kAttr = Number(host.dataset.k);
   const p0 = PRESETS.find(p => p.id === host.dataset.preset) ?? (kAttr === 3 ? PRESETS[4] : PRESETS[0]);
   let xs: number[] = [], m: Mixture = makeMixture([1], [[0]], [1]), m0 = m;
-  let resp: Float64Array | null = null, next: "E" | "M" = "E", hard = false, equal = false, floor = true;
+  let resp: Float64Array | null = null, next: "E" | "M" = "E", hard = false, equal = false, floor = false;
   let log: { what: string; L: number }[] = [];
 
   // ---- layout ----
@@ -91,7 +90,7 @@ function mount(host: HTMLElement): void {
     xs = p.x.slice();
     m0 = makeMixture(p.pi, p.mu.map(v => [v]), p.v);
     m = cloneMixture(m0);
-    hard = !!p.hard; equal = !!p.equal; floor = p.floor ?? true;
+    hard = !!p.hard; equal = !!p.equal; floor = !!p.floor;
     hardCb.checked = hard; eqCb.checked = equal; flCb.checked = floor;
     resp = null; next = "E"; log = [];
     presetBtns.forEach((b, i) => b.classList.toggle("active", PRESETS[i] === p));

@@ -156,7 +156,8 @@ check(close(P.airy(P.airyRadius(1.4, 500), 1.4, 500), 0, 1e-4), "first Airy zero
   check(objTV(xtv) < objTV(Float64Array.from(data)) && objTV(xtv) < objTV(xu), "TV (IRLS) lowers its objective");
   // L-curve corner on a synthetic L
   const rho = [1, 1.01, 1.02, 1.05, 2, 4, 8], eta = [100, 30, 10, 3, 2.9, 2.8, 2.7];
-  check(D.lcurveCorner(rho, eta) === 3, `L-curve corner at the bend (${D.lcurveCorner(rho, eta)})`);
+  check(D.lcurveCorner(rho, eta, "curvature") === 3, `L-curve corner (max curvature) at the bend (${D.lcurveCorner(rho, eta, "curvature")})`);
+  check(D.lcurveCorner(rho, eta) === 3, `L-curve corner (nearest the lower left) at the bend (${D.lcurveCorner(rho, eta)})`);
 }
 
 // ---------------------------------------------------------------- Richardson–Lucy

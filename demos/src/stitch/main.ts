@@ -13,23 +13,24 @@ import { makeTiles, registerPairs, DEFAULTS, StitchSettings, Tiles, PairResult, 
 
 const NAME = "stitch";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
-[data-demo="${NAME}"] .st-stack { position: relative; width: 100%; }
-[data-demo="${NAME}"] .st-stack canvas { width: 100%; display: block; image-rendering: pixelated; border-radius: 3px; }
-[data-demo="${NAME}"] .st-stack svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-[data-demo="${NAME}"] .st-main { flex: 0 1 430px; min-width: 260px; }
-[data-demo="${NAME}"] .st-pair { flex: 0 1 230px; min-width: 190px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .3em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .st-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .st-credit { font-size: 12px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .st-edge { cursor: pointer; }
-.reveal [data-demo="${NAME}"] { font-size: 16px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
+.qb-demo[data-demo="${NAME}"] .st-stack { position: relative; width: 100%; }
+.qb-demo[data-demo="${NAME}"] .st-stack canvas { width: 100%; display: block; image-rendering: pixelated; border-radius: 3px; }
+.qb-demo[data-demo="${NAME}"] .st-stack svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.qb-demo[data-demo="${NAME}"] .st-main { flex: 0 1 430px; min-width: 260px; }
+.qb-demo[data-demo="${NAME}"] .st-pair { flex: 0 1 270px; min-width: 240px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .st-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .st-credit { font-size: 12px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .st-edge { cursor: pointer; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal .slides .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; line-height: 1.15; }
 `;
 
 function injectStyle(): void {
@@ -82,8 +83,8 @@ function mount(host: HTMLElement): void {
   button(row, "drop worst edge", () => dropWorst());
   button(row, "restore edges", () => { st.dropped.clear(); draw(); });
   const blendC = checkbox(panel, "blend the seams (feathering)", false, v => { st.blend = v; draw(); });
-  const noiseS = slider(panel, "noise σ", 0, 30, 1, st.s.noise, v => { st.s.noise = v; rebuild(); });
-  const vigS = slider(panel, "vignetting", 0, 0.5, 0.05, st.s.vignette, v => { st.s.vignette = v; rebuild(); });
+  const noiseS = slider(panel, "noise σ", 0, 30, 1, st.s.noise, v => { st.s.noise = v; rebuild(false); });
+  const vigS = slider(panel, "vignetting", 0, 0.5, 0.05, st.s.vignette, v => { st.s.vignette = v; rebuild(false); });
   const thrS = slider(panel, "trust NCC ≥", 0, 1, 0.05, st.thr, v => { st.thr = v; draw(); });
   button(panel, "reset", () => load(p0));
   const ro = htmlEl("div", "qb-readout", "", panel);
@@ -97,19 +98,19 @@ function mount(host: HTMLElement): void {
   }
 
   let tiles: Tiles | null = null, pairs: PairResult[] = [], ms = 0;
-  let pending = false;
-  function rebuild(): void {
+  let timer = 0;
+  /** Recompute the tiles and pairs: at once (presets) or shortly after the last slider move. */
+  function rebuild(now = true): void {
     if (!base) { loadCell(BIG).then(g => { base = Float64Array.from(g.data); rebuild(); }); return; }
-    if (pending) return;
-    pending = true;
-    cap.textContent = "registering 12 pairs…";
-    setTimeout(() => {
-      pending = false;
+    clearTimeout(timer);
+    const go = () => {
       tiles = makeTiles(st.s, base);
       const r = registerPairs(tiles);
       pairs = r.edges; ms = r.ms;
       draw();
-    }, 20);
+    };
+    if (now) go();
+    else { cap.textContent = "registering 12 pairs…"; timer = window.setTimeout(go, 150); }
   }
 
   function edgesNow(): TileEdge[] { return weighted(pairs, st.thr, st.dropped); }
@@ -225,13 +226,12 @@ function mount(host: HTMLElement): void {
     const lines = [
       `true shift   (${tx.toFixed(1)}, ${ty.toFixed(1)})`,
       `measured     (${e.edge.dx.toFixed(1)}, ${e.edge.dy.toFixed(1)})`,
-      `peak used: #${e.peakRank + 1}, height ${e.height.toFixed(3)}`,
-      `candidates of that peak:`,
-      `  shift       overlap   NCC`,
-      ...e.candidates.map(c => `  ${`(${c.tx}, ${c.ty})`.padEnd(12)}${String(c.overlap).padStart(6)}  ${Number.isFinite(c.ncc) ? c.ncc.toFixed(2).padStart(5) : "    –"}`),
-      `confidence (NCC) ${e.ncc.toFixed(2)}${e.ncc >= st.thr ? "" : "  not trusted"}`,
+      `peak used: #${e.peakRank + 1} (height ${e.height.toFixed(2)})`,
+      `candidates:  shift  overlap  NCC`,
+      ...e.candidates.map(c => `${`(${c.tx}, ${c.ty})`.padStart(13)}${String(c.overlap).padStart(7)}${Number.isFinite(c.ncc) ? c.ncc.toFixed(2).padStart(6) : "     –"}`),
+      `confidence ${e.ncc.toFixed(2)}${e.ncc >= st.thr ? "" : " (not trusted)"}`,
     ];
-    if (res) lines.push(`residual after global: ${res[k].toFixed(2)} px`);
+    if (res) lines.push(`residual: ${res[k].toFixed(2)} px`);
     pro.textContent = lines.join("\n");
   }
 

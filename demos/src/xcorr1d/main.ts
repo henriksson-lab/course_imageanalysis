@@ -15,20 +15,21 @@ const NAME = "xcorr1d";
 const CREDIT = "Profile: row 128 of a transmission electron micrograph (Robert M. Hunt, CC BY 3.0)";
 
 const STYLE = `
-[data-demo="${NAME}"] .xc-plots { flex: 1 1 600px; min-width: 0; display: grid; gap: .3em .8em; }
-[data-demo="${NAME}"].xc-direct .xc-plots { grid-template-columns: 1fr; max-width: 680px; }
-[data-demo="${NAME}"].xc-fft .xc-plots { grid-template-columns: 1fr 1fr; max-width: 860px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 270px; max-width: 330px; gap: .35em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .xc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .xc-credit { font-size: 12px; color: var(--qb-muted); }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
-.reveal [data-demo="${NAME}"].xc-direct .xc-plots { max-width: 700px; }
+.qb-demo[data-demo="${NAME}"] .xc-plots { flex: 1 1 600px; min-width: 0; display: grid; gap: .3em .8em; }
+.qb-demo[data-demo="${NAME}"].xc-direct .xc-plots { grid-template-columns: 1fr; max-width: 680px; }
+.qb-demo[data-demo="${NAME}"].xc-fft .xc-plots { grid-template-columns: 1fr 1fr; max-width: 860px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 270px; max-width: 330px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .xc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .xc-credit { font-size: 12px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"].xc-direct .xc-plots { max-width: 700px; }
+.reveal .slides .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; line-height: 1.15; }
 `;
 
 function injectStyle(): void {
@@ -57,8 +58,7 @@ const FFT: Preset[] = [
   { id: "agree", label: "the curves agree", st: { sim: { N: 32, L: 32, t: 5, seed: 3 }, cur: 0, pad: false } },
   { id: "wrap", label: "wrap-around fools it", st: { sim: { N: 32, L: 32, t: 9, seed: 1 }, cur: -3, pad: false } },
   { id: "pad", label: "padding fixes it", st: { sim: { N: 32, L: 32, t: 9, seed: 1 }, cur: 9, pad: true } },
-  { id: "waves", label: "the waves line up", st: { sim: { N: 16, L: 16, t: 3, seed: 4 }, cur: 3, pad: false } },
-  { id: "phase", label: "phase only: one spike", st: { sim: { N: 32, L: 32, t: 5, seed: 3 }, cur: 5, pad: false, phase: true } },
+  { id: "waves", label: "the waves line up", st: { sim: { N: 16, L: 16, t: 3, seed: 1, circular: true }, cur: 3, pad: false } },
   { id: "hand4", label: "by hand: length 4", st: { sim: { kind: "hand", N: 4, L: 4, t: 1 }, cur: 1, pad: false, meanFree: false } },
 ];
 
@@ -105,11 +105,12 @@ function mount(host: HTMLElement): void {
     lenS = slider(panel, "length of B", 4, 64, 1, 64, v => { st.sim.L = v; update(true); });
     ovS = slider(panel, "min. overlap", 2, 32, 1, 8, v => { st.minOv = v; update(false); });
   }
-  let padC: HTMLInputElement | null = null, mfC: HTMLInputElement | null = null, phC: HTMLInputElement | null = null;
+  let padC: HTMLInputElement | null = null, mfC: HTMLInputElement | null = null, phC: HTMLInputElement | null = null, circC: HTMLInputElement | null = null;
   if (mode === "fft") {
     padC = checkbox(panel, "zero-pad to 2N (linear)", false, v => { st.pad = v; update(false); });
     mfC = checkbox(panel, "subtract the means", true, v => { st.meanFree = v; update(false); });
     phC = checkbox(panel, "phase only (|·| = 1)", false, v => { st.phase = v; update(false); });
+    circC = checkbox(panel, "B = A rolled around (circular copy)", false, v => { st.sim.circular = v; update(true); });
   }
   button(panel, "reset", () => load(p0));
   const ro = htmlEl("div", "qb-readout", "", panel);
@@ -122,17 +123,17 @@ function mount(host: HTMLElement): void {
   // ---- plots ----
   const W = mode === "direct" ? 660 : 430, Hh = mode === "direct" ? 230 : 250;
   const f1 = plotFigure(plots, mode === "direct" ? "A (blue) and B (red) placed at shift t" : "A (blue) and B (red)");
-  const sigP = new Plot(f1, { width: W, height: Hh, x: [0, 64], y: [0, 255], xlabel: "x", ylabel: "grey level" });
+  const sigP = uniqueClip(new Plot(f1, { width: W, height: Hh, x: [0, 64], y: [0, 255], xlabel: "x", ylabel: "grey level" }));
   const f2 = plotFigure(plots, mode === "direct" ? "score of each shift (drawn as B slides)" : "correlation c(t): brute force (dots) and FFT (line)");
-  const scoreP = new Plot(f2, { width: W, height: Hh, x: [-63, 63], y: [0, 1], xlabel: "shift t", ylabel: "score" });
+  const scoreP = uniqueClip(new Plot(f2, { width: W, height: Hh, x: [-63, 63], y: [0, 1], xlabel: "shift t", ylabel: "score" }));
   let waveSvg: SVGSVGElement | null = null, costP: Plot | null = null;
   if (mode === "fft") {
     const f3 = plotFigure(plots, "each frequency's vote at shift t");
     waveSvg = svgEl("svg", { viewBox: "0 0 430 250", width: "100%", class: "qb-plot-svg" }, f3);
-    const f4 = plotFigure(plots, "multiply-adds for two n × n images");
-    costP = new Plot(f4, { width: W, height: Hh, x: [16, 4096], y: [1e3, 1e15], xlog: true, ylog: true, xlabel: "image side n", yticks: [1e3, 1e6, 1e9, 1e12, 1e15], margin: { l: 70 } });
-    costP.fn(n => n ** 4, { color: seriesColor(1), label: "all shifts, directly" }, 60);
-    costP.fn(n => 65 * 65 * n * n, { color: seriesColor(3), label: "±32 window, directly" }, 60);
+    const f4 = plotFigure(plots, "operations for two n × n images");
+    costP = uniqueClip(new Plot(f4, { width: W, height: Hh, x: [16, 4096], y: [1e3, 1e15], xlog: true, ylog: true, xlabel: "image side n", yticks: [1e3, 1e6, 1e9, 1e12, 1e15], margin: { l: 70 } }));
+    costP.fn(n => 2 * n ** 4, { color: seriesColor(1), label: "all shifts, directly" }, 60);
+    costP.fn(n => 2 * 65 * 65 * n * n, { color: seriesColor(3), label: "±32 window, directly" }, 60);
     costP.fn(n => 3 * fftFlops(4 * n * n), { color: seriesColor(2), label: "FFT (padded)" }, 60);
     costP.vline(1024, { text: "1024", width: 2 });
     costP.legend(undefined, "tl");
@@ -184,6 +185,7 @@ function mount(host: HTMLElement): void {
     if (padC) padC.checked = st.pad;
     if (mfC) mfC.checked = st.meanFree;
     if (phC) phC.checked = st.phase;
+    if (circC) circC.checked = !!st.sim.circular;
     credit.style.visibility = s.kind === "profile" ? "visible" : "hidden";
   }
 
@@ -311,7 +313,8 @@ function mount(host: HTMLElement): void {
     let maxDiff = 0;
     if (!st.phase) bts.forEach((u, k) => { maxDiff = Math.max(maxDiff, Math.abs(res.c[((u % n) + n) % n] - bvs[k])); });
     drawWaves(res.R, n, t);
-    const R = res.R, cplx = (k: number) => `${fmt(R.re[k], 2)}${R.im[k] < 0 ? "−" : "+"}${fmt(Math.abs(R.im[k]), 2)}i`;
+    const R = res.R, z = (v: number) => (Math.abs(v) < 1e-9 ? 0 : v);
+    const cplx = (k: number) => `${fmt(z(R.re[k]), 2)}${z(R.im[k]) < 0 ? "−" : "+"}${fmt(Math.abs(z(R.im[k])), 2)}i`;
     const lines = [
       `transform length ${n}${st.pad ? " (padded)" : ""}`,
       `c(${t}) = ${fmt(res.c[((t % n) + n) % n], 3)}`,
@@ -364,6 +367,19 @@ function hideControls(panel: HTMLElement, spec: string | undefined): void {
     const name = (el.querySelector(".qb-slider-name")?.textContent ?? el.textContent ?? "").trim().toLowerCase();
     if (!keep.some(k => name.startsWith(k))) el.style.display = "none";
   });
+}
+
+
+/** lib/plot.ts numbers its clip paths per bundle, so two demos on one page can share an id;
+ *  give this plot's clip path a page-unique id (local workaround). */
+function uniqueClip(p: Plot): Plot {
+  const cp = p.svg.querySelector("clipPath");
+  if (cp) {
+    const id = "xcorr1d-clip-" + Math.random().toString(36).slice(2, 10);
+    cp.id = id;
+    p.layer.setAttribute("clip-path", `url(#${id})`);
+  }
+  return p;
 }
 
 autoMount(NAME, mount);

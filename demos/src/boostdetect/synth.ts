@@ -10,6 +10,7 @@ import { rng } from "../lib/random";
 export type Rng = ReturnType<typeof rng>;
 export type Target = "faces" | "cells";
 export const WIN = 24;
+const NOISE = 7;
 
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 
@@ -40,13 +41,14 @@ export function drawFace(img: Float64Array, w: number, h: number, cx: number, cy
   const E = (dx: number, dy: number, a: number, b: number, v: number, al = 1) => { const [x, y] = P(dx, dy); ellipse(img, w, h, x, y, a * s, b * s, th, v, al); };
   E(0, -0.08, 0.42, 0.52, hair);           // hair
   E(0, 0.04, 0.37, 0.46, skin);            // head
-  if (o.glasses) {
-    for (const sx of [-1, 1]) { E(0.16 * sx, -0.07, 0.12, 0.09, 40); E(0.16 * sx, -0.07, 0.095, 0.068, skin + 15); }
-    E(0, -0.08, 0.05, 0.016, 40);
-  }
   for (const sx of [-1, 1]) {
     E(0.16 * sx, -0.07, 0.07, 0.04, skin - 120);  // eye
     E(0.16 * sx, -0.165, 0.09, 0.022, skin - 105); // brow
+  }
+  if (o.glasses) {
+    // thick dark frames with bright, reflecting lenses: the eyes no longer look dark
+    for (const sx of [-1, 1]) { E(0.16 * sx, -0.09, 0.135, 0.11, 30); E(0.16 * sx, -0.09, 0.105, 0.08, Math.min(255, skin + 50)); }
+    E(0, -0.1, 0.05, 0.02, 30);
   }
   E(0, 0.07, 0.035, 0.085, skin - 35);      // nose
   E(0, 0.25, 0.13, 0.035, skin - 85);       // mouth
@@ -113,17 +115,17 @@ export interface PatchOptions { glasses?: "random" | "never" | "always"; angle?:
 /** One positive 24 × 24 patch. */
 export function positivePatch(R: Rng, target: Target, o: PatchOptions = {}): Float64Array {
   const img = background(WIN, WIN, R, target, 0.4);
-  const cx = WIN / 2 + (R.unif() - 0.5) * 2, cy = WIN / 2 + (R.unif() - 0.5) * 2;
+  const cx = WIN / 2 + (R.unif() - 0.5) * 3, cy = WIN / 2 + (R.unif() - 0.5) * 3;
   if (target === "faces") {
     const glasses = o.glasses === "always" ? true : o.glasses === "never" ? false : R.unif() < 0.3;
-    drawFace(img, WIN, WIN, cx, cy + 1, WIN * (1.0 + 0.15 * R.unif()), {
-      glasses, angle: o.angle ?? (R.unif() - 0.5) * 0.12, skin: 140 + 80 * R.unif(), hair: 20 + 200 * R.unif() * R.unif(), light: (R.unif() - 0.5) * 0.6,
+    drawFace(img, WIN, WIN, cx, cy + 1, WIN * (0.95 + 0.25 * R.unif()), {
+      glasses, angle: o.angle ?? (R.unif() - 0.5) * 0.25, skin: 140 + 80 * R.unif(), hair: 20 + 200 * R.unif() * R.unif(), light: (R.unif() - 0.5) * 0.6,
     });
   } else {
     drawCell(img, WIN, WIN, cx, cy, 7 + 3 * R.unif(), R, 150 + 90 * R.unif());
   }
   jitterContrast(img, R);
-  addNoise(img, R, 3);
+  addNoise(img, R, NOISE);
   return img;
 }
 
@@ -149,7 +151,7 @@ export function negativePatch(R: Rng, target: Target): Float64Array {
     out[y * WIN + x] = s / n;
   }
   jitterContrast(out, R);
-  addNoise(out, R, 3);
+  addNoise(out, R, NOISE);
   return out;
 }
 
@@ -186,6 +188,6 @@ export function testScene(target: Target, seed: number, o: SceneOptions = {}): {
       targets.push({ x: x - size / 2, y: y - size / 2, size, kind: "cell" });
     }
   });
-  addNoise(img, R, 3);
+  addNoise(img, R, NOISE);
   return { img, targets };
 }

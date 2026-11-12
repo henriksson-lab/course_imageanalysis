@@ -1,0 +1,137 @@
+---
+title: "Exercise: boosted detectors and the cascade"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- find the best **decision stump** on a small weighted data set, and carry out **AdaBoost** rounds by hand: weighted error, vote $\alpha$, new weights,
+- compute the **detection rate**, **false-positive rate** and **expected number of features** of a cascade,
+- explain why a cascade is fast, why each stage trains on the background that got through, and what the training set does to the detector,
+- *(math)* derive the vote $\alpha$ and the training-error bound.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Stump | one feature, one threshold, one direction: a depth-1 decision tree |
+| Weighted error | $\varepsilon = $ sum of the weights of the misclassified examples (weights sum to 1) |
+| Vote | $\alpha = \tfrac12\ln\frac{1-\varepsilon}{\varepsilon}$ |
+| Reweighting | misclassified: $\times e^{\alpha}$; correct: $\times e^{-\alpha}$; then divide by the sum |
+| Strong classifier | sign of $\sum_t \alpha_t h_t$, with $h_t = \pm 1$ |
+| Training-error bound | $\prod_t 2\sqrt{\varepsilon_t(1-\varepsilon_t)}$ |
+| Cascade | $D = \prod d_i$, $F = \prod f_i$; features per window $\sum_i n_i \prod_{j<i} p_j$ |
+
+## By hand
+
+**B1.** **AdaBoost on six numbers.** One feature with values $1, 2, 3, 4, 5, 6$ and labels $-, -, +, -, +, +$. Start with equal weights $\tfrac16$. A stump says "+ if the value is above $\theta$" (or the opposite direction).
+(a) Find the best stump: its threshold, direction and weighted error. Compute its vote $\alpha_1$.
+(b) Reweight. What are the six new weights? Which example now carries half of the total weight?
+(c) Find the best stump for round 2 with the new weights, its error and $\alpha_2$. Compute the score $\alpha_1 h_1 + \alpha_2 h_2$ of every example. Which examples are still misclassified?
+(d) Round 3 finds the stump "+ if the value is below 3.5" with weighted error $\tfrac29$. Is the training error now 0? (Compute the final scores.)
+
+**B2.** **A three-stage cascade.** The stages have detection rates $0.99, 0.98, 0.97$, false-positive rates $0.5, 0.3, 0.2$, and use $2, 5, 20$ features.
+(a) What are the overall detection rate $D$ and false-positive rate $F$?
+(b) How many features does a background window need on average? (Use the false-positive rates as the pass rates of background windows.)
+(c) Without a cascade, one classifier with all 27 features: how many per window? What is the speed-up?
+
+**B3.** **Ten stages.** Each stage keeps 99 % of the faces and passes 30 % of the background.
+(a) Is $D \ge 0.9$? How small is $F$?
+(b) An image has 670 000 windows. How many false detections do you expect?
+(c) To halve the false detections, would you add a stage or make every stage stricter? What does each cost?
+
+**B4.** **Scales.** A feature in the $24 \times 24$ base window is a two-rectangle edge with rectangles of $4 \times 8$ pixels at position $(6, 2)$.
+(a) What does it become in a window of $36 \times 36$ (scale 1.5)? How many lookups does it cost there?
+(b) Why divide the response by the window's standard deviation, and by the rectangle area?
+
+**B5.** **Who is in the training set?** A face detector is trained on 5000 faces, almost all without glasses and with light skin.
+(a) Predict how it behaves on faces with glasses or darker skin, and explain why with the cascade's per-stage thresholds.
+(b) Why does a high detection rate on the **test set** not prove that the problem is absent?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Threshold 2.5, "+ above": only the value 4 (a $-$) is wrong. $\varepsilon_1 = \tfrac16$, $\alpha_1 = \tfrac12\ln 5 = 0.805$.
+(b) The mistake is multiplied by $e^{0.805} = \sqrt5$, the others by $1/\sqrt5$; after normalising: $0.1, 0.1, 0.1, 0.5, 0.1, 0.1$. The example with value 4 carries half the weight.
+(c) Threshold 4.5, "+ above": only the value 3 (a $+$) is wrong, $\varepsilon_2 = 0.1$, $\alpha_2 = \tfrac12\ln 9 = 1.099$. (The old stump at 2.5 would now have error 0.5.) Scores: values 1, 2: $-0.805 - 1.099 = -1.903$; values 3, 4: $0.805 - 1.099 = -0.294$; values 5, 6: $+1.903$. The value 3 (a $+$) is still wrong; training error $\tfrac16$. New weights: $0.056, 0.056, 0.5, 0.278, 0.056, 0.056$.
+(d) $\alpha_3 = \tfrac12\ln\frac{7/9}{2/9} = \tfrac12\ln 3.5 = 0.626$. The stump says $+$ for 1, 2, 3 and $-$ for 4, 5, 6. Scores: values 1, 2: $-1.903 + 0.626 = -1.277$; value 3: $-0.294 + 0.626 = +0.332$; value 4: $-0.294 - 0.626 = -0.920$; values 5, 6: $1.903 - 0.626 = 1.277$. All six correct: training error 0. (The bound is $0.745 \cdot 0.600 \cdot 0.831 = 0.372$.)
+
+**B2.** (a) $D = 0.99 \cdot 0.98 \cdot 0.97 = 0.941$; $F = 0.5 \cdot 0.3 \cdot 0.2 = 0.03$.
+(b) $2 + 5 \cdot 0.5 + 20 \cdot 0.5 \cdot 0.3 = 2 + 2.5 + 3 = 7.5$ features.
+(c) 27 features per window; the cascade is $27/7.5 = 3.6$ times faster. With many stages and a tiny first stage the factor grows much larger.
+
+**B3.** (a) $D = 0.99^{10} = 0.904$: yes. $F = 0.3^{10} = 5.9 \cdot 10^{-6}$.
+(b) $670\,000 \times 5.9 \cdot 10^{-6} \approx 4$ false detections per image (before merging).
+(c) An eleventh stage multiplies $F$ by its own false-positive rate (0.3 would give a factor 3 fewer) and $D$ by its detection rate (0.99): a small loss of faces, and a small extra cost, because few windows reach it. Making every stage stricter lowers $D$ at every stage (ten times the loss) and makes the early stages, which see all windows, more expensive. Adding a stage is usually better.
+
+**B4.** (a) Rectangles of $6 \times 12$ pixels at $(9, 3)$; still 6 lookups. (b) The SD makes the response independent of the contrast of this window (lighting, camera); the area makes responses at different scales comparable (the feature becomes a difference of mean grey levels). Without them, a threshold learnt at scale 1 in one lighting would not fit other scales and lighting.
+
+**B5.** (a) Each stage's threshold is set so that almost all **training** faces pass. Faces that differ systematically from the training faces (glasses hide the dark eyes; different contrasts between eyes, cheeks and skin) get lower scores and are rejected at some stage: they are detected less often. (b) If the test set is drawn from the same population as the training set, it lacks the same faces: the error on the missing groups is never measured. The test set must contain enough faces of every group the detector will meet, and the rates should be reported per group.
+:::
+
+### Math questions
+
+**B6.** *(math)* After round $t$, AdaBoost multiplies the weights of the misclassified examples by $e^{\alpha_t}$ and the others by $e^{-\alpha_t}$. Show that with $\alpha_t = \tfrac12\ln\frac{1 - \varepsilon_t}{\varepsilon_t}$ the stump $h_t$ has weighted error exactly $\tfrac12$ under the new weights. What does that mean for round $t + 1$?
+
+**B7.** *(math)* Let $Z(\alpha) = \sum_i w_i e^{-\alpha y_i h(x_i)}$ (the exponential loss after adding $\alpha h$). Show that $Z(\alpha) = (1 - \varepsilon)e^{-\alpha} + \varepsilon e^{\alpha}$, find the $\alpha$ that minimises it, and show that the minimum is $2\sqrt{\varepsilon(1 - \varepsilon)}$.
+
+**B8.** *(math)* Show for two rounds that the training error of $H = \operatorname{sign}(\alpha_1 h_1 + \alpha_2 h_2)$ is at most $Z_1 Z_2 = \prod_t 2\sqrt{\varepsilon_t(1-\varepsilon_t)}$. (Use $[H(x_i) \ne y_i] \le e^{-y_i F(x_i)}$ with $F = \alpha_1h_1 + \alpha_2h_2$, and write the weights after two rounds in terms of $F$.) Check it on B1.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** Before normalising, the misclassified examples weigh $\varepsilon e^{\alpha}$ in total and the correct ones $(1-\varepsilon)e^{-\alpha}$. With $e^{\alpha} = \sqrt{(1-\varepsilon)/\varepsilon}$ both equal $\sqrt{\varepsilon(1-\varepsilon)}$. So after normalising, the stump's error is exactly $\tfrac12$: under the new weights it is no better than guessing, and round $t + 1$ must find a stump that carries new information (in B1, the stump at 2.5 has error 0.5 in round 2).
+
+**B7.** Correct examples have $y_i h(x_i) = 1$, total weight $1 - \varepsilon$; wrong ones $-1$, total $\varepsilon$: $Z = (1-\varepsilon)e^{-\alpha} + \varepsilon e^{\alpha}$. $Z'(\alpha) = -(1-\varepsilon)e^{-\alpha} + \varepsilon e^{\alpha} = 0$ gives $e^{2\alpha} = (1-\varepsilon)/\varepsilon$, $\alpha = \tfrac12\ln\frac{1-\varepsilon}{\varepsilon}$ ($Z'' > 0$: a minimum). Then $Z = (1-\varepsilon)\sqrt{\varepsilon/(1-\varepsilon)} + \varepsilon\sqrt{(1-\varepsilon)/\varepsilon} = 2\sqrt{\varepsilon(1-\varepsilon)}$.
+
+**B8.** Starting from $w_i^{(1)} = 1/n$, after two rounds $w_i^{(3)} = \frac{1}{n}\frac{e^{-y_i\alpha_1h_1(x_i)}e^{-y_i\alpha_2h_2(x_i)}}{Z_1Z_2} = \frac{e^{-y_iF(x_i)}}{nZ_1Z_2}$, where $Z_t$ is the normaliser of round $t$ (equal to the minimum of B7). The weights sum to 1, so $\frac1n\sum_i e^{-y_iF(x_i)} = Z_1Z_2$. A misclassified example has $y_iF(x_i) \le 0$, so $e^{-y_iF(x_i)} \ge 1 \ge [H(x_i) \ne y_i]$; hence the training error $\le \frac1n\sum_i e^{-y_iF(x_i)} = Z_1Z_2$. B1: $Z_1 = 2\sqrt{\tfrac16\cdot\tfrac56} = 0.745$, $Z_2 = 2\sqrt{0.1 \cdot 0.9} = 0.6$, bound $0.447 \ge \tfrac16$. The same argument works for any number of rounds.
+:::
+
+## Explore: boosting and the cascade {#explore}
+
+The demo trains a detector on $24 \times 24$ patches: 300 cartoon faces (random size, pose, lighting, hair; 30 % with glasses) and 600 background patches, with a test set of 200 faces and 400 background patches; switch **target** to **cells** for bright cells against debris. The feature pool has 2769 rectangle features (all six templates on a 3-pixel grid, rectangles 2 to 8 pixels). No real people are shown.
+
+- **boost**: **add one stump** / **add 10**. Left: the stump shown (slider) on the mean face (white +, black −), and the six examples with the largest weight in that round (orange frame: face, blue: background). Top plot: training and test error and the bound against rounds. Bottom plot: every training example at its score after that round; dot area = its weight for the next round.
+- **cascade**: the table lists the stages (stumps, detection and false-positive rate on the stage's own training set, and the share of random background windows that reach the stage); the bars show how many windows of the test scene reach each stage. The default cascade (8 stages, per-stage detection 0.995 and false positives at most 0.5) is precomputed; **build cascade** retrains with your settings (a few seconds).
+- **detect**: the test scene with merged detections (green: a true face, red: false; dashed: the true faces) and, on the right, every window at the smallest scale coloured by the stage that rejected it.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="boostdetect" data-tab="boost" data-preset="first"></div>
+<script src="../demos/dist/boostdetect.js"></script>
+```
+
+**E1.** Preset **first two stumps**. Which features were chosen (template, position, size)? Read $\varepsilon$ and $\alpha$ of each (move the "show stump" slider). Do larger errors get smaller votes? What are the training and test errors after two rounds?
+
+**E2.** **add 10** until 10 rounds, then until 50. Note the training and test errors at 10 and 50 rounds, and the bound. Why can the training error reach 0 while the test error does not?
+
+**E3.** Preset **boosting focuses on the hard examples** (10 rounds). Where are the big dots in the bottom plot? What kind of examples are the six heaviest?
+
+**E4.** Tab **cascade** (preset **a cascade: few features per window**). How many windows does the test scene have, how many does stage 1 reject, and how many pass all stages? How many stumps does the cascade hold, and how many features does a window need on average? Compare with B2.
+
+**E5.** Tab **detect**, preset **one strong classifier vs a cascade**. Compare features per window, faces found and false detections with and without the cascade (untick **no cascade**). Why does the cascade make fewer false detections, although it evaluates fewer features?
+
+**E6.** Preset **a rotated face is missed**. Which face is missed by the cascade? Tick **no cascade**: what happens? What would you add to the training set?
+
+**E7.** Preset **training set without glasses**. Which faces are missed? Compare with B5.
+
+**E8.** Switch **target** to **cells** and look at the boost errors after 10 rounds and at the detection result. Which templates does boosting pick first for cells?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Round 1: centre − surround at $(0, 3)$ with cells of $8 \times 2$ pixels (a $24 \times 6$ band near the top of the window: the hair against the forehead), $\varepsilon_1 = 0.069$, $\alpha_1 = 1.30$. Round 2: an edge (left − right) at $(0, 15)$ with rectangles of $4 \times 8$: the left side of the face against the background, $\varepsilon_2 = 0.132$, $\alpha_2 = 0.94$. Yes: the larger the weighted error, the smaller the vote. After two rounds: training error 6.9 %, test error 8.7 %. (The cartoon faces differ from real ones: here the hairline and the face outline are the most reliable cues; on real faces Viola and Jones found the eye features first.)
+
+**E2.** 10 rounds: training 0.2 %, test 1.5 % (bound 3.2 %). 50 rounds: training 0.0 %, test 1.0 % (bound below 0.01 %). The training error measures the patches the stumps were chosen on; the test patches are new, and some of them (unusual faces, face-like background) fall on the wrong side of the learnt thresholds.
+
+**E3.** The big dots lie near the decision boundary at 0 or on the wrong side: background patches with a high score and faces with a low one. The six heaviest examples in round 10 are four background patches and two faces: the examples the first nine stumps found hardest.
+
+**E4.** 27 750 windows; stage 1 (2 stumps) rejects 20 597 (74 %); 65 windows pass all 8 stages. The cascade holds 37 stumps, but a window needs 3.94 features on average: as in B2(b), the first, tiny stages decide almost every window. Products of the stage rates on their training sets: $D = 0.977$, $F = 2.4 \cdot 10^{-4}$.
+
+**E5.** No cascade (one classifier of 50 stumps, threshold 0): 50 features per window, 7 of 7 faces, 11 false detections. Cascade: 3.94 features per window, 7 of 7 faces, 2 false detections. Each later stage of the cascade was trained on the background windows that the earlier stages wrongly accepted (bootstrapping): hard, face-like background. The single classifier only saw 600 random background patches and never learnt to reject the face-like clutter.
+
+**E6.** The large face right of the centre, turned by 34°, is missed by the cascade (6 of 7 found). Without the cascade the looser single classifier does find it (7 of 7, but with 11 false detections). Axis-aligned rectangle features expect upright faces; add rotated faces to the training set, use rotated (45°) features, or train separate detectors for several angles.
+
+**E7.** One of the two faces with glasses is missed (6 of 7 found, no false detections). The glasses' bright lenses and dark frames replace the dark eyes; trained only on faces without glasses, some stage rejects that window. In B5 terms: the training set decides whom the detector finds.
+
+**E8.** After 10 rounds: training 0.2 %, test 0.8 %. On the test scene the cascade finds all 9 cells with no false detections (the single 50-stump classifier: 10 false detections). The first stumps are a three-rectangle line (a bright middle band between darker top and bottom), a four-rectangle diagonal and a three-rectangle line across: features that describe a bright round blob with a darker centre.
+:::
+
+## Where this leads
+
+The detector is judged by its detection rate and false detections; matching detections to the truth, precision–recall curves and average precision belong to the **evaluation** day. The **random forests** day uses the same split search to grow full trees. Modern detectors learn their features with convolutional networks (**neural networks**, **modern deep learning**), but the cascade's principle, spending computation only where it is needed, is still used wherever computation is scarce.

@@ -26,10 +26,11 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .35em; }
 [data-demo="${NAME}"] .ht-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .ht-credit { font-size: 12px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
+[data-demo="${NAME}"] .qb-readout { font-size: 14px; margin-top: .4em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.reveal [data-demo="${NAME}"] .ht-lab { display: none; }
 .reveal [data-demo="${NAME}"] .ht-img { flex: 0 0 290px; }
 .reveal [data-demo="${NAME}"] .ht-plots { flex: 0 1 420px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; max-width: 330px; }
@@ -68,6 +69,7 @@ function mount(host: HTMLElement): void {
   const fig = htmlEl("figure", "ht-img", "", host);
   const cap = htmlEl("figcaption", "", "", fig);
   const cv = htmlEl("canvas", "", "", fig);
+  const ro = htmlEl("div", "qb-readout", "", fig);
   const credit = htmlEl("div", "ht-credit", CELL_CREDIT, fig);
   const plots = htmlEl("div", "ht-plots", "", host);
   const hp = new Plot(plots, { width: 470, height: 270, x: [0, 255], y: [0, 1], xlabel: "grey level", ylabel: "pixels per bin", xticks: [0, 50, 100, 150, 200, 250] });
@@ -96,7 +98,6 @@ function mount(host: HTMLElement): void {
   const darkC = checkbox(row3, "dark objects", st.dark, v => { st.dark = v; update(); });
   button(row3, "t = Otsu", () => { st.t = otsuT; if (st.levels3) { st.t = multi.t1v; st.t2 = multi.t2v; } sync(); update(); });
   button(row3, "reset", () => load(p0));
-  const ro = htmlEl("div", "qb-readout", "", panel);
 
   function sync(): void {
     tS.set(st.t); t2S.set(st.t2); binS.set(Math.round(Math.log2(st.bins))); conS.set(st.contrast); noiS.set(st.noise); bluS.set(st.blur);

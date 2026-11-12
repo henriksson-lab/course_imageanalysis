@@ -10,6 +10,8 @@ import { rng } from "../src/lib/random";
 import { oobFractionSamples, varianceOfAverage, simulateAverageVariance } from "../src/bootstrap/sim";
 import { population, FEATURES } from "../src/featimp/population";
 import { synthScene } from "../src/pixelclass/scene";
+import { trainingSet, regionScores } from "../src/pixelclass/pipeline";
+import { PIXEL_PRESETS, strokesToMap } from "../src/pixelclass/presets";
 
 declare const process: { exit(code: number): never };
 
@@ -245,6 +247,36 @@ check(close(FO.impurity([2, 3, 5], 10, "gini"), 2 * (0.2 * 0.3 + 0.2 * 0.5 + 0.3
   let cnt = [0, 0, 0, 0];
   for (const v of sc.truth) cnt[v]++;
   check(cnt[1] > 0 && cnt[2] > 0 && cnt[3] > 0, `synthetic scene has all classes ${cnt}`);
+}
+
+
+// ---- pixelclass pipeline: training set, groups, balancing, region scores (exercise B3)
+{
+  const sc = synthScene(64, 3);
+  const S = featureStack(sc.image, ["intensity", "edges"], [1, 3]);
+  const L = new Uint8Array(64 * 64);
+  for (let x = 5; x < 20; x++) { L[10 * 64 + x] = 1; L[40 * 64 + x] = 1; }   // two background strokes
+  for (let x = 30; x < 35; x++) L[20 * 64 + x] = 2;                          // one nucleus stroke
+  const info = trainingSet(S, L, { balance: true })!;
+  check(info.data.n === 35 && info.strokes === 3 && info.painted[0] === 30 && info.painted[1] === 5, `training set ${info.data.n} px, ${info.strokes} strokes`);
+  let w0 = 0, w1 = 0;
+  for (let i = 0; i < info.data.n; i++) (info.data.y[i] === 0 ? (w0 += info.data.w![i]) : (w1 += info.data.w![i]));
+  check(close(w0, w1, 1e-9) && close(w0 + w1, 35, 1e-9), "balanced weights: equal class totals");
+  check(new Set(Array.from(info.data.groups!)).size === 3, "groups = strokes");
+  const ex = trainingSet(S, L, { exclude: p => p % 64 >= 32 })!;
+  check(ex.data.n === 32, "held-out region excluded");
+  // exercise B3: 4×4 region
+  const T = "NNBBNNBBNBBBBBBB", Pd = "NNNBNBBBNNBBBBBB";
+  const truth = Uint8Array.from(T, c => (c === "N" ? 2 : 1)), pred = Uint8Array.from(Pd, c => (c === "N" ? 1 : 0));
+  const r = regionScores(pred, new Uint8Array(16), truth, 2);
+  check(close(r.truthAcc, 13 / 16) && close(r.dice[1], 8 / 11) && close(r.dice[0], 18 / 21), `B3 scores ${r.truthAcc} ${r.dice}`);
+  // every synthetic preset rasterises strokes of valid labels
+  const sc2 = synthScene(256, 1);
+  for (const p of PIXEL_PRESETS.filter(q => q.image === "synth")) {
+    const m = strokesToMap(p.strokes(sc2), 256, 256);
+    let n = 0, bad = 0; for (const v of m) { if (v) n++; if (v > 3) bad++; }
+    check(n > 100 && bad === 0, `preset ${p.id}: ${n} painted pixels`);
+  }
 }
 
 console.log(`${checks - failures}/${checks} checks passed`);

@@ -15,31 +15,33 @@ import { htmlEl, slider, presets, button, autoMount, svgEl } from "../lib/ui";
 import { Plot, seriesColor } from "../lib/plot";
 import { GLView, OrbitCamera, viewButtons } from "../lib/gl3d";
 import * as M4 from "../lib/mat4";
-import { marchingSquares, marchingCubes, contourLength, contourArea, padGrid } from "../lib/marching";
+import { marchingSquares, marchingCubes, padGrid } from "../lib/marching";
+import { diskImage, diskMeasures, ballMeasures, blurredBall, volumeVsC } from "./measure";
 import { meshArea, meshVolume, meshTopology, vertexCluster } from "../lib/mesh";
-import {
-  Volume, volumeFromFunction, gaussianBlur3d, padVolume, nucleiStack, NUCLEI_OBJECTS, ellipsoidVolume, rotY,
-  thresholdVolume, sliceAxis,
-} from "../lib/volume";
+import { Volume, gaussianBlur3d, padVolume, nucleiStack, NUCLEI_OBJECTS, ellipsoidVolume, rotY, thresholdVolume, sliceAxis } from "../lib/volume";
 
 const NAME = "meshmeasure";
 type Tab = "resolution" | "isovalue" | "decimate";
-const OFF = [0.23, 0.37, 0.11];   // centre offset from a pixel centre (avoids exact ties)
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .mm-tabs { flex: 1 1 100%; display: flex; gap: .4em; flex-wrap: wrap; align-items: center; }
-[data-demo="${NAME}"] .mm-body { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: .8em; align-items: flex-start; }
-[data-demo="${NAME}"] .mm-col { flex: 1 1 300px; min-width: 240px; max-width: 420px; display: flex; flex-direction: column; gap: .35em; }
-[data-demo="${NAME}"] .mm-col.wide { max-width: 520px; }
-[data-demo="${NAME}"] .mm-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .mm-slice { position: relative; max-width: 260px; }
-[data-demo="${NAME}"] .mm-slice canvas, [data-demo="${NAME}"] .mm-slice svg { width: 100%; display: block; image-rendering: pixelated; }
-[data-demo="${NAME}"] .mm-slice svg { position: absolute; left: 0; top: 0; height: 100%; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+.qb-demo[data-demo="${NAME}"] .mm-tabs { flex: 1 1 100%; display: flex; gap: .4em; flex-wrap: wrap; align-items: center; }
+.qb-demo[data-demo="${NAME}"] .mm-body { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: .8em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .mm-col { flex: 1 1 300px; min-width: 240px; max-width: 420px; display: flex; flex-direction: column; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .mm-col.wide { max-width: 520px; }
+.qb-demo[data-demo="${NAME}"] .mm-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .mm-slice { position: relative; max-width: 260px; }
+.qb-demo[data-demo="${NAME}"] .mm-slice canvas, [data-demo="${NAME}"] .mm-slice svg { width: 100%; display: block; image-rendering: pixelated; }
+.qb-demo[data-demo="${NAME}"] .mm-slice svg { position: absolute; left: 0; top: 0; height: 100%; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .mm-col { flex: 1 1 300px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .mm-body { flex-wrap: nowrap; gap: .6em; }
+.reveal .qb-demo[data-demo="${NAME}"] .mm-slice { max-width: 200px; }
 `;
 
 function injectStyle(): void {
@@ -47,60 +49,6 @@ function injectStyle(): void {
   const s = document.createElement("style");
   s.id = "qb-style-" + NAME; s.textContent = STYLE;
   document.head.appendChild(s);
-}
-
-// ------------------------------------------------------------------ measurements (pure)
-
-/** Grey (partial-volume ramp) or binary disk of radius R pixels on an n × n grid. */
-export function diskImage(R: number, binary: boolean): { v: Float64Array; n: number; c: [number, number] } {
-  const n = Math.ceil(2 * R) + 6, c: [number, number] = [(n - 1) / 2 + OFF[0], (n - 1) / 2 + OFF[1]], v = new Float64Array(n * n);
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-    const d = R - Math.hypot(x - c[0], y - c[1]);
-    v[y * n + x] = binary ? (d >= 0 ? 1 : 0) : Math.max(0, Math.min(1, d + 0.5));
-  }
-  return { v, n, c };
-}
-
-export function diskMeasures(R: number, binary: boolean) {
-  const { v, n } = diskImage(R, binary);
-  let edges = 0, pixels = 0;
-  const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < n && y < n && v[y * n + x] > 0.5;
-  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (inside(x, y)) {
-    pixels++;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!inside(x + dx, y + dy)) edges++;
-  }
-  const C = marchingSquares(v, n, n, 0.5);
-  return { edges, pixels, msLength: contourLength(C), msArea: contourArea(C), trueL: 2 * Math.PI * R, trueA: Math.PI * R * R };
-}
-
-export function ballVolumeImage(R: number, binary: boolean): Volume {
-  const n = Math.ceil(2 * R) + 6, c = (n - 1) / 2;
-  return volumeFromFunction(n, n, n, [1, 1, 1], (x, y, z) => {
-    const d = R - Math.hypot(x - c - OFF[0], y - c - OFF[1], z - c - OFF[2]);
-    return binary ? (d >= 0 ? 1 : 0) : Math.max(0, Math.min(1, d + 0.5));
-  });
-}
-
-export function ballMeasures(R: number, binary: boolean) {
-  const v = ballVolumeImage(R, binary), n = v.nx;
-  let faces = 0, voxels = 0;
-  const inside = (x: number, y: number, z: number) => x >= 0 && y >= 0 && z >= 0 && x < n && y < n && z < n && v.data[(z * n + y) * n + x] > 0.5;
-  for (let z = 0; z < n; z++) for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (inside(x, y, z)) {
-    voxels++;
-    for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) if (!inside(x + dx, y + dy, z + dz)) faces++;
-  }
-  const m = marchingCubes(v.data, n, n, n, 0.5);
-  return { faces, voxels, mcArea: meshArea(m), mcVolume: meshVolume(m), trueA: 4 * Math.PI * R * R, trueV: 4 / 3 * Math.PI * R ** 3 };
-}
-
-/** A ball of radius 8 voxels (0/1) blurred with σ voxels, padded. */
-export function blurredBall(sigma: number): Volume {
-  const v = ballVolumeImage(8, true);
-  return padVolume(sigma > 0 ? gaussianBlur3d(v, sigma) : v, 1, 0);
-}
-
-export function volumeVsC(v: Volume, cs: number[]): number[] {
-  return cs.map(c => meshVolume(marchingCubes(v.data, v.nx, v.ny, v.nz, c, { spacing: v.spacing })));
 }
 
 // ------------------------------------------------------------------ the demo
@@ -112,7 +60,7 @@ const PRESETS: Preset[] = [
   { id: "plateau", label: "a plateau in volume vs c", tab: "isovalue", which: "ball", sigma: 0.5, c: 0.5 },
   { id: "steep", label: "heavy blur: c decides the volume", tab: "isovalue", which: "ball", sigma: 2.5, c: 0.5 },
   { id: "terraces", label: "terraces from a binary mask", tab: "decimate", input: "binary", cell: 0 },
-  { id: "decimate", label: "decimate 10×", tab: "decimate", input: "grey", cell: 3.5 },
+  { id: "decimate", label: "decimate 10×", tab: "decimate", input: "grey", cell: 3 },
 ];
 
 function mount(host: HTMLElement): void {
@@ -333,7 +281,7 @@ function mount(host: HTMLElement): void {
       ro.textContent = [
         `triangles ${String(tri).padStart(6)}  (${(T0 / Math.max(1, tri)).toFixed(1)}× fewer)`,
         `vertices  ${String(T.vertices).padStart(6)}`,
-        `area      ${A.toFixed(1).padStart(8)} vx²  (${((A / A0 - 1) * 100).toFixed(1)}% vs undecimated)`,
+        `area      ${A.toFixed(1).padStart(8)} vx²  (${((A / A0 - 1) * 100).toFixed(1)}%)`,
         `volume    ${V.toFixed(1).padStart(8)} vx³  (${((V / V0 - 1) * 100).toFixed(1)}%)`,
         `true volume ${trueV.toFixed(1)} vx³`,
         `χ = ${T.euler}, boundary edges ${T.boundaryEdges}, non-manifold ${T.nonManifoldEdges}`,

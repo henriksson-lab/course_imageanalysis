@@ -7,7 +7,7 @@ import { diverging, divergingT } from "../lib/colour";
 export const N = 256;
 export type ImageName = "cell" | "disc" | "square" | "bars" | "checker" | "gradient" | "shapes";
 export const IMAGE_LABELS: Record<ImageName, string> = {
-  cell: "micrograph", disc: "disc", square: "square", bars: "oriented bars", checker: "checkerboard", gradient: "smooth gradient", shapes: "shapes",
+  cell: "micrograph", disc: "disc", square: "square", bars: "bars", checker: "checker", gradient: "gradient", shapes: "shapes",
 };
 
 /** Antialiased synthetic image (4 × 4 supersampling), values 0..255. */

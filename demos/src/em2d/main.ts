@@ -24,21 +24,20 @@ import { assignStep, updateStep, kmeans, initCentres } from "../lib/kmeans";
 
 const NAME = "em2d";
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .e2-left { flex: 0 1 470px; min-width: 260px; }
-[data-demo="${NAME}"] .e2-right { flex: 1 1 440px; min-width: 260px; max-width: 580px; display: flex; flex-direction: column; gap: .35em; }
-[data-demo="${NAME}"] .e2-plots { display: flex; gap: .4em; }
-[data-demo="${NAME}"] .e2-plots > div { flex: 1 1 33%; min-width: 0; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
-[data-demo="${NAME}"] .e2-lab { font-size: 14px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 16px; }
-.reveal [data-demo="${NAME}"] .e2-left { flex: 0 0 490px; }
-.reveal [data-demo="${NAME}"] .e2-right { flex: 1 1 620px; max-width: 650px; gap: .2em; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .45em; }
-.reveal [data-demo="${NAME}"] .qb-slider { font-size: 15px; }
-@media (max-width: 760px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .e2-left { flex: 0 1 470px; min-width: 260px; }
+.qb-demo[data-demo="${NAME}"] .e2-right { flex: 1 1 440px; min-width: 260px; max-width: 580px; display: flex; flex-direction: column; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .e2-plots { display: flex; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .e2-plots > div { flex: 1 1 33%; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .e2-lab { font-size: 14px; color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .e2-left { flex: 0 0 490px; }
+.reveal .qb-demo[data-demo="${NAME}"] .e2-right { flex: 1 1 620px; max-width: 650px; gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider { font-size: 15px; }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;

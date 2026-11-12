@@ -1,0 +1,139 @@
+---
+title: "Exercise: fast marching"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain what the **arrival time** $T$ of a front is, and why Dijkstra's grid distances are blocky,
+- compute fast-marching **updates** by hand and compare them with Dijkstra's update and the exact distance,
+- predict how an image-based **cost** $P$ changes the fronts and the minimal path,
+- *(math)* derive the upwind update, show where it is exact, and compute the worst-case error of grid distances.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Arrival time $T(x)$ | when a front that starts at the seeds ($T = 0$) reaches $x$, moving with speed $1/P$ |
+| Eikonal equation | $\lvert\nabla T\rvert = P$; with $P = 1$, $T$ is the Euclidean distance to the seeds |
+| Fast marching | Dijkstra's order (smallest tentative value is final) with the **upwind update** below |
+| Upwind update | $a$ = smaller final value left/right, $b$ = smaller final value above/below; if $\lvert a - b\rvert < P$: $T = \tfrac12\big(a + b + \sqrt{2P^2 - (a-b)^2}\big)$, else $T = \min(a, b) + P$ |
+| Dijkstra update (4 neighbours) | $T = \min(a, b) + P$ |
+| Minimal path | gradient descent on $T$ from the target down to a seed |
+
+Pixel spacing is 1 throughout.
+
+## By hand
+
+**B1.** Updates with $P = 1$ unless stated.
+(a) Known neighbours: left $T = 2$, above $T = 2.5$. Compute the fast-marching update and Dijkstra's update.
+(b) The same with $P = 2$.
+(c) Only the left neighbour ($T = 2$) is known.
+(d) Left $T = 2$, above $T = 3.2$.
+
+**B2.** A seed at the corner $(0, 0)$ of a $4 \times 4$ quadrant, $P = 1$, $T(0, 0) = 0$ (no special treatment of the seed's neighbourhood). Write $T(x, y)$ with $x$ the column and $y$ the row.
+(a) Compute $T$ on the whole quadrant with fast marching, in the order the pixels become final. (Use the symmetry $T(x, y) = T(y, x)$.)
+(b) Compare with the Euclidean distance and with Dijkstra on 4 and on 8 neighbours. Where is fast marching worst, and why?
+
+**B3.** A straight front crosses the grid at 45°: two neighbours of a pixel, one on the left and one above, both have $T = t$.
+(a) What does Dijkstra (4 neighbours) give the pixel, and what does fast marching give?
+(b) How far does a 45° front really travel from the line through those two neighbours to the pixel? Which update is right?
+
+**B4.** Edge cost $P = 1 + (|\nabla I|/k)^2$. At a nucleus boundary the gradient magnitude is about 40 per pixel over a band 4 px wide; elsewhere it is close to 0.
+(a) With $k = 20$: what is $P$ in the band, and how long does the front need to cross it, compared with a flat region?
+(b) With $k = 8$?
+(c) What does that do to the fronts of a seed inside the nucleus, and to the minimal path from inside to a target outside?
+
+**B5.** Two seeds at $(70, 90)$ and $(190, 170)$, $P = 1$. Where do the two fronts meet? What is $T$ at the midpoint $(130, 130)$?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $|2 - 2.5| = 0.5 < 1$: $T = \tfrac12\big(4.5 + \sqrt{2 - 0.25}\big) = 2.911$; Dijkstra $\min(2, 2.5) + 1 = 3$.
+(b) $0.5 < 2$: $T = \tfrac12\big(4.5 + \sqrt{8 - 0.25}\big) = 3.642$ (Dijkstra: 4).
+(c) $b = \infty$: $T = 2 + 1 = 3$, the same as Dijkstra.
+(d) $|2 - 3.2| = 1.2 \ge 1$: the one-neighbour update, $T = 3$: the front clearly comes from the left; the upper neighbour is too late to matter.
+
+**B2.** (a) Order: $(0,0)$ 0; $(1,0)$ and $(0,1)$ 1; $(1,1)$ 1.707; $(2,0)$, $(0,2)$ 2; $(2,1)$, $(1,2)$ 2.545; $(3,0)$, $(0,3)$ 3; $(2,2)$ 3.252; $(3,1)$, $(1,3)$ 3.442; $(3,2)$, $(2,3)$ 4.048; $(3,3)$ 4.755. For example $T(2,1)$ from $a = T(1,1) = 1.707$ and $b = T(2,0) = 2$: $\tfrac12\big(3.707 + \sqrt{2 - 0.086}\big) = 2.545$.
+(b)
+
+| $(x, y)$ | fast marching | Euclidean | Dijkstra 4 | Dijkstra 8 |
+|---|---|---|---|---|
+| (1, 1) | 1.707 | 1.414 | 2 | 1.414 |
+| (2, 1) | 2.545 | 2.236 | 3 | 2.414 |
+| (2, 2) | 3.252 | 2.828 | 4 | 2.828 |
+| (3, 1) | 3.442 | 3.162 | 4 | 3.414 |
+| (3, 3) | 4.755 | 4.243 | 6 | 4.243 |
+
+Fast marching is worst on the diagonal next to the seed: at $(1,1)$ it is 0.29 too far, and this error is carried outward (0.51 at $(3,3)$). A point seed is the opposite of a straight front, which the update assumes. Far from the seed the fronts become nearly straight and the error grows only slowly; implementations set the seed's neighbourhood to the exact distance first (the demo: within 3 px), after which the error at 100 px is about 1 px.
+
+**B3.** (a) Dijkstra: $t + 1$. Fast marching: $\tfrac12\big(2t + \sqrt 2\big) = t + 0.707$.
+(b) The line through the two neighbours is at distance $1/\sqrt2 = 0.707$ from the pixel (half the diagonal of a pixel): the front needs time 0.707. Fast marching is exact here; Dijkstra overestimates by 41%.
+
+**B4.** (a) $P = 1 + (40/20)^2 = 5$: crossing 4 px takes 20 time units instead of 4.
+(b) $P = 1 + (40/8)^2 = 26$: 104 instead of 4.
+(c) The fronts spread quickly inside the nucleus and then **bunch up** at its boundary (many iso-lines close together) before continuing outside. The minimal path to an outside target crosses the boundary where the band is cheapest to cross (weak or thin edges) and as straight across as possible, because every pixel inside the band is expensive.
+
+**B5.** On the perpendicular bisector of the two seeds: the points with equal distance to both (a straight line through the midpoint $(130, 130)$, perpendicular to the line joining the seeds). $T(130, 130) = \sqrt{60^2 + 40^2} = 72.11$.
+:::
+
+### Math questions
+
+**B6.** *(math)* Derive the upwind update from $T_x^2 + T_y^2 = P^2$ with one-sided differences $T_x \approx T - a$, $T_y \approx T - b$. Show that when $|a - b| < P$ the larger root satisfies $T > \max(a, b)$, and explain why that makes Dijkstra's ordering argument work for fast marching.
+
+**B7.** *(math)* Show that the update is **exact** for every plane wave $T(x, y) = x\cos\varphi + y\sin\varphi$ with $0 \le \varphi \le 90°$ and $P = 1$, when the left and upper neighbours carry the exact values.
+
+**B8.** *(math)* Grid distances from a point with cost 1 per unit length. For a direction at angle $\varphi \in [0°, 45°]$ from the $x$-axis, show that 4-neighbour Dijkstra gives $\cos\varphi + \sin\varphi$ times the Euclidean distance, and 8-neighbour Dijkstra $\cos\varphi + (\sqrt2 - 1)\sin\varphi$ times. Find the worst angle and the worst factor for each.
+
+**B9.** *(math)* With $P = 1$ and a single seed, show that gradient descent on $T$ from any point follows the straight line to the seed. With a general $P > 0$, why can the descent not get stuck before reaching a seed?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** $(T - a)^2 + (T - b)^2 = P^2$ is $2T^2 - 2(a + b)T + a^2 + b^2 - P^2 = 0$, with roots $T = \tfrac12\big(a + b \pm \sqrt{2P^2 - (a - b)^2}\big)$, real when $|a - b| \le \sqrt2 P$. The larger root minus $\max(a, b)$ is $\tfrac12\big(\sqrt{2P^2 - (a - b)^2} - |a - b|\big)$, which is positive exactly when $2P^2 - (a-b)^2 > (a-b)^2$, i.e. $|a - b| < P$ (the condition used). So every new value exceeds the final values it was computed from (and in the fallback, $\min(a, b) + P > \min(a, b)$). Values therefore increase along the front, and a pixel with the smallest tentative value cannot be lowered by updates from pixels made final later: the Dijkstra argument applies.
+
+**B7.** With exact neighbours $a = T - \cos\varphi$, $b = T - \sin\varphi$ (the left neighbour is one step back in $x$, the upper one step back in $y$), $(T - a)^2 + (T - b)^2 = \cos^2\varphi + \sin^2\varphi = 1 = P^2$, and $|a - b| = |\sin\varphi - \cos\varphi| < 1$ for $0 < \varphi < 90°$ (at $0°$ and $90°$ the fallback $\min(a, b) + 1$ is exact). So the exact $T$ solves the update equation; it is the larger root since $T > \max(a, b)$.
+
+**B8.** A grid path to $(r\cos\varphi, r\sin\varphi)$ with 4 neighbours needs $r\cos\varphi$ horizontal and $r\sin\varphi$ vertical unit steps: factor $\cos\varphi + \sin\varphi$, largest at $45°$: $\sqrt2 = 1.414$. With 8 neighbours: $r\sin\varphi$ diagonal steps of length $\sqrt2$ and $r(\cos\varphi - \sin\varphi)$ straight steps: $\cos\varphi + (\sqrt2 - 1)\sin\varphi$; the derivative vanishes where $\tan\varphi = \sqrt2 - 1$, $\varphi = 22.5°$, with factor $\sqrt{1 + (\sqrt2 - 1)^2} = \sqrt{4 - 2\sqrt2} = 1.082$: 8.2% too far.
+
+**B9.** $T(x) = |x - s|$, so $-\nabla T = (s - x)/|x - s|$: the unit vector towards the seed. Descent moves straight towards $s$. For general $P > 0$: $|\nabla T| = P > 0$ everywhere except at the seeds, so $\nabla T$ never vanishes away from them: there are no other critical points, and $T$ strictly decreases along the descent until a seed is reached (in the discrete version, plateaus and the grid's corners can still stop small steps, which is why implementations fall back to the lowest neighbour).
+:::
+
+## Explore {#explore}
+
+Left: the arrival time $T$ by fast marching; right: Dijkstra on the **4**- or **8**-neighbour grid, with the same cost $P$ and the same seeds. Colour = time; white lines = fronts at equal time steps. Click on either image to place a **target** (or a seed, after **add seed**): orange is the minimal path by gradient descent on $T$, blue is Dijkstra's pixel path. Costs: **P = 1**, **slow at edges** ($P = 1 + (|\nabla I|/k)^2$, with the contrast $k$), **fast on bright lines**. **show image** puts the image under the paths. The readout gives $T$ and $d$ at the target, the straight-line distance (flat cost), the lengths of both paths and the times.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="fastmarch" data-preset="flat"></div>
+<script src="../demos/dist/fastmarch.js"></script>
+```
+
+**E1.** Preset **flat cost: circles, not diamonds**. Describe the fronts on both sides. Switch Dijkstra to **8 neighbours**: what shape now? In which directions is 8-neighbour Dijkstra exact, and where is it worst (compare B8)?
+
+**E2.** Preset **Dijkstra 4-nbr vs fast marching** (seed bottom left, target top right). Read $T$, $d$, the straight-line distance and the two path lengths. Then switch to **8 neighbours**. Explain the numbers.
+
+**E3.** Preset **two seeds: where fronts meet**. Where do the fronts meet? Place a target near $(130, 130)$ (the middle of the image, slightly right of and below the centre) and compare $T$ with B5.
+
+**E4.** Preset **minimal path along a neurite**. Compare the two paths and their lengths. Read $T$ and $d$: which is smaller, and why might fast marching be **slower** than 8-neighbour Dijkstra on a structure only 2–3 pixels wide? Try 4 neighbours.
+
+**E5.** Preset **edge cost: front slows at the nucleus** ($k = 8$, seed inside the nucleus, target outside, bottom right). Where do the fronts bunch up? Compare $T$ with the flat cost ($P = 1$). Then try $k = 20$ and $k = 60$.
+
+**E6.** With any image and $P = 1$, add a second and a third seed. What do the meeting lines of the fronts form? How does this relate to watershed basins (watershed day)?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Fast marching: circles. 4-neighbour Dijkstra: diamonds (squares turned by 45°), the city-block distance. 8 neighbours: octagons. 8-neighbour Dijkstra is exact along the axes and the diagonals, and worst halfway between them (22.5°), 8.2% too far (B8).
+
+**E2.** $T = 277.3$ for a straight-line distance of 275.8 (0.5% too far; the descent path is the straight line, 275.8 long). 4-neighbour Dijkstra: $d = 390.0$, the city-block distance $195 + 195$, and its path is a staircase of the same length 390.0 (here an L-shape). With 8 neighbours: $d = 275.8$ and a path of 275.8: the target lies exactly on a diagonal, where 8 neighbours are exact.
+
+**E3.** On the perpendicular bisector of the two seeds: a straight line through the middle, from the lower left to the upper right, where the iso-lines of the two seeds meet in corners. At $(130, 130)$ fast marching gives about 73.1, against 72.11 exactly (B5).
+
+**E4.** Both paths follow the neurite from the tip at the bottom left, past the soma, to the tip at the top. Fast marching: $T = 149.7$, path length 250.1; Dijkstra (8): $d = 123.9$, path length 261.5 (a pixel path, with small zig-zags). Here fast marching is **slower**: its update uses only the 4 axis neighbours, so a fast lane only 2–3 pixels wide that runs diagonally looks like a staircase to it, and the front partly leaks into the slow background beside the lane. Dijkstra with 8 neighbours can step diagonally inside the lane. With 4 neighbours Dijkstra gives $d = 159.5$ and a 323.0 px path. For thin structures, the cost should be smoothed a little or the grid refined.
+
+**E5.** The fronts bunch up along the nucleus boundary (many iso-lines close together), most where the edge is strong; through the soft lower-left part they pass more easily. $T = 206.8$ at the target, against 171.9 with $P = 1$: crossing the boundary costs about 35 time units. With $k = 20$: $T = 177.7$; with $k = 60$: 172.6, nearly flat: a large $k$ makes only very strong edges slow.
+
+**E6.** The meeting lines form a **Voronoi diagram** of the seeds (with $P = 1$): every pixel belongs to the seed whose front reaches it first, i.e. the nearest seed. With an image cost, the regions follow the image (fronts are slowed by edges), much like watershed basins grown from markers; watershed, however, uses the highest point along the way instead of the accumulated travel time.
+:::
+
+## Where this leads
+
+This completes the day's arc: a table with a fixed order (minimal paths, closed polar boundaries), an order found on the fly (Dijkstra, live-wire), and continuous fronts (fast marching). Two optional topics use the same table: **seam carving** (content-aware resizing: a minimal path through an energy image) and **dynamic time warping** (aligning two signals with the →, ↓, ↘ table).

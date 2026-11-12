@@ -30,7 +30,7 @@ const PRESETS: Preset[] = [
   { id: "disk", label: "fits the disk", image: "disk", noise: 0.05, start: { cx: 63.5, cy: 63.5, r: 45 }, s: {} },
   { id: "alpha", label: "α too large: shrinks away", image: "disk", noise: 0.05, start: { cx: 63.5, cy: 63.5, r: 45 }, s: { alpha: 1 }, edgeOnly: true },
   { id: "beta", label: "β too large: rounds the square", image: "square", noise: 0.05, start: { cx: 63.5, cy: 63.5, r: 50 }, s: { beta: 2 }, edgeOnly: true },
-  { id: "sigma", label: "σ too small: stuck on noise", image: "disk", noise: 0.15, start: { cx: 63.5, cy: 63.5, r: 45 }, s: { sigma: 0.5 }, edgeOnly: true },
+  { id: "sigma", label: "σ too small: stuck on noise", image: "disk", noise: 0.25, start: { cx: 63.5, cy: 63.5, r: 45 }, s: { sigma: 0.5, w: 4 }, edgeOnly: true },
   { id: "far", label: "too far: does not move", image: "disk", noise: 0.05, start: { cx: 63.5, cy: 63.5, r: 58 }, s: { alpha: 0.01 } },
   { id: "tau", label: "τ too large: explodes", image: "disk", noise: 0.05, start: { cx: 63.5, cy: 63.5, r: 45 }, s: { rule: "explicit", tau: 2 } },
   { id: "u", label: "concavity: cannot enter the U", image: "u", noise: 0.05, start: { cx: 63.5, cy: 65.5, r: 56 }, s: { n: 100, alpha: 0.03, beta: 0.01, resample: 10 } },
@@ -61,13 +61,14 @@ const STYLE = `
 [data-demo="${NAME}"] .sn-credit { font-size: 12px; color: var(--qb-muted); }
 [data-demo="${NAME}"] .sn-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
 [data-demo="${NAME}"] .sn-matcap { font-size: 15px; text-align: center; }
-.reveal [data-demo="${NAME}"] { font-size: 16px; gap: .6em; }
-.reveal [data-demo="${NAME}"] .sn-fig { flex-basis: 420px; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; max-width: 380px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
-.reveal [data-demo="${NAME}"] .sn-mid { flex-basis: 270px; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .6em; }
+.reveal .qb-demo[data-demo="${NAME}"] .sn-fig { flex-basis: 420px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .15em; max-width: 380px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"] .sn-mid { flex-basis: 270px; }
 `;
 
 function injectStyle(): void {

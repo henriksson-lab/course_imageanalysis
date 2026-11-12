@@ -50,7 +50,7 @@ const lev = (s: number) => SIGMAS.reduce((b, v, i) => (Math.abs(v - s) < Math.ab
 const DEFAULT: State = { image: "synthetic", noise: 6, background: true, level: lev(4), norm: true, dog: false, k: 1.6, all: false, thr: 26, truth: false, dark: false, pyramid: false, px: 146, py: 30 };
 const PRESETS: Preset[] = [
   { id: "one", label: "one σ finds one size", s: { level: lev(4.2), all: false } },
-  { id: "raw", label: "raw LoG: only the small spots", s: { norm: false, all: true, thr: 3, px: 120, py: 92 } },
+  { id: "raw", label: "raw LoG: only the small spots", s: { norm: false, all: true, thr: 12, px: 120, py: 92 } },
   { id: "all", label: "all scales, normalised", s: { all: true } },
   { id: "edges", label: "low threshold: edges respond too", s: { all: true, thr: 18, px: 40, py: 71, level: lev(1.45) } },
   { id: "radius", label: "radius = √2·σ (truth overlay)", s: { all: true, truth: true, px: 200, py: 110, level: lev(14) } },
@@ -98,7 +98,8 @@ function mount(host: HTMLElement): void {
   const sigS = slider(panel, "σ", 0, LEVELS - 1, 1, st.level, v => { st.level = v; draw(); }, v => SIGMAS[v].toFixed(2));
   const thrS = slider(panel, "threshold", 0, 100, 0.5, st.thr, v => { st.thr = v; draw(); });
   const noiseS = slider(panel, "noise", 0, 30, 1, st.noise, v => { st.noise = v; makeImage(); });
-  const kS = slider(panel, "DoG ratio k", 1.05, 2, 0.05, st.k, v => { st.k = v; if (st.dog) computeStack(); });
+  const kDiv = htmlEl("div", "", "", panel);
+  const kS = slider(kDiv, "DoG ratio k", 1.05, 2, 0.05, st.k, v => { st.k = v; if (st.dog) computeStack(); });
   const checks = htmlEl("div", "", "", panel);
   checks.style.display = "flex"; checks.style.flexWrap = "wrap"; checks.style.gap = "0 1em";
   const normC = checkbox(checks, "normalise (× σ²)", st.norm, v => { st.norm = v; draw(); });
@@ -143,7 +144,7 @@ function mount(host: HTMLElement): void {
   function detections(): { x: number; y: number; s: number; value: number }[] {
     if (!stack.length) return [];
     const S = st.norm ? stack : stack.map((g, k) => mapGrey(g, v => v / (SIGMAS[k] * SIGMAS[k])));
-    if (st.all) return extrema3D(S, st.thr, 3, true);
+    if (st.all) return extrema3D(S, st.thr, 3, st.norm);   // raw: the maxima sit at the smallest scale, so keep the end scales
     return localMaxima2D(S[st.level], st.thr, 2, 3).map(m => ({ ...m, s: st.level }));
   }
 
@@ -160,6 +161,7 @@ function mount(host: HTMLElement): void {
   function draw(): void {
     if (!img || !stack.length) return;
     imgBtns.forEach((b, i) => b.classList.toggle("active", i === (st.image === "synthetic" ? 0 : 1)));
+    kDiv.style.display = st.dog ? "" : "none";
     credit.style.display = st.image === "cell" ? "" : "none";
     view.grey(img, { mode: "auto" });
     const s = SIGMAS[st.level], cur = stack[st.level], f = st.norm ? 1 : 1 / (s * s);

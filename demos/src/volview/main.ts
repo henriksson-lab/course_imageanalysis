@@ -31,22 +31,30 @@ const ORIGIN: Vec3 = [10, 20, 4];
 const LO = 0, HI = 210, THR = 100;
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .vv-3d { flex: 1 1 330px; min-width: 240px; max-width: 400px; }
-[data-demo="${NAME}"] .vv-grid { flex: 1 1 400px; min-width: 260px; max-width: 470px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em .6em; align-items: end; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.15; margin-bottom: .15em; }
-[data-demo="${NAME}"] canvas.vv-img { width: 100%; display: block; image-rendering: pixelated; border-radius: 2px; cursor: crosshair; touch-action: none; background: #234; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 290px; max-width: 360px; gap: .3em; }
-[data-demo="${NAME}"] .vv-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .qb-slider { font-size: 15px; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
-.reveal [data-demo="${NAME}"] .vv-3d { max-width: 340px; }
-.reveal [data-demo="${NAME}"] .vv-grid { max-width: 430px; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+.qb-demo[data-demo="${NAME}"] .vv-3d { flex: 1 1 330px; min-width: 240px; max-width: 400px; }
+.qb-demo[data-demo="${NAME}"] .vv-grid { flex: 1 1 400px; min-width: 260px; max-width: 470px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em .6em; align-items: end; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.15; margin-bottom: .15em; }
+.qb-demo[data-demo="${NAME}"] canvas.vv-img { width: 100%; display: block; image-rendering: pixelated; border-radius: 2px; cursor: crosshair; touch-action: none; background: #234; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 290px; max-width: 360px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .vv-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-slider { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.reveal .qb-demo[data-demo="${NAME}"] .vv-3d { max-width: 340px; }
+.reveal .qb-demo[data-demo="${NAME}"] .vv-grid { max-width: 430px; }
+.reveal .qb-demo[data-demo="${NAME}"] { gap: .6em; flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .vv-3d { flex: 0 0 300px; }
+.reveal .qb-demo[data-demo="${NAME}"] .vv-grid { flex: 0 0 370px; gap: .2em .4em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 420px; max-width: 440px; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .vv-lab { display: none; }
 `;
 
 function injectStyle(): void {

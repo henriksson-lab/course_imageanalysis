@@ -52,16 +52,16 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: wrap; }
-[data-demo="${NAME}"] .m1-plot { flex: 1 1 600px; min-width: 0; max-width: 780px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 340px; gap: .45em; }
-[data-demo="${NAME}"] .m1-lab { font-size: 15px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .m1-traces { display: grid; grid-template-columns: 1fr 1fr; gap: .1em .6em; }
-[data-demo="${NAME}"] .m1-traces .qb-check { font-size: 15px; }
-[data-demo="${NAME}"] .m1-credit { font-size: 12px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
-.reveal [data-demo="${NAME}"] .m1-plot { max-width: 780px; }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; flex-wrap: wrap; }
+.qb-demo[data-demo="${NAME}"] .m1-plot { flex: 1 1 600px; min-width: 0; max-width: 780px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 340px; gap: .45em; }
+.qb-demo[data-demo="${NAME}"] .m1-lab { font-size: 15px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .m1-traces { display: grid; grid-template-columns: 1fr 1fr; gap: .1em .6em; }
+.qb-demo[data-demo="${NAME}"] .m1-traces .qb-check { font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .m1-credit { font-size: 12px; color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .m1-plot { max-width: 780px; }
 `;
 
 function injectStyle(): void {

@@ -197,11 +197,17 @@ export interface PSF3DOptions extends PupilOptions {
  * same total light (out-of-focus light is spread, not lost); the volume sums to 1.
  * Index z·nx·nx + y·nx + x, centred at (nx/2, nx/2, nz/2).
  */
-export function widefieldPSF3d(nx: number, nz: number, o: PSF3DOptions): Float64Array {
-  const out = new Float64Array(nx * nx * nz);
+export function widefieldPSF3d(nx: number, nz: number, o: PSF3DOptions, oversample = 2): Float64Array {
+  // The amplitude is computed on an oversampled field (os·nx) and the INTENSITY folded back
+  // to nx: folding the amplitude instead would add interference between the wrapped copies.
+  const out = new Float64Array(nx * nx * nz), m = nx * oversample, c = m >> 1, cn = nx >> 1;
   for (let k = 0; k < nz; k++) {
-    const p = pupilPSF(nx, o, (k - Math.floor(nz / 2)) * o.zstep);
-    out.set(p, k * nx * nx);
+    const p = pupilPSF(m, o, (k - Math.floor(nz / 2)) * o.zstep);
+    const base = k * nx * nx;
+    for (let y = 0; y < m; y++) for (let x = 0; x < m; x++) {
+      const yy = (((y - c + cn) % nx) + nx) % nx, xx = (((x - c + cn) % nx) + nx) % nx;
+      out[base + yy * nx + xx] += p[y * m + x];
+    }
   }
   return normalise(out);
 }
@@ -210,10 +216,14 @@ export function widefieldPSF3d(nx: number, nz: number, o: PSF3DOptions): Float64
  * Confocal 3D PSF with a point-like pinhole: excitation × emission, here both taken as the
  * widefield PSF at the same wavelength (PSF²). Out-of-focus planes become much dimmer.
  */
-export function confocalPSF3d(nx: number, nz: number, o: PSF3DOptions): Float64Array {
-  const wf = widefieldPSF3d(nx, nz, o);
-  for (let i = 0; i < wf.length; i++) wf[i] *= wf[i];
-  return normalise(wf);
+export function confocalPSF3d(nx: number, nz: number, o: PSF3DOptions, oversample = 2): Float64Array {
+  // square on the oversampled field, then fold (squaring after folding would mix copies)
+  const m = nx * oversample, big = widefieldPSF3d(m, nz, o, 1), out = new Float64Array(nx * nx * nz), c = m >> 1, cn = nx >> 1;
+  for (let k = 0; k < nz; k++) for (let y = 0; y < m; y++) for (let x = 0; x < m; x++) {
+    const v = big[(k * m + y) * m + x], yy = (((y - c + cn) % nx) + nx) % nx, xx = (((x - c + cn) % nx) + nx) % nx;
+    out[(k * nx + yy) * nx + xx] += v * v;
+  }
+  return normalise(out);
 }
 
 /** Gaussian 3D PSF with lateral σxy and axial σz (voxels), centred, sum 1. */

@@ -31,11 +31,14 @@ export const EDGES: [number, number][] = (() => {
 
 export const nominal = (k: number): [number, number] => [20 + (k % GRID) * STEP, 20 + Math.floor(k / GRID) * STEP];
 
-/** Synthetic stand-in for the micrograph (node tests): seeded blobs of several sizes. */
+/** Synthetic stand-in for the micrograph (node tests): fine texture (smoothed noise) plus blobs. */
 export function syntheticBase(seed = 7): Float64Array {
-  const r = rng(seed), out = new Float64Array(BIG * BIG).fill(150);
-  for (let k = 0; k < 700; k++) {
-    const cx = BIG * r.unif(), cy = BIG * r.unif(), s = 1.5 + 6 * r.unif() ** 2, h = (r.unif() < 0.5 ? -1 : 1) * (30 + 70 * r.unif());
+  const r = rng(seed), n = new Float64Array(BIG * BIG).map(() => r.norm()), tmp = new Float64Array(BIG * BIG), out = new Float64Array(BIG * BIG);
+  const k = [0.06, 0.24, 0.4, 0.24, 0.06];
+  for (let y = 0; y < BIG; y++) for (let x = 0; x < BIG; x++) { let v = 0; for (let j = -2; j <= 2; j++) v += k[j + 2] * n[y * BIG + Math.min(BIG - 1, Math.max(0, x + j))]; tmp[y * BIG + x] = v; }
+  for (let y = 0; y < BIG; y++) for (let x = 0; x < BIG; x++) { let v = 0; for (let j = -2; j <= 2; j++) v += k[j + 2] * tmp[Math.min(BIG - 1, Math.max(0, y + j)) * BIG + x]; out[y * BIG + x] = 150 + 60 * v; }
+  for (let b = 0; b < 300; b++) {
+    const cx = BIG * r.unif(), cy = BIG * r.unif(), s = 1.5 + 5 * r.unif() ** 2, h = (r.unif() < 0.5 ? -1 : 1) * (30 + 70 * r.unif());
     const R = Math.ceil(3 * s);
     for (let y = Math.max(0, Math.floor(cy - R)); y < Math.min(BIG, cy + R); y++)
       for (let x = Math.max(0, Math.floor(cx - R)); x < Math.min(BIG, cx + R); x++)

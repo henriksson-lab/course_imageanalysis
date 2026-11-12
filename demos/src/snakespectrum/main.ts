@@ -52,12 +52,12 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 [data-demo="${NAME}"] .ss-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
 [data-demo="${NAME}"] .ss-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-.reveal [data-demo="${NAME}"] { font-size: 16px; gap: .5em; }
-.reveal [data-demo="${NAME}"] .ss-left { flex-basis: 360px; }
-.reveal [data-demo="${NAME}"] .ss-plots { flex-basis: 340px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .ss-left { flex-basis: 360px; }
+.reveal .qb-demo[data-demo="${NAME}"] .ss-plots { flex-basis: 340px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; }
 `;
 
 function injectStyle(): void {
@@ -119,7 +119,7 @@ function mount(host: HTMLElement): void {
   sl.beta = slider(panel, "β", 0, 1, 0.01, st.beta, v => set({ beta: v }));
   // τ on a log scale from 0.05 to 100
   const tOf = (u: number) => Number((0.05 * 2000 ** (u / 100)).toPrecision(2)), uOf = (t: number) => 100 * Math.log(t / 0.05) / Math.log(2000);
-  sl.tau = slider(panel, "τ", 0, 100, 0.5, uOf(st.tau), u => set({ tau: tOf(u) }), u => String(tOf(u)));
+  sl.tau = slider(panel, "τ", 0, 100, 0.5, uOf(st.tau), u => set({ tau: tOf(u) }), u => String(Number((0.05 * 2000 ** (u / 100)).toPrecision(3))));
   sl.n = slider(panel, "n", 4, 32, 1, st.n, v => { st.n = v; start = resample(start, v); restart(); });
   const row = htmlEl("div", "ss-row", "", panel);
   const ruleBtns = (["explicit", "implicit"] as const).map(r => button(row, r === "explicit" ? "explicit" : "semi-implicit", () => set({ rule: r })));

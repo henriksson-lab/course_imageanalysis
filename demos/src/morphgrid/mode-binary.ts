@@ -73,7 +73,7 @@ export function applyStages(stages: { kind: Kind; se?: Off[] }[], a: Uint8Array,
 /** The dual expression: complement, swap erosion/dilation, reflect the SE, swap the border value, complement. */
 export function dualOf(stages: { kind: Kind; se?: Off[] }[], a: Uint8Array, w: number, h: number, se: Off[], outside: number): Uint8Array {
   const sw = stages.map(s => ({ kind: (s.kind === "erode" ? "dilate" : "erode") as Kind, se: reflect(s.se ?? se) }));
-  return complement(applyStages(sw, complement(a), w, h, se, 1 - outside));
+  return complement(applyStages(sw, complement(a), w, h, se, outside < 0 ? -1 : 1 - outside));
 }
 
 const codes = (I: ArrayLike<number>, S: ArrayLike<number>) => Int32Array.from(I, (v, i) => (v ? 1 : 0) + 2 * (S[i] ? 1 : 0));
@@ -84,7 +84,7 @@ function* runOp(op: Op, inp: Uint8Array, w: number, h: number, se: Off[], outsid
   const dual = dualOn && op.dual ? dualOf(op.stages, inp, w, h, se, outside) : undefined;
   const plain = codes(inp, inp);
   yield {
-    values: plain, aux: dual, log: `A: ${count(inp)} pixels; B = ${seName}; outside the grid = ${outside}`,
+    values: plain, aux: dual, log: `A: ${count(inp)} pixels; B = ${seName}; outside the grid ${outside < 0 ? "ignored" : "= " + outside}`,
     note: "dark: in the set · red: removed · green: added. Dots on the SE cells: filled = on a set pixel.",
   };
   let src = inp;
@@ -143,30 +143,28 @@ const G = {
   border: ["111110000000", "111110000000", "111110000000", "111110000000", "000000000000", "000000000000",
     "000000011110", "000000011110", "000000011110", "000000011110", "000000000000", "000000000000"],
   hand: ["0000000", "0111100", "0111100", "0110000", "0111110", "0000110", "0000000"],
-  speck: ["000000000000", "011111100000", "011111100000", "011111111110", "011111100000", "011111100000",
-    "000000000000", "000000000100", "000110000000", "000000000000", "000000000000", "000000000000"],
-  gap: ["000000000000", "011111111110", "011111111110", "011101111110", "011111111110", "011111011110",
-    "011111011110", "011111111110", "000000000000", "011110111110", "011110111110", "000000000000"],
-  noisy: ["000000000000", "011111110000", "011101110010", "011111110000", "011111111100", "010111101100",
-    "011111111100", "000000111100", "001000110100", "000000111100", "000000000000", "000100000000"],
-  hand2: ["0000000", "0111110", "0111110", "0111011", "0111110", "0100000", "0000000"],
+  speck: ["00000000000000", "00000000000000", "00111111000000", "00111111000000", "00111111111100", "00111111000000", "00111111000000", "00000000000000", "00000000001000", "00000110000000", "00000000000000", "00000000000000", "00000000000000", "00000000000000"],
+  gap: ["00000000000000", "00000000000000", "00111111111100", "00111011111100", "00111111101100", "00111111101100", "00111111111100", "00000000000000", "00000000000000", "00000000000000", "00111101111100", "00111101111100", "00000000000000", "00000000000000"],
+  noisy: ["00000000000000", "00000000000000", "00111111100000", "00111011100100", "00111111100000", "00111111111000", "00101111011000", "00111111111000", "00000011111000", "00100011011000", "00000011111000", "00000000000000", "00000000000000", "00000000000000"],
+  hand2: ["000000000", "000000000", "001111100", "001111100", "001110100", "001111100", "001000000", "000000000", "000000000"],
 };
 
-function binaryMode(id: string, opIds: string[], presets: (se: ReturnType<typeof seEditor>, setOutside: (o: number) => void, setDual: (v: boolean) => void) => ModePreset[]) {
+function binaryMode(id: string, opIds: string[], defaultOutside: number, presets: (se: ReturnType<typeof seEditor>, setOutside: (o: number) => void, setDual: (v: boolean) => void) => ModePreset[]) {
   registerMode({
     id,
     build(ctx: ModeContext): ModeSpec {
-      let outside = 0, dualOn = false;
+      let outside = defaultOutside, dualOn = false;
       const se = seEditor(ctx.side, () => ctx.restart());
       htmlEl("div", "mg-lab", "outside the grid", ctx.side);
       const brow = htmlEl("div", "qb-presets", "", ctx.side);
-      const bb = [0, 1].map(v => button(brow, `= ${v}`, () => setOutside(v)));
-      const setOutside = (v: number) => { outside = v; bb.forEach((b, k) => b.classList.toggle("active", k === v)); safeRestart(); };
+      const VALS = [0, 1, -1];
+      const bb = VALS.map(v => button(brow, v < 0 ? "ignored" : `= ${v}`, () => setOutside(v)));
+      const setOutside = (v: number) => { outside = v; bb.forEach((b, k) => b.classList.toggle("active", VALS[k] === v)); safeRestart(); };
       const dualBox = checkbox(ctx.side, "show duality", false, v => { dualOn = v; safeRestart(); });
       const setDual = (v: boolean) => { dualOn = v; dualBox.checked = v; };
       let ready = false;
       function safeRestart(): void { if (ready) ctx.restart(); }
-      bb[0].classList.add("active");
+      bb[VALS.indexOf(defaultOutside)].classList.add("active");
       const algorithms: GridAlgorithm[] = opIds.map(k => {
         const op = OPS[k];
         return {
@@ -186,7 +184,7 @@ function binaryMode(id: string, opIds: string[], presets: (se: ReturnType<typeof
   });
 }
 
-binaryMode("binary", ["erode", "dilate", "open", "close", "boundary", "complement", "twolines"], (se, setOutside, setDual) => [
+binaryMode("binary", ["erode", "dilate", "open", "close", "boundary", "complement", "twolines"], 0, (se, setOutside, setDual) => [
   { id: "fits", label: "erosion: where it fits", grid: G.fits, algorithm: "erode", apply: () => { se.set("cross"); setOutside(0); setDual(false); } },
   { id: "layer", label: "dilation adds a layer", grid: G.layer, algorithm: "dilate", apply: () => { se.set("square"); setOutside(0); setDual(false); } },
   { id: "reflect", label: "the L-shape: why reflect", grid: G.single, algorithm: "dilate", apply: () => { se.set("L"); setOutside(0); setDual(false); } },
@@ -197,13 +195,13 @@ binaryMode("binary", ["erode", "dilate", "open", "close", "boundary", "complemen
   { id: "blank", label: "empty 16 × 16", grid: { rows: 16, cols: 16, values: new Int32Array(256) }, algorithm: "dilate", apply: () => { se.set("cross"); setOutside(0); setDual(false); } },
 ]);
 
-binaryMode("openclose", ["erode", "dilate", "open", "close", "openclose", "closeopen", "opentwice"], (se, setOutside, setDual) => [
-  { id: "speck", label: "opening removes the speck", grid: G.speck, algorithm: "open", apply: () => { se.set("square"); setOutside(0); setDual(false); } },
-  { id: "gap", label: "closing fills the gap", grid: G.gap, algorithm: "close", apply: () => { se.set("square"); setOutside(0); setDual(false); } },
-  { id: "order", label: "open∘close ≠ close∘open", grid: G.noisy, algorithm: "openclose", apply: () => { se.set("square"); setOutside(0); setDual(false); } },
-  { id: "twice", label: "apply twice: nothing changes", grid: G.noisy, algorithm: "opentwice", apply: () => { se.set("square"); setOutside(0); setDual(false); } },
-  { id: "hand", label: "7 × 7 (exercise)", grid: G.hand2, algorithm: "open", apply: () => { se.set("square"); setOutside(0); setDual(false); } },
-  { id: "blank", label: "empty 16 × 16", grid: { rows: 16, cols: 16, values: new Int32Array(256) }, algorithm: "open", apply: () => { se.set("square"); setOutside(0); setDual(false); } },
+binaryMode("openclose", ["erode", "dilate", "open", "close", "openclose", "closeopen", "opentwice"], -1, (se, setOutside, setDual) => [
+  { id: "speck", label: "opening removes the speck", grid: G.speck, algorithm: "open", apply: () => { se.set("square"); setOutside(-1); setDual(false); } },
+  { id: "gap", label: "closing fills the gap", grid: G.gap, algorithm: "close", apply: () => { se.set("square"); setOutside(-1); setDual(false); } },
+  { id: "order", label: "open∘close ≠ close∘open", grid: G.noisy, algorithm: "openclose", apply: () => { se.set("square"); setOutside(-1); setDual(false); } },
+  { id: "twice", label: "apply twice: nothing changes", grid: G.noisy, algorithm: "opentwice", apply: () => { se.set("square"); setOutside(-1); setDual(false); } },
+  { id: "hand", label: "9 × 9 (exercise)", grid: G.hand2, algorithm: "open", apply: () => { se.set("square"); setOutside(-1); setDual(false); } },
+  { id: "blank", label: "empty 16 × 16", grid: { rows: 16, cols: 16, values: new Int32Array(256) }, algorithm: "open", apply: () => { se.set("square"); setOutside(-1); setDual(false); } },
 ]);
 
 export const BINARY_PALETTE = PAL;

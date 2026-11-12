@@ -48,25 +48,26 @@ import "./mode-distance";
 
 const NAME = "morphgrid";
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .mg-side { flex: 0 0 190px; display: flex; flex-direction: column; gap: .45em; }
-[data-demo="${NAME}"] .mg-side:empty { display: none; }
-[data-demo="${NAME}"] .mg-se { display: flex; flex-direction: column; gap: .35em; }
-[data-demo="${NAME}"] .mg-se .qb-grid-svg { max-width: 180px !important; }
-[data-demo="${NAME}"] .mg-lab { font-size: 15px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .qb-gridstep { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .qb-gridstep-grids { flex: 1 1 380px; }
-[data-demo="${NAME}"] .qb-gridstep-panel { flex: 0 0 300px; gap: .4em; }
-[data-demo="${NAME}"] .qb-gridstep-log { max-height: 6.5em; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .mg-lab { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-gridstep-log { max-height: 4.2em; font-size: 13px; }
-.reveal [data-demo="${NAME}"] .qb-gridstep-grids { max-height: 540px; }
-.reveal [data-demo="${NAME}"] .qb-gridstep-cell .qb-grid-svg { max-height: 520px; }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
+.qb-demo[data-demo="${NAME}"] .mg-side { flex: 0 0 190px; display: flex; flex-direction: column; gap: .45em; }
+.qb-demo[data-demo="${NAME}"] .mg-side:empty { display: none; }
+.qb-demo[data-demo="${NAME}"] .mg-se { display: flex; flex-direction: column; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .mg-se .qb-grid-svg { max-width: 180px !important; }
+.qb-demo[data-demo="${NAME}"] .mg-lab { font-size: 15px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .qb-gridstep { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; }
+.qb-demo[data-demo="${NAME}"] .qb-gridstep-grids { flex: 1 1 380px; }
+.qb-demo[data-demo="${NAME}"] .qb-gridstep-panel { flex: 0 0 300px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-gridstep-log { max-height: 6.5em; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-gridstep-panel { gap: .3em; }
+.reveal .qb-demo[data-demo="${NAME}"] .mg-lab { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-gridstep-log { max-height: 4.2em; font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-gridstep-grids { max-height: 540px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-gridstep-cell .qb-grid-svg { max-height: 520px; }
 @media (max-width: 900px) {
-  [data-demo="${NAME}"], [data-demo="${NAME}"] .qb-gridstep { flex-wrap: wrap; }
+  .qb-demo[data-demo="${NAME}"], .qb-demo[data-demo="${NAME}"] .qb-gridstep { flex-wrap: wrap; }
 }
 `;
 
@@ -116,7 +117,7 @@ function mount(host: HTMLElement): void {
     htmlEl("div", "mg-lab", "examples", s.panel);
     const row = htmlEl("div", "qb-presets", "", s.panel);
     btns = presets.map(p => button(row, p.label, () => load(p)));
-    button(s.panel, "reset", () => load(p0));
+    button(row, "⟲ reset", () => load(p0));
     btns.forEach((b, i) => b.classList.toggle("active", presets[i] === p0));
   }
   // highlight the chosen algorithm button (gridStepper does it on regenerate)

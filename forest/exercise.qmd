@@ -1,0 +1,156 @@
+---
+title: "Exercise: bagging and random forests"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- draw a **bootstrap** sample and say how many points it leaves out,
+- compute the variance of an **average of correlated predictors**, and explain why it has a floor,
+- explain what the **random feature subset** does to the trees,
+- compute a forest's **vote fraction** and its **out-of-bag** prediction,
+- *(math)* derive the variance formula and the limit $(1 - 1/n)^n \to 1/e$.
+
+Do the pen-and-paper part first, then the two demos. Questions marked *(math)* are for those who want the derivations.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Bootstrap sample | $n$ points drawn from $n$ **with replacement** |
+| Out of bag | the points a bootstrap sample did not draw: about $(1 - 1/n)^n \approx 37\,\%$ |
+| Bagging | one deep tree per bootstrap sample; the trees vote |
+| Random forest | bagging + a random subset of $m$ of the $d$ features at every split |
+| Variance of an average | $B$ predictors, variance $\sigma^2$, pairwise correlation $\rho$: $\rho\sigma^2 + (1-\rho)\sigma^2/B$ |
+| Vote fraction | share of the trees that vote for a class: the forest's probability |
+| OOB prediction / error | for each training point, the vote of the trees that did not see it; their error rate |
+
+::: {.callout-note collapse="true" title="The math: why correlation sets the floor"}
+For $B$ predictors with variances $\sigma^2$ and covariances $\rho\sigma^2$,
+$\operatorname{Var}(\sum_b f_b) = B\sigma^2 + B(B-1)\rho\sigma^2$. Divide by $B^2$ for the average: $\rho\sigma^2 + (1-\rho)\sigma^2/B$. The second term vanishes as $B$ grows; the first does not, because the shared part of the errors is the same in every predictor and survives any amount of averaging.
+:::
+
+## By hand
+
+**B1.** A training set has $n = 5$ points.
+(a) What is the probability that point 1 is not in a given bootstrap sample?
+(b) Three trees are grown on three independent bootstrap samples. What is the probability that point 1 is in **none** of them? In at least one?
+(c) A forest has 100 trees. About how many of them can give an OOB vote on point 1, if $n$ is large?
+
+**B2.** Predictors with $\sigma^2 = 1$ and pairwise correlation $\rho = 0.3$.
+(a) Compute the variance of the average of 1, 10, 100 and infinitely many of them.
+(b) A different way of growing trees gives $\rho$ lower. How low must $\rho$ be so that the average of only 10 trees beats 100 trees at $\rho = 0.3$?
+(c) In a forest, what do you change to lower $\rho$, and what does it cost?
+
+**B3.** Five trees vote on a training pixel: N, N, B, N, B. Trees 2, 3 and 5 did not have the pixel in their bootstrap sample.
+(a) What is the forest's probability of N, and its label?
+(b) What is the OOB vote, and the OOB label? The pixel is truly B: does it count as an OOB error?
+
+**B4.** Ten features, one of which (texture) separates the classes much better than all others.
+(a) With $m = 10$ (plain bagging), which feature does nearly every tree use at its root? What does that mean for $\rho$?
+(b) With $m = 3$, in what fraction of the trees can the root split use texture?
+
+**B5.** A forest separates nuclei from background using intensity (0–255). The training nuclei have intensities 140–200, the background 20–80. A new image has a bright artefact at intensity 250. What probability will the forest give it, and why is that misleading?
+
+**B6.** A forest with 300 trees has OOB error 8.0 %; with 500 trees, 7.9 %. A colleague suggests 5000 trees. Will it help? What would help more if the error is still too high?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $(1 - 1/5)^5 = 0.8^5 = 0.328$.
+(b) Independent samples: $0.328^3 = 0.8^{15} = 0.035$. In at least one: $1 - 0.035 = 0.965$.
+(c) About $100 \cdot 0.368 \approx 37$ trees.
+
+**B2.** (a) $B = 1$: 1. $B = 10$: $0.3 + 0.7/10 = 0.370$. $B = 100$: $0.3 + 0.007 = 0.307$. $B \to \infty$: $0.300$.
+(b) $\rho + (1 - \rho)/10 < 0.307 \iff 0.9\rho < 0.207 \iff \rho < 0.23$.
+(c) Lower $m$ (fewer features tried per split), or more randomness (random thresholds, smaller bootstrap samples). The cost: each tree is a little worse on its own ($\sigma^2$ and the bias may rise), so too much randomness also hurts.
+
+**B3.** (a) 3 of 5 votes for N: $P(\text{N}) = 0.6$, label N.
+(b) Trees 2, 3, 5 vote N, B, B: OOB $P(\text{N}) = 1/3$, OOB label B. The true class is B, so it is **not** an OOB error, although the full forest (which includes trees that saw the pixel) gets it wrong.
+
+**B4.** (a) Texture: whenever it is among the candidates it wins, and with $m = 10$ it always is. All trees start with the same question and look alike: high $\rho$.
+(b) The root's 3 candidates are a random subset of the 10 features; texture is among them with probability $3/10 = 30\,\%$. In the other 70 % of the trees the root uses another feature (texture comes in lower down), so the trees differ more.
+
+**B5.** Every tree's last split on intensity sends 250 to the "bright" side (above the largest threshold, somewhere between 80 and 140), where all leaves say nucleus. All trees agree: probability close to 1. But the forest has never seen anything at 250: the agreement comes from all trees extending the same last rectangle, not from evidence. Vote fractions are not calibrated far from the training data.
+
+**B6.** No: the OOB curve has flattened, so more trees only cost time (the variance part that averaging removes is already gone). What remains is the correlation floor and the bias: better features, more (and more varied) training data, or a different $m$ / leaf size help more.
+:::
+
+### Math questions
+
+**B7.** *(math)* Derive $\operatorname{Var}\big(\tfrac1B\sum_b f_b\big) = \rho\sigma^2 + \tfrac{1-\rho}{B}\sigma^2$ from $\operatorname{Var}(\sum_b f_b) = \sum_b\operatorname{Var}f_b + \sum_{b\ne c}\operatorname{Cov}(f_b, f_c)$.
+
+**B8.** *(math)* Show that $(1 - 1/n)^n \to 1/e$ as $n \to \infty$, and that the expected number of distinct points in a bootstrap sample is $n\,(1 - (1 - 1/n)^n)$. Evaluate it for $n = 5$.
+
+**B9.** *(math)* Show that a negative pairwise correlation is possible for two predictors, but that for $B$ predictors with the same pairwise correlation $\rho$ one must have $\rho \ge -1/(B - 1)$. What does that say about using negative correlation to beat the floor?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** There are $B$ variance terms $\sigma^2$ and $B(B-1)$ ordered pairs $b \ne c$ with covariance $\rho\sigma^2$: $\operatorname{Var}(\sum f_b) = B\sigma^2 + B(B-1)\rho\sigma^2$. The average divides by $B$, the variance by $B^2$: $\frac{\sigma^2}{B} + \frac{B-1}{B}\rho\sigma^2 = \rho\sigma^2 + \frac{1 - \rho}{B}\sigma^2$.
+
+**B8.** $\ln(1 - 1/n)^n = n\ln(1 - 1/n) = n(-1/n - 1/(2n^2) - \dots) \to -1$, so the limit is $e^{-1}$. Let $Z_i = 1$ if point $i$ is drawn at least once: $E[Z_i] = 1 - (1 - 1/n)^n$; by linearity the expected number of distinct points is $\sum_i E[Z_i] = n(1 - (1-1/n)^n)$. For $n = 5$: $5(1 - 0.328) = 3.36$.
+
+**B9.** Two predictors $f$ and $-f$ have correlation $-1$. For $B$ predictors, $\operatorname{Var}(\sum f_b) = B\sigma^2(1 + (B-1)\rho) \ge 0$ requires $\rho \ge -1/(B-1)$. For many predictors the bound tends to 0: a large set of predictors cannot all be negatively correlated with each other, so in practice the floor $\rho\sigma^2$ with $\rho \ge 0$ is what we work against.
+:::
+
+## Explore: bootstrap and averaging {#explore-bootstrap}
+
+Left: $n$ numbered training points. **draw a bootstrap sample** shows how often each was drawn (grey with "–": never, out of bag); **draw 1000** collects the out-of-bag fraction of 1000 samples in a histogram. Right: the variance of an average of $B$ predictors with variance $\sigma^2$ and correlation $\rho$, simulated (dots, 2000 runs, fixed seed) and by the formula (line), with the floor $\rho\sigma^2$ (dashed). Both axes are logarithmic.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="bootstrap"></div>
+<script src="../demos/dist/bootstrap.js"></script>
+```
+
+**E1.** With $n = 20$ the first sample is already drawn. How many points are out of bag, how many were drawn more than once, and what is the largest count? Press **draw 1000**: what is the mean OOB fraction, and how does it compare with $(1 - 1/n)^n$?
+
+**E2.** Set $n = 5$ and press **draw 1000**. Mean OOB fraction, and the shape of the histogram compared with $n = 20$? Then $n = 100$.
+
+**E3.** With $\sigma^2 = 1$ and $\rho = 0.3$, read the formula values for $B = 10$ and $100$ and the simulated ones. Then choose $\rho = 0$ and $\rho = 0.5$. For which $\rho$ is it worth growing 100 rather than 10 trees?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Sample 1: 6 of 20 out of bag (30 %), 4 points drawn more than once, the largest count is 3 (two points). Over 1000 samples the mean OOB fraction is 35.6 %, close to $(1 - 1/20)^{20} = 0.358$.
+
+**E2.** $n = 5$: mean 32.5 % (formula 0.328), but the histogram is wide and lumpy: only 0, 1, 2, 3 or 4 of 5 points can be out of bag (standard deviation 13.9 percentage points). $n = 20$: 6.9 points; $n = 100$: mean 36.6 % (formula 0.366), narrow (3.2 points).
+
+**E3.** $\rho = 0.3$: formula 0.370 ($B = 10$) and 0.307 ($B = 100$); simulated 0.375 and 0.312. $\rho = 0$: 0.100 and 0.010 (simulated 0.098, 0.010): ten times better. $\rho = 0.5$: 0.550 and 0.505. Going from 10 to 100 trees pays off when the correlation is low; with high correlation the floor is reached early.
+:::
+
+## Explore: a forest in the plane {#explore}
+
+Left: the training points (click to add, drag, **remove points**) with the forest's class probabilities behind them: the colour is the mix of the class colours, the strength the confidence. Middle: the first six trees, each grown on its own bootstrap sample, and the out-of-bag error (solid) and the error on 1000 hidden test points (dashed) against the number of trees. Sliders: number of trees $B$, features per split $m$, maximum depth, minimum leaf size; **bootstrap samples** on/off. **add x + y and x − y** gives the trees two extra (derived) features; **noise features** adds features that are pure random numbers. The readout gives the number of features $d$, the errors, and $\hat\rho$: the average correlation between the trees' maps.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="forestplay" data-preset="single"></div>
+<script src="../demos/dist/forestplay.js"></script>
+```
+
+**E4.** Preset **one deep tree overfits** (one tree, no bootstrap). Training and test error? Then preset **100 bagged trees**: training, OOB and test error. Read the error curve at 1, 10, 50 and 100 trees.
+
+**E5.** On **100 bagged trees**, compare the six small maps with the forest's map. Where do the single trees disagree? Then set **trees B** to 200: does anything improve?
+
+**E6.** Preset **m = d: trees look alike** (two moons, $d = 4$, $m = 4$). Note $\hat\rho$ and the test error. Preset **m = 1: diverse trees**: the same numbers. Did lowering $\rho$ help here? Set **trees B** to 1 in both presets and compare the single trees' test errors. Explain.
+
+**E7.** Preset **noise features** (two blobs plus 4 noise features, $d = 6$). Test error of the forest? Untick **bootstrap samples** and set $B = 1$: test error of one tree? Set noise features to 0 and compare both again.
+
+**E8.** Preset **confident far from the data** (three blobs). How confident is the forest in the four corners of the square, where there are no training points? Add a point of a new colour in an empty corner and watch.
+
+**E9.** Preset **uncertainty on the boundary** (two moons, minimum leaf size 5). Where is the map pale? How do OOB and test error compare? Set minimum leaf size to 1: what happens to the training error and to the map?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E4.** One deep tree: training error 0 %, test error 28.8 %. 100 bagged trees: training 0 %, OOB 26.0 %, test 23.4 %. Error curve, OOB / test: 1 tree 35.0 / 35.4 % (one tree on a bootstrap sample sees only 63 % of the points), 10 trees 29.9 / 24.9 %, 50 trees 26.0 / 24.6 %, 100 trees 26.0 / 23.4 %. Most of the gain comes in the first tens of trees.
+
+**E5.** The single trees have hard, blocky boundaries that differ wherever the two clouds overlap: each follows the noise of its own bootstrap sample. Where they disagree the forest's map is pale; where they agree it is strong. With 200 trees the test error stays at 23.5 % and the OOB error at 26.0 %: the curve has flattened, so more trees change nothing but the time.
+
+**E6.** $m = 4$: $\hat\rho = 0.68$, test error 8.7 % (OOB 10.6 %). $m = 1$: $\hat\rho = 0.62$, test error 9.2 % (OOB 11.3 %). The trees are a little less alike, but the forest is not better: the difference of half a percentage point is within what another seed would give. A single tree: 11.9 % with $m = 4$ and 12.0 % with $m = 1$, about equally good. With only 4 features, all of them informative, there is no dominant feature that $m = d$ would put at every root, so a small $m$ has little to decorrelate. The gain from a small $m$ is largest with many features, a few of them dominant (B4).
+
+**E7.** Forest with noise features: test error 1.9 % (OOB 2.0 %). One tree without bootstrap: 3.0 %. Without noise features: forest 3.2 %, one tree 3.3 %. The noise features do not hurt the forest (here they even help slightly: they make the trees more different), because splits on noise are averaged away. The noise features do make the single tree's map speckled, since the map's grid points get their own random noise values.
+
+**E8.** The corners get probabilities of 1.00 (e.g. class 1 at the bottom-left corner, class 3 at the top-left): every tree extends its outermost rectangles to infinity, so far from the data all trees agree. A new point in an empty corner changes the map only around that corner: the forest had no reason to be confident there before.
+
+**E9.** The map is pale along the curved boundary between the moons, where they overlap, and strong inside each moon. Training error 4.4 %, OOB 11.3 %, test 8.5 %: OOB is close to the honest test error, slightly pessimistic (each OOB vote uses only about a third of the trees). With minimum leaf size 1: training error 0 %, OOB 11.3 %, test 9.0 %; the map gets more small islands around single points and is confident in more places.
+:::
+
+## Where this leads
+
+The next unit uses forests on tables of **object measurements** and asks which features matter (**feature importance**). The last unit of the day classifies every **pixel** from a few painted strokes, where the OOB error will turn out to be misleading.

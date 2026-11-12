@@ -135,7 +135,7 @@ function mount(host: HTMLElement): void {
     tt.textContent = `total ${s.varT.toFixed(2)} = within ${s.varW.toFixed(2)} + between ${s.varB.toFixed(2)}`;
     tt.style.fontSize = "18px";
     const lab = (x: number, w: number, str: string) => { if (w < 70) return; const e = svgEl("text", { x: x + w / 2, y: 53, "text-anchor": "middle" }, stack); e.textContent = str; e.style.fontSize = "17px"; };
-    lab(x0, wW, "within σ_W²"); lab(x0 + wW, wB, "between σ_B²");
+    lab(x0, wW, "within"); lab(x0 + wW, wB, "between");
 
     const iso = st.trace.map(v => v.toFixed(2)).join(" → ");
     ro.textContent = `N = ${st.h.reduce((a, b) => a + b, 0)}   μ = ${s.mu.toFixed(2)}\nOtsu t* = ${o.t}  (σ_B² = ${o.t >= 0 ? o.curve[o.t].toFixed(2) : "–"})\nisodata: ${iso}`;

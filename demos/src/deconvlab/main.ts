@@ -38,21 +38,21 @@ const DEFAULT: State = {
 interface Preset { id: string; label: string; s: Partial<State> }
 const PRESETS: Preset[] = [
   { id: "explode", label: "0.1% noise: inverse explodes", s: { scene: "phantom", psf: { kind: "gauss", width: 2 }, noise: { kind: "gauss", level: 0.001 }, method: "inverse" } },
-  { id: "truncated", label: "truncated inverse: ringing", s: { scene: "beads", psf: { kind: "airy", width: 1.0 }, noise: { kind: "gauss", level: 0.01 }, method: "truncated", eps: 0.1 } },
-  { id: "wiener", label: "Wiener at the right SNR", s: { scene: "phantom", method: "wiener", model: "flat", snr: 2000 } },
-  { id: "wrongsnr", label: "Wiener with the wrong SNR", s: { scene: "phantom", method: "wiener", model: "flat", snr: 1e6 } },
-  { id: "f2", label: "1/f² beats flat", s: { scene: "phantom", method: "wiener", model: "1/f2", snr: 300 } },
+  { id: "truncated", label: "truncated inverse: ringing", s: { scene: "beads", psf: { kind: "airy", width: 1.0 }, method: "truncated", eps: 0.1 } },
+  { id: "wiener", label: "Wiener at the right SNR", s: { scene: "phantom", method: "wiener", model: "flat", snr: 45 } },
+  { id: "wrongsnr", label: "Wiener with the wrong SNR", s: { scene: "phantom", method: "wiener", model: "flat", snr: 2000 } },
+  { id: "f2", label: "1/f² beats flat", s: { scene: "star", psf: { kind: "motion", width: 9, angle: 0 }, method: "wiener", model: "1/f2", snr: 300 } },
   { id: "toomuch", label: "too much regularisation: blur", s: { scene: "phantom", method: "tikhonov", penalty: "energy", lambda: 0.1 } },
-  { id: "tikwiener", label: "Tikhonov = Wiener with a flat spectrum", s: { scene: "phantom", method: "tikhonov", penalty: "energy", lambda: 1 / 2000 } },
-  { id: "rough", label: "roughness penalty", s: { scene: "phantom", method: "tikhonov", penalty: "roughness", lambda: 0.01 } },
-  { id: "wrongpsf", label: "wrong PSF width", s: { scene: "beads", psf: { kind: "gauss", width: 2 }, used: 1.3, method: "wiener", model: "flat", snr: 2000 } },
-  { id: "border", label: "periodic borders ring", s: { scene: "beads", psf: { kind: "gauss", width: 2 }, noise: { kind: "gauss", level: 0.001 }, realistic: true, method: "wiener", snr: 1e5, border: "periodic" } },
-  { id: "motion", label: "motion blur: Wiener bridges the zeros", s: { scene: "star", psf: { kind: "motion", width: 9, angle: 0 }, method: "wiener", model: "flat", snr: 2000 } },
+  { id: "tikwiener", label: "Tikhonov = Wiener with a flat spectrum", s: { scene: "phantom", method: "tikhonov", penalty: "energy", lambda: 1 / 45 } },
+  { id: "rough", label: "roughness penalty", s: { scene: "phantom", method: "tikhonov", penalty: "roughness", lambda: 0.033 } },
+  { id: "wrongpsf", label: "wrong PSF width", s: { scene: "beads", used: 1.3, method: "wiener", model: "flat", snr: 85 } },
+  { id: "border", label: "periodic borders ring", s: { scene: "beads", noise: { kind: "gauss", level: 0.001 }, realistic: true, method: "wiener", snr: 1e5, border: "periodic" } },
+  { id: "motion", label: "motion blur: Wiener bridges the zeros", s: { scene: "star", psf: { kind: "motion", width: 9, angle: 0 }, method: "wiener", model: "flat", snr: 160 } },
 ];
 const INV_PRESETS: Preset[] = [
   { id: "perfect", label: "no noise: inverse is perfect", s: { scene: "phantom", psf: { kind: "gauss", width: 1.5 }, noise: { kind: "gauss", level: 0 } } },
   { id: "explode", label: "0.1% noise: inverse explodes", s: { scene: "phantom", psf: { kind: "gauss", width: 1.5 }, noise: { kind: "gauss", level: 0.001 } } },
-  { id: "motion", label: "motion blur: zeros", s: { scene: "star", psf: { kind: "motion", width: 9, angle: 0 }, noise: { kind: "gauss", level: 0.001 } } },
+  { id: "motion", label: "motion blur: zeros", s: { scene: "star", psf: { kind: "motion", width: 9, angle: 0 }, noise: { kind: "gauss", level: 0.01 } } },
   { id: "grating", label: "an invisible grating", s: { scene: "phantom", psf: { kind: "airy", width: 1.0 }, noise: { kind: "gauss", level: 0 }, grating: true } },
 ];
 
@@ -321,8 +321,10 @@ function mount(host: HTMLElement): void {
     const err = rest.map((v, i) => v - shownTruth[i]);
     pErr.draw(err, N, N, { lo: -0.2 * hi, hi: 0.2 * hi, map: diverging });
     const e = rmse(rest, shownTruth), neg = rest.reduce((a, v) => a + (v < 0 ? 1 : 0), 0) / rest.length;
-    const lines = [`RMSE ${e < 1e3 ? e.toFixed(4) : fmtSci(e)}   PSNR ${psnr(rest, shownTruth, 1).toFixed(1)} dB (peak 1)`];
+    const lines = [`RMSE ${e < 1e3 ? e.toFixed(4) : fmtSci(e)} (observed ${rmse(obs, shownTruth).toFixed(4)})   PSNR ${psnr(rest, shownTruth, 1).toFixed(1)} dB (peak 1)`];
     lines.push(`noise σn ${sd.toFixed(4)}   negative pixels ${(100 * neg).toFixed(1)} %`);
+    const mean = (a: Float64Array) => a.reduce((x, v) => x + v, 0) / a.length;
+    if (!inverseOnly) lines.push(`true SNR ${sd > 0 ? fmtSci(mean(shownTruth.map(v => v * v)) / (sd * sd)) : "∞"} (mean truth² / σn²)   mean: truth ${mean(shownTruth).toFixed(4)}, restored ${mean(rest).toFixed(4)}`);
     if (inverseOnly) {
       let mx = 0;
       for (let i = 0; i < N * N; i++) { const h = Math.sqrt(ctxTrue.H2[i]); if (h > 1e-10) mx = Math.max(mx, 1 / h); else mx = Infinity; }

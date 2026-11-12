@@ -33,7 +33,7 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .ls-plot { flex-basis: 380px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex-basis: 300px; gap: .25em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
-.reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .ls-credit { display: none; }
+.reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .ls-credit, .reveal [data-demo="${NAME}"] .ls-lab { display: none; }
 `;
 
 function injectStyle(): void {
@@ -76,7 +76,8 @@ function mount(host: HTMLElement): void {
   });
   figs[0].cv.classList.add("ls-click");
   const credit = htmlEl("div", "ls-credit", CELL_CREDIT, grid);
-  const plotBox = htmlEl("div", "ls-plot", "", host);
+  const midBox = htmlEl("div", "ls-plot", "", host);
+  const plotBox = htmlEl("div", "", "", midBox);
   const panel = htmlEl("div", "qb-panel", "", host);
   const tabRow = htmlEl("div", "qb-presets ls-tabs", "", panel);
   const tabBtns = [button(tabRow, "local statistics", () => { st.tab = "stats"; update(); }), button(tabRow, "precision", () => { st.tab = "precision"; update(); })];
@@ -98,8 +99,8 @@ function mount(host: HTMLElement): void {
   const sRow = htmlEl("div", "qb-presets", "", precBox);
   const sBtns = [button(sRow, "256 × 256", () => { st.size = 256; update(); }), button(sRow, "1024 × 1024 (tiled)", () => { st.size = 1024; update(); })];
   button(panel, "reset", () => load(p0));
-  const ro = htmlEl("div", "qb-readout", "", panel);
-  const note = htmlEl("div", "qb-note", "", panel);
+  const ro = htmlEl("div", "qb-readout", "", midBox);
+  const note = htmlEl("div", "qb-note", "", midBox);
 
   function load(p: Preset): void {
     Object.assign(st, p);
@@ -128,6 +129,8 @@ function mount(host: HTMLElement): void {
     sBtns.forEach((b, i) => b.classList.toggle("active", (i === 1) === (st.size === 1024)));
     precBox.style.display = stats ? "none" : "flex";
     plotBox.style.display = stats ? "" : "none";
+    pbtns.forEach((b, i) => { b.style.display = PRESETS[i].tab === st.tab ? "" : "none"; });
+    (imRow.previousElementSibling as HTMLElement).style.display = imRow.style.display = stats ? "" : "none";
     (eS.input.parentElement as HTMLElement).style.display = stats ? "" : "none";
     rS.set(st.r); eS.set(st.eps); aS.set(st.add); subC.checked = st.subtract;
     credit.style.display = st.image === "cell" ? "" : "none";
@@ -152,7 +155,7 @@ function mount(host: HTMLElement): void {
     figs[3].cap.textContent = `(I − m) / (s + ${st.eps})`;
     drawScalarImage(figs[0].cv, img, N, N, { lo: 0, hi: 255 });
     const ctx = figs[0].cv.getContext("2d")!;
-    ctx.fillStyle = "rgba(255,127,14,0.9)"; ctx.fillRect(0, st.row, N, 2);
+    ctx.fillStyle = "rgba(255,127,14,0.95)"; ctx.fillRect(0, st.row - 1, N, 3);
     drawScalarImage(figs[1].cv, ls.mean, N, N, { lo: 0, hi: 255 });
     let smax = 0;
     for (const v of ls.sd) smax = Math.max(smax, v);

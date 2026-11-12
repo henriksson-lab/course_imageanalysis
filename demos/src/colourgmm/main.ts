@@ -19,25 +19,25 @@ import { N, makeImage, features, score, FEATURE_NAMES, type ImageId, type Featur
 
 const NAME = "colourgmm";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .6em 1em; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin-bottom: .15em; }
-[data-demo="${NAME}"] .cg-row { display: flex; gap: .8em; width: 100%; align-items: flex-start; }
-[data-demo="${NAME}"] .cg-row > * { flex: 1 1 0; min-width: 0; }
-[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
-[data-demo="${NAME}"] .cg-ctl { display: flex; gap: .4em 1.2em; width: 100%; flex-wrap: wrap; align-items: flex-start; }
-[data-demo="${NAME}"] .cg-ctl > div { flex: 1 1 340px; display: flex; flex-direction: column; gap: .3em; min-width: 0; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
-[data-demo="${NAME}"] .cg-lab { font-size: 14px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 16px; gap: .2em; }
-.reveal [data-demo="${NAME}"] .cg-row { max-height: 300px; }
-.reveal [data-demo="${NAME}"] .cg-row > * { max-width: 270px; }
-.reveal [data-demo="${NAME}"] .cg-row > .cg-ro { max-width: none; flex: 1.6 1 0; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .45em; }
-.reveal [data-demo="${NAME}"] .cg-ctl > div { gap: .15em; }
-@media (max-width: 640px) { [data-demo="${NAME}"] .cg-row { flex-wrap: wrap; } [data-demo="${NAME}"] .cg-row > * { flex-basis: 45%; } }
+.qb-demo[data-demo="${NAME}"] { gap: .6em 1em; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin-bottom: .15em; }
+.qb-demo[data-demo="${NAME}"] .cg-row { display: flex; gap: .8em; width: 100%; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .cg-row > * { flex: 1 1 0; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
+.qb-demo[data-demo="${NAME}"] .cg-ctl { display: flex; gap: .4em 1.2em; width: 100%; flex-wrap: wrap; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .cg-ctl > div { flex: 1 1 340px; display: flex; flex-direction: column; gap: .3em; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .cg-lab { font-size: 14px; color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .cg-row > * { max-width: 270px; }
+.reveal .qb-demo[data-demo="${NAME}"] .cg-row > .cg-ro { max-width: none; flex: 1.6 1 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .cg-ctl > div { gap: .15em; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
+@media (max-width: 640px) { .qb-demo[data-demo="${NAME}"] .cg-row { flex-wrap: wrap; } .qb-demo[data-demo="${NAME}"] .cg-row > * { flex-basis: 45%; } }
 `;
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -165,7 +165,7 @@ function mount(host: HTMLElement): void {
     const vals: string[] = [];
     let bestScore = Infinity, bestState: { m: Mixture | null; c: Float64Array | null; crit: number; seed: number } | null = null;
     for (let t = 0; t < R; t++) {
-      const seed = 100 + t;
+      const seed = 1 + t;
       if (st.algo === "kmeans") {
         const r = kmeans(F.X, n, F.d, st.k, { init: kmeansPlusPlus(F.X, n, F.d, st.k, rng(seed)) });
         vals.push(r.J.toExponential(3));
@@ -185,7 +185,7 @@ function mount(host: HTMLElement): void {
       }
     }
     if (bestState) { st.m = bestState.m; st.centres = bestState.c ?? st.centres; st.crit = bestState.crit; st.done = true; }
-    st.best = (st.algo === "kmeans" ? "J of 6 starts: " : "log p of 6 starts: ") + vals.join(", ");
+    st.best = (st.algo === "kmeans" ? "J of starts 1–6: " : "log p of starts 1–6: ") + vals.join(", ");
     draw();
   }
 
@@ -233,7 +233,7 @@ function mount(host: HTMLElement): void {
       id1.data[4 * p] = c[0]; id1.data[4 * p + 1] = c[1]; id1.data[4 * p + 2] = c[2]; id1.data[4 * p + 3] = 255;
     }
     ctx1.putImageData(id1, 0, 0);
-    cap1.textContent = st.view === "labels" ? "label per pixel" : st.view === "posterior" ? (L.post ? `posterior of component ${cls + 1}` : "posterior (GMM only)") : `d_M > ${st.tmaha} to every component: ${flagged} px`;
+    cap1.textContent = st.view === "labels" ? "label per pixel" : st.view === "posterior" ? (L.post ? `posterior of component ${cls + 1}` : "posterior (GMM only)") : `d_M > ${st.tmaha} to all: ${flagged} px`;
     // projection plot
     const names = FEATURE_NAMES[st.feat], [i, j] = PROJ[st.feat][st.proj], ni = names[i], nj = names[j];
     const xr = st.feat === "labxy" && i >= 3 ? [0, 100 * st.wxy] as [number, number] : RANGE[ni], yr = st.feat === "labxy" && j >= 3 ? [0, 100 * st.wxy] as [number, number] : RANGE[nj];

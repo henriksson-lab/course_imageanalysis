@@ -35,14 +35,14 @@ export function dilate1(f: ArrayLike<number>, s: ArrayLike<number>): Profile {
 export const open1 = (f: ArrayLike<number>, s: ArrayLike<number>) => dilate1(erode1(f, s), s);
 export const close1 = (f: ArrayLike<number>, s: ArrayLike<number>) => erode1(dilate1(f, s), s);
 
-/** Median over the window x − k .. x + k (inside samples only; even count: lower median). */
+/** Median over the window x − k .. x + k (inside samples only; even count near the ends: the upper middle value, as lib/morph.ts). */
 export function median1(f: ArrayLike<number>, k: number): Profile {
   const n = f.length, out = new Float64Array(n);
   for (let x = 0; x < n; x++) {
     const w: number[] = [];
     for (let y = Math.max(0, x - k); y <= Math.min(n - 1, x + k); y++) w.push(f[y]);
     w.sort((a, b) => a - b);
-    out[x] = w[(w.length - 1) >> 1];
+    out[x] = w[Math.round((w.length - 1) / 2)];
   }
   return out;
 }

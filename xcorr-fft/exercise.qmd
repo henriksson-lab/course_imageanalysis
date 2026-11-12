@@ -1,0 +1,119 @@
+---
+title: "Exercise: cross-correlation with the FFT"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute a short **circular cross-correlation** by hand, directly and through the DFT,
+- explain why the FFT route multiplies one spectrum by the **conjugate** of the other,
+- tell **circular** from **linear** correlation and choose the **padding**,
+- estimate the **cost** of the FFT route and of brute force, and say when each wins.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Cross-correlation | $c(t) = \sum_x A(x+t)\,B(x)$: the score of placing B at shift $t$ on A |
+| Correlation theorem | the DFT of $c$ is $A_k\overline{B_k}$ (for real images) |
+| FFT route | FFT of A, FFT of B, multiply $A_k\overline{B_k}$, inverse FFT: $c(t)$ for every $t$ |
+| Circular | the DFT treats each image as periodic: shifted parts wrap around |
+| Zero-padding | embed each image in zeros, at least $2N - 1$ long: the linear correlation |
+| Cost | one complex FFT of $M$ samples $\approx 5M\log_2 M$ operations; brute force over all shifts $\approx 2N^2$ for $N$ samples ($2N^4$ for $N \times N$ images) |
+
+The DFT of length 4 uses the powers of $e^{-2\pi i/4} = -i$: $X_k = \sum_{n=0}^{3} x_n(-i)^{kn}$; the inverse is $x_n = \tfrac14\sum_k X_k\, i^{kn}$ (the Fourier unit, B7).
+
+## By hand
+
+**B1.** $A = (0, 1, 2, 0)$ and $B = (1, 2, 0, 0)$.
+(a) Compute the circular cross-correlation $c(t) = \sum_x A((x + t) \bmod 4)\,B(x)$ for $t = 0, 1, 2, 3$ directly. Where is the peak?
+(b) Compute the DFTs $A_k$ and $B_k$, the product $A_k\overline{B_k}$, and its inverse DFT. Check that you get (a).
+(c) Now $B' = (0, 0, 1, 2)$ ($A$ rolled around by 3). Compute $c(t)$. Where is the peak? If A and $B'$ were two tiles that do **not** repeat, which two shifts could the peak mean?
+
+**B2.** In B1(b), $k = 0$ gives $A_0\overline{B_0} = 9$. What does this term add to every $c(t)$? Subtract the means of A and B first: which entries of $A_k$, $B_k$ change, and what happens to $c(t)$?
+
+**B3.** Padding. (a) Two signals of length 1000 are to be correlated linearly with a radix-2 FFT. How long must the transform be? (b) Two $1000 \times 1000$ images: how many samples does each padded FFT have, compared with the images? (c) Why do stitching programs often not pad?
+
+**B4.** Cost. Two $1024 \times 1024$ tiles, padded to $2048 \times 2048$.
+(a) Estimate the operations of one complex FFT ($5M\log_2 M$) and of the whole FFT route (three FFTs).
+(b) Brute force over every shift costs $2 \cdot 1024^4$ operations. How many times more is that?
+(c) A search window of $\pm 5$ pixels costs about $2 \cdot 11^2 \cdot 1024^2$ operations. Which route is cheaper now?
+
+**B5.** In the lecture's picture, frequency $k$ "votes" for shift $t$ with the arrow $A_k\overline{B_k}\,e^{2\pi i kt/N}$, and $c(t)$ is the sum of the votes (divided by $N$). Take B1: draw the four arrows for $t = 0$ and for $t = 1$. At which shift do they all point the same way?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $c(0) = 0\cdot1 + 1\cdot2 + 2\cdot0 + 0\cdot0 = 2$; $c(1) = A_1B_0 + A_2B_1 + A_3B_2 + A_0B_3 = 1 + 4 + 0 + 0 = 5$; $c(2) = 2 + 0 = 2$; $c(3) = 0$. So $c = (2, 5, 2, 0)$, peak at $t = 1$: B belongs one step to the right on A.
+(b) $A_k = \sum_n A_n(-i)^{kn} = (-i)^k + 2(-i)^{2k}$: $A = (3,\ -2 - i,\ 1,\ -2 + i)$. $B_k = 1 + 2(-i)^k$: $B = (3,\ 1 - 2i,\ -1,\ 1 + 2i)$. Products: $3\cdot3 = 9$; $(-2 - i)(1 + 2i) = -2 - 4i - i + 2 = -5i$; $1\cdot(-1) = -1$; $(-2 + i)(1 - 2i) = 5i$. Inverse: $c(t) = \tfrac14(9 - 5i\cdot i^t - (-1)^t + 5i\cdot i^{3t})$: $c(0) = \tfrac14(9 - 5i - 1 + 5i) = 2$, $c(1) = \tfrac14(9 + 5 + 1 + 5) = 5$, $c(2) = \tfrac14(9 + 5i - 1 - 5i) = 2$, $c(3) = \tfrac14(9 - 5 + 1 - 5) = 0$.
+(c) $c = (2, 0, 2, 5)$: the peak is at $t = 3$. Circularly, $t = 3$ and $t = 3 - 4 = -1$ are the same shift. For tiles that do not repeat, the peak only says "3 or −1"; padding (or testing both candidates) decides.
+
+**B2.** $\tfrac14 \cdot 9 = 2.25$ at every shift: the product of the two sums over $N$, a "both are bright" term that says nothing about where they match. Subtracting the means sets $A_0 = B_0 = 0$ and leaves all other $A_k$, $B_k$ unchanged, so $c(t)$ drops by 2.25 everywhere: $(-0.25, 2.75, -0.25, -2.25)$. Same peak; in linear (padded) correlation the mean term is not constant but a triangle that grows with the overlap, and removing it matters much more.
+
+**B3.** (a) At least $2 \cdot 1000 - 1 = 1999$, so 2048. (b) $2048^2 = 4.2 \cdot 10^6$ samples per FFT, 4.2 times the $10^6$ pixels. (c) Padding makes every FFT about four times larger (and halves the sharpness of the information per sample); instead, the circular peak is computed on the unpadded tiles and its few possible meanings (the four candidates of the stitching unit) are tested directly.
+
+**B4.** (a) $M = 2048^2 = 4.19 \cdot 10^6$, $\log_2 M = 22$: $5 \cdot 4.19 \cdot 10^6 \cdot 22 = 4.6 \cdot 10^8$ per FFT, $1.4 \cdot 10^9$ for three. (b) $2 \cdot 1024^4 = 2.2 \cdot 10^{12}$: about 1600 times more. (c) $2 \cdot 121 \cdot 1024^2 = 2.5 \cdot 10^8$: brute force is cheaper, by a factor of about 5. It stays cheaper up to a window of about $\pm 12$ pixels.
+
+**B5.** The arrows are $9$, $-5i\cdot i^t$, $-1\cdot(-1)^t$, $5i\cdot(-i)^t$ (for $k = 3$, $i^{3t} = (-i)^t$). At $t = 0$: $9$ (right), $-5i$ (down), $-1$ (left), $5i$ (up): they cancel partly, sum 8, $c(0) = 2$. At $t = 1$: $9$, $5$, $1$, $5$: all point right, sum 20, $c(1) = 5$. The votes agree at the true shift.
+:::
+
+### Math questions
+
+**B6.** *(math)* Prove the correlation theorem: for real $f, g$ of length $N$ (indices modulo $N$), the DFT of $c(t) = \sum_x f(x+t)\,g(x)$ is $F_k\overline{G_k}$. Then derive it a second way, from the convolution theorem and the DFT of the flipped signal $g^-(x) = g(-x)$.
+
+**B7.** *(math)* Let $g(x) = f(x + t_0)$ circularly. Show that $F_k\overline{G_k} = |F_k|^2e^{-2\pi i kt_0/N}$, and that the inverse DFT of this product has its maximum at $t = t_0$. (Hint: $c(t) = \tfrac1N\sum_k|F_k|^2\cos(2\pi k(t - t_0)/N)$ for real $f$.)
+
+**B8.** *(math)* For $N \times N$ images, compare the operation counts of the FFT route without padding ($M = N^2$) and with padding to $(2N)^2$, using $5M\log_2 M$ per FFT. What is the ratio for $N = 1024$? Show that the ratio tends to 4 as $N$ grows.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** $\hat c_k = \sum_t e^{-2\pi i kt/N}\sum_x f(x+t)g(x) = \sum_x g(x)e^{2\pi i kx/N}\sum_t f(x+t)e^{-2\pi i k(x+t)/N}$. The inner sum runs over all residues $u = x + t$ and equals $F_k$; the outer sum is $\overline{\sum_x g(x)e^{-2\pi i kx/N}} = \overline{G_k}$ because $g$ is real. Second way: $c(t) = \sum_x f(x+t)g(x) = \sum_y f(y)\,g(y - t) = \sum_y f(y)\,g^-(t - y) = (f * g^-)(t)$, a circular convolution; the DFT of $g^-$ is $\sum_x g(-x)e^{-2\pi i kx/N} = \sum_y g(y)e^{2\pi i ky/N} = \overline{G_k}$, and the convolution theorem gives $\hat c_k = F_k\overline{G_k}$.
+
+**B7.** $G_k = e^{2\pi i kt_0/N}F_k$ (substitute $u = x + t_0$), so $F_k\overline{G_k} = F_k\overline{F_k}e^{-2\pi i kt_0/N} = |F_k|^2e^{-2\pi i kt_0/N}$. Inverse DFT: $c(t) = \tfrac1N\sum_k|F_k|^2e^{2\pi i k(t - t_0)/N}$; for real $f$, $|F_{N-k}| = |F_k|$, so the imaginary parts cancel and $c(t) = \tfrac1N\sum_k|F_k|^2\cos(2\pi k(t - t_0)/N)$. Every cosine is at most 1 and equals 1 for all $k$ at $t = t_0$, so $c(t) \le c(t_0) = \tfrac1N\sum_k|F_k|^2$.
+
+**B8.** Unpadded: $3\cdot5N^2\log_2(N^2) = 30N^2\log_2 N$. Padded: $3\cdot5\cdot4N^2\log_2(4N^2) = 60N^2(2 + 2\log_2 N) = 120N^2(1 + \log_2N)$. Ratio $= 4(1 + \log_2 N)/\log_2 N$; for $N = 1024$: $4 \cdot 11/10 = 4.4$. As $N \to \infty$, $(1 + \log_2 N)/\log_2 N \to 1$ and the ratio tends to 4: four times as many samples, plus a little for the longer FFTs.
+:::
+
+## Explore {#explore}
+
+Top left: A (blue) and B (red). Top right: the correlation $c(t)$ for every shift, computed directly (dots) and through the FFT (green line); the dotted green line is the true shift, the vertical black line the shift $t$ of the slider. Bottom left: one arrow per frequency $k$: its vote at the current $t$ (length: its strength, square-rooted so that weak ones stay visible); green when it points right. Bottom right: the operations of three routes for two $n \times n$ images. **zero-pad** switches to the linear correlation; **subtract the means** removes the constant wave; **B = A rolled around** makes B an exact circular shift of A.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="xcorr1d" data-mode="fft" data-preset="hand4"></div>
+<script src="../demos/dist/xcorr1d.js"></script>
+```
+
+**E1.** Preset **by hand: length 4**. Check $c(t)$ and $A_k\overline{B_k}$ against B1. Move $t$ from −1 to 2 and watch the arrows: at which $t$ do they all point right?
+
+**E2.** Preset **the curves agree** (32 samples, true shift 5). How large is the largest difference between the FFT line and the direct dots? Where is the peak?
+
+**E3.** Preset **the waves line up** (16 samples, B an exact circular shift by 3). Set $t = 0$, then $t = 1$, then $t = 3$. How does each arrow turn when $t$ grows by 1, and what happens at $t = 3$? Untick **B = A rolled around**: do the arrows still all line up at the peak? Why not?
+
+**E4.** Preset **wrap-around fools it** (seed 1, true shift 9). Where is the peak of the circular correlation? Compare $c$ at the peak and at the true shift.
+
+**E5.** Preset **padding fixes it**. How long is the transform now, and which shifts are shown? Where is the peak? Do the direct dots (now the linear correlation) and the FFT line still agree?
+
+**E6.** With **padding** on, untick **subtract the means**. Where is the peak now, and why? Tick it again.
+
+**E7.** The cost plot. Read off, for $n = 1024$, the operations of the three routes. How many times cheaper than the $\pm 32$ window is the FFT? Below which window does brute force win (B4)?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** The readout shows $c(1) = 5$ at $t = 1$, the peak at $t = 1$, and $A\cdot\mathrm{conj}(B) = 9, -5i, -1, 5i$ (printed as $9.00{+}0.00i$, $0.00{-}5.00i$, $-1.00{+}0.00i$, $0.00{+}5.00i$; the means are not subtracted in this preset). With 4 samples only $k = 1, 2$ have arrows. At $t = 1$ both point right.
+
+**E2.** The largest difference is $2.5\cdot10^{-11}$: rounding only. The peak is at 5 (43647), the true shift.
+
+**E3.** Frequency $k$ turns by $k \cdot 360°/16$ per step of $t$: $k = 1$ by $22.5°$, $k = 2$ by $45°$, and so on, the fast waves fastest. At $t = 0$ they point in all directions and partly cancel ($c(0) = -5168$); at $t = 3$ every arrow points right and $c(3) = 10864$, the peak. Without the circular copy, B contains 3 samples that are not in A (and misses 3 that are): the arrows no longer line up exactly; the peak is still at 3, but the votes disagree more.
+
+**E4.** The circular peak is at −3 (11314), not at the true shift 9 (9966). The wrapped-around end of B happens to fit A better at −3.
+
+**E5.** The transform length is 64; the shifts run from −31 to 31. The peak is at 9 (14735). The dots are now the linear correlation computed directly, and the FFT line lies on them again.
+
+**E6.** The peak jumps to 0 (280715): with all values around 100–150, the sum of products is dominated by the brightness and grows with the overlap, which is largest at $t = 0$. In linear correlation the mean term is a triangle peaking at 0, not a constant: subtract the means (or use NCC).
+
+**E7.** At $n = 1024$: all shifts directly $2n^4 \approx 2.2\cdot10^{12}$, the $\pm 32$ window $2\cdot65^2n^2 \approx 8.9\cdot10^9$, the FFT route $\approx 1.4\cdot10^9$: the FFT is about 6 times cheaper than the window and 1600 times cheaper than all shifts. Both the window and the FFT grow like $n^2$ (times $\log n$ for the FFT), so their lines are nearly parallel. Brute force wins for windows smaller than about $\pm 12$ pixels.
+:::
+
+## Where this leads
+
+The cross-correlation peak is **broad**, because slow waves carry most of the strength and get the biggest votes. The next unit gives **every wave the same vote**: phase correlation, a sharp spike at the shift that ignores brightness and contrast, but pays for it with noise.

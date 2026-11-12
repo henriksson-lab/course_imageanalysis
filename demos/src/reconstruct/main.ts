@@ -17,7 +17,7 @@ import { regionalMaxima, regionalMinima, hMaxTransform, hMinTransform, imposeMin
 import { nuclei } from "../lib/synth";
 import { loadCell, CELL_CREDIT } from "../lib/cell";
 import { geodesicSteps, frameOf } from "./binrec";
-import { N, blobs } from "./images";
+import { N, blobs, NUCLEI_H, NUCLEI_OPTS } from "./images";
 
 const NAME = "reconstruct";
 type BinOp = "fill" | "clear" | "open" | "openrec" | "click";
@@ -30,29 +30,30 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "input", label: "input" }, { id: "hmax", label: "reconstruction" }, { id: "domes", label: "domes / basins" }, { id: "impose", label: "impose minima" },
 ];
 interface Preset { id: string; label: string; tab: "binary" | "grey"; op?: BinOp; r?: number; img?: "nuclei" | "cell"; ext?: "max" | "min"; h?: number; view?: View; click?: number }
-export const NUCLEI_H = 26;
+
 const PRESETS: Preset[] = [
   { id: "fill", label: "fill holes", tab: "binary", op: "fill" },
   { id: "clear", label: "clear border", tab: "binary", op: "clear" },
   { id: "openrec", label: "opening breaks shapes, reconstruction does not", tab: "binary", op: "openrec", r: 4 },
   { id: "label", label: "one pixel → its blob", tab: "binary", op: "click", click: 0 },
-  { id: "hmax", label: `one dot per nucleus with h = ${NUCLEI_H}`, tab: "grey", img: "nuclei", ext: "max", h: NUCLEI_H, view: "input" },
+  { id: "hmax", label: `h = ${NUCLEI_H}: one dot per nucleus?`, tab: "grey", img: "nuclei", ext: "max", h: NUCLEI_H, view: "input" },
   { id: "noise", label: "noise: hundreds of maxima", tab: "grey", img: "nuclei", ext: "max", h: 0, view: "input" },
   { id: "impose", label: "impose two minima", tab: "grey", img: "cell", ext: "min", h: 0, view: "impose" },
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; }
-[data-demo="${NAME}"] .rc-img { flex: 0 1 470px; min-width: 0; position: relative; }
-[data-demo="${NAME}"] .rc-img canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
-[data-demo="${NAME}"] .rc-img svg { position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: 1; pointer-events: none; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 380px; gap: .4em; }
-[data-demo="${NAME}"] .rc-lab { font-size: 15px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .rc-credit { font-size: 12px; color: var(--qb-muted); margin-top: .2em; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .4em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .rc-img { flex-basis: 440px; }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .rc-img { flex: 0 1 470px; min-width: 0; position: relative; }
+.qb-demo[data-demo="${NAME}"] .rc-img canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+.qb-demo[data-demo="${NAME}"] .rc-img svg { position: absolute; left: 0; top: 0; width: 100%; aspect-ratio: 1; pointer-events: none; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 380px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .rc-sub { display: flex; flex-direction: column; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .rc-lab { font-size: 15px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .rc-credit { font-size: 12px; color: var(--qb-muted); margin-top: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .4em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .rc-img { flex-basis: 440px; }
 `;
 
 function injectStyle(): void {
@@ -88,13 +89,11 @@ function mount(host: HTMLElement): void {
     { label: "binary", apply: () => { st.tab = "binary"; recompute(); } },
     { label: "grey", apply: () => { st.tab = "grey"; recompute(); } },
   ]);
-  const binBox = htmlEl("div", "qb-panel", "", panel);
-  binBox.style.maxWidth = "none";
+  const binBox = htmlEl("div", "rc-sub", "", panel);
   const opBtns = presets(binBox, BINOPS.map(o => ({ label: o.label, apply: () => { st.op = o.id; recompute(); } })));
   const rS = slider(binBox, "SE radius r", 1, 12, 1, st.r, v => { st.r = v; if (st.op === "open" || st.op === "openrec") recompute(); });
   const kS = slider(binBox, "replay: iteration", 0, 100, 1, 100, v => { st.k = v; draw(); });
-  const greyBox = htmlEl("div", "qb-panel", "", panel);
-  greyBox.style.maxWidth = "none";
+  const greyBox = htmlEl("div", "rc-sub", "", panel);
   const imgBtns = presets(greyBox, [
     { label: "nuclei (synthetic)", apply: () => { st.img = "nuclei"; st.markers = []; recompute(); } },
     { label: "cell (micrograph)", apply: () => { st.img = "cell"; st.markers = []; recompute(); } },
@@ -117,7 +116,7 @@ function mount(host: HTMLElement): void {
     const lab = label2d(mask, N, N, 8), cs = centroids(lab), fr = frameOf(N, N), touches = new Set<number>();
     for (let i = 0; i < N * N; i++) if (fr[i] && lab.data[i]) touches.add(lab.data[i]);
     let best = -1, bestN = 0;
-    cs.forEach((c, k) => { if (!touches.has(k + 1) && c.n > bestN) { bestN = c.n; best = k + 1; } });
+    cs.forEach((c, l) => { if (l > 0 && !touches.has(l) && c.n > bestN) { bestN = c.n; best = l; } });
     for (let i = 0; i < N * N; i++) if (lab.data[i] === best) return i;
     return 0;
   })();
@@ -137,7 +136,7 @@ function mount(host: HTMLElement): void {
   }
 
   async function greyImage(): Promise<Grey> {
-    if (st.img === "nuclei") { nuc ??= nuclei({ seed: 3, count: 22 }).image; return nuc; }
+    if (st.img === "nuclei") { nuc ??= nuclei(NUCLEI_OPTS).image; return nuc; }
     if (!cell) { try { cell = await loadCell(); } catch { cell = createGrey(N, N, 128); } }
     return cell;
   }
@@ -207,8 +206,8 @@ function mount(host: HTMLElement): void {
       let lo = Infinity, hi = -Infinity;
       for (const v of show) { if (v < lo) lo = v; if (v > hi) hi = v; }
       if (st.view !== "domes") { lo = Math.min(lo, 0); hi = Math.max(hi, 255); }
-      grey = { show, dots: centroids(lab).map(c => ({ x: c.x, y: c.y })), count0: c0, count1: lab.count, lo, hi };
-      credit.textContent = st.img === "cell" ? CELL_CREDIT : "Synthetic nuclei (22 placed; seed 3).";
+      grey = { show, dots: centroids(lab).slice(1).map(c => ({ x: c.x, y: c.y })), count0: c0, count1: lab.count, lo, hi };
+      credit.textContent = st.img === "cell" ? CELL_CREDIT : "Synthetic nuclei (22, several touching).";
     }
     draw();
   }

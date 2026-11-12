@@ -1,0 +1,176 @@
+---
+title: "Exercise: Dijkstra and live-wire"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- run **Dijkstra's algorithm** by hand on a small grid: the order in which pixels become final, the distances and the **shortest-path tree**,
+- explain why a **fixed order** (one raster pass, a row-by-row table) fails on a detour, and why **negative** weights break Dijkstra,
+- use **live-wire**: seeds, anchors, the local cost terms, and its typical failures,
+- *(math)* prove that Dijkstra is correct and analyse its cost.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Grid graph | pixels are nodes, 4 (or 8) neighbours are edges |
+| Path cost (by hand) | the sum of the costs of **all** pixels on the path, the start pixel included |
+| Bellman equations | $d(v) = \min_{u \sim v}\big(d(u) + C(v)\big)$, $d(s) = C(s)$ |
+| Dijkstra | repeatedly make the unfinished pixel with the smallest tentative $d$ **final**, and update its neighbours |
+| Predecessor | the neighbour the best path to a pixel comes from; all predecessors form the **shortest-path tree** |
+| Live-wire cost | low on edges: gradient magnitude, zero crossings of the Laplacian of Gaussian, edge direction (weights $w_G, w_Z, w_D$), after smoothing with $\sigma$ |
+
+Pixels are written (row, column), counting from 0; row 0 is the top.
+
+## By hand
+
+**B1.** Dijkstra from the top-left pixel $(0, 0)$ on this grid, with 4 neighbours:
+
+| | 0 | 1 | 2 | 3 |
+|---|---|---|---|---|
+| **0** | 1 | 7 | 8 | 9 |
+| **1** | 1 | 5 | 7 | 5 |
+| **2** | 1 | 3 | 5 | 4 |
+| **3** | 1 | 5 | 3 | 6 |
+
+(a) Run Dijkstra: in which order do the pixels become final, and with which distance? Keep a list of the queue (the tentative values).
+(b) Write down all final distances and draw the shortest-path tree (an arrow from each pixel to its predecessor).
+(c) What is the cheapest path to the bottom-right pixel, and its cost?
+
+**B2.** Now $C(1, 1) = 8$ instead of 5.
+(a) Which distances change? Which pixel's best path now makes a **detour** (a step up or to the left)?
+(b) Do one raster pass instead: row by row, left to right, $d(i, j) = C(i, j) + \min\big(d(i-1, j), d(i, j-1)\big)$ (as the first pass of the distance transform). Which pixel gets a wrong value, and why?
+
+**B3.** The "detour" grid of the first unit (the cheap channel of 1s, all other pixels 9):
+
+| | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| **0** | 9 | 1 | 9 | 9 | 9 | 9 | 9 | 9 |
+| **1** | 9 | 1 | 9 | 9 | 9 | 9 | 9 | 9 |
+| **2** | 9 | 1 | 9 | 1 | 1 | 1 | 1 | 9 |
+| **3** | 9 | 1 | 9 | 1 | 9 | 9 | 1 | 9 |
+| **4** | 9 | 1 | 9 | 1 | 9 | 9 | 1 | 9 |
+| **5** | 9 | 1 | 1 | 1 | 9 | 9 | 1 | 9 |
+| **6** | 9 | 9 | 9 | 9 | 9 | 9 | 1 | 9 |
+| **7** | 9 | 9 | 9 | 9 | 9 | 9 | 1 | 9 |
+
+Paths start anywhere in the top row and end anywhere in the bottom row; 4 neighbours. Without running Dijkstra in full: what is the cheapest path and its cost? Why are the pixels of row 2 in the channel made final **after** pixels in row 5?
+
+**B4.** Negative weights. A tiny graph: $s \to a$ with weight 2, $s \to b$ with weight 3, $b \to a$ with weight $-2$. Run Dijkstra from $s$ ($d(s) = 0$). Which value does it give $a$, and what is the true cheapest cost? Which step of Dijkstra's argument fails?
+
+**B5.** Short-cuts. Along a weak edge the live-wire cost is about 0.40 per pixel; across the uniform inside of a cell it is about 0.88 per pixel.
+(a) Between two anchors, the boundary is 60 px long and the straight chord across the cell 40 px. Which path does the wire take? And if the boundary is 100 px?
+(b) At which boundary length does the wire switch to the chord? What can the user do about it?
+
+**B6.** Grid distances. With cost 1 per step (length 1, or $\sqrt2$ for a diagonal step), what is the distance from $(0, 0)$ to the pixel 3 columns right and 4 rows down, with 4 and with 8 neighbours? Compare with the Euclidean distance. Repeat for 5 right and 5 down.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Start: queue $\{(0,0){:}\,1\}$. The pixels become final in this order (distance): $(0,0)$ 1, $(1,0)$ 2, $(2,0)$ 3, $(3,0)$ 4, $(2,1)$ 6, $(1,1)$ 7, $(0,1)$ 8, $(3,1)$ 9, $(2,2)$ 11, $(3,2)$ 12, $(1,2)$ 14, $(2,3)$ 15, $(0,2)$ 16, $(3,3)$ 18, $(1,3)$ 19, $(0,3)$ 25. For example, after $(0,0)$ the queue holds $(1,0){:}\,2$ and $(0,1){:}\,8$; after $(1,0)$ also $(1,1){:}\,7$, and so on: the cheap first column is finished before anything else.
+(b)
+
+| $d$ | 0 | 1 | 2 | 3 |
+|---|---|---|---|---|
+| **0** | 1 | 8 | 16 | 25 |
+| **1** | 2 | 7 | 14 | 19 |
+| **2** | 3 | 6 | 11 | 15 |
+| **3** | 4 | 9 | 12 | 18 |
+
+Tree: the first column points up (to the seed); every other pixel points to its left neighbour. (All best paths go down the first column and then right.)
+(c) $(0,0), (1,0), (2,0), (3,0), (3,1), (3,2), (3,3)$: $1 + 1 + 1 + 1 + 5 + 3 + 6 = 18$.
+
+**B2.** (a) $d(1,1) = 10$ (from the left: $2 + 8$), $d(1,2) = 17$ (from $(1,1)$), and $d(1,3) = 20$: its best path now comes from **below**, from $(2,3)$ with $d = 15$, a step **up**. The other distances do not change. The order of finalisation changes accordingly: $\dots, (2,1)\ 6, (0,1)\ 8, (3,1)\ 9, (1,1)\ 10, \dots, (2,3)\ 15, (0,2)\ 16, (1,2)\ 17, (3,3)\ 18, (1,3)\ 20, (0,3)\ 25$.
+(b) The pass computes $d(1,3) = 5 + \min(d(0,3), d(1,2)) = 5 + \min(25, 17) = 22$, but the true value is 20. When the pass reaches $(1,3)$, the pixel $(2,3)$ below it has not been computed yet: the best path to $(1,3)$ comes from below, against the scan order. All other pixels are correct.
+
+**B3.** Follow the channel: down column 1 to row 5, right along row 5 to column 3, **up** column 3 to row 2, right along row 2 to column 6, down column 6 to the bottom: 19 pixels of cost 1, total **19** (the best monotone path costs 24). Dijkstra makes pixels final in order of their distance: $(5,1)$ has distance 6 (six 1s from the top), while $(2,3)$ in the channel is reached only via row 5 and has distance 11. Pixels are not processed by row but by cost, so the far end of the detour comes later even though it is higher up.
+
+**B4.** Dijkstra makes $s$ final (0), then $a$ with the smaller tentative value 2, then $b$ with 3; when $b$ is final, $a$ is already final and is not updated. Result: $d(a) = 2$. True: $s \to b \to a$ costs $3 - 2 = 1$. The argument "any other route passes through an unfinished node that already costs at least as much and can only **add**" fails: the route through $b$ costs 3 at $b$ and then **decreases**.
+
+**B5.** (a) 60 px of boundary cost $60 \cdot 0.40 = 24$; the chord costs $40 \cdot 0.88 = 35.2$: the wire follows the boundary. 100 px of boundary cost 40 > 35.2: the wire takes the chord.
+(b) Break-even at $40 \cdot 0.88 / 0.40 = 88$ px. The user can add an **anchor** in the middle of the boundary (each piece is then much shorter than its chord's alternative), increase the edge weights relative to the constant part, or smooth less so that the edge is stronger.
+
+**B6.** (3, 4): 4 neighbours $3 + 4 = 7$; 8 neighbours $3\sqrt2 + 1 = 5.243$ (three diagonal steps and one straight); Euclidean 5. (5, 5): 10, $5\sqrt2 = 7.071$, 7.071: on the exact diagonal 8 neighbours are exact, but between the axes and the diagonals they overestimate, and 4 neighbours overestimate by up to 41%. The next unit removes this error.
+:::
+
+### Math questions
+
+**B7.** *(math)* Prove that Dijkstra's algorithm is correct when all weights are non-negative: when a node is made final, its tentative value equals the true shortest distance. Point out where non-negativity is used.
+
+**B8.** *(math)* Show that with a binary heap Dijkstra takes $O((N + E)\log N)$ time for $N$ nodes and $E$ edges. What is that for an $n \times n$ image with 8 neighbours? (The demo pushes a pixel again when its value improves, instead of decreasing its key; why is that still $O(E \log E)$?)
+
+**B9.** *(math)* Suppose every edge goes from row $i$ to row $i + 1$ (moves only downwards). Show that the rows give an order in which every Bellman equation can be evaluated once, that this order is a topological order of the graph, and that Dijkstra and the row-by-row DP table give the same distances.
+
+**B10.** *(math)* Watershed-style flooding minimises the **largest** pixel value along a path (the lowest pass), $d(v) = \min_{u \sim v} \max\big(d(u), C(v)\big)$. Show that the Dijkstra argument still works for this "bottleneck" cost.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Induction over the pops. Suppose all final values are correct, and $v$ is the unfinished node with the smallest tentative value $\tilde d(v)$, which is the cost of an actual path (through final nodes), so $d(v) \le \tilde d(v)$. Take any path $P$ from $s$ to $v$ and let $y$ be its first node outside the final set, entered from a final $x$. When $x$ was made final, $y$ was updated: $\tilde d(y) \le d(x) + w(x, y)$. The rest of $P$ from $y$ to $v$ has non-negative weight (**here** non-negativity is used), so $\text{cost}(P) \ge d(x) + w(x, y) \ge \tilde d(y) \ge \tilde d(v)$. Hence $d(v) = \tilde d(v)$.
+
+**B8.** Each node is popped once as final and each edge relaxed at most once (from its final end): $N$ pops and at most $E$ decrease-key operations, each $O(\log N)$ on a heap: $O((N + E)\log N)$. An $n \times n$ image with 8 neighbours: $N = n^2$, $E \approx 8n^2$, so $O(n^2 \log n)$. With re-insertion instead of decrease-key, the heap holds at most one entry per successful relaxation, at most $E + 1$ entries; each push and pop costs $O(\log E) = O(\log N)$ (since $E \le N^2$), and stale entries are skipped when popped.
+
+**B9.** Every edge goes from a lower row index to a higher one, so evaluating row by row, every right-hand side $d(u)$ (with $u$ in the previous row) is final before it is used: a topological order (every edge points forward in it). The DP table computes exactly the Bellman equations in this order, so it gives the true shortest distances; Dijkstra also gives the true shortest distances (B7), so the two agree. (The test file of the demos checks this on random grids.)
+
+**B10.** Replace "$d(x) + w(x, y) + \text{rest}$" by "$\max(d(x), C(y), \dots)$". The cost of a path never **decreases** when the path is extended ($\max$ with something can only grow or stay), which is all the argument needs: for the first non-final node $y$ on any path to $v$, $\text{cost}(P) \ge \max(d(x), C(y)) \ge \tilde d(y) \ge \tilde d(v)$. So the smallest tentative value is final, and the priority queue processes pixels in order of the flooding level, as in the watershed day.
+:::
+
+## Explore: Dijkstra step by step {#explore-dijkstra}
+
+The grid demo in **Dijkstra** mode: costs on the left, the tentative distances $d$ on the right (∞ = not reached). **step** makes the smallest pixel of the queue final (blue, numbered in order) and updates its neighbours (outlined); the queue is listed under the controls, smallest first. Arrows point to the predecessors (grey while tentative, orange when final). After the last pixel, **backtrack** follows the arrows from the target (the bottom-right corner, the bottom-left corner, or the cheapest bottom-row pixel, depending on the preset). **one raster pass** runs a single top-to-bottom, left-to-right pass instead and marks the wrong cells in red (small number: the true value).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="dpgrid" data-mode="dijkstra" data-preset="exercise"></div>
+<script src="../demos/dist/dpgrid.js"></script>
+```
+
+**E1.** Preset **by-hand exercise grid**. Step through and compare the order, the queue and the final distances with B1. Then raise the cost of $(1, 1)$ from 5 to 8 (three clicks on its upper half) and check B2, in Dijkstra and in **one raster pass**.
+
+**E2.** Preset **the detour**. Run all and backtrack. What does the path cost, and how many pixels become final before the first pixel of row 2 in the channel, $(2, 3)$? Then **one raster pass**: what is its value at the target, and how many cells are wrong?
+
+**E3.** Preset **a wall with one gap** (from the top-left to the bottom-left corner). Predict the path before running. What is its cost, and what does one raster pass give at the target?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** As in B1: final order $(0,0)$ 1, $(1,0)$ 2, $(2,0)$ 3, $(3,0)$ 4, $(2,1)$ 6, …, $(0,3)$ 25; the target $(3,3)$ costs 18. With $C(1,1) = 8$: $(1,3)$ gets 20 with its arrow pointing **down** to $(2,3)$; one raster pass marks exactly one wrong cell, $(1,3)$, with 22 instead of 20.
+
+**E2.** Cost **19**, along the whole channel. The pixel $(2,3)$ is the 20th to become final (distance 11): before it come the channel cells of column 1 and row 5 (distances 1–8), the other seven top-row pixels (distance 9 each: they are sources), $(4,3)$ and $(3,3)$ (9 and 10), and $(1,0)$ and $(1,2)$, which also have distance 11 but entered the queue earlier. One raster pass gives **21** at the target $(7,6)$ (true 19), and 30 cells are wrong: every cell whose best path goes up or left somewhere.
+
+**E3.** The path runs right along the top, down through the gap in the last column, and back left along row 4: **16**. Crossing the wall would cost $1 + 1 + 9 + 9 + 1 + 1 = 22$. One raster pass gives **22** at the target (it can only come from above, through the wall); 12 cells are wrong.
+:::
+
+## Explore: live-wire {#explore}
+
+Click on the image to place a **seed** (red); one Dijkstra run computes the cheapest paths from it to every pixel. Move the mouse, or drag the round **handle**: the yellow wire is the cheapest path from the handle back to the last seed. Click again to fix an **anchor** (the wire up to it turns orange, and a new tree starts there); **close** joins the last anchor to the first seed; **undo anchor** and **clear** go back. Costs: **edges** (gradient, zero crossings and direction, with the three weights), **bright line** or **dark line**, after smoothing with $\sigma$. **distance from seed** shows the tree's costs with iso-lines. The readout gives the length and cost of the wire, the straight-line distance, and the time of one Dijkstra run.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="livewire" data-preset="nucleus"></div>
+<script src="../demos/dist/livewire.js"></script>
+```
+
+**E4.** Preset **trace the nucleus (4 anchors)**. What are the length and the cost of the closed contour? Undo the last anchor and move the handle around the nucleus: where does the wire jump? Switch the view to **distance from seed**: what do the iso-lines look like along the envelope, and inside the nucleus?
+
+**E5.** Preset **weak edge: the wire short-cuts**. Compare the wire's length with the straight line. Now click an anchor on the left part of the envelope, near $(103, 110)$ in image pixels (about the middle of the left edge), and drag the handle back to the bottom. Compare the total cost of the two-piece contour with the single short-cut. What does that tell you?
+
+**E6.** Preset **no smoothing: noise wins** ($\sigma = 0.5$, along the weak lower-left arc of the synthetic nucleus). Describe the wire. Raise $\sigma$ to 1.5 and 3. Which value would you use, and what is the price of a large $\sigma$?
+
+**E7.** Preset **the neighbour steals the path**. Where does the wire go? Fix it in two ways: (a) with one anchor at the contact between the two nuclei, (b) without anchors, by changing a weight. Which works better?
+
+**E8.** Preset **measure along a neurite** (bright-line cost). How long is the neurite between the two tips, compared with the straight line? Switch to the **edges** cost: what happens?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E4.** Closed, 4 segments, 362.7 px, cost 289.08. Without the last anchor, the wire follows the envelope only while the handle stays close to the previous anchor; moved further around, it soon takes a short-cut through the textured interior (as in E5) or runs along other dark lines nearby. The distance map grows slowly across the textured inside and quickly along the dark envelope: the iso-lines are stretched along the envelope.
+
+**E5.** The wire is 143.4 px long against a straight line of 135.3 px: it cuts straight through the nucleus (cost 134.89). With an anchor at $(103, 110)$ the contour follows the left envelope: 69.9 px (cost 60.81) to the anchor plus 99.2 px (cost 78.10) to the bottom, 169.1 px with a total cost of 138.91: **more** than the short-cut. The energy itself prefers the short-cut: a sum over a long path along a weak, interrupted line costs more than a short path across. The anchor is the user's knowledge that the cost function lacks.
+
+**E6.** At $\sigma = 0.5$ the wire zig-zags through the noise inside the wide, faint ramp of the weak arc, up to about 10 px from the true boundary (56.7 px, cost 19.63). At $\sigma = 1.5$ it is smooth and within about 4 px of the boundary (61.8 px, cost 22.79). $\sigma = 1.5$ to 2 is a good choice here; a large $\sigma$ blurs nearby edges into each other (the contact with the neighbour) and rounds corners.
+
+**E7.** The wire runs around the outer edge of the brighter neighbour: 195.2 px for a straight distance of 68.2 px, cost 24.14. Its edge is stronger than the nucleus edge, so it is cheaper per pixel even though the detour is long. (a) An anchor at the contact (the nucleus boundary at angle 0°, near $(150, 128)$) splits the wire into 45.3 px and 48.9 px pieces along the nucleus. (b) Raising **w direction** to 1 makes the turns of the detour expensive: the wire gets much shorter (94.9 px) but still bulges about 9 px off the nucleus boundary. The anchor works better: it is a hard constraint.
+
+**E8.** 240.1 px along the neurite (through the soma), against a straight line of 188.4 px: a measurement along the structure, with steps of 1 and $\sqrt2$ as on the skeleton day. With the **edges** cost the wire follows the **sides** of the thin neurite (its edges) and wanders: 260.8 px. For thin lines, a line (ridge) cost is the right one.
+:::
+
+## Where this leads
+
+Dijkstra's distances live on the grid graph: with 4 neighbours, the distance from a point grows in diamonds, with 8 in octagons. The next unit keeps Dijkstra's order but changes the update, so that the fronts become **round** and the distances approximate the true Euclidean (or cost-weighted) distance: **fast marching**.

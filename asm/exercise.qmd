@@ -1,0 +1,139 @@
+---
+title: "Exercise: active shape models"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- find the best offset along a normal by the **strongest edge** and by **profile matching**,
+- fit the **pose**, **project** a set of suggested points onto the modes, and **clamp** the parameters,
+- explain what the shape constraint and the **pyramid** add, and when a snake is the better choice,
+- *(math)* connect the Mahalanobis distance to a Gaussian profile model, and compare clamping rules.
+
+Do the pen-and-paper part first, then the demo. Questions marked *(math)* are for those who want the derivations.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Profile | $2k + 1$ samples of the image derivative along the normal at a landmark, normalised by $\sum\lvert g\rvert$ |
+| Profile model | mean $\bar{\mathbf g}_j$ and covariance $S_j$ of the training profiles at landmark $j$ |
+| Matching | try offsets $-m, \dots, m$; cost: $-$(edge strength), or the Mahalanobis distance $(\mathbf g - \bar{\mathbf g}_j)^\top S_j^{-1}(\mathbf g - \bar{\mathbf g}_j)$ |
+| Pose | the similarity $T$: $\mathbf p \mapsto \begin{pmatrix} a & -b \\ b & a\end{pmatrix}\mathbf p + \mathbf t$, fitted by Procrustes |
+| Projection | $\mathbf b = \Phi^\top(T^{-1}(\mathbf Y) - \bar{\mathbf x})$; clamp $\lvert b_j\rvert \le 3\sqrt{\lambda_j}$ |
+| Pyramid | blur and halve the image; search the coarsest level first |
+
+## By hand
+
+**B1.** The derivative profile along the normal at one landmark, at offsets $-4, \dots, 4$, is $(0.0, 0.6, 0.0, 0.1, 0.3, 0.5, 0.2, 0.0, 0.1)$. The model profile (3 samples, centred on the landmark) is $(0.3, 0.5, 0.2)$.
+(a) Which offset does the **strongest edge** rule choose?
+(b) Slide the model over the profile: compute the sum of squared differences for the offsets $-3, \dots, 3$. Which offset is best?
+(c) Which of the two would you trust, and why? What could the spike at $-3$ be?
+
+**B2.** A tiny shape model of a triangle, in the model frame: mean $\bar{\mathbf x} = (-1, 0,\ 1, 0,\ 0, 1)$ (three landmarks $(x, y)$), two orthonormal modes $\boldsymbol\phi_1 = (0, 0,\ 0, 0,\ 0, 1)$ (apex height) and $\boldsymbol\phi_2 = (-1, 0,\ 1, 0,\ 0, 0)/\sqrt2$ (base width), with $\lambda_1 = 0.04$, $\lambda_2 = 0.02$.
+(a) Give the limits $3\sqrt{\lambda_j}$.
+(b) Suggested points, already in the model frame: $\mathbf y = (-1.2, 0.1,\ 1.2, -0.1,\ 0, 1.3)$. Compute $\mathbf b$, $b_j/\sqrt{\lambda_j}$, the model shape and what the model cannot represent.
+(c) The same for $\mathbf y = (-1.8, 0,\ 1.8, 0,\ 0, 2.5)$, then clamp. Give the clamped shape.
+
+**B3.** **Pose.** The mean triangle of B2 is found in the image at $(5, 3)$, $(5, 7)$, $(3, 5)$ (same order; $y$ pointing up as in the maths).
+(a) Compute both centroids, then $a$ and $b$ of the Procrustes fit of the mean onto these points. Scale and angle?
+(b) The translation $\mathbf t$. Check that $T$ maps $(-1, 0)$ onto $(5, 3)$.
+
+**B4.** **Pyramid.** The search uses $m = 6$ and profiles with $k = 3$, on three levels (full size, half, quarter).
+(a) How far (in full-size pixels) can a landmark move in one iteration on each level? How long is the profile?
+(b) Why is the profile model trained separately for each level?
+(c) The start is 25 pixels off. What happens with one level, and with three?
+
+**B5.** Predict the result of the search, and explain briefly:
+(a) strong noise, with and without the shape constraint;
+(b) a bar across the object that hides part of its edge;
+(c) an object whose shape is far outside the training set;
+(d) a good start, but the profile model trained on images with the opposite contrast (dark objects).
+
+**B6.** Why are the training profiles normalised by $\sum|g|$? What would go wrong otherwise when the test images are darker than the training images?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) The largest value, 0.6, at offset $-3$.
+(b) Offsets $-3$ to $3$: $0.14$, $0.35$, $0.26$, $0.17$, $\mathbf{0}$, $0.17$, $0.27$. Best: $+1$, where the profile is exactly the model.
+(c) The profile match: it uses the whole shape of the profile (an edge of this width and asymmetry), not just its height. The spike at $-3$ is narrow and isolated: noise, a small bright speck of clutter, or the edge of a neighbouring object.
+
+**B2.** (a) $3\sqrt{0.04} = 0.6$ and $3\sqrt{0.02} = 0.424$.
+(b) $\mathbf y - \bar{\mathbf x} = (-0.2, 0.1, 0.2, -0.1, 0, 0.3)$. $b_1 = 0.3$, $b_2 = (0.2 + 0.2)/\sqrt2 = 0.283$; $b_j/\sqrt{\lambda_j} = 1.5$ and $2.0$: plausible. Model shape $\bar{\mathbf x} + 0.3\boldsymbol\phi_1 + 0.283\boldsymbol\phi_2 = (-1.2, 0,\ 1.2, 0,\ 0, 1.3)$. Left over: $(0, 0.1,\ 0, -0.1,\ 0, 0)$, a tilt of the base: no mode does that (a rotation is the pose's job).
+(c) $\mathbf y - \bar{\mathbf x} = (-0.8, 0, 0.8, 0, 0, 1.5)$: $b_1 = 1.5$ ($7.5\sqrt{\lambda_1}$), $b_2 = 1.6/\sqrt2 = 1.131$ ($8\sqrt{\lambda_2}$): both implausible. Clamped: $b_1 = 0.6$, $b_2 = 0.424$; shape $(-1.3, 0,\ 1.3, 0,\ 0, 1.6)$: the tallest and widest triangle the model allows.
+
+**B3.** (a) Centroids $(0, 1/3)$ and $(13/3, 5)$. Centred mean: $(-1, -1/3)$, $(1, -1/3)$, $(0, 2/3)$, $\sum|\mathbf p|^2 = 8/3$; centred image points: $(2/3, -2)$, $(2/3, 2)$, $(-4/3, 0)$. $\sum\mathbf p\cdot\mathbf q = -2/3 + 2/3 - 2/3 + 2/3 + 0 + 0 = 0$, so $a = 0$; $\sum(p_xq_y - p_yq_x) = (2 + 2/9) + (2 + 2/9) + (0 + 8/9) = 16/3$, so $b = 2$. Scale 2, angle 90°.
+(b) $\mathbf t = (13/3, 5) - \begin{pmatrix} 0 & -2 \\ 2 & 0\end{pmatrix}(0, 1/3) = (13/3 + 2/3, 5) = (5, 5)$. $T(-1, 0) = (0, -2) + (5, 5) = (5, 3)$. ✓
+
+**B4.** (a) Level 0: 6 pixels, profile $\pm3$; level 1: 12 and $\pm6$; level 2: 24 and $\pm12$ full-size pixels.
+(b) A profile of 7 samples covers a different stretch of the image at each level, and blurring changes how an edge looks: the trained mean and covariance must match the level they are used on.
+(c) One level: most landmarks do not see the edge within 6 pixels; the search moves to whatever it finds (or stays), and ends in a wrong place. Three levels: on the coarsest level the edge is within reach (24 pixels), the search gets the shape roughly right, and the finer levels refine it.
+
+**B5.** (a) With the constraint: the outline fits, because wrong suggestions are outvoted by the many correct ones and the shape stays plausible. Without: every landmark follows its own noisy suggestion and the outline becomes ragged. (b) The landmarks behind the bar get bad suggestions, but the model fills the outline in from the visible part. Without the constraint they stick to the bar's edges. (c) The search finds a compromise inside the plausible range: close where the shape is typical, wrong where it is unusual (the parameters hit their limits). (d) Every profile match prefers an edge of the wrong polarity: the landmarks move to the wrong side of the object or onto other edges; the model cannot repair systematically wrong suggestions.
+
+**B6.** So that profiles compare by **shape**, not by contrast: an edge twice as strong gives the same normalised profile. Without normalisation a darker test image has smaller derivatives everywhere, its profiles are far from the trained mean at every offset, and the Mahalanobis distance prefers whatever offset happens to have the strongest derivative.
+:::
+
+### Math questions
+
+**B7.** *(math)* Assume the profiles at landmark $j$ are Gaussian, $\mathbf g \sim \mathcal N(\bar{\mathbf g}_j, S_j)$. Show that maximising the likelihood over the offsets is the same as minimising the Mahalanobis distance. What does the rule become for $S_j = \sigma^2 I$?
+
+**B8.** *(math)* (a) Show that $\mathbf b = \Phi^\top(\mathbf y - \bar{\mathbf x})$ gives the model shape closest to $\mathbf y$. (b) Show that clamping each $b_j$ separately gives the point of the box $|b_j| \le 3\sqrt{\lambda_j}$ closest to $\mathbf b$, both in the shape distance $\sum_j(b_j - b'_j)^2$ and in $\sum_j(b_j - b'_j)^2/\lambda_j$. Scaling $\mathbf b$ down until $\sum_j b_j^2/\lambda_j = 9$ gives the closest point of that ellipsoid in the second distance only. Compute both for B2(c) and compare their $\sum_j b_j^2/\lambda_j$.
+
+**B9.** *(math)* Suppose the suggested points are exactly a model shape in some pose: $\mathbf Y = T(\bar{\mathbf x} + \Phi\mathbf b^*)$ with $|b^*_j| \le 3\sqrt{\lambda_j}$, and the current shape is the mean in another pose. Show that one iteration (pose by Procrustes of the **mean** onto $\mathbf Y$, then projection) does not in general give $\mathbf b^*$ exactly, but that repeating pose and projection converges to it. Why does the pose fit not recover $T$ in one step?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\log p(\mathbf g) = -\tfrac12(\mathbf g - \bar{\mathbf g}_j)^\top S_j^{-1}(\mathbf g - \bar{\mathbf g}_j) - \tfrac12\log\det(2\pi S_j)$. The last term is the same for every offset, so the most likely offset minimises the Mahalanobis distance. With $S_j = \sigma^2 I$ the distance is $|\mathbf g - \bar{\mathbf g}_j|^2/\sigma^2$: the sum of squared differences of B1, scaled.
+
+**B8.** (a) As in the previous unit: with $\Phi^\top\Phi = I$ the gradient of $|\mathbf y - \bar{\mathbf x} - \Phi\mathbf b|^2$ is $-2(\Phi^\top(\mathbf y - \bar{\mathbf x}) - \mathbf b)$. (b) Both distances are sums of one term per mode, and the box constrains each $b'_j$ separately, so each term is minimised on its own: the closest allowed $b'_j$ is $b_j$ clipped to $\pm3\sqrt{\lambda_j}$, whatever the weights. In the coordinates $c_j = b_j/\sqrt{\lambda_j}$ the second distance is Euclidean and the ellipsoid is the sphere $|\mathbf c| = 3$, whose closest point is the radial projection: scaling. In the shape distance (weights 1 instead of $1/\lambda_j$) the sphere becomes an ellipsoid again, and its closest point is not a scaled $\mathbf b$ when the $\lambda_j$ differ. B2(c): $c = (7.5, 8)$. Box: $c = (3, 3)$, $\mathbf b = (0.6, 0.424)$, shape $(-1.3, 0, 1.3, 0, 0, 1.6)$, $\sum c^2 = 18$. Ellipsoid (scale by $3/10.97$): $c = (2.05, 2.19)$, $\mathbf b = (0.410, 0.309)$, shape $(-1.219, 0, 1.219, 0, 0, 1.410)$. The box allows both modes at their extreme at once ($\sum c^2 = 18 > 9$); the ellipsoid rule keeps the shape within 3 standard deviations overall.
+
+**B9.** Procrustes fits the **mean** to $\mathbf Y$, but $\mathbf Y$ is a different shape ($\mathbf b^* \ne 0$): the best similarity between two different shapes is not the $T$ that produced $\mathbf Y$ (part of the shape difference is absorbed as an apparent rotation or scaling, as in the mislabelled landmark of the previous unit). Projecting with this slightly wrong pose gives a $\mathbf b$ close to $\mathbf b^*$. Fitting the pose again to the new model shape $\bar{\mathbf x} + \Phi\mathbf b$ is more accurate, and so on: alternating pose and shape is a block-coordinate descent on $|T(\bar{\mathbf x} + \Phi\mathbf b) - \mathbf Y|^2$, whose minimum, 0, is at $(T, \mathbf b^*)$ (unique if no mode is itself a similarity). This is why Cootes et al. alternate pose and shape a few times per iteration.
+:::
+
+## Explore {#explore}
+
+A $128 \times 128$ synthetic image of a nucleus (or a hand) of a shape the model has not seen. The model: 40 training shapes, aligned, PCA. Before the first step you can drag the **square** (move) and the **ring** (rotate and scale) to place the mean shape. **1 suggest**, **2 pose**, **3 project**, **4 clamp** run one iteration step by step (the next step is framed); **iteration** runs a whole one, **play** runs them all (12 per pyramid level). Blue lines: the normals and their search range; red dots: suggested points. Click a landmark: the top plot shows its cost for every offset (the red line marks the best). The bottom plot shows $b_j/\sqrt{\lambda_j}$ (red bars: at the $\pm3$ limit; red dots: before clamping). The readout gives the RMS distance of the landmarks to the true ones. **truth** draws the true outline; **snake too** runs a snake from the same start (green).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="asm" data-preset="clean"></div>
+<script src="../demos/dist/asm.js"></script>
+```
+
+**A1.** Preset **clean image, good start**. Run one iteration step by step and describe what each step does to the outline. Then play. What is the final RMS error? Tick **truth**: is the outline as good as the RMS error suggests? Why could the two differ?
+
+**A2.** Click a landmark on the left side and look at its cost curve, at the start and after a few iterations. Where is the minimum at the end? Switch to **strongest edge**: how does the curve change?
+
+**A3.** Preset **noise: constraint saves it** (noise 0.25). Play. Then switch to **strongest edge** (reset), and then back to the profile model with the **shape constraint** off. Compare the three final errors.
+
+**A4.** Preset **occlusion: model fills in**. Play with and without the shape constraint. What happens to the landmarks behind the bar?
+
+**A5.** Preset **far start: single level fails, pyramid works**. Play with 1, 2 and 3 pyramid levels (reset after changing). Watch the caption: which level is searched when?
+
+**A6.** Preset **shape outside the training set** (snake too ticked). Compare the ASM outline (blue) and the snake (green) with the truth. Look at the $\mathbf b$ plot. Raise the number of modes to 5: does it help?
+
+**A7.** Preset **hands: coarse to fine** (3 levels). Play. Then set the pyramid levels to 1 and reset. Why is the hand harder than the nucleus with one level?
+
+**A8.** Back to **clean image, good start**, tick **clutter**. Compare the profile model and the strongest edge. Then set *modes* to 1 on the clean image: is the result worse?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**A1.** Suggest: each landmark proposes a point on the edge along its normal (red); some are good, some wander. Pose: the mean shape moves, turns and scales towards the red points. Project: the shape deforms (modes) to match the red points better; the red dots in the $\mathbf b$ plot show the raw values. Clamp: values beyond $\pm3$ are cut back. Final RMS error 1.61 px (from 11.79). With **truth** the outline lies almost exactly on the true one: the landmarks' distance to the outline is about 0.5 px, but they are shifted a little along it (the pose angle ends at 8.1° against the true 4.6°). On a smooth, nearly elliptical outline, sliding along the curve hardly changes the image, so the search cannot see it; the RMS landmark error counts it.
+
+**A2.** At the start the cost curve has its minimum somewhere along the normal, where the edge is (often near the end of the search range); after a few iterations the minimum sits at offset 0: the landmark is on the edge and stays. With the strongest edge the curve is $-|$edge strength$|$: a sharp dip at the edge, but also dips at noise, and no preference for the right polarity or width of the edge.
+
+**A3.** Profile model with constraint: 2.85 px. Strongest edge with constraint: 12.20 px, worse than the start (11.79): with this much noise the strongest derivative along a short normal is usually noise. Profile model without the constraint: 10.48 px: suggestions alone follow the noise and the outline becomes ragged.
+
+**A4.** With the constraint: 3.63 px. The landmarks behind the bar get poor suggestions (on the bar's edges), but the pose and the three mode values are fitted to all landmarks; the model fills in a nucleus outline behind the bar. Without the constraint: 11.12 px, the hidden landmarks stay on the bar's edges or wander.
+
+**A5.** One level: 20.30 px after 12 iterations: the true edge is mostly outside the 6-pixel search range and the shape is pulled the wrong way. Two levels: 1.22 px; three levels: 0.60 px. The caption shows the level: with three levels the first 12 iterations run on the 32-pixel image (level 2), the next 12 on 64 pixels, the last 12 at full size. At level 2 the search reaches 24 full-size pixels.
+
+**A6.** The snake follows the unusual outline closely (0.21 px from the true outline). The ASM outline is good where the shape is typical but misses the deep dent and the elongation (0.98 px from the outline, RMS landmark error 3.32 px): in the $\mathbf b$ plot mode 1 sits at the limit $-3$ and the others near it. With 5 modes the RMS error is 3.95 px, not better: the extra modes describe the training set's small variations, not this shape. The model can only produce shapes like its training shapes; unclamping them would also remove its robustness.
+
+**A7.** Three levels: from 10.31 px to 0.44 px. One level: 8.48 px. The fingers are about 7 pixels wide and close together: from a start 8 px and 8° off, many finger landmarks see the edge of the **neighbouring** finger within their search range and lock onto it. On the coarse levels the fingers merge into a blob and the pose is found first; the fine levels then separate the fingers.
+
+**A8.** With clutter blobs (and the 10 px start), the profile model ends at 1.80 px and the strongest edge at 1.99 px: here both work, because the blobs are mostly outside the search range. With one mode only, the clean image gives 1.38 px, even slightly better than 3 modes (1.61): fewer modes means fewer ways to follow wrong suggestions, as long as the object needs no more.
+:::
+
+## Where this leads
+
+Shape models learn what an object class looks like from examples. The same idea grows into **active appearance models** (shape and grey levels together), **3D shape models** of organs, and **shape priors** inside graph cuts and level sets. Level sets, the next day in this elective, take the other road: no landmarks and no training, but curves that can split and merge.

@@ -1,0 +1,173 @@
+---
+title: "Exercise: 3D images"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- map a voxel index to a **world position** and back with the $4 \times 4$ voxel → world matrix,
+- **interpolate trilinearly** between 8 voxels, and compute one pixel of an **oblique slice**,
+- convert filter sizes between **physical units and voxels** when the spacing is anisotropic,
+- explain what a **maximum-intensity projection** hides, and count objects in 2D and in 3D.
+
+Do the pen-and-paper part first, then the demo. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Volume | values $I[z, y, x]$: slice $z$, row $y$, column $x$ |
+| Voxel spacing | $(\Delta x, \Delta y, \Delta z)$: distance between neighbouring voxel centres (µm, mm) |
+| Voxel → world | voxel $(i, j, k)$ is at $(o_x + i\,\Delta x,\; o_y + j\,\Delta y,\; o_z + k\,\Delta z)$; in general a $4\times 4$ matrix $A$ |
+| World → voxel | $\big((x - o_x)/\Delta x,\; (y - o_y)/\Delta y,\; (z - o_z)/\Delta z\big)$, i.e. $A^{-1}$ |
+| Trilinear | interpolate along $x$ (4 pairs), then $y$ (2 pairs), then $z$ (1 pair) |
+| Oblique slice | output pixel → world point on the plane → $A^{-1}$ → trilinear |
+| MIP | for every $(x, y)$: the maximum over $z$ |
+
+::: {.callout-note collapse="true" title="The math: the voxel → world matrix"}
+$$\begin{bmatrix} \mathbf x \\ 1 \end{bmatrix} = A \begin{bmatrix} i \\ j \\ k \\ 1 \end{bmatrix}, \qquad A = \begin{bmatrix} R\,D & \mathbf o \\ \mathbf 0^\top & 1 \end{bmatrix},\quad D = \mathrm{diag}(\Delta x, \Delta y, \Delta z),$$
+with $R$ a rotation ($R = I$ for a microscope stack) and $\mathbf o$ the world position of voxel $(0, 0, 0)$. Trilinear interpolation at fractional position $(f_x, f_y, f_z)$ in a cube with corner values $I_{abc}$:
+$$I = \sum_{a,b,c \in \{0,1\}} I_{abc}\; w_a(f_x)\,w_b(f_y)\,w_c(f_z),\qquad w_0(f) = 1 - f,\ w_1(f) = f.$$
+:::
+
+## By hand
+
+**B1.** A confocal stack has spacing $(\Delta x, \Delta y, \Delta z) = (0.5, 0.5, 2)$ µm, and voxel $(0, 0, 0)$ is at the world position $(10, 20, 5)$ µm.
+(a) Write the $4 \times 4$ voxel → world matrix $A$.
+(b) Where in the world is voxel $(i, j, k) = (2, 3, 1)$?
+(c) Which voxel position corresponds to the world point $(12.125, 21.75, 8.5)$ µm? Which 8 voxels surround it, and what is its fractional position $(f_x, f_y, f_z)$ in their cube?
+
+**B2.** The 8 voxels around the point of B1(c) have the values below ($I(i, j, k)$).
+
+| | $i = 4,\ j = 3$ | $i = 5,\ j = 3$ | $i = 4,\ j = 4$ | $i = 5,\ j = 4$ |
+|---|---|---|---|---|
+| $k = 1$ | 10 | 20 | 30 | 60 |
+| $k = 2$ | 50 | 50 | 90 | 70 |
+
+(a) Interpolate trilinearly at the point of B1(c): first along $x$ (four pairs), then along $y$, then along $z$.
+(b) What would nearest-neighbour interpolation return?
+(c) Without computing: is the value at the centre of the cube the mean of the 8 values?
+
+**B3.** A tiny stack of three $5 \times 5$ slices ($0$ = background):
+
+| | slice $z = 0$ | slice $z = 1$ | slice $z = 2$ |
+|---|---|---|---|
+| row 0 | 0 0 0 0 0 | 0 0 0 0 0 | 0 0 0 0 0 |
+| row 1 | 0 9 9 0 0 | 0 0 0 0 0 | 0 0 0 0 0 |
+| row 2 | 0 9 9 0 0 | 0 0 0 0 0 | 0 0 8 8 0 |
+| row 3 | 0 0 0 0 0 | 0 0 0 0 7 | 0 0 8 8 0 |
+| row 4 | 0 0 0 0 0 | 0 0 0 7 7 | 0 0 0 0 0 |
+
+(a) Write down the MIP along $z$.
+(b) Threshold at 5. How many objects does the MIP show (8-connected)?
+(c) How many objects are there in 3D with 6-connectivity (faces only)? With 26-connectivity (faces, edges and corners)?
+(d) Which answer would you report as "the number of cells", and what would you need to know to decide?
+
+**B4.** The stack of B1 is to be smoothed with a Gaussian of $\sigma = 1$ µm in every direction.
+(a) What is $\sigma$ in voxels along $x$, $y$ and $z$?
+(b) A colleague uses $\sigma = 2$ voxels along all three axes. What is the physical $\sigma$ along $z$ then? What does that do to a thin, horizontal structure?
+
+**B5.** A spherical nucleus of diameter 5 µm is imaged with spacing $(0.2, 0.2, 0.5)$ µm.
+(a) How many slices does it cover?
+(b) The software ignores the spacing and treats the voxels as cubes of 0.2 µm. How tall does the nucleus appear, and by what factor is its volume underestimated? Give both volumes.
+
+**B6.** An oblique slice of a stack with spacing $(0.2, 0.2, 0.5)$ µm and origin $(0, 0, 0)$ is defined by its centre $\mathbf c = (6, 6, 5)$ µm, the in-plane directions $\mathbf u = (1, 0, 0)$ and $\mathbf w = (0, \cos 30°, \sin 30°)$, and a pixel size of $0.2$ µm. Output pixel $(p, q)$ lies at $\mathbf c + 0.2\,p\,\mathbf u + 0.2\,q\,\mathbf w$.
+(a) Where in the world is the output pixel $(p, q) = (5, 10)$?
+(b) At which voxel position must the stack be interpolated for it?
+(c) Why do we loop over the output pixels and not over the voxels?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a)
+$$A = \begin{bmatrix} 0.5 & 0 & 0 & 10 \\ 0 & 0.5 & 0 & 20 \\ 0 & 0 & 2 & 5 \\ 0 & 0 & 0 & 1 \end{bmatrix}.$$
+(b) $(10 + 2 \cdot 0.5,\; 20 + 3 \cdot 0.5,\; 5 + 1 \cdot 2) = (11, 21.5, 7)$ µm.
+(c) $\big((12.125 - 10)/0.5,\; (21.75 - 20)/0.5,\; (8.5 - 5)/2\big) = (4.25, 3.5, 1.75)$. The surrounding voxels are $i \in \{4, 5\}$, $j \in \{3, 4\}$, $k \in \{1, 2\}$, and $(f_x, f_y, f_z) = (0.25, 0.5, 0.75)$.
+
+**B2.** (a) Along $x$ with $f_x = 0.25$: $10 \to 20$ gives $12.5$; $30 \to 60$ gives $37.5$; $50 \to 50$ gives $50$; $90 \to 70$ gives $85$. Along $y$ with $f_y = 0.5$: $(12.5 + 37.5)/2 = 25$ (slice $k = 1$) and $(50 + 85)/2 = 67.5$ (slice $k = 2$). Along $z$ with $f_z = 0.75$: $25 + 0.75 \cdot (67.5 - 25) = 56.875$.
+(b) The nearest voxel is $(4, 4, 2)$ (rounding $4.25 \to 4$, $3.5 \to 4$ by rounding half up, $1.75 \to 2$): 90. Nearest neighbour jumps; here it is far from the interpolated 56.9.
+(c) Yes: at $(0.5, 0.5, 0.5)$ every weight is $\tfrac18$, so the value is the mean, $(10 + 20 + 30 + 60 + 50 + 50 + 90 + 70)/8 = 47.5$.
+
+**B3.** (a) The MIP:
+
+| | |
+|---|---|
+| row 0 | 0 0 0 0 0 |
+| row 1 | 0 9 9 0 0 |
+| row 2 | 0 9 9 8 0 |
+| row 3 | 0 0 8 8 7 |
+| row 4 | 0 0 0 7 7 |
+
+(b) One object: the 9-block, the 8-block and the 7-pixels touch in the projection.
+(c) In 3D the 9-block (slice 0) and the 8-block (slice 2) are separated by the empty slice 1. The 7-pixels (slice 1, rows 3–4) touch the 8-block only diagonally: voxel (row 3, column 4, slice 1) and voxel (row 3, column 3, slice 2) differ by one column and one slice, an edge neighbour. With 6-connectivity: **3** objects; with 26-connectivity (and 18): **2**.
+(d) Not the MIP's 1. Between 2 and 3 we need the physical scale: whether two blobs that touch only diagonally across slices are one cell. With $\Delta z$ much larger than $\Delta x$, a diagonal step across slices is a long way; 6-connectivity, or a size/shape check, is safer.
+
+**B4.** (a) $1/0.5 = 2$ voxels in $x$ and $y$, $1/2 = 0.5$ voxels in $z$.
+(b) $2 \cdot 2 = 4$ µm along $z$: four times the intended blur. A thin horizontal structure (a membrane in the $xy$ plane) is smeared over several slices and its contrast drops.
+
+**B5.** (a) $5/0.5 = 10$ slices.
+(b) 10 slices of 0.2 µm: it appears $2$ µm tall, a flat ellipsoid with semi-axes $2.5, 2.5, 1$ µm. True volume $\tfrac43\pi\,2.5^3 = 65.45$ µm³; apparent $\tfrac43\pi \cdot 2.5 \cdot 2.5 \cdot 1 = 26.18$ µm³, a factor $0.2/0.5 = 0.4$.
+
+**B6.** (a) $(6, 6, 5) + 1 \cdot (1, 0, 0) + 2 \cdot (0, 0.866, 0.5) = (7, 7.732, 6)$ µm.
+(b) $(7/0.2,\; 7.732/0.2,\; 6/0.5) = (35, 38.66, 12)$: between rows 38 and 39 of slice 12; interpolate (here only along $y$).
+(c) Looping over the output gives every output pixel exactly one value. Looping over voxels and pushing each to the plane would leave holes (most voxels do not lie on the plane) and needs a rule for collisions. It is inverse mapping, as in `images/`.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that the inverse of $A = \begin{bmatrix} RD & \mathbf o \\ \mathbf 0^\top & 1 \end{bmatrix}$ ($R$ a rotation, $D$ diagonal with positive entries) is $\begin{bmatrix} D^{-1}R^\top & -D^{-1}R^\top\mathbf o \\ \mathbf 0^\top & 1 \end{bmatrix}$. Check it on B1(c).
+
+**B8.** *(math)* (a) Show that the 8 trilinear weights are non-negative and sum to 1.
+(b) Show that the interpolant is linear along every line parallel to a coordinate axis, but cubic in $t$ along the diagonal $(t, t, t)$.
+(c) Show that trilinear interpolation reproduces every function $a + bx + cy + dz + exy + fyz + gxz + hxyz$ exactly, and that these 8 functions are as many as there are corners.
+
+**B9.** *(math)* The nuclei stack of the demo has $64 \times 64 \times 20$ voxels of $0.2 \times 0.2 \times 0.5$ µm. (a) How many voxels does it have after resampling to isotropic voxels of 0.2 µm? (b) Show that resampling a function that is linear in $z$ along $z$ reproduces it exactly, and give an example of what resampling cannot recover.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Multiply: $\begin{bmatrix} RD & \mathbf o \\ \mathbf 0^\top & 1 \end{bmatrix}\begin{bmatrix} D^{-1}R^\top & -D^{-1}R^\top\mathbf o \\ \mathbf 0^\top & 1 \end{bmatrix} = \begin{bmatrix} RDD^{-1}R^\top & -RDD^{-1}R^\top\mathbf o + \mathbf o \\ \mathbf 0^\top & 1\end{bmatrix} = \begin{bmatrix} I & \mathbf 0 \\ \mathbf 0^\top & 1 \end{bmatrix}$, using $RR^\top = I$. For B1, $R = I$: $D^{-1}(\mathbf x - \mathbf o) = \big(2.125/0.5,\; 1.75/0.5,\; 3.5/2\big) = (4.25, 3.5, 1.75)$.
+
+**B8.** (a) Each weight is a product of three factors in $[0, 1]$. The sum factorises: $\sum_{a,b,c} w_a(f_x)w_b(f_y)w_c(f_z) = \big(w_0(f_x) + w_1(f_x)\big)\big(w_0(f_y)+w_1(f_y)\big)\big(w_0(f_z)+w_1(f_z)\big) = 1 \cdot 1 \cdot 1$.
+(b) With $f_y, f_z$ fixed, every term is $(1 - f_x)$ or $f_x$ times a constant: linear in $f_x$. On the diagonal each weight is a product of three factors $t$ or $1 - t$, e.g. $w_1w_1w_1 = t^3$: a cubic.
+(c) Each of the 8 functions is a product of factors that are linear along each axis separately; trilinear interpolation is exact for $1, x, y, z$ along each axis and the product structure carries this over (check $xyz$: corner values $abc$, interpolant $\sum abc\,w_a w_b w_c = f_x f_y f_z$). The interpolant is determined by its 8 corner values, and these 8 functions are linearly independent, so they span all trilinear interpolants.
+
+**B9.** (a) $z$: $20 \cdot 0.5/0.2 = 50$ slices, so $64 \cdot 64 \cdot 50 = 204\,800$ voxels instead of $81\,920$ (2.5 times more). (b) Along $z$ the resampling is linear interpolation between neighbouring slices, which is exact for a linear function. It cannot recover detail between the original slices: a structure thinner than 0.5 µm that fell between two slices stays missing, and the axial blur of the microscope stays.
+:::
+
+## Explore: the volume viewer {#explore}
+
+The demo shows a synthetic stack of nuclei: $64 \times 64 \times 20$ voxels of $0.2 \times 0.2 \times 0.5$ µm, origin $(10, 20, 4)$ µm, grey values about 10 (background) to 200. Nuclei A and B overlap in $x$–$y$ at different depths, C is an elongated cell tilted in the $x$–$z$ plane, D is a small nucleus. The 3D view (drag to rotate) shows the box with the $xy$ slice, the $xz$ slice and the oblique plane; the 2D panels show the slices with their physical aspect ratio and the MIP along $z$. Click the $xy$ or $xz$ slice to read a voxel. **Δz in the header** is the spacing the software believes (the true value is 0.5 µm). The readout shows the voxel → world matrix and the number of objects above 100 in the MIP and in 3D.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="volview" data-mode="volumes3d" data-preset="slices"></div>
+<script src="../demos/dist/volview.js"></script>
+```
+
+**E1.** Preset **slices**. Set the $z$ slice to $k = 6$ and click the centre of the large nucleus (near column 23, row 30). Read the world position and check it with the matrix by hand. Which row of $A$ gives the $z$ coordinate?
+
+**E2.** Preset **two nuclei merge in the MIP, not in 3D**. How many objects does the readout count in the MIP and in 3D? Which two nuclei merge? Use the $xz$ slice ($j = 31$) and the oblique panel (here a vertical plane) to see why. At what depths (in µm) are their centres?
+
+**E3.** Preset **ignored z spacing squashes the cell**. What changes in the matrix, in the box and in the $xz$ slice? The cell C is tilted by 35° in the true geometry: estimate its tilt in the squashed $xz$ slice, and explain the number with $\tan$.
+
+**E4.** Now set **Δz in the header** to 1.0 µm (too large). What happens to the shape of the box and to the tilt of C?
+
+**E5.** Preset **an oblique slice through the tilted cell**. The plane is tilted by −35° about $y$ and passes through C's centre. How long and how wide is C in this slice (count pixels: the oblique slice has pixels of 0.22 µm)? Move **tilt about y** to 0°: why does C look shorter?
+
+**E6.** Preset **resample to isotropic**. How many voxels does the volume have now, and what does the matrix look like? Do the slices show more detail than before?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Voxel $(23, 30, 6)$ has the value 198 (a nucleus) and lies at $(10 + 23 \cdot 0.2,\; 20 + 30 \cdot 0.2,\; 4 + 6 \cdot 0.5) = (14.6, 26, 7)$ µm. The third row of $A$, $(0, 0, 0.5, 4)$, gives $z = 0.5\,k + 4$.
+
+**E2.** MIP 3 objects, 3D 4 objects (threshold 100). Nuclei A and B merge in the MIP: they overlap in $x$–$y$, but in the $xz$ slice A sits higher (centre at $z = 2.8$ µm above the origin, slice 5.6) and B lower ($z = 7.2$ µm, slice 14.4), with background between them. In the 3D labelling they are separate objects.
+
+**E3.** The third diagonal entry of $A$ drops from 0.5 to 0.2, the box becomes 4 µm deep instead of 10, and every structure is flattened by 0.4 along $z$. The cell's tilt in the $xz$ slice drops from 35° to about 16°: a slope $\tan 35° = 0.70$ becomes $0.70 \cdot 0.2/0.5 = 0.28$, i.e. $\arctan 0.28 = 15.6°$. Angles, lengths, areas and volumes measured in this geometry are all wrong.
+
+**E4.** The box becomes 20 µm deep (twice the truth); C now looks steeper: $\arctan(0.70 \cdot 1.0/0.5) = 54.5°$.
+
+**E5.** About 33 pixels long and 11 wide, i.e. about 7.2 µm by 2.4 µm: the full length $2 \cdot 3.6$ µm and width $2 \cdot 1.2$ µm of the cell. At 0° the plane is an $xy$ plane through C's centre: it cuts the tilted cell at an angle, through its narrow direction, so the section is only about 3.8 µm long (17 pixels).
+
+**E6.** $64 \times 64 \times 50 = 204\,800$ voxels; the matrix has 0.2 on the whole diagonal and the same origin. The slices look the same, slightly smoother along $z$: resampling interpolates between existing slices and adds no information.
+:::
+
+## Where this leads
+
+The next unit looks for the **boundary** of a bright object in 2D: the curve where the image crosses a value $c$, found with marching squares. The unit after it does the same in 3D (marching cubes), and the last one measures the resulting surfaces. Rendering volumes directly (projections from any direction, volume rendering) is the 3D-graphics day.

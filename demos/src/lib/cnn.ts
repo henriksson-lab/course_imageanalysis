@@ -37,6 +37,7 @@ export function conv2d(x: Tensor, L: ConvLayer, o: { pad?: number | "same" | "va
   const k = L.k, s = o.stride ?? 1, d = o.dilation ?? 1;
   const p = o.pad === undefined || o.pad === "same" ? (d * (k - 1)) >> 1 : o.pad === "valid" ? 0 : o.pad;
   if (L.cin !== x.c) throw new Error(`conv2d: ${x.c} input channels, kernel wants ${L.cin}`);
+  if (k === 3 && s === 1 && d === 1 && p === 1) return conv3same(x, L);
   const H = outSize(x.h, k, p, s, d), Wd = outSize(x.w, k, p, s, d);
   const y = tensor(L.cout, H, Wd), xs = x.data, hw = x.h * x.w;
   for (let oc = 0; oc < L.cout; oc++) {
@@ -48,16 +49,40 @@ export function conv2d(x: Tensor, L: ConvLayer, o: { pad?: number | "same" | "va
         const wv = L.W[((oc * L.cin + c) * k + u) * k + v];
         if (wv === 0) continue;
         const dy = u * d - p, dx = v * d - p;
+        // valid output columns: 0 ≤ j·s + dx < x.w
+        const j0 = Math.max(0, Math.ceil(-dx / s)), j1 = Math.min(Wd - 1, Math.floor((x.w - 1 - dx) / s));
         for (let i = 0; i < H; i++) {
           const yy = i * s + dy;
           if (yy < 0 || yy >= x.h) continue;
-          const row = xo + yy * x.w, orow = i * Wd;
-          for (let j = 0; j < Wd; j++) {
-            const xx = j * s + dx;
-            if (xx >= 0 && xx < x.w) out[orow + j] += wv * xs[row + xx];
-          }
+          const row = xo + yy * x.w + dx, orow = i * Wd;
+          if (s === 1) for (let j = j0; j <= j1; j++) out[orow + j] += wv * xs[row + j];
+          else for (let j = j0; j <= j1; j++) out[orow + j] += wv * xs[row + j * s];
         }
       }
+    }
+  }
+  return y;
+}
+
+/** Fast path of conv2d for the common case 3 × 3, stride 1, zero padding 1 (same result). */
+function conv3same(x: Tensor, L: ConvLayer): Tensor {
+  const C = x.c, h = x.h, w = x.w, pw = w + 2, ph = h + 2, php = ph * pw;
+  const xp = new Float32Array(C * php);
+  for (let c = 0; c < C; c++) for (let i = 0; i < h; i++) xp.set(x.data.subarray((c * h + i) * w, (c * h + i + 1) * w), (c * ph + i + 1) * pw + 1);
+  const y = tensor(L.cout, h, w), out = y.data, acc = new Float64Array(w), W = L.W;
+  for (let oc = 0; oc < L.cout; oc++) {
+    for (let i = 0; i < h; i++) {
+      acc.fill(L.b[oc]);
+      for (let c = 0; c < C; c++) {
+        const wb = (oc * C + c) * 9, r0 = c * php + i * pw, r1 = r0 + pw, r2 = r1 + pw;
+        const w0 = W[wb], w1 = W[wb + 1], w2 = W[wb + 2], w3 = W[wb + 3], w4 = W[wb + 4], w5 = W[wb + 5], w6 = W[wb + 6], w7 = W[wb + 7], w8 = W[wb + 8];
+        for (let j = 0; j < w; j++) {
+          acc[j] += w0 * xp[r0 + j] + w1 * xp[r0 + j + 1] + w2 * xp[r0 + j + 2]
+            + w3 * xp[r1 + j] + w4 * xp[r1 + j + 1] + w5 * xp[r1 + j + 2]
+            + w6 * xp[r2 + j] + w7 * xp[r2 + j + 1] + w8 * xp[r2 + j + 2];
+        }
+      }
+      out.set(acc, (oc * h + i) * w);
     }
   }
   return y;
