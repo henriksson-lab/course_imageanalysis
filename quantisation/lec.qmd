@@ -1,0 +1,163 @@
+---
+title: "Quantisation and bit depth"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+- A digital image loses information twice: **where** it is measured (sampling) and **which values** it can store (quantisation).
+- How many grey levels $b$ bits give, and what rounding to them does: **banding**, and an error of predictable size.
+- **Dithering**: why adding noise on purpose makes an image look *better*.
+- Where the numbers come from: a camera counts **electrons**, and the count is noisy. So how many bits are worth storing?
+
+Slides titled **"The math"** formalise what the slide before showed. You can skip them and still follow the rest.
+
+::: notes
+The images lecture said "typically 8 or 16 bits". This lecture asks what that choice costs and when it matters. The plan: picture and demo first, the variance formula afterwards, then the camera, which tells us how many bits the measurement itself can fill.
+:::
+
+## Two ways to lose information
+
+A camera measures a continuous brightness $f(x, y)$ and stores a matrix of whole numbers:
+
+| | **Sampling** | **Quantisation** |
+|---|---|---|
+| what is cut | positions: $f$ is read only at grid points | values: each reading is **rounded** to one of a few levels |
+| controlled by | pixel size, optics | **bit depth** $b$ |
+| typical damage | lost fine detail, aliasing | **banding** in smooth regions, lost faint differences |
+| treated in | the Fourier unit | **this lecture** |
+
+## Bits and levels
+
+With $b$ bits a pixel can take $2^b$ values, $0, 1, \dots, 2^b - 1$:
+
+| bits $b$ | 1 | 2 | 8 | 10 | 12 | 14 | 16 |
+|---|---|---|---|---|---|---|---|
+| levels $2^b$ | 2 | 4 | 256 | 1024 | 4096 | 16 384 | 65 536 |
+
+- Spread over the same range (say black to white), the **step** between neighbouring levels is $\Delta = \text{range}/(2^b - 1)$.
+- One more bit → twice as many levels → **half the step**.
+- 8 bits: the step is $1/255$ of the range. 12 bits: $1/4095$, a 16 times finer step.
+
+## Try it: quantise an image
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="quantise" data-image="ramp" data-bits="4"></div>
+<script src="../demos/dist/quantise.js"></script>
+```
+
+::: notes
+Start on the ramp at 4 bits: 16 visible bands. Slide the bits down to 1 and up to 8; at 6 bits most people stop seeing bands on a projector. Point at the error image: a sawtooth, between −Δ/2 and +Δ/2, and the histogram is flat. Then "4 bits: banding" on the smooth blobs: contour lines appear that are not in the scene. Then "4 bits + dither": the bands are gone, replaced by fine grain, and the histogram becomes a triangle. Then the micrograph at 2 bits with error diffusion: only 4 grey levels, but it still looks like the cell.
+:::
+
+## What the rounding error looks like
+
+- Rounding moves each value to the nearest level, so the error is **between −Δ/2 and +Δ/2**.
+- In a smooth region the error is a **sawtooth**: the image jumps in steps of $\Delta$ where it should change gradually. The eye sees the jumps as contour lines: **banding** (posterisation).
+- In a busy or noisy region, the error looks like **random noise**, evenly spread between −Δ/2 and +Δ/2.
+- Its typical size is about $0.29\,\Delta$ (root mean square). The demo's readout shows it: at 4 bits, RMS error 0.0192 of the range.
+- One more bit halves the error. In decibels: **about 6 dB per bit**.
+
+## The math: the error of rounding
+
+Model the error $e$ as uniform on $[-\Delta/2, \Delta/2]$, with density $1/\Delta$. Then
+
+$$\mathbb E[e] = 0, \qquad \operatorname{Var}(e) = \int_{-\Delta/2}^{\Delta/2} e^2\,\frac{1}{\Delta}\,de = \frac{1}{\Delta}\left[\frac{e^3}{3}\right]_{-\Delta/2}^{\Delta/2} = \frac{\Delta^2}{12}.$$
+
+So $\text{RMS} = \Delta/\sqrt{12} \approx 0.289\,\Delta$. **Signal-to-noise ratio** in decibels compares variances: $\text{SNR} = 10\log_{10}(\sigma^2_\text{signal}/\sigma^2_\text{noise})$. For a signal spread evenly over the full range $R = (2^b - 1)\Delta$, $\sigma^2_\text{signal} = R^2/12$, so
+
+$$\text{SNR} = 10\log_{10}\,(2^b - 1)^2 \approx 20\,b\log_{10}2 \approx 6.02\,b \text{ dB}.$$
+
+(For a full-scale sine wave, the textbook value is $6.02\,b + 1.76$ dB.) The model holds when the signal changes by many steps across the image; on a perfectly flat region the error is one constant number, not noise.
+
+## Dithering: add noise before rounding
+
+Rounding a smooth gradient gives bands, because many neighbouring pixels round the **same way**.
+
+- **Random dither**: add a little noise (up to ±Δ/2) to every pixel *before* rounding. A pixel 75 % of the way from one level to the next now rounds up 75 % of the time. On average, the grey value is right.
+- The bands turn into fine **grain**. The total error is a bit larger (a triangle instead of a box, RMS $\times\sqrt2$), but it no longer follows the image, and the eye averages grain away.
+- **Error diffusion** (Floyd–Steinberg): round a pixel, then pass its error on to the neighbours not yet visited. The local average stays right. This is how a printer shows grey with only black ink.
+
+## The math: why random dither is unbiased
+
+Measure in units of $\Delta$, write a value as $x = k + f$ with $k$ an integer and $0 \le f < 1$, and add $u$ uniform on $[-\tfrac12, \tfrac12)$. Then $x + u$ rounds up to $k + 1$ exactly when $u \ge \tfrac12 - f$, which has probability $f$:
+
+$$\mathbb E[\operatorname{round}(x + u)] = (1 - f)\,k + f\,(k + 1) = k + f = x.$$
+
+No bias, for every $x$: the **expected** output is a straight line, not a staircase. The price: the error is $1 - f$ with probability $f$ and $-f$ with probability $1 - f$, so $\mathbb E[e^2] = f(1-f)$; averaged over $f$, $\int_0^1 f(1-f)\,df = \tfrac16$. So the error variance is $\Delta^2/6$, twice that of plain rounding.
+
+## Where the numbers come from
+
+A camera pixel collects light as **electrons** ($e^-$), during the exposure:
+
+1. **Full well**: a pixel holds at most $N_\text{max}$ electrons (a few thousand to ~100 000). More light: the pixel **saturates**.
+2. **Read noise**: the electronics add noise of a few $e^-$ to every reading, even in the dark.
+3. **ADC** (analogue-to-digital converter): turns the charge into a whole number of **ADU** (analogue-digital units), with $b$ bits. The **gain** $g$ says how many electrons one ADU is.
+
+A raw pixel value is "electrons ÷ gain, rounded".
+
+## Light itself is noisy: shot noise
+
+Photons arrive at random. A pixel that collects **on average** $N$ electrons gets a count that varies from exposure to exposure by about $\sqrt N$ (Poisson statistics):
+
+| mean signal $N$ | 100 | 10 000 |
+|---|---|---|
+| noise $\sqrt N$ | 10 | 100 |
+| signal/noise | 10 | 100 |
+
+- More light → the noise grows, but more slowly than the signal: **100× more light gives 10× better SNR**.
+- The best SNR a pixel can ever reach is $\sqrt{N_\text{max}}$: for a full well of 30 000 $e^-$, about 173.
+- So the lowest bits of a bright pixel only record noise.
+
+## Try it: how many bits does a camera need?
+
+```{=html}
+<div data-demo="camerabits" data-fwc="30000" data-read="1.5" data-bits="16" data-exposure="0.5"></div>
+<script src="../demos/dist/camerabits.js"></script>
+```
+
+::: notes
+The plot is a photon-transfer curve: noise against signal, both in electrons, log-log. Flat blue = read noise, slope-1/2 green = shot noise, dashed red = quantisation noise. Start with the sCMOS preset: quantisation is far below everything else. "Same, 8-bit ADC": now one ADU is 118 electrons, and the dashed line is above the read noise; the dark measured points drop to zero (red triangles), because every pixel of a flat dark patch reads the same number: the signal is lost, not noisy. "Noisy, 16-bit ADC": the read noise is 66 ADU, so the lowest 6 bits only record noise. Finally the two low-light presets: count the ADU values used in the image (4 with 8 bits, 48 with 12).
+:::
+
+## How many bits are meaningful?
+
+- **Dynamic range** = full well ÷ read noise: the ratio between the brightest signal and the faintest one you can tell from zero. For 30 000 $e^-$ and 1.5 $e^-$: 20 000 : 1, which is 86 dB, or 14.3 bits.
+- An ADC with fewer bits than that throws dark detail away (quantisation noise above the read noise).
+- An ADC with many more bits records noise very precisely: harmless, but the extra bits carry no information.
+- Rule of thumb: choose the gain so that **one ADU is at most about one read-noise SD**. Then the read noise works as a natural dither.
+- Hence: scientific cameras use 12–16 bits; an 8-bit image of a dim sample may have lost exactly what you wanted to measure.
+
+## The math: adding the noise sources
+
+Independent noise sources add in **variance**. At a mean signal of $S$ electrons, with read noise $\sigma_r$ and gain $g$:
+
+$$\sigma^2_\text{total} = \underbrace{S}_{\text{shot}} + \underbrace{\sigma_r^2}_{\text{read}} + \underbrace{g^2/12}_{\text{quantisation}}.$$
+
+- Shot noise dominates when $S > \sigma_r^2$ (for $\sigma_r = 1.5\,e^-$: above about 2 electrons).
+- Quantisation is negligible when $g/\sqrt{12} \ll \sigma_r$; a full well $N_\text{max}$ spread over $2^b - 1$ levels gives $g = N_\text{max}/(2^b - 1)$.
+- In decibels, amplitude ratios use $20\log_{10}$: dynamic range $= 20\log_{10}(N_\text{max}/\sigma_r)$, maximum SNR $= 20\log_{10}\sqrt{N_\text{max}} = 10\log_{10}N_\text{max}$.
+- In bits: $\log_2(N_\text{max}/\sigma_r)$; one bit is $20\log_{10}2 \approx 6.02$ dB.
+
+## Summary
+
+- $b$ bits give $2^b$ levels; rounding to them makes an error of at most half a step, RMS $\Delta/\sqrt{12}$: about **6 dB per bit**.
+- In smooth regions the error shows as **banding**; **dithering** trades the bands for fine, unbiased noise.
+- A camera counts electrons: **shot noise** $\sqrt N$, **read noise**, a **full well**. Their ratio, the dynamic range, says how many bits are worth storing.
+- Next: storing and showing those 12- and 16-bit numbers without breaking them.

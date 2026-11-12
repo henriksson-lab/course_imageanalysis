@@ -44,3 +44,23 @@ In a `.qmd` (slide or page), one raw HTML block:
   preset button; nothing that only shows on hover. Keep the static figure in the
   deck or exercise as the fallback for PDF/print.
 - Read per-embed settings from `data-*` attributes, so one demo serves several units.
+- 3D: WebGL2, through the shared renderer in `lib/gl3d.ts` (no 3D libraries).
+
+## Language: TypeScript, and Rust/WebAssembly when speed is needed
+
+- Write demos in **TypeScript**, not plain JavaScript. `make typecheck` must pass.
+- Start in TypeScript even for heavy computation; measure first. Move a kernel to
+  **Rust compiled to WebAssembly** only when TypeScript is too slow for interactive
+  use (rule of thumb: a recomputation that should feel live takes over ~30 ms,
+  e.g. iterative PDE updates or max-flow on large images, 3D volumes above ~64³).
+- Keep the Rust part small and numeric: plain functions over flat arrays
+  (`&[f32]`, `&mut [f32]`, `&[u8]`), no DOM or UI in Rust. UI, presets and drawing
+  stay in TypeScript, which calls the Wasm function.
+- Layout: `demos/wasm/<name>/` as a Cargo crate (`crate-type = ["cdylib"]`, target
+  `wasm32-unknown-unknown`), built to a `.wasm` file that the demo imports. The
+  `.wasm` bytes are inlined into the demo bundle (esbuild `--loader:.wasm=binary`)
+  and instantiated with `WebAssembly.instantiate(bytes)`: no `fetch`, so it still
+  works from `file://`.
+- Keep a TypeScript reference implementation of the same function, and test that
+  the Wasm and TypeScript versions agree on small inputs.
+- Toolchain (once): `rustup target add wasm32-unknown-unknown`.

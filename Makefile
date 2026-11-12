@@ -1,4 +1,4 @@
-.PHONY: all render preview clean gitadd help demos typecheck
+.PHONY: all render preview clean gitadd help demos typecheck test
 
 # Default: render the site, then stage every source file in git.
 all: render gitadd
@@ -19,6 +19,11 @@ demos:
 typecheck:
 	node_modules/.bin/tsc --noEmit -p demos
 
+# Correctness tests of the demo algorithms (demos/test/): bundled for node by esbuild
+# and run directly, no files written. E.g. max-flow against brute force over all cuts.
+test:
+	js=$$(node_modules/.bin/esbuild demos/test/test.ts --bundle --platform=node --log-level=warning) && printf '%s\n' "$$js" | node
+
 # Remove the rendered site, the built demos and Quarto's cache.
 clean:
 	rm -rf docs .quarto demos/dist
@@ -35,5 +40,6 @@ help:
 	@echo "  make preview   start a live-reload preview server"
 	@echo "  make demos     build the interactive demos into demos/dist/ (needs npm i once)"
 	@echo "  make typecheck type-check the demo TypeScript sources"
+	@echo "  make test      run the correctness tests of the demo algorithms"
 	@echo "  make gitadd    stage all source files in git"
 	@echo "  make clean     remove docs/, demos/dist/ and .quarto/"

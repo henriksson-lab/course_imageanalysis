@@ -1,0 +1,166 @@
+---
+title: "Exercise: graph-cut segmentation"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- **build the graph** of a small image: t-links from the data term, n-links from the smoothness term,
+- check that the **cost of a cut equals the energy** of its labelling, and find the minimum,
+- compute **contrast-sensitive** weights and see how they change the result,
+- use **seeds**, and explain the **shrinking bias** and **metrication**.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Nodes | one per pixel, plus $s$ (object) and $t$ (background) |
+| t-links | $s \to p$ with capacity $D_p(0)$, $p \to t$ with capacity $D_p(1)$ |
+| n-links | $p \to q$ and $q \to p$, each with capacity $\lambda w_{pq}$, for 4-neighbours $p, q$ |
+| Labelling from a cut | $L_p = 1$ (object) if $p$ is on the source side, else 0 |
+| Cut = energy | $c(S, T) = \sum_p D_p(L_p) + \lambda \sum w_{pq}[L_p \ne L_q] = E(L)$ |
+| Contrast weights | $w_{pq} = \exp\!\big(-(I_p - I_q)^2/2\sigma^2\big)$; $\sigma = \infty$ means $w_{pq} = 1$ |
+| Seeds | an object seed gets $s \to p$ with infinite capacity; a background seed $p \to t$ |
+
+Throughout, grey levels are 0 to 3 with $\mu_0 = 0$, $\mu_1 = 3$ and $D_p(\ell) = (I_p - \mu_\ell)^2$, so $D_p(0) = I_p^2$ and $D_p(1) = (3 - I_p)^2$. This is what the first demo uses.
+
+## By hand
+
+**B1.** The $1 \times 3$ image $I = (3, 1, 3)$, with $w_{pq} = 1$.
+(a) Draw the graph: 5 nodes, 6 t-links, 2 pairs of n-links. Write every capacity for $\lambda = 1$.
+(b) List all 8 cuts (labellings) with their cost. Which is the minimum? Which labelling does thresholding give?
+(c) Repeat (b) for $\lambda = 2$. At which $\lambda$ does the minimum change?
+
+**B2.** Same image, now with contrast weights, $\sigma = 1$.
+(a) Compute $w_{12}$ and $w_{23}$. What is $w_{pq}$ for a grey-level difference of 1, and of 3?
+(b) Compute the energy of $101$ and $111$ for $\lambda = 2$ and $\lambda = 5$. Up to which $\lambda$ does the dark pixel stay background?
+(c) Is that what you want if the dark pixel is noise? If it is a real gap between two objects?
+
+**B3.** The $2 \times 2$ image $\begin{bmatrix} 3 & 2 \\ 1 & 0 \end{bmatrix}$, 4-neighbours (4 pairs of n-links), $w_{pq} = 1$, $\lambda = 2$. Write labellings as top-left, top-right, bottom-left, bottom-right, e.g. $1100$ = top row object.
+(a) Give the t-link capacities of the four pixels.
+(b) Compute the cost of the cuts $1100$, $1000$, $1110$, $1111$ and $0000$. Then argue (or check by listing all 16) which cut is the minimum.
+
+**B4.** Same $2 \times 2$ image and $\lambda$, but the bottom-left pixel (grey level 1) is an **object seed**. Which capacities change? What is the minimum cut now, and its cost (counting the seed's data cost $D(1) = 4$)?
+
+**B5.** **Shrinking bias.** A $6 \times 6$ image is 0 everywhere except column 2, which is a vertical line of grey level 2, and columns 4–6, a band of grey level 2 that touches the right border. Use $w_{pq} = 1$.
+(a) How much data cost does the line save by being object rather than background? How many n-links does labelling it object cut? Above which $\lambda$ does the minimum drop the line?
+(b) The same for the band. (Its right side lies on the image border: no n-links there.)
+(c) Generalise: a long strip of width $k$ pixels and data gain $g$ per pixel. Above which $\lambda$ is it removed?
+
+**B6.** **Metrication.** Consider a long straight boundary in a large image with $w_{pq} = 1$.
+(a) With 4-neighbours, how many n-links does a horizontal boundary of length $\ell$ cut? And a 45° staircase boundary of the same Euclidean length?
+(b) With 8-neighbours, horizontal and vertical n-links get weight $\tfrac12$, diagonal ones $\tfrac{1}{2\sqrt2}$. Compute the cost per unit length of a horizontal and of a 45° boundary.
+(c) Which neighbourhood gives the more "round" results, and why?
+
+**B7** *(math)*. Show that the pairwise term $V(L_p, L_q) = \lambda w_{pq}[L_p \ne L_q]$ with $\lambda w_{pq} \ge 0$ satisfies $V(0,1) + V(1,0) \ge V(0,0) + V(1,1)$. Which pairwise term in a segmentation energy would violate it?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $D(0) = 9, 1, 9$ and $D(1) = 0, 4, 0$: t-links $s \to 1$: 9, $s \to 2$: 1, $s \to 3$: 9; $1 \to t$: 0, $2 \to t$: 4, $3 \to t$: 0. n-links $1 \leftrightarrow 2$ and $2 \leftrightarrow 3$: capacity $\lambda = 1$ each way.
+(b) Writing data + boundaries:
+
+| labelling | data | boundaries | cost, $\lambda = 1$ | cost, $\lambda = 2$ |
+|---|---|---|---|---|
+| $101$ | $0 + 1 + 0 = 1$ | 2 | **3** | 5 |
+| $111$ | $0 + 4 + 0 = 4$ | 0 | 4 | **4** |
+| $001$, $100$ | 10 | 1 | 11 | 12 |
+| $011$, $110$ | 13 | 1 | 14 | 15 |
+| $000$ | 19 | 0 | 19 | 19 |
+| $010$ | 22 | 2 | 24 | 26 |
+
+At $\lambda = 1$ the minimum is $101$ (cost 3), the same as thresholding.
+(c) At $\lambda = 2$ the minimum is $111$ (cost 4). $101$ costs $1 + 2\lambda$, $111$ costs 4: they tie at $\lambda = 1.5$.
+
+**B2.** (a) $w_{12} = w_{23} = e^{-2^2/2} = e^{-2} = 0.135$. For a difference of 1: $e^{-0.5} = 0.607$; of 3: $e^{-4.5} = 0.011$.
+(b) $E(101) = 1 + \lambda \cdot 2 \cdot 0.135$: 1.541 at $\lambda = 2$, 2.353 at $\lambda = 5$. $E(111) = 4$. The dark pixel stays background as long as $1 + 0.271\lambda < 4$, i.e. up to $\lambda = 11.08$.
+(c) Contrast weights make a boundary across a large intensity jump almost free. That protects a real gap between two objects, but it also protects a noise pixel that differs strongly from its neighbours. $\sigma$ should be larger than typical noise differences and smaller than the jumps at real edges.
+
+**B3.** (a) Grey levels 3, 2, 1, 0: $s \to p$: 9, 4, 1, 0; $p \to t$: 0, 1, 4, 9.
+(b) $1100$: data $0 + 1 + 1 + 0 = 2$, n-links cut: top-left–bottom-left and top-right–bottom-right, 2, cost $2 + 2 \cdot 2 = 6$. $1000$: data $0 + 4 + 1 + 0 = 5$, 2 n-links, cost 9. $1110$: data $0 + 1 + 4 + 0 = 5$, 2 n-links, cost 9. $1111$: data $0 + 1 + 4 + 9 = 14$, cost 14. $0000$: data $9 + 4 + 1 + 0 = 14$, cost 14. The minimum is $1100$ with cost **6**: it has the smallest possible data cost (each pixel takes its cheaper label, total 2), and any labelling with both labels cuts at least 2 n-links, so no labelling with a boundary can beat $2 + 4 = 6$; the two without a boundary cost 14. Listing all 16 confirms it; the next best are $1000$ and $1110$ (9).
+
+**B4.** The seed's t-links become $s \to p$: $\infty$, $p \to t$: 0 (and its data cost $D(1) = 4$ is paid in any allowed labelling). Only labellings with bottom-left = 1 are allowed. The best is $1110$: data $0 + 1 + 4 + 0 = 5$, 2 n-links (top-right–bottom-right and bottom-left–bottom-right), cost $5 + 4 = 9$. Next: $1010$ (12) and $1111$ (14). The seed pulls its pixel into the object, and the boundary moves to the right of it.
+
+**B5.** (a) Each line pixel saves $D(0) - D(1) = 4 - 1 = 3$; 6 pixels save 18. As object, the line cuts 6 n-links on each side, 12 in total (top and bottom are the image border): cost $12\lambda$. Dropped when $12\lambda > 18$, i.e. $\lambda > 1.5$.
+(b) The band: 18 pixels save $54$; it cuts only the 6 n-links on its left side: dropped when $6\lambda > 54$, i.e. $\lambda > 9$. Same intensity, 6 times more robust.
+(c) Per unit length, a strip of width $k$ gains $kg$ and its two sides cost $2\lambda$: it is removed for $\lambda > kg/2$. Thin structures go first.
+
+**B6.** (a) Horizontal: $\ell$ vertical n-links, cost $\ell$, i.e. 1 per unit length. A 45° staircase of Euclidean length $\ell$ goes $\ell/\sqrt2$ steps right and $\ell/\sqrt2$ down and cuts one n-link per step: $\sqrt2\,\ell$, i.e. 1.41 per unit length.
+(b) Horizontal: per unit length, one vertical n-link ($\tfrac12$) and two diagonal ones ($2 \cdot \tfrac{1}{2\sqrt2}$): $\tfrac12 + \tfrac1{\sqrt2} = 1.207$. At 45°, per step of length $\sqrt2$: one horizontal and one vertical n-link ($\tfrac12 + \tfrac12$) and two diagonals across the boundary ($\tfrac{1}{\sqrt2}$; the diagonals along the boundary are not cut): $(1 + \tfrac{1}{\sqrt2})/\sqrt2 = 1.207$ per unit length. The same.
+(c) 8-neighbours: the boundary cost no longer depends on direction (at least for these two directions), so the cut has no reason to prefer axis-aligned edges. With 4-neighbours, diagonal boundaries are 41% more expensive and shapes come out blocky.
+
+**B7.** $V(0,1) + V(1,0) = 2\lambda w_{pq} \ge 0 = V(0,0) + V(1,1)$. A term that **rewards** disagreement, $V(0,1) < 0$ (or that charges more for equal labels than for different ones), violates it; for example a term that wants neighbouring pixels to differ, as in a checkerboard pattern.
+:::
+
+## Explore: the graph of a small image {#explore-graph}
+
+The demo draws a small image as its graph. Pixels show their grey level (0–3) and are framed orange (object) or blue (background) according to the **minimum cut**. Small images (1 × 3, 2 × 2) show the whole graph with every capacity, and the cut edges dashed red. The 6 × 6 images show the t-links as two bars inside each pixel (left: $s \to p$, right: $p \to t$; the cut one is solid), and n-links as lines whose width is $\lambda w_{pq}$. Click a pixel to change its grey level, or choose **label (your cut)** and click pixels to make your own labelling; the table then compares its energy with the minimum.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="pixelgraph" data-preset="row"></div>
+<script src="../demos/dist/pixelgraph.js"></script>
+```
+
+**P1.** Check B1 and B2 in the demo: the **1 × 3** image at $\lambda = 1$ and $\lambda = 2$, then $\sigma = 1$ at $\lambda = 2$. Do the cut costs and the max flow match your table?
+
+**P2.** Choose **2 × 2** ($\lambda = 2$) and **label (your cut)**. Make the labellings of B3(b) one by one and compare their costs with yours.
+
+**P3.** Choose **6 × 6 blob** ($\lambda = 1.5$). Which pixels does the minimum cut label differently from thresholding (set $\lambda = 0$ to see thresholding)? Check that $E$ = data + $\lambda \cdot \Sigma w$ in the table.
+
+**P4.** Choose **thin vs thick** and raise $\lambda$. At which $\lambda$ does the line disappear, and at which the band? Compare with B5.
+
+**P5.** Choose **noisy edge** ($\lambda = 1$, $\sigma = 1$). One noise pixel in the dark half is labelled object. Why does the cut keep it? Set $\sigma = \infty$: what happens to it, and to the energy?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**P1.** At $\lambda = 1$, $\sigma = \infty$: labelling $101$ with cost 3 (data 1, $\Sigma w = 2$), max flow 3. At $\lambda = 2$: $111$, cost 4. With $\sigma = 1$ at $\lambda = 2$: the n-links around the middle pixel shrink to 0.27 each ($\lambda w = 2 \cdot 0.135$), and $101$ is the minimum again with cost 1.54 (shown as data 1, $\Sigma w$ 0.27, $\lambda \Sigma w$ 0.54).
+
+**P2.** $1100$: 6 (the minimum, the demo's own cut), $1000$ and $1110$: 9, $1111$ and $0000$: 14. Every cut you make has cost = energy, and none is below 6.
+
+**P3.** Thresholding ($\lambda = 0$) labels 13 pixels object with energy 5: it leaves the dark pixel (grey level 1) inside the blob as background and takes the two isolated pixels of grey level 2 (right of the blob and at the right edge) as object. At $\lambda = 1.5$ the minimum cut fills the hole and drops both isolated pixels: 12 object pixels, the block of 4 rows and 3 columns. The table shows data 14, $\Sigma w$ 14, $E = 14 + 1.5 \cdot 14 = 35$ = max flow.
+
+**P4.** The line disappears at $\lambda = 1.5$ (at exactly 1.5 the two labellings tie, and the solver drops the line), the band at $\lambda = 9$ (again a tie). As computed in B5: the band has 9 times the data gain per row but only half the boundary.
+
+**P5.** The pixel (row 4, column 2, grey level 2) has dark neighbours (0), so with $\sigma = 1$ each of its 4 n-links has weight $e^{-2} = 0.135$: isolating it costs only $4 \cdot 0.135 = 0.54$, less than the data it saves ($4 - 1 = 3$). The contrast weights protect it as if it were a real edge. With $\sigma = \infty$ all weights are 1, isolating it costs 4, and the cut drops it; the energy rises from 12.5 to 23, because every boundary is now expensive, including the real one between the halves.
+:::
+
+## Explore: interactive segmentation {#explore}
+
+A $128 \times 128$ image: a synthetic test image (a bright disk with a thin arm, with noise) or a micrograph of a cell. Paint seeds with the mouse: **object** (red) or **background** (blue); **erase** and **clear** remove them. The intensity model is estimated from the seeds: a **Gaussian** per label, or a **histogram**. The large image shows the graph-cut result (orange, with a yellow boundary), the small one thresholding with the same model ($\lambda = 0$). The table gives the energy of both, the number of object pixels, and, for the test image, the number of **wrong** pixels compared with the truth. **4 / 8** chooses the neighbourhood; $\sigma$ the contrast weights ($\infty$: none).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="graphcut" data-preset="noise"></div>
+<script src="../demos/dist/graphcut.js"></script>
+```
+
+**G1.** Preset **noise** ($\lambda = 1.5$). Compare thresholding and graph cut: wrong pixels, data term and total energy. Which has the smaller data term? Check that the max flow equals $E$.
+
+**G2.** Still on **noise**, move $\lambda$. Which $\lambda$ gives the fewest wrong pixels? At which $\lambda$ does part of the thin arm disappear, and when is it almost completely gone? Explain with B5.
+
+**G3.** Preset **thin arm lost** ($\lambda = 6$). Now set $\sigma = 50$. What happens to the arm and to the number of wrong pixels? Why?
+
+**G4.** Preset **blocky (4 neighbours)**. Describe the shape of the disk. Switch to **8** neighbours. What changes, and what happens to the number of wrong pixels?
+
+**G5.** Preset **nucleus** (micrograph, histograms, $\lambda = 10$, $\sigma = 25$). Where does the segmentation leak outside the nucleus? Paint a background seed there and see the result update. Then set $\sigma = \infty$: how does the boundary change?
+
+**G6.** Preset **overlapping intensities**: the same object seeds, background seeds only on the white areas. What is segmented, and why? Fix it with a few background strokes on the grey cytoplasm around the nucleus.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**G1.** Thresholding: 2587 wrong pixels, graph cut: 55. The data term of thresholding is smaller (69111.6 against 71491.9): by definition it is the smallest possible data term. But its boundary is enormous ($\Sigma w$ = 7351.0 against 335.6), so its total energy at $\lambda = 1.5$ is 80138.2, against 71995.3 for the cut. The max flow is 71995.3 = $E$. (The large numbers come from the constant $\log s$ in the Gaussian data term, the same for every labelling.)
+
+**G2.** The fewest wrong pixels are at $\lambda = 1.5$ (55); from $\lambda \approx 1$ to 1.6 it stays between about 55 and 110. At $\lambda = 1.7$ the outer half of the arm disappears (wrong pixels jump to 102), at $\lambda = 2.75$ most of it (137), and from $\lambda = 4.7$ only a stub of a few pixels is left. The arm is 3 pixels wide: as in B5, its data gain per unit length is about $3g$ while its two long sides cost $2\lambda$ (times the 8-neighbour weight 1.21), so it goes long before the disk is affected.
+
+**G3.** With $\sigma = 50$ the arm comes back (almost all of it), but the number of wrong pixels rises from 138 to 247. The n-links across the arm's edges now have small weights (the jump from 80 to 170 is large compared with $\sigma$), so cutting along the arm is cheap. But noise also produces large differences between neighbours, so noisy pixels are cheaper to cut out as well: more specks survive. Contrast weights help only when edges are larger than the noise.
+
+**G4.** With 4 neighbours (noise 90, $\lambda = 6$) the disk comes out as a rounded square with flat horizontal and vertical sides: 457 wrong pixels. With 8 neighbours it is round again and the error falls to 217. With 4 neighbours a diagonal boundary costs 41% more per unit length (B6), so the cut trades the diagonal parts of the circle for axis-aligned ones.
+
+**G5.** With these seeds the nucleus is found along its envelope (3152 object pixels), with a leak into dark material at the right edge of the image. A background stroke there removes it. With $\sigma = \infty$ (no contrast weights) the boundary no longer follows the dark nuclear envelope: at $\lambda = 10$ it takes short cuts and the object shrinks to 1779 pixels. The contrast weights make the envelope the cheapest place for the boundary.
+
+**G6.** The whole cell and its neighbours are segmented (6239 object pixels): the cytoplasm and the other dark material are included. The background model has only seen white, so every grey pixel looks more like the object than like the background; nucleus and cytoplasm have overlapping grey levels, and the data term cannot tell them apart. A few background strokes on the cytoplasm add its grey levels to the background model; with the contrast weights at the envelope the result approaches the **nucleus** preset.
+:::
+
+## Where this leads
+
+Graph cuts need seeds or a given intensity model, and they find the exact best labelling of a restricted energy. The next unit drops the seeds: **normalized cuts** look for a balanced split of the whole graph, using an eigenvector of the graph Laplacian.

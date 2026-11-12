@@ -1,0 +1,122 @@
+---
+title: "Exercise: the variational autoencoder"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain what the encoder's **cloud** and the **prior** do, and why the decoder is fed **random draws**,
+- draw a point of a cloud with the **reparameterisation** $z = \mu + \sigma\varepsilon$,
+- compute the **KL divergence** of a Gaussian cloud to the prior, and the two terms of the VAE loss for a small example,
+- predict how the best cloud moves when the image or $\beta$ changes.
+
+Parts A–C and the Explore questions are for everyone. Questions marked **(math)** are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Encoder cloud | $q(z\mid x) = \mathcal N(\mu, s^2)$: where in latent space image $x$ belongs, and how sure |
+| Prior | the standard cloud $\mathcal N(0, 1)$ (in $k$ dimensions $\mathcal N(0, I)$) |
+| Reparameterisation | $z = \mu + s\,\varepsilon$ with $\varepsilon \sim \mathcal N(0, 1)$ |
+| KL to the prior | $\tfrac12(\mu^2 + s^2 - 1 - \ln s^2)$ per latent dimension; dimensions add |
+| VAE loss | reconstruction $+\ \beta\cdot\mathrm{KL}$; $\beta = 1$ is the standard VAE |
+
+The one-dimensional VAE of the lecture and the demo: one grey value $x$, decoder $\hat x = wz$ with $w = 1$ and pixel noise $\sigma_x = 0.5$. Its reconstruction term is
+
+$$R(\mu, s) = \frac{(x - w\mu)^2 + w^2 s^2}{2\sigma_x^2},$$
+
+the average squared error over the cloud, divided by $2\sigma_x^2$.
+
+## By hand
+
+### Part A — clouds and draws
+
+**B1.** The encoder gives $\mu = 1$, $s = 0.5$. Using the reparameterisation, compute $z$ for $\varepsilon = -1$, $0$ and $0.5$. Where do 95% of all draws fall?
+
+**B2.** Two digits, a 4 and a 9, have cloud centres 0.3 apart and spreads 0.06. Would you expect their clouds to overlap (within ±2 sd)? What does the decoder produce halfway between them?
+
+**B3.** Explain in two sentences what goes wrong if the decoder is always given the centre $\mu$ instead of a random draw.
+
+### Part B — the KL penalty
+
+**B4.** Compute the KL to the prior for the clouds $(\mu, s) = (0.5, 1)$, $(0, 2)$ and $(2, 0.1)$. ($\ln 4 = 1.386$, $\ln 0.01 = -4.605$.) Rank them, and say what each one is "punished" for.
+
+**B5.** In 2D, a cloud has centre $(1, 0)$ and spreads $(0.5, 1)$. What is its KL to $\mathcal N(0, I)$?
+
+### Part C — the two forces, with numbers
+
+Use $x = 1.5$, $w = 1$, $\sigma_x = 0.5$, $\beta = 1$.
+
+**B6.** Compute $R$, KL and the total loss for the cloud $\mu = 1$, $s = 0.5$. Compare with the table in the lecture: is it better or worse than the prior, the "too confident" cloud and the best cloud?
+
+**B7.** Without computing: if the image were $x = 0$ instead, where would the best cloud's centre be? And for $x = 3$?
+
+**B8.** Without computing: with $\beta = 5$, does the best $\mu$ move towards 0 or towards $x$? Does $s$ get larger or smaller?
+
+**B9 (math).** Derive the KL formula from $\mathrm{KL}(q\|p) = \mathbb E_q[\ln q(z) - \ln p(z)]$ for $q = \mathcal N(\mu, s^2)$, $p = \mathcal N(0, 1)$. Show that it is $\ge 0$ with equality only at $\mu = 0$, $s = 1$.
+
+**B10 (math).** Minimise $R(\mu, s) + \beta\,\mathrm{KL}(\mu, s)$ over $\mu$ and $s^2$. Give the best cloud for $\beta = 1$ and $\beta = 5$, and check B7–B8.
+
+**B11 (math).** Show $\ln p(x) - \text{ELBO} = \mathrm{KL}\big(q(z)\,\|\,p(z\mid x)\big)$, using $p(x\mid z)\,p(z) = p(z\mid x)\,p(x)$.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** $z = 1 + 0.5\varepsilon$: $0.5$, $1$, $1.25$. 95% of draws fall within $\mu \pm 2s$, i.e. between 0 and 2.
+
+**B2.** No: within ±2 sd each cloud reaches 0.12 from its centre, so the two clouds together cover 0.24 of the 0.3 between them. But the gap is small, and the KL penalty pulls all clouds together, so the decoder is trained on points near both and the halfway point decodes to a blend: an image that looks partly like a 4 and partly like a 9.
+
+**B3.** Then each image is only ever decoded at one point, and nothing trains the decoder at points around it: we are back to a plain autoencoder with gaps. The random draw forces a whole neighbourhood of each image to decode to that image.
+
+**B4.** $(0.5, 1)$: $\tfrac12(0.25 + 1 - 1 - 0) = 0.125$, punished only for its shifted centre. $(0, 2)$: $\tfrac12(0 + 4 - 1 - 1.386) = 0.807$, punished for being too wide. $(2, 0.1)$: $\tfrac12(4 + 0.01 - 1 + 4.605) = 3.808$, punished both for its far centre and for being very narrow (very sure). Order: $0.125 < 0.807 < 3.808$.
+
+**B5.** The dimensions add: first dimension $\tfrac12(1 + 0.25 - 1 - \ln 0.25) = \tfrac12(0.25 + 1.386) = 0.818$, second $\tfrac12(0 + 1 - 1 - 0) = 0$. Total $0.818$.
+
+**B6.** $R = \big((1.5 - 1)^2 + 0.25\big)/(2 \cdot 0.25) = 0.5/0.5 = 1.000$. KL $= 0.818$ (B5, first dimension). Total $1.818$: much better than the prior (6.500) and the too-confident cloud (3.627), a little worse than the best cloud (1.705).
+
+**B7.** For $x = 0$ both forces agree: the best centre is $\mu = 0$ (with $s$ below 1, because the image still pins $z$ down). For $x = 3$ the centre moves out, but stays short of 3, pulled back towards the prior (B10: $\mu = 2.4$).
+
+**B8.** Towards 0, and $s$ gets larger: the prior's pull is five times stronger, so the cloud moves towards $\mathcal N(0, 1)$ in both centre and width.
+
+**B9 (math).** $\ln q(z) = -\tfrac12\ln(2\pi s^2) - (z - \mu)^2/(2s^2)$, $\ln p(z) = -\tfrac12\ln 2\pi - z^2/2$. Under $q$: $\mathbb E[(z - \mu)^2] = s^2$, $\mathbb E[z^2] = \mu^2 + s^2$. So $\mathrm{KL} = -\tfrac12\ln s^2 - \tfrac12 + \tfrac12(\mu^2 + s^2) = \tfrac12(\mu^2 + s^2 - 1 - \ln s^2)$. With $t = s^2$, $f(t) = t - 1 - \ln t$ has $f'(t) = 1 - 1/t$, a minimum at $t = 1$ with $f(1) = 0$; so $f \ge 0$, and $\mu^2 \ge 0$; equality needs $\mu = 0$ and $s = 1$.
+
+**B10 (math).** $\partial/\partial\mu$: $-w(x - w\mu)/\sigma_x^2 + \beta\mu = 0 \Rightarrow \mu^* = wx/(w^2 + \beta\sigma_x^2)$. $\partial/\partial s^2$: $w^2/(2\sigma_x^2) + \tfrac\beta2(1 - 1/s^2) = 0 \Rightarrow s^{*2} = \beta\sigma_x^2/(\beta\sigma_x^2 + w^2)$. With $w = 1$, $\sigma_x^2 = 0.25$, $x = 1.5$: $\beta = 1$: $\mu^* = 1.5/1.25 = 1.2$, $s^{*2} = 0.25/1.25 = 0.2$ ($s^* = 0.447$); $\beta = 5$: $\mu^* = 1.5/2.25 = 0.667$, $s^{*2} = 1.25/2.25 = 0.556$ ($s^* = 0.745$). B7: $x = 0$ gives $\mu^* = 0$; $x = 3$ gives $\mu^* = 2.4$, $s^*$ unchanged (0.447): the spread does not depend on $x$ in this model. B8: $\mu^*$ falls from 1.2 to 0.667 and $s^*$ rises from 0.447 to 0.745.
+
+**B11 (math).** $\text{ELBO} = \mathbb E_q[\ln p(x\mid z) + \ln p(z) - \ln q(z)] = \mathbb E_q[\ln p(z\mid x) + \ln p(x) - \ln q(z)] = \ln p(x) - \mathbb E_q[\ln q(z) - \ln p(z\mid x)] = \ln p(x) - \mathrm{KL}(q\,\|\,p(z\mid x))$.
+:::
+
+## Explore {#explore}
+
+The demo is the one-dimensional VAE above for one image value $x$. Top: the prior (dashed) and the encoder's cloud $q$ (orange) with 20 draws $z = \mu + s\varepsilon$ (fixed $\varepsilon$). Middle: the draws decoded, $wz$ (blue), and the image value $x$ (red triangles). Bottom: the reconstruction term, $\beta\times$KL and the total, with the best possible total in green. The readout also gives the reconstruction term estimated from the 20 draws, as training would compute it.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="elbo1d"></div>
+<script src="../demos/dist/elbo1d.js"></script>
+```
+
+**E1.** At the start, $q$ is the prior. Read the three bars. Drag $\mu$ to 1.5 with $s = 1$: which term changes, and by how much? Then shrink $s$: what happens to the blue dots and to each term?
+
+**E2.** Press **best cloud for this x and β**. Read $\mu$, $s$ and the three numbers. Compare with B6 and the lecture's table.
+
+**E3.** Preset **too confident**. Which term is large? Why does the training not simply make every cloud a point at the right place?
+
+**E4.** Preset **best (β = 5)**. How do $\mu$ and $s$ change compared with $\beta = 1$? Which term is now the larger one? Then set $\beta$ to 0 and press **best cloud**: what happens, and why is this a problem for generating images?
+
+**E5.** Back at the prior (preset **ignore the image**), compare the exact reconstruction term with the estimate from the 20 draws. Then press **best cloud** and compare again. Why do they differ, and why can training still work with such estimates?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** At the prior: reconstruction 6.500, KL 0, total 6.500. Moving $\mu$ to 1.5 with $s = 1$: the reconstruction term falls to $(0 + 1)/0.5 = 2.000$, the KL rises to $\tfrac12 \cdot 1.5^2 = 1.125$, total 3.125. Shrinking $s$, the blue dots gather around $x$; the reconstruction term falls towards 0 and the KL rises, slowly at first and then fast (the $-\ln s^2$ term).
+
+**E2.** $\mu = 1.200$, $s = 0.447$: reconstruction 0.580, KL 1.125, total 1.705, as in the lecture. B6's cloud ($\mu = 1$, $s = 0.5$) has total 1.818, a little higher.
+
+**E3.** The KL term (3.622) dominates; the reconstruction term is tiny (0.005). A point-like cloud is very far from the prior in the KL sense, so the penalty keeps every cloud from collapsing; this is what keeps neighbouring images overlapping in latent space.
+
+**E4.** With $\beta = 5$: $\mu = 0.667$, $s = 0.745$; the cloud moves towards the prior and widens. The reconstruction term (2.500) is now larger than $\beta\times$KL ($5 \times 0.294 = 1.469$); total 3.969. With $\beta = 0$ the best cloud is a point at $\mu = 1.5$ (the readout gives $s = 0.000$): nothing pulls the clouds together, which is a plain autoencoder. Without the prior's pull, the images are not spread over a known region, so we would not know where to draw new $z$ from.
+
+**E5.** At the prior: exact 6.500, from 20 draws 8.522. At the best cloud: exact 0.580, from the draws 0.806. Twenty random draws give a noisy estimate of an average. Training averages such estimates over many images and many steps, so the noise cancels out, much as one noisy measurement per step still leads downhill on average.
+:::
+
+## Where this leads
+
+The trained decoder can now be used on its own: draw $z$ from the prior and decode to **generate** an image, walk from one $z$ to another to **interpolate**, and use the reconstruction error to spot **unusual** images. That is the next unit.

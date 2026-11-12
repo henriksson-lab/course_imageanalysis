@@ -18,13 +18,16 @@ a bachelor's degree in a science or engineering subject). Not published on the s
   aliasing are new. Introduce them from what they know: a weighted sum, an
   integral, a change of basis.
 - **No prior image analysis**, and no machine learning.
-- **Programming:** assume they can write simple scripts, but keep the first
-  encounter with each tool explained. *(Course language to be decided.)*
+- **Programming** is not needed for the core material. Code examples may be added
+  later as a secondary layer *(language to be decided)*.
 
 ## Consequences for the material
 
-- We may use matrix notation, sums and integrals freely, but connect every formula
-  to a **picture** and, where possible, to an **interactive demo**.
+- The full mathematics is part of the course: they can read matrix notation, sums
+  and integrals. But students differ in mathematical strength, so the material is
+  **layered**: the demo and the picture carry the idea, and the math is a clearly
+  marked layer on top that weaker students can skim and still get the concept
+  (see design principle 0).
 - Recall linear algebra in one line when we lean on it ("the Fourier transform is a
   change of basis"), rather than re-teaching it.
 - New notions (convolution, frequency, sampling) get the slow treatment: a small

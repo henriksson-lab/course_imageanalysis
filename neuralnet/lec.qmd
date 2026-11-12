@@ -1,0 +1,155 @@
+---
+title: "Neural networks: matrix, bend, matrix"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+The next units build images from a few numbers with **neural networks**. This unit is the minimum we need about them.
+
+- A network is **matrix × vector, then a bend**, repeated. You have done the matrix part since the first unit.
+- Without the bend, any number of layers **collapses to one matrix**.
+- With the bend, simple **hinges add up to curves**.
+- **Training** = walking downhill on an error, one small step at a time.
+
+::: notes
+No machine learning is assumed. The aim is to demystify the words network, layer, hidden unit, ReLU, weight, training, learning rate, so that the autoencoder units can use them freely. Adapted from "Beyond linear models" in the 3MB00A course. Keep it light: the picture and the demo carry the unit, the algebra is a few lines.
+:::
+
+## A layer: matrix, then bend
+
+![](fig-network.svg){width="62%" fig-align="center"}
+
+$$\mathbf h = \text{ReLU}(A\mathbf x + \mathbf b), \qquad \text{out} = C\mathbf h + d, \qquad \text{ReLU}(s) = \max(0, s)$$
+
+- Each line in the picture is **one number** of $A$ or $C$ (a **weight**).
+- The bend (ReLU) acts on **each entry** separately: negatives become 0.
+- The entries of $\mathbf h$ are the **hidden units**.
+
+::: notes
+A layer is the matrix–vector product of the first unit plus a shift. The only new thing is the ReLU, applied entry by entry. Older networks used an S-shaped curve instead of ReLU; the choice matters much less than having a bend at all. For images, x is the whole image as one long vector: 784 numbers for a 28 × 28 image.
+:::
+
+## One input through the network, by hand {.smaller}
+
+$A = \begin{pmatrix} 1 & 1 \\ 1 & -1 \\ -1 & 2 \end{pmatrix}$, $\mathbf b = \mathbf 0$, $C = \begin{pmatrix} 1 & 2 & 1 \end{pmatrix}$, $d = 0$, input $\mathbf x = (1, 2)$.
+
+1. **Matrix**: $A\mathbf x = (1 + 2,\ 1 - 2,\ -1 + 4) = (3,\ -1,\ 3)$
+2. **Bend**: $\text{ReLU} \to (3,\ 0,\ 3)$
+3. **Matrix**: $\text{out} = 1\cdot 3 + 2\cdot 0 + 1\cdot 3 = 6$
+
+Without the bend: $1\cdot 3 + 2\cdot(-1) + 1\cdot 3 = 4$. The bend changed the answer.
+
+::: notes
+Do this on the board. Every step is a dot product except step 2, which only clips negatives.
+:::
+
+## Without the bend, layers collapse
+
+Applying $A$ and then $C$ is applying the single matrix $CA$:
+
+$$C(A\mathbf x) = (CA)\,\mathbf x, \qquad CA = \begin{pmatrix} 1 & 2 & 1 \end{pmatrix}\begin{pmatrix} 1 & 1 \\ 1 & -1 \\ -1 & 2 \end{pmatrix} = \begin{pmatrix} 2 & 1 \end{pmatrix}$$
+
+Check: $(2, 1)\cdot(1, 2) = 4$, the "no bend" answer.
+
+- 2 or 100 layers with no bend in between are **one matrix**: a straight-line (linear) map.
+- The bend between the matrices is what lets a network draw **curves**.
+
+::: notes
+Composition of linear maps is matrix multiplication, as in Images as arrays & geometric transforms. With shifts, C(Ax + b) + d = (CA)x + (Cb + d): still a plane. We will meet this again: a linear autoencoder is PCA, and only the bend makes an autoencoder more than PCA.
+:::
+
+## Hinges add up to curves {.smaller}
+
+![](fig-hinges.svg){width="78%" fig-align="center"}
+
+A line scan across two nuclei. One input (position), three hidden units, one output.
+
+- Each hidden unit is a **hinge**: flat, then a straight rise (or the reverse), at its own position.
+- The output adds the hinges with weights: a **bent line** through the data.
+- More units → more hinges → any curve, as closely as we like.
+
+::: notes
+The figure is made with the same code as the demo (3 units after 3000 training steps). The orange curves are each hidden unit's contribution (its ReLU times its output weight, plus the output shift); the triangles mark where each hinge bends. Ask: how many hinges would you need for the two plateaus and four edges? Roughly two per edge, so about 8; the demo shows 12 gets close to the noise level.
+:::
+
+## Training: walk downhill on the error
+
+How do we find the weights? Measure how wrong the network is (the **loss**, e.g. the mean squared error over the data), then nudge every weight a little in the direction that lowers it. Repeat thousands of times.
+
+- Picture the loss as a landscape over the weights: training **walks downhill**.
+- The **learning rate** is the step length: too small takes forever, too large **overshoots** to the other side of the valley.
+- The walk can stop in a dip that is not the deepest one: two trainings from different starts can give different networks.
+
+::: notes
+Concept layer: students must take away "downhill on the error, step size matters, the result depends on the start". The next slide is the math layer and can be skipped.
+:::
+
+## The math: one gradient step {.smaller}
+
+*Math layer: skip if you only want the idea.*
+
+Step against the gradient: $\mathbf w \leftarrow \mathbf w - \eta\, \nabla_{\mathbf w} L$.
+
+- One weight, $L(w) = (y - wx)^2$ with $x = 2$, $y = 3$, start $w = 0$:
+  $L'(w) = -2x(y - wx)$, so $L'(0) = -12$. With $\eta = 0.1$: $w \to 1.2$, and $L$ drops from $9$ to $0.36$.
+- Distance to the best $w = 1.5$ after one step: $w_\text{new} - 1.5 = (1 - 8\eta)(w - 1.5)$. Converges for $0 < \eta < 0.25$; $\eta = 0.5$ makes $L$ grow to $81$.
+- For a network, $\nabla L$ comes from the **chain rule** applied layer by layer, from the output back to the input (**backpropagation**).
+
+::: notes
+Show the parabola L(w) and the step on the board. The exercise does the four step sizes 0.1, 0.125, 0.25, 0.5 (new w 1.2, 1.5, 3, 6; loss 0.36, 0, 9, 81). In the demo the steps use Adam, a variant that adapts the step length per weight; the idea is the same.
+:::
+
+## Try it: fit a line scan
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="nnfit" data-h="3"></div>
+<script src="../demos/dist/nnfit.js"></script>
+```
+
+::: notes
+Press "train 500 steps" a few times: the hinges move to the edges of the nuclei and the loss falls. Presets: "one hinge" can only make one bend (loss 0.059); "3 hinges" 0.020; "12 hinges" 0.0019, close to the noise variance 0.0009. "no bend": 12 units, but the fit stays a straight line (0.065, barely better than the flat mean line, 0.073). "learning rate too large": the loss jumps around and then every unit ends up flat (all hinges off the data): the fit is the flat mean line, loss 0.073. That is a "dead" network.
+:::
+
+## Images are long vectors {.smaller}
+
+A $28 \times 28$ image is a vector in $\mathbb R^{784}$. A layer from the image to 192 hidden units has
+
+$$784 \times 192 + 192 = 150{,}720 \text{ numbers.}$$
+
+- The networks in the next units have about **300,000 weights**. Training adjusts all of them at once, with the same downhill steps.
+- Many weights need **many training images** (tens of thousands), or the network memorises instead of learning.
+- Weights have no meaning one by one: we judge a network by what it **does**.
+
+::: notes
+Count with the class: the full VAE of the last unit (784 → 192 → 2 means + 2 log-variances, and 2 → 192 → 784) has 303,380 numbers. Overfitting is the same phenomenon as fitting a high-degree polynomial through a few points; the defences are more data, a penalty, and checking on images not used for training.
+:::
+
+## Summary
+
+| Idea | In one line |
+|---|---|
+| Layer | matrix × vector + shift, then ReLU on each entry |
+| No bend | stacked matrices collapse to one matrix: a linear map |
+| Hidden unit | one hinge; hinges add up to curves |
+| Loss | how wrong the network is, e.g. mean squared error |
+| Training | step against the gradient, $\mathbf w \leftarrow \mathbf w - \eta\nabla L$, many times |
+| Learning rate | step size: too small is slow, too large overshoots |
+
+Next: networks that squeeze an image into a few numbers and rebuild it, **autoencoders**.

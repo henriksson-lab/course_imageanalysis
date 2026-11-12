@@ -1,0 +1,143 @@
+---
+title: "Graph-cut segmentation"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+Two units ago: segmentation = minimise $E(L) = \sum_p D_p(L_p) + \lambda \sum_{(p,q)} w_{pq}[L_p \ne L_q]$. Last unit: minimum cuts by max-flow. Today we connect them (Boykov & Jolly, 2001).
+
+- Build a graph from an image so that **cut cost = energy**.
+- One max-flow gives the **exact** best segmentation.
+- **Contrast-sensitive** weights: boundaries are cheap at image edges.
+- **Seeds**: the user marks some object and background pixels.
+- What goes wrong: **shrinking**, **blocky** boundaries, a bad **intensity model**.
+
+Slides titled **The math** give the formulas and proofs; the ideas are complete without them.
+
+## The graph
+
+One node per pixel, plus $s$ (= **object**) and $t$ (= **background**). A pixel on the source side gets $L_p = 1$.
+
+- **t-links** (to the terminals) carry the data term:
+  - $s \to p$ with capacity $D_p(0)$: cut when $p$ ends up on the **background** side;
+  - $p \to t$ with capacity $D_p(1)$: cut when $p$ ends up on the **object** side.
+- **n-links** between neighbours carry the smoothness term: $p \to q$ and $q \to p$, each with capacity $\lambda w_{pq}$.
+
+Every pixel loses exactly **one** of its two t-links in any cut: the one that matches its label's cost.
+
+## Cut cost = energy
+
+Take any s–t cut and read off $L_p = 1$ for $p \in S$, $L_p = 0$ for $p \in T$.
+
+- Pixel $p \in S$: its edge $p \to t$ crosses from $S$ to $T$ and costs $D_p(1)$; $s \to p$ stays inside $S$.
+- Pixel $p \in T$: $s \to p$ crosses and costs $D_p(0)$.
+- Neighbours with $L_p = L_q$: no n-link crosses. With $L_p = 1$, $L_q = 0$: only $p \to q$ crosses, cost $\lambda w_{pq}$.
+
+$$c(S, T) = \sum_p D_p(L_p) + \lambda \sum_{(p,q)} w_{pq}[L_p \ne L_q] = E(L).$$
+
+Every labelling is a cut and every cut a labelling, at the same cost: **minimum cut = minimum energy**.
+
+## A $1 \times 3$ image by hand
+
+$I = (3, 1, 3)$, $\mu_0 = 0$, $\mu_1 = 3$, $D_p(\ell) = (I_p - \mu_\ell)^2$, $w_{pq} = 1$, $\lambda = 1$:
+
+| pixel | 1 | 2 | 3 |
+|---|---|---|---|
+| $s \to p$: $D_p(0)$ | 9 | 1 | 9 |
+| $p \to t$: $D_p(1)$ | 0 | 4 | 0 |
+
+n-links $1 \leftrightarrow 2$ and $2 \leftrightarrow 3$, capacity $\lambda = 1$ each.
+
+- Cut $\{s, 1, 3\}$ ($L = 101$): $0 + 1 + 0$ (t-links) $+ 1 + 1$ (n-links) $= 3$.
+- Cut $\{s, 1, 2, 3\}$ ($L = 111$): $0 + 4 + 0 = 4$.
+- With $\lambda = 2$: $101$ costs $1 + 4 = 5$, $111$ still 4: the dark pixel is filled.
+
+## The math: which energies can be cut?
+
+- Capacities must be $\ge 0$. If $D_p(0)$ or $D_p(1)$ is negative, add the same constant to both: every labelling changes by the same amount.
+- The pairwise term must be **submodular** (Kolmogorov & Zabih, 2004): $V(0,1) + V(1,0) \ge V(0,0) + V(1,1)$. The boundary term $\lambda w_{pq}[L_p \ne L_q]$ is $\lambda w_{pq} + \lambda w_{pq} \ge 0 + 0$: fine.
+- Then the minimum is **exact**, global, in polynomial time.
+- Not covered: more than two labels. The Potts energy with 3 or more labels is NP-hard; **α-expansion** solves a sequence of two-label cuts and gets within a factor 2.
+
+## Contrast-sensitive weights
+
+Make boundaries cheap where the image changes:
+
+$$w_{pq} = \exp\!\left(-\frac{(I_p - I_q)^2}{2\sigma^2}\right)$$
+
+- Equal neighbours: $w_{pq} = 1$, a full boundary cost $\lambda$.
+- Very different neighbours: $w_{pq} \approx 0$, cutting there is almost free.
+- $\sigma$ sets what counts as "very different": about the size of the intensity jump at a real edge, larger than the noise.
+- $\sigma = \infty$ gives $w_{pq} = 1$: the boundary length alone.
+
+The $1\times 3$ example with $\sigma = 1$: $|I_1 - I_2| = 2$, so $w = e^{-2} = 0.135$. Now $101$ costs $1 + 2\lambda \cdot 0.135$: thresholding wins up to $\lambda = 11.1$.
+
+## Try it: the graph of a small image
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="pixelgraph" data-preset="row"></div>
+<script src="../demos/dist/pixelgraph.js"></script>
+```
+
+::: notes
+Grey levels 0 to 3, data costs I² (to s) and (3 − I)² (to t). Small images show the whole graph with every capacity; the dashed red edges are the minimum cut, and the table checks that the cut equals the energy and the max flow. Tour: 1 × 3 at λ = 1: cut 3, labelling 101. Move λ past 1.5: 111 wins. Set σ to 1: the n-links around the dark pixel become thin (0.135) and 101 comes back. Then 2 × 2, and "label (your cut)": click pixels to choose your own cut and compare its cost with the minimum. Finally "thin vs thick" (6 × 6): raise λ; the 1-pixel line disappears at 1.5, the 3-pixel band only at 9. Shrinking bias in miniature.
+:::
+
+## Seeds
+
+The user paints a few **object** and **background** pixels (Boykov & Jolly, 2001):
+
+- **Hard constraints**: an object seed gets $s \to p$ with capacity "$\infty$" (larger than any possible cut), so it can never be on the background side. Background seeds likewise with $p \to t$.
+- **Intensity model from the seeds**: fit a Gaussian, or take a histogram, of the seed pixels of each label; $D_p(\ell) = -\log P(I_p \mid \ell)$.
+- Interactive: look at the result, add a seed where it is wrong, cut again. A new max-flow takes milliseconds at this size.
+
+Thresholding with the same model ($\lambda = 0$) is the baseline to beat.
+
+## Try it: interactive graph cut
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="graphcut" data-preset="noise"></div>
+<script src="../demos/dist/graphcut.js"></script>
+```
+
+::: notes
+128 × 128 image; paint with the mouse (object = red, background = blue). The left image shows the graph-cut result (yellow boundary), the small one thresholding with the same intensity model. Tour: "noise" (λ = 1.5): thresholding has 2587 wrong pixels, the graph cut 55, and the thin arm survives. Raise λ: at about 1.7 half the arm goes, at 4.7 nearly all of it ("thin arm lost"). "Blocky": with 4 neighbours the disk comes out as a rounded square; switch to 8 neighbours. "Nucleus": histogram model, contrast weights σ = 25; there is a leak at the right edge: paint a background seed there. "Overlapping intensities": background seeds only on the white areas, so the cytoplasm looks like nucleus and is included.
+:::
+
+## Failure modes
+
+- **Shrinking bias**: the boundary term grows with length. A thin structure has a long boundary for its area: its data gain $\propto$ area, its boundary cost $\propto$ length. A strip of width $k$ survives only if its data gain per pixel exceeds about $2\lambda/k$.
+- **Metrication**: with 4 neighbours a boundary costs its length in the "city-block" metric: a diagonal boundary costs $\sqrt2 = 1.41$ per unit length, a horizontal one 1. The cut prefers axis-aligned, blocky shapes. With 8 neighbours and weights $\tfrac12$ (sides) and $\tfrac{1}{2\sqrt2}$ (diagonals), both cost $\tfrac12 + \tfrac{1}{\sqrt2} = 1.21$ per unit length.
+- **Overlapping intensities**: if object and background have the same grey levels, no data term can separate them; only seeds and image edges can.
+
+## Beyond: GrabCut and more labels
+
+- **GrabCut** (Rother, Kolmogorov & Blake, 2004): colour images, the user draws only a box. Alternate: fit colour models (mixtures of Gaussians) to the current labelling, cut again, until it settles.
+- **More than two labels** (several tissues, several cells): α-expansion repeats binary cuts, "label $\alpha$ or keep your label", over all labels.
+- The same graph construction appears in stereo matching, image stitching and denoising: any energy with unary and submodular pairwise terms.
+
+## Summary
+
+- Graph: pixels + $s$ (object) + $t$ (background); **t-links** = data term, **n-links** = $\lambda w_{pq}$.
+- **Cut cost = energy**, so one max-flow gives the **exact** minimum of a submodular binary energy.
+- Contrast weights $w_{pq} = e^{-(I_p - I_q)^2/2\sigma^2}$ pull the boundary onto image edges.
+- **Seeds**: hard constraints by infinite t-links, and the intensity model.
+- Watch for **shrinking bias**, **metrication** (use 8 neighbours) and **overlapping** intensity models.
