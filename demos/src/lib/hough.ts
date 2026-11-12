@@ -388,6 +388,12 @@ export interface GHTOptions {
   scales?: number[];
   /** Accumulator cell size in pixels (default 1). */
   cell?: number;
+  /**
+   * Tolerance in cells (default 0). With tol > 0 a cell counts the number of distinct edge
+   * points that vote within +-tol cells of it (each point at most once per cell), so an edge
+   * pixel half a pixel off the true boundary still supports the right reference point.
+   */
+  tol?: number;
 }
 
 export interface GHTAccumulator { w: number; h: number; cell: number; phis: number[]; scales: number[]; acc: Float32Array; votes: number; lookups: number }
@@ -398,21 +404,34 @@ export interface GHTAccumulator { w: number; h: number; cell: number; phis: numb
  * ordered scale-major: slice = si * phis.length + pi. Accumulator cells of `cell` pixels.
  */
 export function ghtVote(points: OrientedPt[], table: RTable, w: number, h: number, o: GHTOptions = {}): GHTAccumulator {
-  const phis = o.phis ?? [0], scales = o.scales ?? [1], cell = o.cell ?? 1;
+  const phis = o.phis ?? [0], scales = o.scales ?? [1], cell = o.cell ?? 1, tol = o.tol ?? 0;
   const W = Math.ceil(w / cell), H = Math.ceil(h / cell), S = W * H;
   const acc = new Float32Array(S * phis.length * scales.length);
-  let votes = 0, lookups = 0;
+  const stamp = tol > 0 ? new Int32Array(S).fill(-1) : null;
+  let votes = 0, lookups = 0, stampId = 0;
   for (let si = 0; si < scales.length; si++) for (let pi = 0; pi < phis.length; pi++) {
     const phi = phis[pi], s = scales[si], c = Math.cos(phi), sn = Math.sin(phi), base = (si * phis.length + pi) * S;
     for (const p of points) {
       if (p.theta === undefined) continue;
       const bin = table.bins[dirBin(p.theta - phi, table.nBins)];
       lookups++;
+      stampId++;
       for (const v of bin) {
         const x = p.x + s * (c * v[0] + sn * v[1]), y = p.y + s * (-sn * v[0] + c * v[1]);
         const a = Math.round(x / cell), b = Math.round(y / cell);
-        if (a < 0 || b < 0 || a >= W || b >= H) continue;
-        acc[base + b * W + a] += 1; votes++;
+        if (a < -tol || b < -tol || a >= W + tol || b >= H + tol) continue;
+        votes++;
+        if (!stamp) { if (a >= 0 && b >= 0 && a < W && b < H) acc[base + b * W + a] += 1; continue; }
+        for (let db = -tol; db <= tol; db++) {
+          const bb = b + db;
+          if (bb < 0 || bb >= H) continue;
+          for (let da = -tol; da <= tol; da++) {
+            const aa = a + da;
+            if (aa < 0 || aa >= W) continue;
+            const k = bb * W + aa;
+            if (stamp[k] !== stampId) { stamp[k] = stampId; acc[base + k] += 1; }
+          }
+        }
       }
     }
   }
@@ -511,3 +530,4 @@ export function circlePoly(cx: number, cy: number, r: number, n = 64): [number, 
 export function lineCost(nPoints: number, nTheta: number, nRho: number, gradBins = 1): { bins: number; votesFull: number; votesGrad: number } {
   return { bins: nTheta * nRho, votesFull: nPoints * nTheta, votesGrad: nPoints * gradBins };
 }
+

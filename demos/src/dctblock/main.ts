@@ -129,10 +129,10 @@ interface Preset2 { id: string; label: string; img: ImgId; bx: number; by: numbe
 const PRESETS2: Preset2[] = [
   { id: "flat", label: "flat block: only DC", img: "card", bx: 4, by: 10, basis: "dct", keep: "largest", k: 1 },
   { id: "edge", label: "vertical edge", img: "card", bx: 16, by: 11, basis: "dct", keep: "largest", k: 8 },
-  { id: "ramp", label: "ramp: DFT leaks, DCT does not", img: "card", bx: 12, by: 2, basis: "dft", keep: "first", k: 3 },
+  { id: "ramp", label: "ramp: DFT leaks, DCT does not", img: "card", bx: 1, by: 4, basis: "dft", keep: "first", k: 3 },
   { id: "texture", label: "texture block", img: "card", bx: 6, by: 18, basis: "dct", keep: "largest", k: 6 },
   { id: "cell", label: "a block of the cell", img: "cell", bx: 14, by: 12, basis: "dct", keep: "largest", k: 6 },
-  { id: "klt", label: "KLT looks like the DCT", img: "smooth", bx: 8, by: 8, basis: "klt", keep: "first", k: 6 },
+  { id: "klt", label: "KLT looks like the DCT", img: "cell", bx: 14, by: 12, basis: "klt", keep: "first", k: 6 },
 ];
 
 function mount2d(host: HTMLElement): void {

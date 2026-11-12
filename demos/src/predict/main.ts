@@ -110,7 +110,7 @@ function mount(host: HTMLElement): void {
     { label: "smooth image", s: { img: "smooth", pred: "left", noise: 0 } },
     { label: "noise kills prediction", s: { img: "smooth", pred: "left", noise: 10 } },
     { label: "edges are what remains", s: { img: "shapes", pred: "planar", noise: 0 } },
-    { label: "MED at a diagonal edge", s: { img: "shapes", pred: "med", noise: 0 } },
+    { label: "MED at an edge", s: { img: "shapes", pred: "med", noise: 0 } },
     { label: "binary mask", s: { img: "mask", pred: "left", noise: 0 } },
     { label: "12-bit spots", s: { img: "fluor12", pred: "med", noise: 0 } },
   ];

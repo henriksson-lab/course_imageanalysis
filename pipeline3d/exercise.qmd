@@ -1,0 +1,149 @@
+---
+title: "Exercise: meshes, coordinate spaces and projection"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- describe a **mesh** (vertices, indexed triangles), find faces with the **wrong winding**, and estimate the **memory** of a mesh,
+- build and apply $4\times4$ **homogeneous matrices**, and explain why their **order** matters,
+- follow a vertex through **model → world → view → clip → NDC → screen**,
+- build the **view matrix** of a camera from eye, target and up,
+- project a point by **similar triangles**, and find the depth mapping $z_\text{ndc} = A + B/z$ of the **perspective matrix**,
+- explain **orthographic** projection, the dolly zoom, and why vertices **behind the camera** must be clipped before the divide.
+
+Do the pen-and-paper part first, then the demo. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Mesh | vertex array (positions, attributes) + three vertex indices per triangle |
+| Winding | the order $a, b, c$; counter-clockwise seen from the front; normal $(\mathbf b - \mathbf a)\times(\mathbf c - \mathbf a)$ |
+| Homogeneous coordinates | point $(x, y, z, 1)$, direction $(x, y, z, 0)$; a move is $\begin{bmatrix} A & \mathbf t\\ \mathbf 0^\top & 1\end{bmatrix}$ |
+| Spaces | model $\xrightarrow{M}$ world $\xrightarrow{V}$ view $\xrightarrow{P}$ clip $\xrightarrow{\div w}$ NDC $\xrightarrow{\text{viewport}}$ screen |
+| View space | camera at the origin, looking down $-z$, $y$ up |
+| Perspective | $x_s = n x/(-z)$; the matrix puts $w = -z$ and the hardware divides by $w$ |
+| Depth after projection | $z_\text{ndc} = A + B/z$ with $z = -n \mapsto -1$, $z = -f \mapsto +1$ |
+| Clip space | inside the frustum: $-w \le x, y, z \le w$; after the divide: the cube $[-1, 1]^3$ |
+
+## By hand
+
+**B1.** A cube stored as an indexed mesh with 32-bit floats (4 bytes) for positions and 32-bit integers for indices.
+(a) How many vertices and triangles? How many bytes for the positions and for the indices? How many bytes as a "triangle soup" (three positions per triangle, no indices)?
+(b) A closed mesh of $10^6$ triangles (from marching cubes, say). About how many vertices does it have? Estimate its memory indexed and as a soup, and indexed with a normal per vertex.
+
+**B2.** Number the corners of the unit cube by $k = x + 2y + 4z$ (so corner 0 is $(0, 0, 0)$, corner 7 is $(1, 1, 1)$). The six faces are given as quads (each is drawn as two triangles $q_0q_1q_2$ and $q_0q_2q_3$):
+
+| face | $z = 0$ | $z = 1$ | $x = 0$ | $x = 1$ | $y = 0$ | $y = 1$ |
+|---|---|---|---|---|---|---|
+| corners | 0, 2, 3, 1 | 4, 5, 7, 6 | 0, 4, 6, 2 | 1, 5, 7, 3 | 0, 1, 5, 4 | 2, 3, 7, 6 |
+
+(a) Compute the normal $(\mathbf q_1 - \mathbf q_0)\times(\mathbf q_2 - \mathbf q_0)$ of each face. Which two faces are wound the wrong way (normal pointing into the cube)?
+(b) The faces $z = 1$ and $x = 1$ share the edge between corners 5 and 7. In which direction does each face run along it, before and after you fix the wrong face? What is the rule?
+
+**B3.** Let $R$ rotate by 90° about the $z$ axis (counter-clockwise seen from $+z$) and $T$ translate by $(1, 0, 0)$.
+(a) Write $R$ and $T$ as $4\times4$ matrices, and the products $TR$ and $RT$.
+(b) Apply both products to the point $(1, 0, 0)$ and to the direction $(1, 0, 0)$. Which product means "rotate first, then translate"? Why do both give the same direction?
+
+**B4.** A camera at the origin looks down $-z$; the image plane is at distance $n = 1$.
+(a) Where does the point $(1, 0.5, -4)$ land on the image plane? And $(1, 0.5, -8)$?
+(b) Two equal trees stand at distances 4 and 8. How do their image sizes compare in perspective, and in an orthographic view?
+
+**B5.** Perspective depth with $n = 1$, $f = 3$.
+(a) Find $A$ and $B$ in $z_\text{ndc} = A + B/z$ from $z = -1 \mapsto -1$ and $z = -3 \mapsto +1$. What is $z_\text{ndc}$ at $z = -2$, halfway between near and far?
+(b) With a field of view of 90° and aspect ratio 1, the projection matrix is
+$$P = \begin{bmatrix} 1 & 0 & 0 & 0\\ 0 & 1 & 0 & 0\\ 0 & 0 & -2 & -3\\ 0 & 0 & -1 & 0\end{bmatrix}.$$
+Project the view-space point $(1, 1, -2)$: give its clip coordinates, its NDC, and its pixel position in a $600\times600$ viewport (origin bottom left).
+
+**B6.** Build the view matrix for the eye $\mathbf e = (0, 0, 5)$, target $\mathbf g = (0, 0, 0)$ and up $\mathbf u = (0, 1, 0)$ with $\mathbf f = (\mathbf g - \mathbf e)/\lVert\cdot\rVert$, $\mathbf r = \mathbf f\times\mathbf u$, $\mathbf u' = \mathbf r\times\mathbf f$ and rows $\mathbf r, \mathbf u', -\mathbf f$. Check that $V\mathbf e = \mathbf 0$. Where does the world origin end up in view space, and is it in front of the camera?
+
+**B7.** **Dolly zoom.** A subject at distance $d = 4$ fills the view with a vertical field of view of 40°.
+(a) The camera moves back to $d = 9$. Which field of view keeps the subject the same size? (Hint: the visible height at the subject is $2d\tan(\theta/2)$.)
+(b) A wall 6 units behind the subject: does it look bigger or smaller after the move? Why?
+
+**B8.** With the matrix $P$ of B5, project the view-space point $(0.5, 0, 1)$, which lies **behind** the camera. What is $w$? What are the NDC coordinates? On which side of the screen would the point be drawn, and why must the triangle be clipped before the divide?
+
+### Math questions
+
+**B9.** *(math)* For general near $n$ and far $f$, derive $A = (f + n)/(f - n)$ and $B = 2fn/(f - n)$, and show that the third row of $P$ is $(0, 0, -A, -B)$ when $w = -z$.
+
+**B10.** *(math)* A camera is placed in the world by $C = \begin{bmatrix} Q & \mathbf e\\ \mathbf 0^\top & 1\end{bmatrix}$, where the columns of the rotation $Q$ are the camera's right, up and backward axes. Show that $V = C^{-1} = \begin{bmatrix} Q^\top & -Q^\top\mathbf e\\ \mathbf 0^\top & 1\end{bmatrix}$, and that this is the look-at matrix of the lecture.
+
+**B11.** *(math)* Use Euler's formula $V - E + F = 2$ to show $F = 2V - 4$ for a closed triangle mesh without handles. What changes for a torus ($V - E + F = 0$)?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) 8 vertices, 12 triangles. Positions $8\cdot3\cdot4 = 96$ bytes, indices $36\cdot4 = 144$ bytes: 240 bytes. As a soup: $36\cdot3\cdot4 = 432$ bytes.
+(b) About $5\cdot10^5$ vertices ($F \approx 2V$). Indexed: $5\cdot10^5\cdot12 = 6$ MB positions + $10^6\cdot12 = 12$ MB indices = **18 MB**. Soup: $3\cdot10^6\cdot12 = 36$ MB. Indexed with normals: $18 + 6 = $ **24 MB**.
+
+**B2.** (a) Normals: $z = 0$: $(0, 0, -1)$; $z = 1$: $(0, 0, 1)$; $x = 0$: $(-1, 0, 0)$, all outwards. $x = 1$: corners 1 $(1,0,0)$, 5 $(1,0,1)$, 7 $(1,1,1)$ give $(0,0,1)\times(0,1,1) = (-1, 0, 0)$: **inwards**, wrong; $y = 0$: $(0, -1, 0)$; $y = 1$: corners 2 $(0,1,0)$, 3 $(1,1,0)$, 7 give $(1,0,0)\times(1,0,1) = (0, -1, 0)$: **inwards**, wrong. Fix by reversing: $x = 1$ as 5, 1, 3, 7 and $y = 1$ as 6, 7, 3, 2.
+(b) Face $z = 1$ (4, 5, 7, 6) runs $5 \to 7$. The given face $x = 1$ (1, 5, 7, 3) also runs $5 \to 7$: the same direction, a sign of inconsistent winding. Fixed (5, 1, 3, 7: edges $5\to1$, $1\to3$, $3\to7$, $7\to5$), it runs $7 \to 5$. Rule: in a consistently oriented mesh every interior edge is used once in each direction.
+
+**B3.** (a) $R = \begin{bmatrix} 0&-1&0&0\\1&0&0&0\\0&0&1&0\\0&0&0&1\end{bmatrix}$, $T = \begin{bmatrix} 1&0&0&1\\0&1&0&0\\0&0&1&0\\0&0&0&1\end{bmatrix}$, $TR = \begin{bmatrix} 0&-1&0&1\\1&0&0&0\\0&0&1&0\\0&0&0&1\end{bmatrix}$, $RT = \begin{bmatrix} 0&-1&0&0\\1&0&0&1\\0&0&1&0\\0&0&0&1\end{bmatrix}$.
+(b) Point $(1, 0, 0, 1)$: $TR$ gives $(1, 1, 0)$, $RT$ gives $(0, 2, 0)$. Direction $(1, 0, 0, 0)$: both give $(0, 1, 0)$. $TR$ = rotate first (the right factor acts first). A direction has $w = 0$, so the translation column is multiplied by 0: only the rotation acts.
+
+**B4.** (a) $x_s = 1\cdot1/4 = 0.25$, $y_s = 0.5/4 = 0.125$; at depth 8: $(0.125, 0.0625)$.
+(b) Perspective: the far tree is half as tall on the image. Orthographic: the same size.
+
+**B5.** (a) $A - B = -1$ and $A - B/3 = 1$ give $\tfrac23 B = 2$: $B = 3$, $A = 2$, so $z_\text{ndc} = 2 + 3/z$. At $z = -2$: $2 - 1.5 = 0.5$, three quarters of the way from $-1$ to $1$ although the point is halfway in distance.
+(b) Clip $= (1, 1, (-2)(-2) - 3, 2) = (1, 1, 1, 2)$; NDC $= (0.5, 0.5, 0.5)$; pixel $x = (0.5 + 1)/2\cdot600 = 450$, $y = 450$.
+
+**B6.** $\mathbf f = (0, 0, -1)$, $\mathbf r = \mathbf f\times\mathbf u = (1, 0, 0)$, $\mathbf u' = \mathbf r\times\mathbf f = (0, 1, 0)$, so $R = I$ (rows $(1,0,0)$, $(0,1,0)$, $(0,0,1)$) and $-R\mathbf e = (0, 0, -5)$:
+$V = \begin{bmatrix} 1&0&0&0\\0&1&0&0\\0&0&1&-5\\0&0&0&1\end{bmatrix}$. $V\mathbf e = (0, 0, 5 - 5) = \mathbf 0$. The world origin goes to $(0, 0, -5)$: 5 units in front of the camera (on the $-z$ axis).
+
+**B7.** (a) $4\tan 20° = 9\tan(\theta/2)$ gives $\tan(\theta/2) = 0.1618$, $\theta = 18.4°$.
+(b) Bigger. The wall goes from distance 10 to 15 (1.5 times farther) while the visible height at a distance $D$ shrinks from $2D\tan 20°$ to $2D\tan 9.19°$ (a factor 2.25): the wall covers $2.25/1.5 = 1.5$ times more of the image. Perspective depends on where the camera is, not on the zoom.
+
+**B8.** Clip $= (0.5, 0, -2\cdot1 - 3, -1) = (0.5, 0, -5, -1)$, so $w = -1 < 0$. NDC $= (-0.5, 0, 5)$: the point is drawn on the **left** although it is to the right of the camera, and its depth is outside $[-1, 1]$. A triangle with such a vertex would be drawn as a huge, flipped shape; clipping against the near plane (in clip space, where everything is still linear) cuts off the part behind the camera first.
+
+**B9.** After the divide by $w = -z$, $z_\text{ndc} = (p_{33}z + p_{34})/(-z) = -p_{33} - p_{34}/z$, i.e. $A = -p_{33}$, $B = -p_{34}$. The conditions $A - B/n = -1$ and $A - B/f = 1$ give $B(1/n - 1/f) = 2$, so $B = 2fn/(f - n)$ and $A = 1 + B/f = (f + n)/(f - n)$. Hence the row is $(0, 0, -A, -B)$, with $w$ from the row $(0, 0, -1, 0)$.
+
+**B10.** $C\,C' = I$ for $C' = \begin{bmatrix} Q^\top & -Q^\top\mathbf e\\ \mathbf 0^\top&1\end{bmatrix}$: the top-left block is $QQ^\top = I$, the top-right $-QQ^\top\mathbf e + \mathbf e = \mathbf 0$. With right $= \mathbf r$, up $= \mathbf u'$, backward $= -\mathbf f$ as the columns of $Q$, the rows of $Q^\top$ are $\mathbf r, \mathbf u', -\mathbf f$: the matrix $R$ of the lecture.
+
+**B11.** $3F = 2E$, so $V - \tfrac32F + F = 2$ gives $F = 2V - 4$. For a torus, $V - \tfrac12F = 0$: $F = 2V$ exactly (the demo's torus has 512 vertices and 1024 triangles).
+:::
+
+## Explore {#explore}
+
+The left view shows the world from far away: the house, the world axes (red $x$, green $y$, blue $z$), the camera as a pink pyramid and its **view frustum**. The right view shows the house in the selected space; **screen** shows the final 40 × 30-pixel image, drawn by the software rasteriser of the next unit. Under it are the matrices $M$, $V$ and $P$. The table follows one vertex through every space (vertex 9, the front end of the roof ridge; click a vertex to change it). Drag in either view to rotate it.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="pipeline3d" data-space="view"></div>
+<script src="../demos/dist/pipeline3d.js"></script>
+```
+
+**E1.** Start (**view** space). Read vertex 9 in every space. Check that its clip $w$ equals minus its view-space $z$, that NDC = clip / $w$, and that the screen position is $(x_\text{ndc} + 1)/2 \cdot 40$, $(y_\text{ndc} + 1)/2\cdot 30$.
+
+**E2.** Vertex 9 is $(0, 1, 0.5)$ in model space. The object is turned by 30°. Explain its world coordinates from $M$.
+
+**E3.** Choose **clip → NDC**. Why does the house look squashed towards the far side of the cube? Now press **orthographic vs perspective**: what are $w$ and the range of NDC depths of the house now, compared with before?
+
+**E4.** Press **dolly zoom** and compare the **screen** image with the default (switch the preset off by moving the distance back to 4 and the field of view to 40). How large is the house in NDC in both cases? What changed in $P$?
+
+**E5.** Press **near plane too close** ($n = 0.05$, $f = 30$). What range of NDC depths does the house use? Why is that a problem for a depth buffer that stores depth with a fixed number of bits (next unit)?
+
+**E6.** Press **a vertex behind the camera**. Which vertices have $w < 0$? What does the table show for vertex 9 in NDC, and why is it nonsense? Does the screen image still look sensible?
+
+**E7.** Press **non-uniform scale**. Compare the first column of $M$ with the default. In which space is the house stretched along its own $x$ axis, and in which along a turned axis?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** View $(-0.044, 0.769, -3.190)$, clip $(-0.090, 2.114, 1.816, 3.190)$: $w = 3.190 = -z_\text{view}$. NDC $= (-0.090, 2.114, 1.816)/3.190 = (-0.028, 0.663, 0.569)$. Screen $((−0.028 + 1)/2\cdot40, (0.663 + 1)/2\cdot30) = (19.4, 24.9)$.
+
+**E2.** $M$ is a rotation by 30° about $y$: $x' = 0.866x + 0.5z = 0.25$, $y' = 1$, $z' = -0.5x + 0.866z = 0.433$. World: $(0.250, 1.000, 0.433)$.
+
+**E3.** Depth after the divide is $A + B/z$: it changes quickly near the camera and slowly far away, so the far part of the house is compressed towards $z_\text{ndc} = 1$; the house's depths cover only 0.569 to 0.797. Orthographic: $w = 1$ for every vertex (the last row of $P$ is $(0, 0, 0, 1)$), and depth is linear: the house covers $-0.374$ to $0.051$. Parallel edges stay parallel.
+
+**E4.** Default: NDC $x$ from $-0.328$ to $0.282$, $y$ from $-0.492$ to $0.739$. Dolly zoom: $x$ from $-0.299$ to $0.271$, $y$ from $-0.467$ to $0.751$: nearly the same size. The scale factors in $P$ grew from 2.061 and 2.747 to 4.631 and 6.174 ($1/\tan(\theta/2)$ for $\theta = 18.4°$), compensating the larger distance; the house looks flatter because its depth (about 1.5) is now small compared with its distance.
+
+**E5.** All its vertices have NDC depth between 0.972 and 0.982: 1 % of the range $[-1, 1]$. With $A + B/z$ and a tiny $n$, almost all of the depth range is spent right in front of the camera. A depth buffer of $b$ bits has $2^b$ steps over $[-1, 1]$; only 0.5 % of them are left for the whole house, so nearby surfaces get equal stored depths (z-fighting, next unit).
+
+**E6.** Vertices 4, 6 and 9: the two left front corners and the front end of the ridge, which the move of 2 units towards the camera has put behind the eye. Vertex 9 has view $z = +0.233$ (behind the camera), clip $w = -0.233$ and NDC $(-2.211, -11.791, 3.753)$: the division by a negative $w$ flips the signs, so the point appears on the wrong side, far outside the cube. The screen image is still sensible because the triangles are clipped against the near plane before the divide.
+
+**E7.** The first column of $M$ is $(2.165, 0, -1.250)$ instead of $(0.866, 0, -0.500)$: 2.5 times longer. $M = T\,R\,S$ scales first: in model space nothing changes; in world space the house is stretched along its own $x$ axis, which the rotation has turned by 30°.
+:::
+
+## Where this leads
+
+Every vertex now has a pixel position and a depth. The next unit fills the triangles between them: which pixels are inside, which surface is in front (the depth buffer), how values are interpolated across a triangle, and how lighting gives it its shade.

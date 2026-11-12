@@ -135,7 +135,7 @@ function mount(host: HTMLElement): void {
     rankF.querySelector("svg")?.remove();
     const m = ana.p.length, order = Array.from({ length: m }, (_, i) => i).sort((a, b) => ana.p[a] - ana.p[b]);
     const pmin = Math.max(1e-12, Math.min(...ana.p) / 3);
-    const lo = Math.max(1e-8, Math.min(1e-4, 10 ** Math.floor(Math.log10(pmin))));
+    const lo = Math.max(slide ? 1e-6 : 1e-8, Math.min(1e-4, 10 ** Math.floor(Math.log10(pmin))));
     const pl = new Plot(rankF, { x: [1, m], xlog: true, y: [lo, 1], ylog: true, xlabel: "rank k", ylabel: "p-value (sorted)", width: 420, height: 330, font: fs, margin: { l: 2 * fs + 62 } });
     uniqueClip(pl);
     const a = st.alpha;

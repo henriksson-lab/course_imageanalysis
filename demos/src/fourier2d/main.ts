@@ -13,7 +13,8 @@
 // at the same kept fraction. Without data-basis the demo is exactly the Fourier unit's.
 // In the DCT bases only "no filter" and "keep largest" apply (no radial masks, no painting);
 // "variation kept" is 1 − (squared error)/(squared deviation from the mean), which equals the
-// DFT's share of the energy of the kept coefficients whenever the average is kept.
+// DFT's share of the energy of the kept coefficients whenever the average is kept. The block DCT
+// works on the image minus 0.5 (as JPEG subtracts 128), so a block with no kept coefficient is grey.
 import { htmlEl, slider, presets, checkbox, button, autoMount } from "../lib/ui";
 import { fft2d, makeMask, magnitudeOrder, reconstruct, rmse, stripe, Mode } from "./fft";
 import { dct2, idct2, blockDct, blockIdct } from "../lib/dct";
@@ -240,7 +241,8 @@ function mount(host: HTMLElement): void {
 
   /** Coefficients of the DCT bases, sorted by magnitude; display arrangement for dct8. */
   function forwardDct(): void {
-    C = basis === "dct" ? dct2(img, N, N) : blockDct(img, N, N, 8);
+    // the block DCT works on img − 0.5 (JPEG's level shift), so a block without coefficients is mid grey
+    C = basis === "dct" ? dct2(img, N, N) : blockDct(img.map(v => v - 0.5), N, N, 8);
     const zero = new Float64Array(N * N);
     orderC = magnitudeOrder(C, zero);
     let mean = 0;
@@ -371,7 +373,7 @@ function mount(host: HTMLElement): void {
       id.data[p + 3] = 255;
     }
     ctx.putImageData(id, 0, 0);
-    const out = basis === "dct" ? idct2(Ck, N, N) : blockIdct(Ck, N, N, 8);
+    const out = basis === "dct" ? idct2(Ck, N, N) : blockIdct(Ck, N, N, 8).map(v => v + 0.5);
     paintGrey(cOut, out);
     let sse = 0;
     for (let k = 0; k < N * N; k++) sse += (out[k] - img[k]) ** 2;

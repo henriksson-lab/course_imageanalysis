@@ -27,7 +27,7 @@ ${d} { flex-direction: column; gap: .5em; align-items: stretch; }
 ${d} .rd-figs { display: flex; flex-wrap: wrap; gap: .8em; align-items: flex-start; width: 100%; }
 ${d} .rd-ctls { display: flex; flex-wrap: wrap; gap: .5em 1.2em; align-items: flex-start; width: 100%; }
 ${d} .rd-col { flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: .35em; }
-${d} .rd-col.narrow { flex: 0 1 230px; }
+${d} .rd-sub { display: flex; flex-direction: column; gap: .35em; }
 ${d} .rd-fig { flex: 1 1 230px; min-width: 180px; max-width: 330px; margin: 0; }
 ${d} .rd-fig figcaption { font-size: 17px; text-align: center; line-height: 1.2; margin: 0 0 .1em; }
 ${d} .rd-fig.wide { flex: 1.3 1 300px; max-width: 440px; }
@@ -38,7 +38,9 @@ ${d} .rd-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; 
 ${d} .rd-click { cursor: crosshair; touch-action: none; }
 .reveal ${d} { font-size: 17px; gap: .2em; }
 .reveal ${d} .rd-figs { flex-wrap: nowrap; }
-.reveal ${d} .rd-col { gap: .15em; }
+.reveal ${d} .rd-fig { max-width: 300px; }
+.reveal ${d} .rd-fig.wide { max-width: 400px; }
+.reveal ${d} .rd-col, .reveal ${d} .rd-sub { gap: .15em; }
 .reveal ${d} .qb-btn { font-size: 15px; padding: .1em .45em; }
 .reveal ${d} .qb-note { display: none; }
 .reveal ${d} .qb-readout { font-size: 14px; padding: .25em .5em; }
@@ -55,9 +57,9 @@ export function layout(host: HTMLElement, cols = 3): { figs: HTMLElement; cols: 
 // ---------------------------------------------------------------------------------------
 // Test objects
 
-export type ObjectName = "points" | "point" | "disc" | "square" | "twodiscs" | "shepp" | "cell";
+export type ObjectName = "points" | "point" | "disc" | "bigdisc" | "square" | "twodiscs" | "shepp" | "cell";
 export const OBJECT_LABELS: Record<ObjectName, string> = {
-  points: "points only", point: "one point", disc: "disc", square: "square", twodiscs: "two discs", shepp: "Shepp–Logan", cell: "micrograph",
+  points: "points only", point: "one point", disc: "disc", bigdisc: "large disc", square: "square", twodiscs: "two discs", shepp: "Shepp–Logan", cell: "micrograph",
 };
 
 let cellCache: Float64Array | null = null;
@@ -81,6 +83,7 @@ export function objectEllipses(name: ObjectName, n: number): R.WEllipse[] | null
   const k = n / 128;
   switch (name) {
     case "disc": return [R.disc(10 * k, 6 * k, 30 * k, 1)];
+    case "bigdisc": return [R.disc(0, 0, 60 * k, 1)];
     case "twodiscs": return [R.disc(-26 * k, 14 * k, 16 * k, 1), R.disc(22 * k, -18 * k, 22 * k, 0.6)];
     case "shepp": return R.sheppLoganEllipses(n);
     default: return null;

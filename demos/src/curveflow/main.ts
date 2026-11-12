@@ -5,7 +5,8 @@
 // mouse (they are added to the current shape) or pick a shape. Views: φ as a colour map with
 // level lines every 4 pixels and the zero contour, or φ as a surface (WebGL2). Optional: the
 // same motion done explicitly on a polygon (vertices moved along their normals, no surgery).
-// Auto-mounts on <div data-demo="curveflow">. Optional: data-preset=<preset id>, data-view="map|surface".
+// Auto-mounts on <div data-demo="curveflow">. Optional: data-preset=<preset id>, data-view="map|surface",
+// data-steps=<n> (run n steps of the preset at load: a snapshot for a figure or a check).
 import { htmlEl, slider, presets, button, checkbox, autoMount } from "../lib/ui";
 import { diverging, divergingT } from "../lib/colour";
 import { GLView, OrbitCamera } from "../lib/gl3d";
@@ -31,11 +32,11 @@ const BASE: Params = { F: 1, eps: 0, factor: 0.5, scheme: "upwind", reinit: 0, s
 const PRESETS: Preset[] = [
   { ...BASE, id: "merge", label: "two blobs merge", shape: "two", F: 1, explicit: true },
   { ...BASE, id: "split", label: "dumbbell splits", shape: "dumbbell", F: -1, explicit: true },
-  { ...BASE, id: "nosplit", label: "dumbbell, curvature flow", shape: "dumbbell", F: 0, eps: 1, factor: 0.9, spf: 20 },
+  { ...BASE, id: "nosplit", label: "dumbbell, curvature flow", shape: "dumbbell", F: 0, eps: 1, factor: 0.9, spf: 15, reinit: 25 },
   { ...BASE, id: "star", label: "star: corners round off", shape: "star", F: 0, eps: 1, factor: 0.9, spf: 10, explicit: true },
   { ...BASE, id: "swallowtail", label: "swallowtail", shape: "star", F: 1, explicit: true, maxT: 14 },
   { ...BASE, id: "cfl", label: "Δt too large", shape: "circle", F: 1, factor: 1.5, spf: 1 },
-  { ...BASE, id: "central", label: "central differences stall", shape: "circle", F: -1, scheme: "central", spf: 2 },
+  { ...BASE, id: "central", label: "central differences", shape: "circle", F: -1, scheme: "central", spf: 2 },
   { ...BASE, id: "noreinit", label: "no reinitialisation", shape: "star", F: 0, eps: 1, factor: 0.9, spf: 10, maxT: 100 },
 ];
 
@@ -47,6 +48,7 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 420px; gap: .35em; }
 [data-demo="${NAME}"] .cf-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+[data-demo="${NAME}"] .cf-sliders { display: flex; flex-direction: column; gap: .35em; }
 [data-demo="${NAME}"] .cf-row { display: flex; gap: .35em; flex-wrap: wrap; align-items: center; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .cf-main { flex-basis: 440px; }
@@ -54,6 +56,8 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; max-width: 560px; flex-basis: 520px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .5em; }
+.reveal [data-demo="${NAME}"] .cf-sliders { display: grid; grid-template-columns: 1fr 1fr; column-gap: .8em; row-gap: .1em; }
+.reveal [data-demo="${NAME}"] .cf-sliders .qb-slider { grid-template-columns: auto 1fr 2.6em; gap: .3em; }
 `;
 
 function injectStyle(): void {
@@ -87,11 +91,12 @@ function mount(host: HTMLElement): void {
   const shapeRow = htmlEl("div", "cf-row", "", panel);
   const shapeBtns = SHAPES.map(s => button(shapeRow, s.label, () => { st.shape = s.id; init(shapePhi(s.id)); }));
   button(shapeRow, "clear", () => { init(new Float64Array(N * N).fill(CMAX)); });
-  const FS = slider(panel, "constant speed c", -1, 1, 0.05, st.F, v => { st.F = v; changed(); });
-  const ES = slider(panel, "curvature weight ε", 0, 2, 0.05, st.eps, v => { st.eps = v; changed(); });
-  const DS = slider(panel, "Δt / limit", 0.2, 1.5, 0.05, st.factor, v => { st.factor = v; changed(); });
-  const RS = slider(panel, "reinitialise every", 0, 50, 5, st.reinit, v => { st.reinit = v; changed(); }, v => v === 0 ? "never" : `${v}`);
-  const SS = slider(panel, "steps per frame", 1, 20, 1, st.spf, v => { st.spf = v; });
+  const sl = htmlEl("div", "cf-sliders", "", panel);
+  const FS = slider(sl, "speed c", -1, 1, 0.05, st.F, v => { st.F = v; changed(); });
+  const ES = slider(sl, "curvature ε", 0, 2, 0.05, st.eps, v => { st.eps = v; changed(); });
+  const DS = slider(sl, "Δt / limit", 0.2, 1.5, 0.05, st.factor, v => { st.factor = v; changed(); });
+  const RS = slider(sl, "reinit every", 0, 50, 5, st.reinit, v => { st.reinit = v; changed(); }, v => v === 0 ? "never" : `${v}`);
+  const SS = slider(sl, "steps/frame", 1, 20, 1, st.spf, v => { st.spf = v; });
   const optRow = htmlEl("div", "cf-row", "", panel);
   const schemeBtns = (["upwind", "central"] as LS.Scheme[]).map(s => button(optRow, s, () => { st.scheme = s; changed(); }));
   const viewBtns = (["map", "surface"] as const).map(v => button(optRow, v, () => { viewMode = v; layoutView(); draw(); }));
@@ -249,7 +254,7 @@ function mount(host: HTMLElement): void {
     const area = finite ? LS.insideArea(phi, N, N) : NaN, len = C ? LS.frontLength(phi, N, N) : NaN;
     const g = finite ? LS.meanGradNearFront(phi, N, N) : NaN;
     let mx = 0; for (let p = 0; p < N * N; p++) mx = Math.max(mx, Math.abs(phi[p]));
-    const r = (a: string, b: string) => a.padEnd(18) + b;
+    const r = (a: string, b: string) => a.padEnd(20) + b;
     ro.textContent = [
       r("speed", `F = ${st.F.toFixed(2)} − ${st.eps.toFixed(2)} κ`),
       r("Δt", `${dt.toFixed(3)}  (limit ${Number.isFinite(lim) ? lim.toFixed(3) : "∞"})`),
@@ -264,6 +269,8 @@ function mount(host: HTMLElement): void {
 
   layoutView();
   load(p0);
+  const n0 = Number(host.dataset.steps ?? 0);
+  if (n0 > 0) { advance(n0); draw(); }
 }
 
 autoMount(NAME, mount);

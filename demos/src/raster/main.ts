@@ -10,12 +10,12 @@
 // Auto-mounts on <div data-demo="raster">. Optional: data-preset="one|intersect|shared|cull|
 // perspective|precision", data-view="colour|depth|bary|edge".
 import { htmlEl, slider, presets, button, checkbox, autoMount } from "../lib/ui";
-import { WinVertex, Fragment, rasteriseSteps, ndcDepth, edge, FragmentShader } from "../lib/raster";
+import { Fragment, rasteriseSteps, ndcDepth, edge } from "../lib/raster";
+import { View, State, Preset, RES, PRESETS, FAR, winTris as wt0, shade } from "./presets";
 import { diverging, grey } from "../lib/colour";
 import { Plot } from "../lib/plot";
 
 const NAME = "raster";
-const FAR = 10;
 
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] .rs-left { flex: 1 1 520px; min-width: 280px; max-width: 640px; display: flex; flex-direction: column; gap: .3em; }
@@ -31,43 +31,6 @@ const STYLE = `
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; padding: .25em .5em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
 `;
-
-type View = "colour" | "depth" | "bary" | "edge";
-interface Tri { p: [number, number][]; w: number[]; col: [number, number, number][]; uv?: [number, number][] }
-interface State { res: number; tris: Tri[]; cull: boolean; topLeft: boolean; persp: boolean; near: number; bits: number; view: View }
-interface Preset { id: string; label: string; make: () => State }
-
-const RES: [number, number][] = [[16, 12], [32, 24], [64, 48]];
-const RGBV: [number, number, number][] = [[1, 0.15, 0.15], [0.15, 0.85, 0.2], [0.2, 0.35, 1]];
-const ORANGE: [number, number, number][] = [[1, 0.65, 0.1], [1, 0.65, 0.1], [1, 0.65, 0.1]];
-const base = (o: Partial<State>): State => ({ res: 1, tris: [], cull: false, topLeft: true, persp: true, near: 1, bits: 24, view: "colour", ...o });
-
-/** A floor quad seen in perspective: two triangles with texture coordinates and true w. */
-function floorQuad(): Tri[] {
-  const [W, H] = RES[2], f = 1.2, asp = W / H;
-  const P: [number, number, number][] = [[-1.6, -1, -1.3], [1.6, -1, -1.3], [1.6, -1, -9], [-1.6, -1, -9]];
-  const s = P.map(([x, y, z]) => { const w = -z; return [(f * x / asp / w + 1) / 2 * W, (f * y / w + 1) / 2 * H, w] as [number, number, number]; });
-  const uv: [number, number][] = [[0, 0], [1, 0], [1, 1], [0, 1]];
-  const mk = (ix: number[]): Tri => ({ p: ix.map(k => [s[k][0], s[k][1]] as [number, number]), w: ix.map(k => s[k][2]), col: ix.map(() => [1, 1, 1] as [number, number, number]), uv: ix.map(k => uv[k]) });
-  return [mk([0, 1, 2]), mk([0, 2, 3])];
-}
-
-const PRESETS: Preset[] = [
-  { id: "one", label: "one triangle", make: () => base({ tris: [{ p: [[4, 3], [26, 8], [12, 21]], w: [2, 4, 3], col: RGBV }] }) },
-  { id: "intersect", label: "two triangles intersect", make: () => base({ tris: [
-    { p: [[3, 3], [27, 5], [10, 21]], w: [2, 8, 2], col: RGBV },
-    { p: [[8, 18], [14, 2], [29, 15]], w: [4, 4, 4], col: ORANGE }] }) },
-  { id: "shared", label: "a shared edge", make: () => base({ res: 0, tris: [
-    { p: [[1.5, 1.5], [13.5, 1.5], [1.5, 10.5]], w: [3, 3, 3], col: RGBV },
-    { p: [[13.5, 1.5], [13.5, 10.5], [1.5, 10.5]], w: [3, 3, 3], col: ORANGE }] }) },
-  { id: "cull", label: "flipped winding is culled", make: () => base({ cull: true, tris: [
-    { p: [[3, 3], [15, 4], [8, 20]], w: [3, 3, 3], col: RGBV },
-    { p: [[17, 4], [24, 20], [29, 3]], w: [3, 3, 3], col: ORANGE }] }) },
-  { id: "perspective", label: "affine vs perspective-correct", make: () => base({ res: 2, persp: false, tris: floorQuad() }) },
-  { id: "precision", label: "near plane 0.01 vs 1", make: () => base({ near: 0.01, bits: 8, view: "colour", tris: [
-    { p: [[3, 4], [29, 6], [12, 21]], w: [8, 9, 8], col: RGBV },
-    { p: [[6, 18], [16, 3], [29, 16]], w: [8.5, 8.5, 8.5], col: ORANGE }] }) },
-];
 
 function injectStyle(): void {
   if (document.getElementById("qb-style-" + NAME)) return;
@@ -130,22 +93,10 @@ function mount(host: HTMLElement): void {
   }
 
   // ---- rasterise ----
-  function winTris(): WinVertex[][] {
-    return st.tris.map(t => t.p.map((q, v) => ({
-      x: q[0], y: q[1], w: t.w[v], z: ndcDepth(t.w[v], st.near, FAR),
-      attr: [...t.col[v], ...(t.uv ? t.uv[v] : [0, 0]), t.uv ? 1 : 0],
-    })));
-  }
-  const shader: FragmentShader = a => {
-    if (a[5] > 0.5) {
-      const c = (Math.floor(a[3] * 8) + Math.floor(a[4] * 8)) % 2 ? 0.92 : 0.22;
-      return [c, c, c * 0.9 + 0.08];
-    }
-    return [a[0], a[1], a[2]];
-  };
+  const winTris = () => wt0(st);
   function recompute(all = false): void {
     const [W, H] = RES[st.res];
-    const r = rasteriseSteps(winTris(), W, H, { cull: st.cull, topLeft: st.topLeft, perspective: st.persp, depthBits: st.bits >= 24 ? undefined : st.bits }, () => shader);
+    const r = rasteriseSteps(winTris(), W, H, { cull: st.cull, topLeft: st.topLeft, perspective: st.persp, depthBits: st.bits >= 24 ? undefined : st.bits }, () => shade);
     steps = r.steps; culled = r.culled;
     if (all || k > steps.length) k = steps.length;
     draw();

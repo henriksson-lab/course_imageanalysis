@@ -20,7 +20,8 @@ export interface SVMPreset {
   note: string;
 }
 
-const toRange = (pts: LPoint[], lo: number, hi: number): LPoint[] => pts.map(p => ({ x: lo + (hi - lo) * p.x, y: lo + (hi - lo) * p.y, c: p.c }));
+const clamp01 = (v: number) => Math.min(0.99, Math.max(0.01, v));
+const toRange = (pts: LPoint[], lo: number, hi: number): LPoint[] => pts.map(p => ({ x: lo + (hi - lo) * clamp01(p.x), y: lo + (hi - lo) * clamp01(p.y), c: p.c }));
 
 /** The by-hand example of the max-margin unit. */
 export const BY_HAND_POINTS: LPoint[] = [{ x: 0, y: 0, c: 0 }, { x: 0, y: 2, c: 0 }, { x: 2, y: 1, c: 1 }, { x: 3, y: 0, c: 1 }];

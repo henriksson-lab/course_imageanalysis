@@ -4,6 +4,7 @@
 import { Grey, fromArray } from "../lib/imageops";
 import { OrientedPt, polygonEdgePoints, placePolygon, fillPolygons, circlePoly, Pt } from "../lib/hough";
 import { rng } from "../lib/random";
+import { canny, edgeList } from "../lib/edges";
 
 export type Poly = [number, number][];
 export interface Template { id: string; label: string; poly: Poly; holes: Poly[] }
@@ -45,6 +46,23 @@ export function templatePoints(t: { poly: Poly; holes: Poly[] }, step = 1): Orie
   // a hole is a dark polygon inside the bright shape: its gradient points away from it
   for (const h of t.holes) for (const p of polygonEdgePoints(h, step)) pts.push({ ...p, theta: p.theta! + Math.PI });
   return pts;
+}
+
+/** Canny settings shared by the template and the scene, so both are discretised the same way. */
+export const CANNY = { sigma: 1.2, lo: 4, hi: 10 };
+const TS = 34;   // template image: (2 TS + 1)^2 pixels, template origin at the centre pixel
+
+/**
+ * The template's edge points as the scene will see them: render the template (bright on
+ * dark, as in the scene), run Canny with the scene's settings, and shift the points so the
+ * template origin is (0, 0). This is how an R-table is built from an example image.
+ */
+export function templateEdgePoints(t: { poly: Poly; holes: Poly[] }): OrientedPt[] {
+  const n = 2 * TS + 1, o: Pt = { x: TS, y: TS };
+  const polys = [{ poly: placePolygon(t.poly, { x: 0, y: 0 }, 0, 1, o), value: FG }, ...t.holes.map(h => ({ poly: placePolygon(h, { x: 0, y: 0 }, 0, 1, o), value: BG }))];
+  const img = fromArray(n, n, fillPolygons(n, n, polys, BG));
+  const c = canny(img, CANNY.sigma, CANNY.lo, CANNY.hi);
+  return edgeList(c.hyst.edges, c.gx, c.gy, c.mag).map(p => ({ x: p.x - TS, y: p.y - TS, theta: p.theta, strength: p.strength }));
 }
 
 export interface Copy { x: number; y: number; phi: number; s: number; occlude?: number; similar?: boolean }

@@ -51,10 +51,15 @@ import { synthScene, SCENE_CLASSES } from "./scene";
 import { PIXEL_PRESETS, PixelPreset, strokesToMap, HOLDOUT_X, ALL_FAMILIES, SMALL, LARGE } from "./presets";
 import { trainingSet, regionScores, inRegion, TrainingInfo } from "./pipeline";
 import { ShellContext, getPixelclassTab } from "./plugins";
+import { registerPixelclassTab } from "./plugins";
+import { SVM_CLASSIFIER } from "../lib/svm";
+import { SVM_CV_TAB } from "../svm2d/pixeltab";
 
 // ---------------------------------------------------------------- PLUGINS (other days add lines here)
 registerClassifier(FOREST_CLASSIFIER);
 registerClassifier(TREE_CLASSIFIER);
+registerClassifier(SVM_CLASSIFIER);       // SVM day (lib/svm.ts)
+registerPixelclassTab(SVM_CV_TAB);        // SVM day: data-tabs="svmcv"
 // ---------------------------------------------------------------- end of PLUGINS
 
 const NAME = "pixelclass";

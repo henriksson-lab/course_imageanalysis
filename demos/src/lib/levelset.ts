@@ -20,7 +20,7 @@
 //  - The curvature term uses central differences (it is diffusion-like, not a wave).
 //  - Chan–Vese with φ < 0 inside: c1 = mean inside, c2 = mean outside, and gradient descent
 //      φ_t = δ_ε(φ) [ λ κ + ν + w1 (I − c1)² − w2 (I − c2)² ]
-//    (positive bracket pushes the pixel outside).
+//    (positive bracket pushes the pixel outside), with the semi-implicit scheme of the paper.
 import { marchingSquares, Contour, contourLength, contourArea } from "./marching";
 
 export type Poly = [number, number][];
@@ -169,8 +169,8 @@ export function curvatureTerm(phi: ArrayLike<number>, w: number, h: number, kmax
       const c = phi[y * w + x], l = phi[y * w + xm], r = phi[y * w + xp], u = phi[ym * w + x], d = phi[yp * w + x];
       const fx = (r - l) / 2, fy = (d - u) / 2, fxx = r - 2 * c + l, fyy = d - 2 * c + u;
       const fxy = (phi[yp * w + xp] - phi[ym * w + xp] - phi[yp * w + xm] + phi[ym * w + xm]) / 4;
-      const g2 = fx * fx + fy * fy, g = Math.sqrt(g2);
-      let k = (fxx * fy * fy - 2 * fx * fy * fxy + fyy * fx * fx) / Math.pow(g2 + 1e-10, 1.5);
+      const g2 = fx * fx + fy * fy, g = Math.sqrt(g2), ge = g2 + 1e-10;
+      let k = (fxx * fy * fy - 2 * fx * fy * fxy + fyy * fx * fx) / (ge * Math.sqrt(ge));
       k = k > kmax ? kmax : k < -kmax ? -kmax : k;
       out[y * w + x] = k * g;
     }
@@ -387,6 +387,9 @@ export interface CVParams {
   /** Data weights inside and outside (literature: λ1, λ2); default 1. */
   w1?: number;
   w2?: number;
+  /** Keep φ within ±bound after each step (default ∞). A bounded φ keeps δ_ε(φ) from
+   *  vanishing far from the curve, so a wide δ_ε can open new pieces anywhere. */
+  bound?: number;
 }
 
 /** Means inside (φ < 0) and outside (φ ≥ 0). An empty side gets the other side's mean. */
@@ -412,25 +415,37 @@ export function cvEnergy(I: ArrayLike<number>, phi: ArrayLike<number>, w: number
 }
 
 /**
- * One Chan–Vese step: means from the current regions, then
- * φ ← φ + Δt δ_ε(φ)[λκ + ν + w1(I − c1)² − w2(I − c2)²], with Δt chosen so that the largest
- * change is `cfl` pixels and the curvature part stays stable. In place; returns the means and Δt.
+ * One Chan–Vese step (the semi-implicit scheme of Chan & Vese 2001, as in Getreuer 2012): the
+ * means c1, c2 from the current regions, then one Gauss–Seidel sweep of
+ *   φ_t = δ_ε(φ) [ λ ∇·(∇φ/|∇φ|) + ν + w1 (I − c1)² − w2 (I − c2)² ]
+ * where the curvature term is taken implicitly in φ(x, y), so any Δt is stable. In place.
+ * Returns the means used.
  */
-export function cvStep(I: ArrayLike<number>, phi: Float64Array, w: number, h: number, P: CVParams, cfl = 0.5, work?: Float64Array): { c1: number; c2: number; dt: number } {
-  const n = w * h, { c1, c2 } = cvMeans(I, phi), upd = work ?? new Float64Array(n);
-  const w1 = P.w1 ?? 1, w2 = P.w2 ?? 1;
-  const kap = P.lambda > 0 ? curvatureMap(phi, w, h) : null;
-  let maxS = 0;
-  for (let p = 0; p < n; p++) {
-    const de = delta(phi[p], P.eps);
-    const s = de * ((kap ? P.lambda * kap[p] : 0) + P.nu + w1 * (I[p] - c1) ** 2 - w2 * (I[p] - c2) ** 2);
-    upd[p] = s;
-    const a = Math.abs(s); if (a > maxS) maxS = a;
+export function cvStep(I: ArrayLike<number>, phi: Float64Array, w: number, h: number, P: CVParams, dt = 0.5): { c1: number; c2: number; dt: number } {
+  const { c1, c2 } = cvMeans(I, phi), w1 = P.w1 ?? 1, w2 = P.w2 ?? 1, lam = P.lambda, eta = 1e-8;
+  const B = P.bound ?? Infinity;
+  for (let y = 0; y < h; y++) {
+    const ym = y > 0 ? y - 1 : 0, yp = y < h - 1 ? y + 1 : h - 1;
+    for (let x = 0; x < w; x++) {
+      const xm = x > 0 ? x - 1 : 0, xp = x < w - 1 ? x + 1 : w - 1, p = y * w + x;
+      const c = phi[p], l = phi[y * w + xm], r = phi[y * w + xp], u = phi[ym * w + x], d = phi[yp * w + x];
+      let num = c, den = 1;
+      const de = dt * delta(c, P.eps);
+      if (lam > 0) {
+        // coefficients of the four half-pixel fluxes of ∇φ/|∇φ|
+        const ax = 1 / Math.sqrt(eta + (r - c) ** 2 + ((d - u) / 2) ** 2);
+        const axm = 1 / Math.sqrt(eta + (c - l) ** 2 + ((phi[yp * w + xm] - phi[ym * w + xm]) / 2) ** 2);
+        const ay = 1 / Math.sqrt(eta + (d - c) ** 2 + ((r - l) / 2) ** 2);
+        const aym = 1 / Math.sqrt(eta + (c - u) ** 2 + ((phi[ym * w + xp] - phi[ym * w + xm]) / 2) ** 2);
+        const fx = x < w - 1 ? ax : 0, fxm = x > 0 ? axm : 0, fy = y < h - 1 ? ay : 0, fym = y > 0 ? aym : 0;
+        num += de * lam * (fx * r + fxm * l + fy * d + fym * u);
+        den += de * lam * (fx + fxm + fy + fym);
+      }
+      num += de * (P.nu + w1 * (I[p] - c1) ** 2 - w2 * (I[p] - c2) ** 2);
+      const v = num / den;
+      phi[p] = v > B ? B : v < -B ? -B : v;
+    }
   }
-  let dt = maxS > 0 ? cfl / maxS : 0;
-  const dmax = 1 / (Math.PI * P.eps);
-  if (P.lambda > 0) dt = Math.min(dt, 0.25 / (P.lambda * dmax));
-  for (let p = 0; p < n; p++) phi[p] += dt * upd[p];
   return { c1, c2, dt };
 }
 

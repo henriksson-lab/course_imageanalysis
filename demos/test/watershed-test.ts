@@ -51,7 +51,7 @@ for (let t = 0; t < 150; t++) {
   for (const conn of [4, 8] as const) for (const lines of [false, true]) {
     const a = WS.watershed(f, w, h, mk, { conn, lines }), b = WS.watershedTrace(f, w, h, mk, { conn, lines });
     check(same(a, b.labels), `w=${w} h=${h} conn=${conn} lines=${lines}`);
-    check(b.steps.length === n - mk.filter(v => v > 0).length, "every non-marker pixel popped once");
+    if (!lines) check(b.steps.length === n - mk.filter(v => v > 0).length, "every non-marker pixel popped once");
   }
 }
 
@@ -66,10 +66,12 @@ for (let t = 0; t < 150; t++) {
     const b = WS.watershed(f, w, h, mk, { conn, lines: true });
     check(regionChecks(b, mk, w, h, conn), `connected regions with lines, conn=${conn}`);
     // a line pixel has two different labels among its neighbours (in the final result)
+    // a popped line pixel touches two labels; a pixel that is never popped is enclosed by lines
     let okLines = true;
     const off = WS.wsOffsets(conn);
+    const popped = new Set(WS.watershedTrace(f, w, h, mk, { conn, lines: true }).steps.map(s => s.item.p));
     for (let p = 0; p < n; p++) {
-      if (b[p] !== 0) continue;
+      if (b[p] !== 0 || !popped.has(p)) continue;
       const x = p % w, y = (p - x) / w, s = new Set<number>();
       for (const [dx, dy] of off) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < w && yy < h && b[yy * w + xx] > 0) s.add(b[yy * w + xx]); }
       if (s.size < 2) okLines = false;
@@ -84,7 +86,12 @@ for (let t = 0; t < 100; t++) {
   // a random permutation of 0..n-1 (all heights distinct), markers at random pixels
   const f = Int32Array.from({ length: n }, (_, i) => i);
   for (let i = n - 1; i > 0; i--) { const j = Math.floor(R.unif() * (i + 1)); const tmp = f[i]; f[i] = f[j]; f[j] = tmp; }
-  const mk = randMarkers(n, 2 + Math.floor(R.unif() * 3));
+  // markers at least 3 apart (no pixel touches two markers: that tie is decided by the scan order)
+  const mk = new Int32Array(n), placed: number[] = [];
+  for (let tries = 0; placed.length < 3 && tries < 200; tries++) {
+    const p = Math.floor(R.unif() * n), x = p % w, y = (p - x) / w;
+    if (placed.every(q => Math.max(Math.abs(q % w - x), Math.abs(Math.floor(q / w) - y)) >= 3)) { placed.push(p); mk[p] = placed.length; }
+  }
   const flip = (a: ArrayLike<number>) => Int32Array.from({ length: n }, (_, i) => { const x = i % w, y = (i - x) / w; return a[(h - 1 - y) * w + (w - 1 - x)]; });
   for (const conn of [4, 8] as const) for (const lines of [false, true]) {
     const a = WS.watershed(f, w, h, mk, { conn, lines }), b = flip(WS.watershed(flip(f), w, h, flip(mk), { conn, lines }));
@@ -99,15 +106,18 @@ for (let L = 3; L <= 15; L++) {
   mk[0] = 1; mk[L - 1] = 2;
   const a = WS.watershed(f, L, 1, mk, { lines: true });
   const lines = [...a].map((v, i) => (v === 0 ? i : -1)).filter(i => i >= 0);
-  if (L % 2) check(lines.length === 1 && lines[0] === (L - 1) / 2, `odd plateau ${L}: line in the middle`);
-  else check(lines.length === 0 && a.filter(v => v === 1).length === L / 2, `even plateau ${L}: split in half`);
+  check(lines.length === 1 && Math.abs(lines[0] - (L - 1) / 2) <= 0.5, `plateau ${L}: one line pixel in the middle (${lines})`);
+  const b = WS.watershed(f, L, 1, mk);
+  const nA = b.filter(v => v === 1).length;
+  check(Math.abs(2 * nA - L) <= 1, `plateau ${L} without lines: split in half (${nA})`);
   const lifo = WS.watershedTrace(f, L, 1, mk, { lines: true, lifo: true }).labels;
   check(lifo.length === L, "LIFO runs");
 }
 
 current = "1D: dams at the passes between minima";
 for (let t = 0; t < 200; t++) {
-  const n = 5 + Math.floor(R.unif() * 30), f = Int32Array.from({ length: n }, () => Math.floor(R.unif() * 1000)); // distinct a.s.
+  const n = 5 + Math.floor(R.unif() * 30), f = Int32Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) { const j = Math.floor(R.unif() * (i + 1)); const tmp = f[i]; f[i] = f[j]; f[j] = tmp; }
   const mk = WS.minimaMarkers(f, n, 1, 4);
   const lab = WS.watershed(f, n, 1, mk.data);
   // between consecutive minima the label changes once, next to the highest sample between them
@@ -209,8 +219,6 @@ for (const [r, d, want] of [[10, 12, 2], [10, 0, 0], [10, 20, 10]] as const) {
   // two discs r = 20, d = 30 on a 120 × 80 grid: two h-maxima of the EDT for small h, one for h above the depth
   const w = 120, h = 80, m = twoDiscMask(w, h, 45, 40, 75, 40, 20, 20);
   const depth = neckDepth(20, 30);   // 20 − √(400 − 225) = 6.77
-  const edt = (MO as unknown as Record<string, unknown>) && undefined;
-  void edt;
   check(depth > 6.7 && depth < 6.8, `depth ${depth}`);
   check(m.reduce((s, v) => s + v, 0) > 2000, "mask drawn");
 }

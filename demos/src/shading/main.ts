@@ -67,7 +67,7 @@ type MeshId = "sphere" | "torus" | "gem";
 interface SState { mesh: MeshId; level: number; where: Where; model: Model; ka: number; kd: number; ks: number; shin: number; squash: number; byM: boolean; normals: boolean; light: [number, number]; yaw: number; pitch: number }
 const SDEF: SState = { mesh: "sphere", level: 2, where: "pixel", model: "blinn", ka: 0.1, kd: 0.8, ks: 0.6, shin: 40, squash: 1, byM: false, normals: false, light: [-0.45, 0.5], yaw: 0.3, pitch: 0.25 };
 const SPRESETS: { id: string; label: string; s: Partial<SState> }[] = [
-  { id: "gouraud", label: "Gouraud misses the highlight", s: { mesh: "sphere", level: 1, where: "gouraud", model: "blinn", shin: 80, ks: 0.8, light: [0.12, 0.2], yaw: 0, pitch: 0 } },
+  { id: "gouraud", label: "Gouraud misses the highlight", s: { mesh: "sphere", level: 1, where: "gouraud", model: "blinn", shin: 80, ks: 0.8, light: [-0.76, 0], yaw: 0, pitch: 0 } },
   { id: "facets", label: "facets vs smooth", s: { mesh: "gem", where: "flat", model: "blinn", shin: 30, normals: true } },
   { id: "squash", label: "squashed sphere: wrong normals", s: { mesh: "sphere", level: 3, where: "pixel", squash: 0.4, byM: true, normals: true, light: [-0.2, 0.75], yaw: 0, pitch: 0.5 } },
   { id: "grazing", label: "Phong vs Blinn–Phong at grazing light", s: { mesh: "sphere", level: 3, where: "pixel", model: "phong", shin: 20, ks: 0.7, light: [0.96, 0.15], yaw: 0, pitch: 0 } },

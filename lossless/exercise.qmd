@@ -1,0 +1,125 @@
+---
+title: "Exercise: prediction, dictionaries and lossless formats"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute the **residuals** of a predictor by hand and **decode** them back exactly,
+- explain why residuals have a lower **entropy** than pixels, and where prediction fails (**edges**, **noise**),
+- apply the **Paeth** and **MED** predictors to given neighbours,
+- explain what a **dictionary** coder (LZ77, DEFLATE) exploits and why it needs prediction first on images.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Neighbours | $a$ = left, $b$ = up, $c$ = up-left of the pixel $x$; all already decoded |
+| Residual | $e = x - \hat x$; the decoder computes the same $\hat x$ and adds $e$ back |
+| Left, up, average | $\hat x = a$, $b$, $\lfloor (a+b)/2 \rfloor$ |
+| Planar | $\hat x = a + b - c$ (exact on a plane) |
+| Paeth (PNG) | of $a$, $b$, $c$ the one closest to $a + b - c$ (ties: $a$, then $b$) |
+| MED (JPEG-LS) | $\min(a,b)$ if $c \ge \max(a,b)$; $\max(a,b)$ if $c \le \min(a,b)$; else $a + b - c$ |
+| Cost | about $H(e)$ bits per pixel; a spread $\sigma$ costs about $\log_2 \sigma + 2.05$ bits |
+| LZ77 | a repeat becomes (go back $d$, copy $\ell$); DEFLATE = LZ77 + Huffman |
+
+## By hand
+
+**B1.** The row `100 102 104 103 105 107 106 108`, predictor: left neighbour, the first value stored as it is.
+(a) Write the residuals.
+(b) Compute the entropy of the 8 pixel values and of the 7 residuals after the first.
+(c) Decode the residuals `50, 1, 1, 0, −2, −2, 1` (first value stored as it is).
+
+**B2.** Predict $x$ with Paeth and with MED for these neighbours $(a, b, c)$:
+(a) $(100, 120, 110)$, (b) $(50, 60, 100)$, (c) $(10, 30, 12)$.
+
+**B3.** A vertical edge: the pixels left of column 5 are 40, from column 5 on they are 100. For a pixel in column 5 (not in the top row), give $a$, $b$, $c$ and the predictions of left, up, average, planar and MED. Which predictors are exact? Repeat for a horizontal edge (rows above row 5 are 40, from row 5 on 100, a pixel in row 5).
+
+**B4.** A flat region of grey level 128 with independent noise of standard deviation $\sigma = 10$.
+(a) What standard deviation does the residual of the left predictor have? Of the average predictor?
+(b) Using "a spread $\sigma$ costs about $\log_2 \sigma + 2.05$ bits", estimate the bits per pixel of the pixels themselves and of the two residuals. Does prediction help?
+
+**B5.** A 12-bit camera image stored in 16-bit words has a residual entropy of 7.2 bits per pixel. What is the best lossless compression ratio you can expect from a coder that reaches the entropy? How large is a 2048 × 2048 frame raw and compressed?
+
+**B6.** LZ77: encode `ABABABABAB` as literals and (go back, length) pairs. Then explain why the noisy row `101 99 100 102 98 101 100 99` has almost no repeats, but its residuals might.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) (100), 2, 2, −1, 2, 2, −1, 2. (b) 8 different values, each once: $\log_2 8 = 3$ bits. Residuals: 2 five times, −1 twice: $H = -\tfrac57\log_2\tfrac57 - \tfrac27\log_2\tfrac27 = 0.347 + 0.516 = 0.86$ bits. (c) 50, 51, 52, 52, 50, 48, 49.
+
+**B2.** (a) $a + b - c = 110$; distances to $a, b, c$: 10, 10, 0: Paeth takes $c = 110$. MED: $c$ lies between 100 and 120, so $a + b - c = 110$. (b) $a + b - c = 10$; distances 40, 50, 90: Paeth $a = 50$. MED: $c = 100 \ge \max = 60$, so $\min(a, b) = 50$. (c) $a + b - c = 28$; distances 18, 2, 16: Paeth $b = 30$. MED: 12 is between 10 and 30: $28$.
+
+**B3.** Vertical edge, pixel in column 5: $a = 40$ (left of the edge), $b = 100$ (above, same column), $c = 40$; $x = 100$. Left 40, up 100, average 70, planar $40 + 100 - 40 = 100$, MED: $c = 40 \le \min(a, b)$, so $\max(a,b) = 100$. Up, planar and MED are exact. Horizontal edge, pixel in row 5: $a = 100$, $b = 40$, $c = 40$: left 100, up 40, average 70, planar 100, MED 100: left, planar and MED are exact. MED (and planar) find the right side of the edge in both cases; left and up only in one each; average never.
+
+**B4.** (a) Left: $e = n_i - n_{i-1}$, variance $2\sigma^2$, sd $\sqrt2 \cdot 10 = 14.1$. Average: $e = n_x - (n_a + n_b)/2$, variance $\sigma^2 + \sigma^2/2$, sd $12.2$ (ignoring the rounding). (b) Pixels: $\log_2 10 + 2.05 = 5.37$ bits; left residual: $\log_2 14.1 + 2.05 = 5.87$; average: $\log_2 12.2 + 2.05 = 5.66$. Prediction makes it **worse**: pure noise cannot be predicted, and every predictor adds the noise of its neighbours.
+
+**B5.** Ratio $16/7.2 = 2.2$. Raw: $2048^2 \cdot 2$ bytes $= 8.4$ MB; compressed about $2048^2 \cdot 7.2/8 = 3.8$ MB. (Four of the 16 stored bits are always zero; most of the gain comes from them.)
+
+**B6.** `A`, `B`, then (go back 2, copy 8): the copy may overlap what it is writing, so one pair produces the whole repetition. The noisy row has no exact repeat of length ≥ 2 that pays for a pointer. Its left residuals are −2, 1, 2, −4, 3, −1, −1: still small and irregular, but they come from a narrow range, so their Huffman code is short; in smooth or flat images residuals also repeat more often than pixel values (many 0s and ±1s), which LZ77 can use.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that the decoder reconstructs every pixel exactly, by induction over the raster order, for any predictor that uses only pixels before $x$ in raster order.
+
+**B8.** *(math)* Show that the planar predictor $a + b - c$ is exact for every image $x(i, j) = \alpha + \beta i + \gamma j$, and that MED is the median of $a$, $b$ and $a + b - c$.
+
+**B9.** *(math)* A smooth signal $s$ plus independent noise $n$ of variance $\sigma^2$: $x = s + n$. Show that no predictor $\hat x$ that depends only on earlier pixels can make the residual variance smaller than $\sigma^2$. What is the residual variance of the left predictor if $s$ is constant?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** The first pixel is predicted from nothing (a constant), so $x_1 = \hat x_1 + e_1$ is known. Suppose all pixels before $x_k$ in raster order are decoded exactly. The encoder computed $\hat x_k$ from those same pixels, so the decoder computes the same $\hat x_k$, and $x_k = \hat x_k + e_k$ exactly (integer arithmetic, no rounding differences). Hence all pixels are exact.
+
+**B8.** $a = x(i, j-1)$, $b = x(i-1, j)$, $c = x(i-1, j-1)$: $a + b - c = \alpha + \beta i + \gamma(j-1) + \alpha + \beta(i-1) + \gamma j - \alpha - \beta(i-1) - \gamma(j-1) = \alpha + \beta i + \gamma j$. MED: if $c \ge \max(a,b)$ then $a + b - c \le \min(a,b)$, so the median of $\{a, b, a+b-c\}$ is $\min(a,b)$; if $c \le \min(a,b)$ then $a + b - c \ge \max(a,b)$ and the median is $\max(a,b)$; otherwise $a + b - c$ lies between $a$ and $b$ and is the median.
+
+**B9.** $e = s + n - \hat x$, where $\hat x$ depends only on earlier pixels, hence on $s$ and earlier noise values, all independent of $n$ at this pixel. So $\operatorname{Var}(e) = \operatorname{Var}(s - \hat x) + \sigma^2 \ge \sigma^2$ (taking $s$ as given, its variance is that of $-\hat x$; the cross term vanishes because $n$ is independent with mean 0). For constant $s$ and the left predictor: $e = n_i - n_{i-1}$, variance $2\sigma^2$.
+:::
+
+## Explore: prediction {#explore}
+
+The demo shows an image $x$, the residual $e = x - \hat x$ of a predictor (white = 0, red positive, blue negative), a scatter of each pixel against its left neighbour, and the histograms of pixels (blue) and residuals (orange) on one axis. The readout gives the entropy of pixels and residuals, the **ideal** size $H \cdot N / 8$ bytes, and the real **DEFLATE** size of the raw pixel bytes and of the residual bytes, made by the browser's own compressor. **added noise sd** adds Gaussian noise (fixed seed). Click a pixel to see its neighbours $a$, $b$, $c$, the prediction and the residual.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="predict" data-image="smooth" data-predictor="left"></div>
+<script src="../demos/dist/predict.js"></script>
+```
+
+**P1.** Preset **smooth image** (left predictor). Note the entropies, the ideal sizes and the DEFLATE sizes. DEFLATE stores the *pixels* in fewer bytes than their ideal size $H \cdot N/8$. How can it beat the entropy?
+
+**P2.** Still on the smooth image, try all seven predictors. Which one gives the smallest residual entropy, which the largest (apart from none)? Explain with B4: what dominates the residual of a smooth image with a little noise?
+
+**P3.** Preset **left neighbour on the cell**. Compare pixel and residual entropy, and find the best predictor. What lossless compression ratio does the best DEFLATE size give? Look at the residual image: why is so little gained?
+
+**P4.** Preset **smooth image** again, then raise the noise to 5, 10 and 20. Note the residual entropy (left) and the pixel entropy each time. What happens to the gain from prediction?
+
+**P5.** Choose **flat field** and set the noise to 10. Compare pixel and residual entropy for the left and the average predictor, and check your estimate of B4.
+
+**P6.** Preset **MED at an edge** (shapes, MED predictor). Click the pixel at (121, 190), just right of the dark rectangle's right edge, and note the prediction. Switch to **average**: what is predicted now? Which predictor wins overall on this image, and why is that not MED?
+
+**P7.** Preset **binary mask**. How large is the DEFLATE file of the raw mask, and why is it so small? Compare the residual DEFLATE sizes of **left** and **up**.
+
+**P8.** Preset **12-bit spots** (MED). Compare the ideal residual size with the DEFLATE residual size. Why does DEFLATE do so much worse here than on the 8-bit images?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**P1.** Pixels: $H = 7.08$, ideal 58 014 B, DEFLATE 44 457 B. Residuals: $H = 3.28$, ideal 26 909 B, DEFLATE 31 212 B. DEFLATE beats the histogram entropy of the pixels because the entropy treats pixels as independent, while LZ77 finds repeated byte strings (neighbouring rows of a smooth image repeat). The entropy is a bound only for independent symbols. On the residuals, which have little exact repetition left, DEFLATE's byte-wise Huffman is above the ideal size.
+
+**P2.** none 7.08, left 3.28, up 3.41, average 3.11 (best), planar 3.66 (worst), Paeth 3.33, MED 3.28. The image is smooth, so the residual is mostly the **noise** (sd 1.5) of the pixels involved. Average subtracts half the noise of two neighbours (variance $1.5\sigma^2$), left the noise of one ($2\sigma^2$), planar the noise of three ($4\sigma^2$): the more neighbours a predictor adds or subtracts at full weight, the more noise it adds.
+
+**P3.** Pixels 7.68 bits, left 6.78, best average 6.45 (MED 6.55). DEFLATE: 61 552 B raw, 54 034 B for the average residuals: a ratio of $65\,536/54\,034 = 1.21$. The residual image is full of fine grain: the electron micrograph has texture and noise at the pixel scale that no neighbour predicts.
+
+**P4.** Residual entropy (left) for noise 0, 5, 10, 20: 3.28, 4.95, 5.89, 6.87 bits; pixel entropy 7.08, 7.13, 7.21, 7.37. The gain from prediction shrinks from 3.8 bits to 0.5 bits: the noise is new information in every pixel and sets the floor.
+
+**P5.** Pixels 5.37 bits, left 5.87, average 5.66: both residuals are worse than the pixels, by about 0.5 and 0.3 bits, as estimated in B4 (5.37, 5.87, 5.66).
+
+**P6.** At (121, 190): $a = 69$ (the half-covered edge pixel), $b = 100$, $c = 68$, $x = 102$. MED: $c \le \min(a, b)$, so it predicts $\max(a,b) = 100$, residual 2. Average predicts 84, residual 18. Along the rectangle's vertical edges the mean |residual| is 1.9 for MED against 12.3 for average. Overall the average predictor still wins on this image (3.27 bits against 3.36 for MED): edges are a small part of the image, and in the flat regions, which dominate, averaging two neighbours reduces the noise.
+
+**P7.** The raw mask DEFLATEs to 791 bytes (from 65 536, 83 times smaller): long runs of exactly equal bytes are what LZ77 is made for. Left residuals: 833 B, up residuals: 659 B: both are zero except at the shape outlines, and all three sizes are tiny. For a mask the dictionary coder alone already does the job; prediction adds little.
+
+**P8.** Ideal residual size 59 728 B, DEFLATE 79 341 B (raw 131 072 B, DEFLATE of the raw pixels 82 742 B). DEFLATE codes **bytes**: each 16-bit residual is split into a low byte (noisy) and a high byte (0 or 255 depending on the sign), and the Huffman stage of DEFLATE cannot see that the two belong together. Lossless formats for 16-bit data therefore predict on the values themselves and code the residuals with their own entropy coder, or regroup the bytes before DEFLATE (the "shuffle" filters of chunked array formats, last unit).
+:::
+
+## Where this leads
+
+Prediction removes the inter-pixel redundancy one pixel at a time, and it is exact. The next unit takes a different route: a **change of basis** (the DCT) that packs the image into a few large coefficients, which can then be **quantised**. That step is lossy, and it is how JPEG reaches 10 to 20 times smaller files. JPEG reuses the prediction idea once: the DC coefficient of each block is coded as the difference from the previous block.

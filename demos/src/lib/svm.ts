@@ -491,7 +491,7 @@ export function logGrid(lo: number, hi: number, per = 1): number[] {
 // The classifier plug-in for the pixelclass shell (lib/classifier.ts)
 
 /** Largest number of training samples the plug-in keeps (a random, class-stratified subset). */
-export const SVM_MAX_TRAIN = 800;
+export const SVM_MAX_TRAIN = 500;
 
 export interface SVMPixelModel extends Model {
   multi: MultiModel;
@@ -580,8 +580,8 @@ export const SVM_CLASSIFIER: Classifier = {
   description: "Support vector machine with a linear or RBF kernel function; features standardised with the training statistics unless switched off.",
   params: [
     { key: "kernel", label: "kernel function: 0 linear, 1 RBF", min: 0, max: 1, step: 1, value: 1 },
-    { key: "C", label: "C", min: -2, max: 3, step: 0.25, value: 0, log: true },
-    { key: "gamma", label: "γ", min: -3, max: 1, step: 0.25, value: -1.5, log: true },
+    { key: "C", label: "C", min: -2, max: 3, step: 0.25, value: 1, log: true },
+    { key: "gamma", label: "γ", min: -3, max: 1, step: 0.25, value: -2, log: true },
     { key: "standardise", label: "standardise: 0 no, 1 yes", min: 0, max: 1, step: 1, value: 1 },
     { key: "ovo", label: "classes: 0 one-vs-rest, 1 one-vs-one", min: 0, max: 1, step: 1, value: 1 },
   ],

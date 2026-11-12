@@ -347,6 +347,24 @@ export function stackPCA(Y: A, n: number, P: number, weights?: A): { mean: Float
   return { mean, values, vectors };
 }
 
+/** Denoise a stack by projecting every pixel onto the span of the K leading left singular
+ *  vectors of Y (the best rank-K approximation, Eckart–Young), as VCA does before
+ *  looking for vertices. */
+export function projectRank(Y: A, n: number, P: number, K: number): Float32Array {
+  const G = new Float64Array(n * n);
+  for (let i = 0; i < n; i++) for (let j = i; j < n; j++) {
+    let s = 0;
+    for (let p = 0; p < P; p++) s += Y[i * P + p] * Y[j * P + p];
+    G[i * n + j] = G[j * n + i] = s;
+  }
+  const { vectors } = jacobiEigen(G, n, true), out = new Float32Array(n * P), coef = new Float64Array(K);
+  for (let p = 0; p < P; p++) {
+    for (let k = 0; k < K; k++) { let s = 0; for (let c = 0; c < n; c++) s += vectors[c * n + k] * Y[c * P + p]; coef[k] = s; }
+    for (let c = 0; c < n; c++) { let s = 0; for (let k = 0; k < K; k++) s += vectors[c * n + k] * coef[k]; out[c * P + p] = s; }
+  }
+  return out;
+}
+
 /** Pixels divided by their total over channels (the sum-to-one normalisation): the cone
  *  becomes a simplex. Pixels with a total below `minTotal` become NaN. */
 export function normaliseSum(Y: A, n: number, P: number, minTotal = 1e-12): Float32Array {
@@ -534,7 +552,10 @@ export function stainMatrix(v1: A, v2: A, v3?: A | null): Float64Array {
   const a = unit3(v1), b = unit3(v2);
   let c: [number, number, number];
   if (v3) c = unit3(v3);
-  else { const x = cross3(a, b); c = unit3([Math.abs(x[0]), Math.abs(x[1]), Math.abs(x[2])]); }
+  else {
+    const x = unit3(cross3(a, b)), big = x.reduce((m, v, i) => (Math.abs(v) > Math.abs(x[m]) ? i : m), 0);
+    c = x[big] < 0 ? [-x[0], -x[1], -x[2]] : [x[0], x[1], x[2]];
+  }
   return Float64Array.from([a[0], b[0], c[0], a[1], b[1], c[1], a[2], b[2], c[2]]);
 }
 
@@ -551,7 +572,8 @@ export function colourDeconvolve(R: A, G: A, B: A, I0: [number, number, number],
 }
 
 /**
- * Macenko et al. (2009) stain estimate: keep pixels with OD > beta in every channel; the
+ * Macenko et al. (2009) stain estimate: keep pixels with total OD (length of the OD vector)
+ * above beta (removes the transparent background); the
  * plane of the OD cloud from its two leading principal directions (uncentred, as in the
  * paper); the angle of each pixel in that plane; the two stain vectors at the alpha and
  * 100 − alpha percentiles of the angle (robust extremes = two-component vertex finding).
@@ -559,7 +581,7 @@ export function colourDeconvolve(R: A, G: A, B: A, I0: [number, number, number],
  */
 export function macenko(od: Float32Array[], beta = 0.15, alpha = 1): { v1: [number, number, number]; v2: [number, number, number]; used: number } | null {
   const P = od[0].length, idx: number[] = [];
-  for (let p = 0; p < P; p++) if (od[0][p] > beta && od[1][p] > beta && od[2][p] > beta) idx.push(p);
+  for (let p = 0; p < P; p++) if (Math.hypot(od[0][p], od[1][p], od[2][p]) > beta) idx.push(p);
   if (idx.length < 10) return null;
   const C = new Float64Array(9);
   for (const p of idx) for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i * 3 + j] += od[i][p] * od[j][p];
@@ -636,7 +658,7 @@ export function cellScene(n = 128, seed = 3): CellScene {
     cell[p] = d < 1 ? 1 : 0;
     const edge = (d - 1) * Math.min(ra, rb);       // ~ distance to the outline in pixels
     membrane[p] = Math.exp(-0.5 * (edge / (1.1 * s)) ** 2);
-    nucleus[p] = (1 - smoothstep((dn - 0.92) / 0.12)) * (0.8 + 0.2 * Math.sin(0.5 * x / s + 0.3) * Math.cos(0.43 * y / s));
+    nucleus[p] = (1 - smoothstep((dn - 0.92) / 0.12)) * (0.8 + 0.2 * Math.sin(0.17 * x / s + 0.3) * Math.cos(0.13 * y / s + 1));
     if (d < 1) {
       let w = 0.6;
       for (const [a, b, ph] of waves) w += 0.15 * Math.sin(a * x + b * y + ph);
@@ -721,7 +743,7 @@ export function stainScene(n = 160, seed = 7, mode: "he" | "hdab" = "he"): Stain
         cH[p] = Math.max(cH[p], h);
         if (pos) cD[p] = Math.max(cD[p], w * (0.5 + 0.25 * dens) * tex);
         if (d < 1) lab[p] = count;
-        cE[p] *= 1 - 0.6 * w;
+        cE[p] *= 1 - 0.85 * w;
       }
     }
   }

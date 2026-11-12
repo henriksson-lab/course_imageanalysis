@@ -4,7 +4,7 @@
 // that compute the numbers quoted in the exercises).
 //  - smooth: soft blobs on a gradient with weak noise (prediction works well);
 //  - shapes: flat regions with straight and diagonal edges (edges are what prediction misses);
-//  - card: a test card with a smooth gradient, sharp edges, fine stripes and a flat background
+//  - card: a test card with a smooth gradient, steep ramps, sharp edges, fine stripes and a flat background
 //    (blocking in the flat parts, ringing at the edges);
 //  - colourCard: an RGB card with saturated red/blue edges (chroma subsampling);
 //  - flat: a constant grey.
@@ -65,7 +65,8 @@ export function card(): Float64Array {
   const N = SIZE, out = new Float64Array(N * N);
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     let v: number;
-    if (y < 48) v = 30 + 200 * x / (N - 1);                                             // smooth gradient
+    if (y < 24) v = 30 + 200 * x / (N - 1);                                             // smooth gradient
+    else if (y < 48) v = 40 + 180 * (x % 32) / 31;                                      // steep ramps (sawtooth, period 32)
     else if (y < 128) v = x < 132 ? 200 : 60;                                            // flat halves, a vertical edge inside a block
     else if (y < 192) v = x < 128 ? ((x >> 1) % 2 ? 230 : 40) : (((x + y) >> 2) % 2 ? 200 : 80);   // fine and diagonal stripes
     else v = 150;                                                                       // flat

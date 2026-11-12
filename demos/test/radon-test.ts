@@ -6,6 +6,7 @@ import { rng } from "../src/lib/random";
 import { fft1d, fft2dRect } from "../src/lib/fft";
 import { sheppLogan } from "../src/lib/synth";
 import * as S from "../src/artsmall/model";
+import * as FS from "../src/fourierslice/model";
 
 declare const process: { exit(code: number): never };
 
@@ -152,6 +153,23 @@ function testFourierSlice(): void {
   check(md < 1e-9, "90 deg slice exact");
 }
 
+function testSliceModel(): void {
+  current = "fourierslice model";
+  const n = 64, img = R.ellipseImage(n, R.sheppLoganEllipses(n), 3), G = FS.centredSpectrum(img, n);
+  for (const [deg, tol] of [[0, 1e-9], [90, 1e-9], [30, 0.12], [45, 0.12]] as const) {
+    const th = deg * Math.PI / 180, p = R.projectAngle(img, n, th);
+    const P = FS.projectionSpectrum(p, n), sl = FS.sliceOf(G, th);
+    const d = FS.relDiff(P.re, P.im, sl.re, sl.im);
+    check(d < tol, `slice at ${deg} deg: rel diff ${d.toExponential(2)}`);
+  }
+  // direct reconstruction with many spokes and bilinear gridding is close to the image
+  const g = R.geometry(n, R.angleSet(45)), sino = R.project(img, g);
+  const rb = FS.directRecon(sino, n, g.angles, "bilinear"), rn = FS.directRecon(sino, n, g.angles, "nearest");
+  const mask = R.fovMask(n), eb = R.rmseOf(rb.img, img, mask), en = R.rmseOf(rn.img, img, mask);
+  check(eb < 0.15, `direct recon (bilinear) RMSE ${eb.toFixed(3)}`);
+  check(en > eb, `nearest gridding worse: ${en.toFixed(3)} vs ${eb.toFixed(3)}`);
+}
+
 function testIterative(): void {
   current = "iterative";
   const n = 32, el = R.sheppLoganEllipses(n), img = R.ellipseImage(n, el, 4);
@@ -209,6 +227,7 @@ testBasics();
 testAnalytic();
 testFilters();
 testFourierSlice();
+testSliceModel();
 testIterative();
 testSmall();
 console.log(`radon-test: ${checks - failures}/${checks} checks passed (${Date.now() - t0} ms)`);

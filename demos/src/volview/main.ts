@@ -15,7 +15,9 @@
 //    "resample to isotropic" resamples to 0.2 µm voxels (trilinear).
 //  - The voxel → world matrix A, and object counts at a threshold: in the MIP (2D labelling)
 //    and in 3D (3D labelling, 26-connected).
-// Auto-mounts on <div data-demo="volview">. Optional: data-mode="volumes3d",
+// Mode "render" (render.ts, unit `volrender/`): MIP / MinIP / average / volume rendering /
+// isosurface ray casting of a synthetic head, with a transfer-function editor.
+// Auto-mounts on <div data-demo="volview">. Optional: data-mode="volumes3d|render",
 // data-preset="slices|mip|squash|oblique|iso".
 import { htmlEl, slider, presets, button, autoMount } from "../lib/ui";
 import { GLView, OrbitCamera, viewButtons, boxLines } from "../lib/gl3d";
@@ -25,6 +27,7 @@ import {
   applyAffine, formatAffine, trilinear, NUCLEI_OBJECTS, Vec3, Slice2D,
 } from "../lib/volume";
 import { label2d, label3d } from "../lib/label";
+import { mountRender } from "./render";
 
 const NAME = "volview";
 const ORIGIN: Vec3 = [10, 20, 4];
@@ -230,7 +233,7 @@ function mountVolumes3d(host: HTMLElement): void {
 }
 
 /** Modes of the viewer; the 3D-graphics day adds its own. */
-const MODES: Record<string, (host: HTMLElement) => void> = { volumes3d: mountVolumes3d };
+const MODES: Record<string, (host: HTMLElement) => void> = { volumes3d: mountVolumes3d, render: mountRender };
 
 autoMount(NAME, host => {
   injectStyle();

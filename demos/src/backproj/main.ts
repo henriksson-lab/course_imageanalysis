@@ -17,7 +17,7 @@ const NAME = "backproj";
 const N = 128;
 const DOSES = [Infinity, 1e6, 1e5, 1e4, 1e3, 300];
 const FILTER_LABEL: Record<R.FilterKind, string> = { none: "none", ramp: "ramp", "shepp-logan": "Shepp–Logan", cosine: "cosine", hann: "Hann" };
-const FLAT: Partial<Record<ObjectName, [number, number]>> = { shepp: [0, -28], disc: [10, 6] };
+const FLAT: Partial<Record<ObjectName, [number, number]>> = { shepp: [0, -28], disc: [10, 6], bigdisc: [0, 0] };
 
 interface Settings { obj: ObjectName; filter: R.FilterKind; cutoff: number; nAngles: number; done: number; dose: number; pad: boolean; showFiltered: boolean }
 interface Preset { id: string; label: string; s: Settings }
@@ -29,7 +29,7 @@ const PRESETS: Preset[] = [
   { id: "pointramp", label: "one point: ramp cancels the star", s: { ...base, obj: "point", nAngles: 16, done: 16, showFiltered: true } },
   { id: "lowdose", label: "ramp, low dose: grain", s: { ...base, dose: 1e3 } },
   { id: "hann", label: "Hann: smoother, softer", s: { ...base, filter: "hann", dose: 1e3 } },
-  { id: "nopad", label: "forgot to pad", s: { ...base, obj: "disc", pad: false } },
+  { id: "nopad", label: "forgot to pad", s: { ...base, obj: "bigdisc", pad: false } },
 ];
 
 const STYLE = baseCss(NAME) + `
@@ -61,7 +61,7 @@ function mount(host: HTMLElement): void {
   const presetBtns = presets(colA, PRESETS.map(p => ({ label: p.label, apply: () => load(p.s, p) })));
 
   htmlEl("div", "rd-lab", "object", colB);
-  const objNames: ObjectName[] = ["shepp", "point", "disc", "cell"];
+  const objNames: ObjectName[] = ["shepp", "point", "disc", "bigdisc", "cell"];
   const objRow = htmlEl("div", "qb-presets", "", colB);
   const objBtns = objNames.map(o => button(objRow, OBJECT_LABELS[o], () => { st.obj = o; full(); }));
   htmlEl("div", "rd-lab", "filter", colB);
@@ -177,7 +177,7 @@ function mount(host: HTMLElement): void {
     recP.cap.textContent = `reconstruction (${st.done} of ${na} angles)` + (autoC ? ", auto contrast" : "");
     // readout
     const rm = R.rmseOf(rec, truth, mask);
-    let txt = `angles back-projected: ${st.done} / ${na}\nRMSE vs truth: ${rm.toFixed(3)}   PSNR: ${(20 * Math.log10(truthMax / rm)).toFixed(1)} dB`;
+    let txt = `angles back-projected: ${st.done} / ${na}\n` + (st.filter === "none" ? "RMSE: – (plain back-projection is not normalised)" : `RMSE vs truth: ${rm.toFixed(3)}   PSNR: ${(20 * Math.log10(truthMax / rm)).toFixed(1)} dB`);
     const fl0 = FLAT[st.obj];
     if (fl0) {
       let s = 0, s2 = 0, k = 0;

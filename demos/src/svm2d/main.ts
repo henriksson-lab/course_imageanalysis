@@ -208,7 +208,7 @@ function mount(host: HTMLElement): void {
     const trainErr = errRate(m, pts);
     let s = `kernel function: ${KNAMES[st.kernel]}` + (st.kernel === "rbf" ? `\nγ = ${fmtNum(p10(st.logG))}, length 1/√γ = ${fmtNum(1 / Math.sqrt(p10(st.logG)))}` : st.kernel === "poly" ? `, degree ${st.degree}` : "");
     s += `\nC = ${fmtNum(C)}`;
-    if (m.w) s += `\nf(x) = ${m.w[0].toFixed(2)} x₁ ${m.w[1] >= 0 ? "+" : "−"} ${Math.abs(m.w[1]).toFixed(2)} x₂ ${m.b >= 0 ? "+" : "−"} ${Math.abs(m.b).toFixed(2)}\nstreet width 2/‖w‖ = ${marginWidth(m).toFixed(2)}`;
+    if (m.w) s += `\nf(x) = ${m.w[0].toFixed(2)} x₁ ${m.w[1] >= 0 ? "+" : "−"} ${Math.abs(m.w[1]).toFixed(2)} x₂ ${m.b >= 0 ? "+" : "−"} ${Math.abs(m.b).toFixed(2)}\nstreet width 2/‖w‖ = ${Math.hypot(m.w[0], m.w[1]) < 1e-3 ? "∞ (w ≈ 0: no line helps)" : marginWidth(m).toFixed(2)}`;
     s += `\nsupport vectors: ${m.sv.length}\n  ${nEdge} on the edge, ${nIn} inside or wrong`;
     s += `\ntraining errors: ${Math.round(trainErr * pts.length)} of ${pts.length}`;
     if (cvMode) s += `\ntest errors: ${Math.round(errRate(m, test) * test.length)} of ${test.length} (${(100 * errRate(m, test)).toFixed(1)}%)`;

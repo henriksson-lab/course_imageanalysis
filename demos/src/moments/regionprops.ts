@@ -159,8 +159,8 @@ export function traceContour(mask: ArrayLike<number>, w: number, h: number, star
 const chainLength = (codes: number[]) => codes.reduce((s, c) => s + (c % 2 ? Math.SQRT2 : 1), 0);
 
 /** 8-chain-code perimeter: outer contours of all 8-components plus, for every hole (a
- *  4-connected background component not touching the frame), the contour of the object
- *  pixels around it (traced as the outer contour of the hole dilated by the 3×3 square). */
+ *  4-connected background component not touching the frame), the contour through the object
+ *  pixels 4-adjacent to it (traced as the outer contour of the hole dilated by the cross). */
 export function chainPerimeter(mask: ArrayLike<number>, w: number, h: number): number {
   let total = 0;
   const lab = label2d(mask, w, h, 8);
@@ -176,7 +176,7 @@ export function chainPerimeter(mask: ArrayLike<number>, w: number, h: number): n
     const d = new Uint8Array(w * h);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       if (!hm[y * w + x]) continue;
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const xx = x + dx, yy = y + dy;
         if (xx >= 0 && yy >= 0 && xx < w && yy < h) d[yy * w + xx] = 1;
       }

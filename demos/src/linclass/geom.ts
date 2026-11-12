@@ -76,8 +76,8 @@ export const LIN_PRESETS: LinPreset[] = [
   },
   {
     id: "mean", label: "nearest mean is not the best line", range: [0, 10], line: { w: [1, 0], b: -5 },
-    points: () => scaleTo(anisotropic([{ centre: [0.42, 0.5], sd: [0.22, 0.025], angle: 1.1 }, { centre: [0.58, 0.5], sd: [0.22, 0.025], angle: 1.1 }], { n: 60, seed: 12 }).points, 0, 10),
-    note: "Two long, slanted clouds: the nearest-mean line is vertical and cuts both.",
+    points: () => scaleTo(anisotropic([{ centre: [0.3875, 0.389], sd: [0.2, 0.02], angle: 1.1 }, { centre: [0.6125, 0.611], sd: [0.2, 0.02], angle: 1.1 }], { n: 60, seed: 12 }).points, 0, 10),
+    note: "Two long, parallel clouds, shifted along their length: the nearest-mean line is nearly perpendicular to them and cuts both. A line along the clouds separates them.",
   },
   {
     id: "outlier", label: "one outlier", range: [0, 10], line: { w: [1, 1], b: -10 },

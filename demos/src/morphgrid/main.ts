@@ -45,6 +45,8 @@ import { gridStepper, gridFromText, GridStepper } from "../lib/gridui";
 import { getMode, ModeContext, ModePreset } from "./registry";
 import "./mode-binary";
 import "./mode-distance";
+import "./mode-label";
+import "./mode-hitmiss";
 
 const NAME = "morphgrid";
 const STYLE = `

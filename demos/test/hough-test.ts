@@ -8,7 +8,7 @@ import { rng } from "../src/lib/random";
 import { project, geometry, angleSet } from "../src/lib/radon";
 import { makeScene, groundTruthLines, N as LN } from "../src/houghlines/scenes";
 import { makeCircleScene } from "../src/houghcircle/scenes";
-import { TEMPLATES, makeGhtScene } from "../src/ght/scenes";
+import { TEMPLATES, makeGhtScene, templateEdgePoints } from "../src/ght/scenes";
 
 declare const process: { exit(code: number): never };
 
@@ -204,6 +204,14 @@ function testGHT(): void {
     const cn = canny(sc.img, 1.2, 4, 10), ep = edgeList(cn.hyst.edges, cn.gx, cn.gy, cn.mag);
     const phis = Array.from({ length: 36 }, (_, i) => i * 10 * Math.PI / 180);
     const G = H.ghtVote(ep, T, sc.img.width, sc.img.height, { phis });
+    // with the template's own Canny points and a 1-pixel tolerance the score is high
+    const tq = templateEdgePoints(tpl), Tq = H.buildRTable(tq, ref, 36);
+    const Gq = H.ghtVote(ep, Tq, sc.img.width, sc.img.height, { phis, tol: 1 });
+    const pq = H.peaks3(Gq.acc, Gq.w, Gq.h, phis.length, 1, 4, 36, 1)[0];
+    check(Math.hypot(pq.x - 120, pq.y - 90) <= 1.5 && pq.value / tq.length > (rotDeg ? 0.5 : 0.85), `tolerant GHT score ${(pq.value / tq.length).toFixed(2)} at ${pq.x},${pq.y}`);
+    // tolerance: a cell never counts a point twice, so the score is at most the number of scene points
+    let mx = 0; for (const v of Gq.acc) mx = Math.max(mx, v);
+    check(mx <= ep.length, "tol: at most one vote per point per cell");
     const pk = H.peaks3(G.acc, G.w, G.h, phis.length, 1, 4, 1, 1)[0];
     check(Math.hypot(pk.x - 120, pk.y - 90) <= 2 && Math.abs(pk.s * 10 - rotDeg) <= 10, `copy at 120,90 rotated ${rotDeg}: found at ${pk.x},${pk.y}, ${pk.s * 10} deg`);
   }

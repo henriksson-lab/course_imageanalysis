@@ -53,14 +53,6 @@ export function steps3(noise = 0.12, seed = 3): number[] {
 
 /** Two V-shaped basins joined by a flat ridge of 9 samples at height 6. */
 export function plateau(): number[] {
-  const out: number[] = [];
-  for (let x = 0; x < 30; x++) {
-    let v: number;
-    if (x < 6) v = 8 - x;              // 8 .. 3
-    else if (x < 10) v = 3 - (x - 5) * 0.5 >= 1 ? 3 - (x - 5) * 0.5 : 1;
-    else v = 0;
-    out.push(v);
-  }
   const left = [8, 7, 6, 5, 4, 3, 2, 1, 1, 2, 3, 4, 5, 6];
   const ridge = Array(9).fill(6);
   const right = [5, 4, 3, 2, 2, 1, 2, 3, 4, 5, 6, 7, 8];
