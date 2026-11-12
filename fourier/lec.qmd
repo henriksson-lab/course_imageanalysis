@@ -1,0 +1,119 @@
+---
+title: "Images in frequency space"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+- Every signal, and every image, is a **sum of waves**.
+- The discrete Fourier transform (DFT) is a **change of basis** to those waves.
+- In 2D, each coefficient is a **plane wave** with a direction and a frequency.
+- **Convolution theorem:** filtering = multiplying the spectrum. Low-pass, high-pass, notch.
+- Sampling: what a pixel grid can and cannot represent (**aliasing**).
+
+## Everything is a sum of waves
+
+A signal on $0 \le t < 1$ can be written as
+
+$$f(t) = \sum_{k} c_k\, e^{2\pi i k t}, \qquad c_k = \int_0^1 f(t)\, e^{-2\pi i k t}\, dt.$$
+
+- Slow waves (small $|k|$) carry the broad shape; fast waves carry **sharp edges** and fine detail.
+- The coefficients come from an **integral against each wave**: a projection, because the waves are **orthogonal**.
+
+## Try it: build a wave
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="fourierwave" data-a="1 0 0 0 0"></div>
+<script src="../demos/dist/fourierwave.js"></script>
+```
+
+::: notes
+Five waves sin(2π·f·t), f = 1 to 5 cycles per window; each slider sets one amplitude. The bold black line is the sum; the bars are the amplitude spectrum |a_f|. Start from a single slow wave, then add f = 3 at a third of the height and f = 5 at a fifth (or press "square"): plateaus with steep edges appear. Sharper edges would need still higher frequencies. "Sawtooth" uses all five with alternating signs. Point out that a negative amplitude flips the wave, a phase change, and the bars do not change: the amplitude spectrum throws away phase.
+:::
+
+## The DFT is a change of basis
+
+For a signal of length $N$, $x = (x_0, \dots, x_{N-1})$:
+
+$$X_k = \sum_{n=0}^{N-1} x_n\, e^{-2\pi i kn/N}, \qquad x_n = \frac1N \sum_{k=0}^{N-1} X_k\, e^{2\pi i kn/N}.$$
+
+- In matrix form, $X = Fx$ with $F_{kn} = e^{-2\pi i kn/N}$. The columns of $F^*$ are **orthogonal**: $F^*F = N\,I$.
+- So $x$ and $X$ are the **same vector in two bases**. Nothing is lost; $F^{-1} = \tfrac1N F^*$.
+- Parseval: $\sum |x_n|^2 = \tfrac1N \sum |X_k|^2$. Energy is shared out over the frequencies.
+- For real $x$: $X_{N-k} = \overline{X_k}$. Frequencies come in **mirror pairs** $\pm k$.
+- The **FFT** computes $X$ in $\mathcal{O}(N\log N)$ instead of $\mathcal{O}(N^2)$.
+
+::: notes
+This is the slide that should click for students with a linear algebra background: the Fourier transform is just an orthogonal (unitary, up to scale) change of basis. Index k = N − k is the same as frequency −k, which is why spectra are usually drawn with frequency 0 in the middle.
+:::
+
+## From 1D to 2D: plane waves
+
+For an $N\times N$ image, the basis functions are
+
+$$e^{2\pi i (ux + vy)/N}: \text{ a wave along the direction } (u, v), \text{ with } \sqrt{u^2+v^2} \text{ cycles across the image.}$$
+
+- The 2D DFT is the 1D DFT on every row, then on every column (it is **separable**).
+- We show the spectrum as $\log(1 + |X_{u,v}|)$ with frequency $(0, 0)$ in the **centre**.
+- Distance from the centre = **frequency** (fine vs coarse). Angle = **orientation** of the wave.
+- A pattern of stripes gives a pair of bright dots, perpendicular to the stripes.
+
+## The convolution theorem
+
+$$\mathcal{F}\{I * w\} = \mathcal{F}\{I\} \cdot \mathcal{F}\{w\}.$$
+
+Convolution in the image = **pointwise multiplication** of the spectra. So every filter from last lecture has a **frequency response** $\hat w(u, v)$:
+
+- Gaussian blur: $\hat w$ is (close to) a Gaussian too, largest at 0: a **low-pass** filter.
+- Laplacian: $\hat w \propto -(u^2 + v^2)$ near 0, zero at frequency 0: a **high-pass** filter.
+- Sum of weights $= \hat w(0, 0)$: the response to the average brightness.
+
+Large kernels are cheaper in frequency space: two FFTs and a product, $\mathcal{O}(N^2\log N)$ for an $N\times N$ image.
+
+::: notes
+The FFT assumes the image repeats periodically, so filtering via FFT wraps around at the border: the "wrap" border rule from last time. Padding avoids it.
+:::
+
+## Try it: filter an image in frequency space
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="fourier2d" data-mode="low" data-max="30"></div>
+<script src="../demos/dist/fourier2d.js"></script>
+```
+
+::: notes
+Left: the image; middle: its spectrum (log magnitude, frequency 0 in the centre); right: the image rebuilt from the kept coefficients. Removed coefficients are dark red. Start with low-pass at max radius 30 and drag down to about 5: a blur, but the shape survives. Switch to high-pass: only edges and texture remain. Then "keep largest" at 3%: most of the variation is in very few coefficients, which is why JPEG works. Finally tick "add stripe artefact", choose "no filter", and erase the two bright dots (yellow rings): the stripe disappears. That is a notch filter.
+:::
+
+## Sampling and aliasing
+
+A pixel grid with spacing $\Delta$ can only represent frequencies up to the **Nyquist frequency** $\tfrac{1}{2\Delta}$: two samples per cycle.
+
+- Finer detail is not lost silently: it **folds back** and appears as a false, coarser pattern (**aliasing**, moiré).
+- So before **downsampling** an image, blur it first (low-pass), to remove what the coarser grid cannot hold.
+- Same reason the optics of a microscope should match the pixel size of its camera.
+
+## Summary
+
+- The DFT is an orthogonal **change of basis** to waves; nothing is lost.
+- Low frequencies = broad shapes; high frequencies = edges, texture and noise.
+- **Convolution theorem:** filtering is multiplication in frequency space. Kernels have a frequency response.
+- Isolated peaks in the spectrum = periodic structure (or artefacts): remove them with a **notch**.
+- Sample at least twice per cycle, and low-pass before downsampling.

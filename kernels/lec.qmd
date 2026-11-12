@@ -1,0 +1,126 @@
+---
+title: "Filtering & convolution"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+Last time we **moved** pixels. Today we **change their values**, using the pixels nearby.
+
+- A **kernel** is a small grid of weights. Each output pixel is the **weighted sum** of its neighbourhood.
+- This is **convolution**: linear and the same everywhere in the image.
+- Blur, sharpen and edge detection are all just different weights.
+- Derivatives of an image are differences of neighbours: **Taylor** tells us which.
+- What the **sum of the weights** tells you, and what to do at the **border**.
+
+## A kernel slides over the image
+
+For a $3\times3$ kernel $w$, the output at pixel $(i, j)$ is
+
+$$I'[i, j] = \sum_{k=-1}^{1}\sum_{l=-1}^{1} w[k, l]\; I[i + k,\, j + l].$$
+
+- Centre the kernel on a pixel, multiply each pixel by the weight on top of it, **add the nine products**.
+- Move one pixel on and repeat. The window always reads the **input**, never earlier outputs.
+- The **same** nine weights are used everywhere.
+
+::: notes
+Strictly, the formula above is cross-correlation. Convolution flips the kernel: I[i − k, j − l]. For symmetric kernels (all the blurs) there is no difference; for Sobel the flip changes the sign. Image libraries differ in which one they call "filter"; worth checking once and then remembering.
+:::
+
+## Convolution: linear and shift-invariant
+
+With the kernel flipped, this is the discrete version of the integral you know from calculus:
+
+$$(f * g)(x) = \int f(s)\, g(x - s)\, ds \qquad\longleftrightarrow\qquad (I * w)[i,j] = \sum_{k,l} I[k,l]\, w[i-k,\, j-l].$$
+
+Two properties make it special:
+
+- **Linear:** $(aI_1 + bI_2) * w = a(I_1 * w) + b(I_2 * w)$. On an image with $n$ pixels, filtering is a (huge, sparse) $n \times n$ matrix.
+- **Shift-invariant:** shift the input, and the output shifts the same way.
+
+Every operator with both properties is a convolution with some kernel. And: $(I * w_1) * w_2 = I * (w_1 * w_2)$, so filters can be combined into one.
+
+## One output pixel, by hand {.smaller}
+
+Neighbourhood and two kernels:
+
+$$\begin{bmatrix} 1 & 5 & 9\\ 5 & 9 & 9\\ 9 & 9 & 9 \end{bmatrix} \qquad
+\text{Gaussian } \tfrac1{16}\begin{bmatrix} 1 & 2 & 1\\ 2 & 4 & 2\\ 1 & 2 & 1 \end{bmatrix} \qquad
+\text{Laplacian } \begin{bmatrix} 0 & 1 & 0\\ 1 & -4 & 1\\ 0 & 1 & 0 \end{bmatrix}$$
+
+- Gaussian: $(1 + 10 + 9 + 10 + 36 + 18 + 9 + 18 + 9)/16 = 120/16 = 7.5$.
+- Laplacian: $5 + 5 + 9 + 9 - 4\cdot 9 = -8$. Negative! Edge filters need a display with **0 as mid-grey**.
+
+**Sum of the weights:** on a flat region of value $c$, the output is $c \cdot \sum w$.
+
+- $\sum w = 1$: brightness is kept (blurs, sharpen).
+- $\sum w = 0$: flat regions give 0; the filter only sees **change** (edges).
+
+## Derivatives are differences of neighbours
+
+Taylor: $f(x \pm h) = f(x) \pm h f'(x) + \tfrac{h^2}{2} f''(x) \pm \dots$ With pixel spacing $h = 1$:
+
+$$f'(x) \approx \tfrac12\big[f(x+1) - f(x-1)\big] \quad \to \quad \tfrac12\,[-1\;\;0\;\;1]$$
+$$f''(x) \approx f(x+1) - 2f(x) + f(x-1) \quad \to \quad [1\;\;-2\;\;1]$$
+
+- **Sobel x** $= \begin{bmatrix}1\\2\\1\end{bmatrix}[-1\;\;0\;\;1]$: a derivative in $x$, smoothed in $y$. Sobel y likewise.
+- The **gradient** $\nabla I \approx (\text{Sobel x}, \text{Sobel y})$; its length $\|\nabla I\|$ is the **edge strength**.
+- The **Laplacian** $\nabla^2 I = I_{xx} + I_{yy}$: add $[1\;-2\;1]$ in both directions to get $\begin{bmatrix} 0 & 1 & 0\\ 1 & -4 & 1\\ 0 & 1 & 0 \end{bmatrix}$.
+
+::: notes
+The central difference is accurate to order h², the one-sided difference only to order h: that is why the kernel skips the centre pixel. Sobel is an outer product of a smoothing column and a derivative row: a separable kernel. The Gaussian is separable too, 1 2 1 times 1 2 1. Separable kernels can be applied as two 1D passes, which is much faster for large kernels.
+:::
+
+## Try it: 3 × 3 kernels
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="kernel3x3" data-image="cell" data-preset="gauss"></div>
+<script src="../demos/dist/kernel3x3.js"></script>
+```
+
+::: notes
+Left: the input; middle: the nine weights, which can be typed (press Enter to give the keyboard back to the slides) or changed with − and +; right: the output, live. Click on either image to select a pixel: the grey box shows the neighbourhood, the weights and the products, as on the by-hand slide. Suggested tour: Gaussian, then box blur with apply × 5. Laplacian: the output switches to "0 = grey"; try "as is" to see why. Sobel x versus Sobel y on the test pattern. Turn the noise up to about 30 with the Laplacian: the noise swamps everything; tick "blur input first". Finally "shift": the weights decide where information comes from.
+:::
+
+## Noise and edges
+
+Derivatives amplify **noise**: noise is exactly "a pixel that differs from its neighbours".
+
+- So **smooth first, then differentiate**. Because convolution is associative, $(I * G) * D = I * (G * D)$: one combined kernel.
+- **Laplacian of Gaussian** $\nabla^2 G$: a blob and edge detector at a chosen scale $\sigma$.
+- The scale of the Gaussian decides the scale of the structures you find.
+
+## What happens at the border?
+
+At the edge, part of the window falls **outside** the image. Common choices:
+
+- **Zeros**: simple, but the border darkens.
+- **Copy the edge** (replicate): pixels outside take the value of the nearest edge pixel.
+- **Mirror**: reflect the image at its edge. Fewer artefacts for smooth images.
+- **Wrap around** (periodic): what the Fourier transform assumes, as we will see next time.
+
+There is no correct answer; just be aware that the outer pixels are less trustworthy.
+
+## Summary
+
+- Filtering = weighted sum of a neighbourhood = **convolution**: linear and shift-invariant.
+- **Sum of weights** 1 keeps brightness; 0 responds only to change.
+- Finite differences from Taylor give **derivative** kernels: Sobel (gradient), Laplacian (second derivative).
+- Smooth before differentiating; mind the border.
+- Next: the **Fourier** view, where convolution becomes multiplication.

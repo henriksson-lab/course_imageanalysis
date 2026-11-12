@@ -1,0 +1,112 @@
+---
+title: "Images as arrays & geometric transforms"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+- A digital image is a **function sampled on a grid**: a matrix of numbers.
+- Grey levels, colour channels and bit depth.
+- Moving an image around: a **geometric transform** is a matrix acting on the **coordinates**, not on the pixel values.
+- Why we compute the output by going **backwards** (inverse mapping), and what **interpolation** is for.
+- Adding translation: **affine** transforms and homogeneous coordinates.
+
+::: notes
+The whole course rests on one idea: an image is a matrix, so the tools from linear algebra and calculus apply. This first lecture sets up notation and does the simplest thing one can do with an image: move it. The students know matrices as linear maps; here the matrix maps pixel positions.
+:::
+
+## From a scene to a matrix
+
+A camera or microscope measures a continuous brightness $f(x, y)$ and records it at a grid of points:
+
+$$I[i, j] = f(x_j,\, y_i), \qquad i = 1,\dots,M \text{ (rows)},\quad j = 1,\dots,N \text{ (columns)}.$$
+
+- Each entry is a **pixel** (picture element). Its value is a **grey level**, typically stored as an integer 0–255 (8 bits) or 0–65535 (16 bits, common in microscopy).
+- A **colour** image is three such matrices (red, green, blue): an $M \times N \times 3$ array.
+- Watch the conventions: matrices are indexed **(row, column)** from the top left; plots use **(x, y)** with y pointing up.
+
+::: notes
+Two things are lost when we sample: everything between the grid points (resolution) and everything between the grey levels (quantisation). Sampling comes back in the Fourier lecture, where we can say precisely what is lost. The row/column versus x/y confusion is the single most common bug in image code: row index i goes down, y goes up. Say it now, and expect to say it again.
+:::
+
+## Image operations come in two kinds
+
+| Change the **values** | Change the **positions** |
+|---|---|
+| $I'[i,j] = g(I[i,j])$, or a function of the neighbours | $I'(\mathbf{x}) = I(T^{-1}\mathbf{x})$ |
+| contrast, thresholds, **filters** | rotate, scale, shear, **register** two images |
+| next lectures | **this lecture** |
+
+A geometric transform keeps every grey level; it only moves them.
+
+## A matrix moves the coordinates
+
+Put the origin in the centre of the image. A $2\times2$ matrix $A$ sends the point $\mathbf{x} = (x, y)$ to $A\mathbf{x}$:
+
+$$A = \begin{bmatrix} a & b\\ c & d \end{bmatrix}, \qquad A\begin{bmatrix}1\\0\end{bmatrix} = \begin{bmatrix}a\\c\end{bmatrix} \text{ (col 1)}, \quad A\begin{bmatrix}0\\1\end{bmatrix} = \begin{bmatrix}b\\d\end{bmatrix} \text{ (col 2)}.$$
+
+- The **columns** of $A$ are where the unit vectors land. That is all you need to read a matrix.
+- Rotation by $\theta$: $\begin{bmatrix}\cos\theta & -\sin\theta\\ \sin\theta & \cos\theta\end{bmatrix}$. Scaling: $\begin{bmatrix}s_x & 0\\ 0 & s_y\end{bmatrix}$. Shear: $\begin{bmatrix}1 & k\\ 0 & 1\end{bmatrix}$.
+- $\det A$ is the factor by which **areas** change; $\det A < 0$ means a **mirror image**; $\det A = 0$ squashes the image onto a line.
+
+## Try it: transform an image
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="matrix2x2" data-mode="image" data-a="1 0 0 1"></div>
+<script src="../demos/dist/matrix2x2.js"></script>
+```
+
+::: notes
+Drag the red and blue handles: they are the two columns of A. Suggested tour: Rotate 30°, then Scale (twice as wide, half as tall), then Reflect, where the F reads backwards (determinant −1). Then rotate by 180° with the slider and ask: is this a mirror image too? (No: determinant +1.) Then Collapse, and slowly pull the blue handle away from the red one: the picture is a line exactly when the columns are parallel, determinant 0. Finally Misaligned: this is what a second image of the same sample often looks like, and undoing it is image registration.
+:::
+
+## Computing the output: go backwards
+
+Forward mapping (send every input pixel to $A\mathbf{x}$) leaves **holes** when the image is enlarged, and collisions when it shrinks.
+
+Instead, loop over the **output** pixels and ask where each one came from:
+
+$$I'(\mathbf{x}') = I\!\left(A^{-1}\mathbf{x}'\right).$$
+
+- Every output pixel gets exactly one value: no holes.
+- $A^{-1}\mathbf{x}'$ is almost never exactly on the grid, so we **interpolate**:
+  - **nearest neighbour**: take the closest pixel (blocky, but keeps the original values; used for label images),
+  - **bilinear**: a weighted average of the 4 surrounding pixels (smoother; the standard choice).
+- This needs $A$ to be invertible. If $\det A = 0$, there is no way back.
+
+::: notes
+The demo uses inverse mapping with nearest-neighbour lookup; zoom in with the Scale preset and you can see the blocks. Bilinear interpolation is linear interpolation in x followed by linear interpolation in y; the exercise works one out by hand.
+:::
+
+## Adding translation: affine transforms
+
+A $2\times2$ matrix always keeps the origin fixed. To also **shift** the image, use $\mathbf{x}' = A\mathbf{x} + \mathbf{t}$, written as one $3\times3$ matrix in **homogeneous coordinates**:
+
+$$\begin{bmatrix}x'\\ y'\\ 1\end{bmatrix} = \begin{bmatrix} a & b & t_x\\ c & d & t_y\\ 0 & 0 & 1\end{bmatrix}\begin{bmatrix}x\\ y\\ 1\end{bmatrix}.$$
+
+- Now **composition** is matrix multiplication again: "rotate about the point $\mathbf{p}$" = shift $\mathbf{p}$ to the origin, rotate, shift back: $T_{\mathbf{p}}\,R\,T_{-\mathbf{p}}$.
+- Order matters: $RS \neq SR$ in general.
+- Image libraries describe a transform by exactly this $3\times3$ (or $2\times3$) matrix.
+
+## Summary
+
+- An image is a sampled function, stored as a matrix $I[i, j]$ (row, column).
+- A geometric transform moves **positions**: $\mathbf{x} \mapsto A\mathbf{x} + \mathbf{t}$. The columns of $A$ tell you what it does; $\det A$ tells you about area and mirroring.
+- Compute it **backwards**, $I'(\mathbf{x}') = I(A^{-1}\mathbf{x}')$, and interpolate between pixels.
+- Next: change the **values** using the neighbours: filtering.
