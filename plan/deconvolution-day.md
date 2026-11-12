@@ -1,7 +1,7 @@
 # Plan: a day on deconvolution and restoration
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
-**Course map (2026-11-12):** core day of Part I (5′ in `plan/coursemap.md`), directly after
+**Course map (2026-11-12):** core day 5 of 18, Part I, directly after
 day 4 *Image formation* (`plan/imageformation-day.md`) and before Part II (thresholding).
 Built from units 3–4 of the earlier combined image formation plan, extended.
 
@@ -63,14 +63,14 @@ Recall, don't re-teach: each item below gets at most one recall slide with a poi
 | Convolution, Laplacian kernel, border rules | `kernels/` (day 1) | Laplacian as the roughness penalty (unit 1); "wrap" border rule as the cause of FFT border ringing (one line) |
 | SVD, least squares, normal equations | linear algebra (audience.md) | Unit 2 recalls in one line; filter factors are the new part |
 | PCA | `pca/` (day 1) | Not needed; no recall |
-| Energy = data term + λ·smoothness for **labels** | Graph cuts `seg-energy/` (day 12) | This day is the course's first data + λ·penalty (continuous unknowns). `seg-energy/` recalls it: "the same form, but each pixel takes one of two labels". λ is the regularisation weight (course convention). |
+| Energy = data term + λ·smoothness for **labels** | Graph cuts `seg-energy/` (day 13) | This day is the course's first data + λ·penalty (continuous unknowns). `seg-energy/` recalls it: "the same form, but each pixel takes one of two labels". λ is the regularisation weight (course convention). |
 | Total variation, MRF priors | Ising/MRF elective (`gmrf/`, owns TV) | Unit 2: one concept slide (TV keeps steps, staircases ramps) and a 1D demo option; no algorithm. Pointer to the elective. |
 | Sparsity prior, wavelet shrinkage | Wavelets elective (`shrinkage/`) | Unit 2: one line ("a penalty on coefficients in a basis") in the priors slide; unit 4 one line in the denoiser comparison |
 | Iterative reconstruction, SIRT semi-convergence, MLEM | Radon elective | Radon unit 4 recalls units 2–3 here (early stopping, MLEM = RL with the projector). Here: one forward-pointer line. |
 | Linear unmixing, least squares with a mixing matrix | Spectral unmixing elective | Not needed. Stain "colour deconvolution" is unrelated despite the name: one sentence in unit 1's notes. |
 | Median / rank filters | Morphology (rank filters as the family between min and max) | Unit 4 introduces the median as a **denoiser** (one slide); morphology places it among the rank filters, thresholding recalls it. See open questions. |
 | Learned denoising, generative restoration, hallucination | Modern deep learning (`genrestore`, optional `learned-restoration/`) | Unit 4: one pointer slide, no names ("networks trained on noisy/clean pairs now beat all of these; they can invent structure"). Wiener from unit 1 is the honest baseline in `genrestore`. |
-| Object-level evaluation, statistics of measurements | Evaluation and statistics (day 15) | Unit 4's "what may be measured" is about restoration only; one forward pointer |
+| Object-level evaluation, statistics of measurements | Evaluation and statistics (day 16) | Unit 4's "what may be measured" is about restoration only; one forward pointer |
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 

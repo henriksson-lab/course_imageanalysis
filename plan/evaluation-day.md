@@ -1,8 +1,8 @@
 # Plan: a day on evaluation and statistics
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
-Core day 15, Part V "Learning from examples", after random forests (13) and neural
-networks (14), before modern deep learning (16). Closes gap 4 of `plan/review-gaps.md`.
+Core day 16, Part V "Learning from examples", after random forests (14) and neural
+networks (15), before VAEs (17) and modern deep learning (18). Closes gap 4 of `plan/review-gaps.md`.
 
 ## Goal of the day
 
@@ -72,7 +72,7 @@ else below is recalled in at most one slide with a pointer.
   there and **reasoned about** (confounding, randomised layout) here.
 - **Measurement bias from pixel size and PSF** (measurements day perimeter bias, image formation
   day): recalled as the cause of a proportional bias in the Bland–Altman area preset.
-- **Detection AP** (day 16 `detection/`, new): boxes, NMS and COCO-style AP over several IoU
+- **Detection AP** (day 18 `detection/`, new): boxes, NMS and COCO-style AP over several IoU
   thresholds reuse this day's matching and AP; that unit only recalls them.
 - **Statistics prerequisite gap**: the audience knows mean, variance and the normal
   distribution, but **not** standard errors, p-values, t-tests or confidence intervals. Unit 4
@@ -554,7 +554,7 @@ Math questions (under `### Math questions` in the exercise):
   testing and batch effects. Options: move multiple testing and `featurescan` into a short
   optional unit, or give unit 4 a longer slot (two sessions).
 - **"AP" naming**: teach both the area-under-PR AP and TP/(TP+FP+FN) as "matching accuracy"
-  (my proposal), or use the cell-segmentation convention throughout? Day 16 `detection/` must
+  (my proposal), or use the cell-segmentation convention throughout? Day 18 `detection/` must
   use the same choice.
 - **Where the code lives**: `lib/eval.ts` + `lib/stats.ts` as proposed, or object evaluation as a
   third section of `lib/metrics.ts` (review-organisation names one metrics file)?

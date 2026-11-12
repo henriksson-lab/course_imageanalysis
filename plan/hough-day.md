@@ -31,7 +31,7 @@ concrete. RANSAC needs only basic probability.
   freed hour splits the former dense unit 3 into `hough-circles/` and `ght/`, as this plan
   proposed.
 - **Hysteresis** is introduced on the edges day (day 2, inside Canny) and generalised as a
-  segmentation tool on the thresholding day (day 5); here it only appears inside the Canny recall.
+  segmentation tool on the thresholding day (day 6); here it only appears inside the Canny recall.
 - **Least squares** (normal equations for a line fit) is assumed from linear algebra; recalled in
   one line in unit 4, where it refits the RANSAC inliers.
 
@@ -40,14 +40,14 @@ concrete. RANSAC needs only basic probability.
 - **Edges day** (day 2): owns Sobel/gradient direction, Canny, NMS and scale space. This day uses
   them; nothing re-derived. NMS in parameter space (unit 1) is named as "the same idea as day 2's
   NMS across the edge".
-- **Thresholding** (day 5): hysteresis as a general segmentation tool (first met on day 2 in
+- **Thresholding** (day 6): hysteresis as a general segmentation tool (first met on day 2 in
   Canny). Mentioned here only inside the Canny recall.
-- **Morphology** (day 7): regional maxima and h-maxima. Peak finding in the accumulator is the
+- **Morphology** (day 8): regional maxima and h-maxima. Peak finding in the accumulator is the
   same problem (local maxima above a threshold, in a window); one line in unit 1 names the link.
 - **`fourier/`** (day 1): the spectrum shows orientation as an angle. The one-slide Radon link
   (section 5) relates the Hough transform for lines to the **Radon transform**; the Radon
   elective owns it.
-- **Moments** (elective, Objects): orientation from second moments (labelling day 8,
+- **Moments** (elective, Objects): orientation from second moments (labelling day 9,
   `regionprops/`) is the alternative for deskewing one object; moment-based template matching is
   the alternative to the generalised Hough transform. One slide in unit 3 names both.
 - **Snakes / active shape models** (elective, Curves and energies): *local* refinements that need
@@ -56,10 +56,10 @@ concrete. RANSAC needs only basic probability.
 - **Dynamic programming** (elective): polar DP and live-wire find *free-form* boundaries given a
   centre or anchors; Hough finds *parametric* shapes anywhere. A circle Hough detection can give
   polar DP its centre (one preset in `houghcircle` exports a centre; one slide in unit 2).
-- **Labelling / measurements** (days 8, 10): equivalent diameter, circularity and the enclosing /
+- **Labelling / measurements** (days 9, 11): equivalent diameter, circularity and the enclosing /
   inscribed circles are measured *after* segmentation; the Hough radius is a *detection*
   estimate. The least-squares circle fit used for the RANSAC refit (unit 4) is taught here.
-- **Watershed** (day 9) and **morphology** (day 7, distance transform): distance-transform
+- **Watershed** (day 10) and **morphology** (day 8, distance transform): distance-transform
   peaks give centres of touching discs from a binary mask; circle Hough gives them from edges.
   Named as alternatives on one slide (unit 2).
 - **Skeletons** (elective, Objects) and **edges day `hessian/`**: vesselness finds curved
@@ -67,12 +67,12 @@ concrete. RANSAC needs only basic probability.
 - **Graphics 3D** (elective): homogeneous coordinates. The point–line duality of the projective
   plane is the cleanest statement of the Hough duality; math-layer slide in unit 1. The 3D circle
   accumulator can optionally be shown with `lib/gl3d.ts`.
-- **Random forests** (day 13) and **modern deep learning** (day 16): Hough forests (learned
+- **Random forests** (day 14) and **modern deep learning** (day 18): Hough forests (learned
   patches vote for an object centre) and centre-voting / centre-heatmap detectors are a one-line
   "where this leads" in unit 3. Detection metrics (IoU matching, AP) belong to the evaluation day
-  (day 15).
+  (day 16).
 - **Registration**: RANSAC's main application (fitting a transform to matched points) belongs to
-  the planned Motion elective (after day 11); one pointer line in unit 4. RANSAC stays core here.
+  the planned Motion elective (after day 12); one pointer line in unit 4. RANSAC stays core here.
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
@@ -89,7 +89,7 @@ into `hough-circles/` and `ght/`.)
 - **Slope–intercept fails**: $y = mx + c$ gives the nice picture (a point becomes a straight line in $(m, c)$) but vertical lines have $m = \infty$ and $m$ is unbounded, so it cannot be a finite grid. Shown in the demo by dragging three points towards a vertical line.
 - **Normal parameterisation**: a line is the set of points whose projection onto the unit normal $(\cos\theta, \sin\theta)$ equals $\rho$: $\rho = x\cos\theta + y\sin\theta$, $\theta \in [0, \pi)$, $|\rho| \le$ the image diagonal. Bounded. A point becomes a **sinusoid** in $(\theta, \rho)$. Small worked example: points $(2,0), (1,1), (0,2)$ at $\theta = 0°, 45°, 90°, 135°$; only $\theta = 45°$ gives the same $\rho = \sqrt2$ for all three.
 - **The accumulator**: a grid of bins $(\theta_j, \rho_k)$, every edge point adds one vote to each bin its sinusoid passes through; lines are **peaks**. Gaps in a line do not matter (votes just add), which is the strength of the method.
-- **Peak finding**: threshold on the vote count (≈ minimum line length in pixels) plus **non-maximum suppression in parameter space** (keep local maxima in a window; the same idea as NMS across the edge on day 2, and as regional maxima on day 7). Without NMS one line gives a cluster of detections.
+- **Peak finding**: threshold on the vote count (≈ minimum line length in pixels) plus **non-maximum suppression in parameter space** (keep local maxima in a window; the same idea as NMS across the edge on day 2, and as regional maxima on day 8). Without NMS one line gives a cluster of detections.
 - **Resolution vs precision**: bins too coarse merge nearby lines and give a poor angle; too fine, votes of one noisy line spread over many bins and the peak vanishes. Rule of thumb in pictures: $\Delta\rho \approx 1$ px, $\Delta\theta$ such that the far end of the line moves about one pixel. Noise in the edge positions widens the peak; clutter (texture, other objects) raises the floor of the accumulator.
 - **Use the gradient direction**: the gradient *is* the normal of the edge, so $\theta_i$ is known from Canny (day 2). Vote only near $\theta_i$ (one bin, or a small window for its uncertainty). Votes per point: from $N_\theta$ (e.g. 180) to about 1–5; clutter votes no longer pile up by chance.
 - **Lines vs segments**: a peak is an infinite line. Endpoints: walk along the line, collect the edge points within a pixel of it, split at gaps longer than $g$, keep pieces longer than $L_\text{min}$.
@@ -105,7 +105,7 @@ into `hough-circles/` and `ght/`.)
 - **Unknown radius**: one $(a, b)$ slice per radius, a 3D accumulator (a cone of votes per point). Memory and time grow with every parameter: e.g. 256×256×40 radii ≈ 2.6 M bins.
 - **Gradient direction** again: the centre lies along the gradient, at distance $r$ in front of or behind the point (dark-on-bright vs bright-on-dark). Two votes per radius instead of $\approx 2\pi r$; with known polarity, one. Collapsed variant: vote along the gradient ray for all radii into a 2D centre map, then estimate $r$ per centre from a radius histogram.
 - Applications (each a preset): nuclei and round cells; bacterial / yeast **colonies** on a plate; **wells** of a multi-well plate (known radius, plus a regular grid); vesicles; **powder diffraction rings** (concentric circles with a known centre: the accumulator reduces to a 1D histogram of radius).
-- Failure modes: touching or overlapping circles (shared votes, false centres between them), non-circular cells (a smeared peak), a wrong radius range, strong straight edges nearby. Alternatives on one slide: distance-transform peaks (day 7) and markers for watershed (day 9); LoG blob detection at scale $\sigma \approx r/\sqrt2$ (day 2) as the region-based cousin; a circle centre as the start of polar DP (elective).
+- Failure modes: touching or overlapping circles (shared votes, false centres between them), non-circular cells (a smeared peak), a wrong radius range, strong straight edges nearby. Alternatives on one slide: distance-transform peaks (day 8) and markers for watershed (day 10); LoG blob detection at scale $\sigma \approx r/\sqrt2$ (day 2) as the region-based cousin; a circle centre as the start of polar DP (elective).
 - **Ellipses** briefly: five parameters; the full accumulator is impractical. Two ideas named: use pairs of points with parallel gradients (their midpoints lie on a line through the centre) to find the centre first, then the rest; or hypothesise-and-verify (unit 4).
 - **The math**: the circle accumulator as a sum over edge points of a ring kernel, i.e. a **convolution** of the edge map with a ring of radius $r$ (link to `kernels/`; and with gradient voting the convolution of $\nabla I$ with a vector field); bins per dimension and the exponential growth $N^d$ of the accumulator; ellipse: the conic $Ax^2 + Bxy + Cy^2 + Dx + Ey + F = 0$ has 5 degrees of freedom.
 - **Demo `houghcircle`** (new): left, image with edge points and detections; middle, the accumulator slice at the radius on the slider (heat map, peaks marked); right, the maximum over all radii (or, toggle, a 3D view of the $(a, b, r)$ accumulator as stacked slices via `lib/gl3d.ts`). Sliders: radius (slice shown), radius range $[r_\text{min}, r_\text{max}]$, vote threshold, NMS window, noise; toggles *gradient voting*, *polarity: dark-on-bright / bright-on-dark / either*. Click on an edge point to see its votes (a ring, or two dots per radius with gradient voting). Images: seeded synthetic nuclei (discs of several radii, touching pairs, one ellipse, partial occlusion; from the nuclei generator in `lib/synth.ts`), a synthetic multi-well plate, a synthetic powder-diffraction ring pattern, and `cell256.png`. Readouts: votes cast, time. Presets: "one radius: a sharp peak", "wrong radius: a ring, no peak", "scan the radius", "gradient voting", "touching cells: a false centre", "ellipse: smeared peak", "plate wells", "diffraction rings", "micrograph nuclei". TypeScript first; measure the 3D case without gradient voting at 256×256 (roughly 5 000 edge points × 40 radii × $2\pi r$ ≈ 10⁷ votes): only if it exceeds ~30 ms after optimisation does the inner loop move to Wasm.
@@ -117,8 +117,8 @@ into `hough-circles/` and `ght/`.)
 - The circle with gradient voting (unit 2) *is* a GHT whose R-table holds one vector per direction (length $r$, along the gradient): the general method contains the special case.
 - **Rotation and scale** as extra dimensions: rotate/scale the R-table vectors and the indexing direction, one accumulator slice per $(\phi, s)$; 2D becomes 4D. Cost and the remedy of coarse-to-fine search (a Gaussian pyramid, day 2).
 - Occlusion and clutter: votes from the visible part still peak; similar clutter shapes give false positives; the threshold as a minimum visible fraction.
-- Comparison slide: GHT (global, finds all copies, tolerates occlusion, fixed shape) vs active shape models (local, needs initial pose, shape varies; snakes elective) vs moment invariants (moments elective) vs polar DP (free-form star-shaped boundary from a centre; DP elective) vs template matching by NCC (FFT registration, day 11: intensities instead of edge votes). Where this leads: **Hough forests** learn which local patches vote for which object centre (trees from day 13); deep centre-voting detectors (day 16). One line each.
-- **The math**: GHT with similarity transform $\mathbf{c} = \mathbf{x} - sR(\phi)\,\mathbf{v}$, $\phi$-shift of the table index; GHT as **matched filtering**: with all directions merged it is correlation of the edge map with the template's edge map (the NCC of day 11 on edge maps); cost of the $(\phi, s)$ search.
+- Comparison slide: GHT (global, finds all copies, tolerates occlusion, fixed shape) vs active shape models (local, needs initial pose, shape varies; snakes elective) vs moment invariants (moments elective) vs polar DP (free-form star-shaped boundary from a centre; DP elective) vs template matching by NCC (FFT registration, day 12: intensities instead of edge votes). Where this leads: **Hough forests** learn which local patches vote for which object centre (trees from day 14); deep centre-voting detectors (day 18). One line each.
+- **The math**: GHT with similarity transform $\mathbf{c} = \mathbf{x} - sR(\phi)\,\mathbf{v}$, $\phi$-shift of the table index; GHT as **matched filtering**: with all directions merged it is correlation of the edge map with the template's edge map (the NCC of day 12 on edge maps); cost of the $(\phi, s)$ search.
 - **Demo `ght`** (new): left, the template (presets: a key, a leaf, a letter "R", a gear; editable as a polygon with draggable vertices) with its reference point (draggable) and the R-table drawn as arrows per direction bin, plus the table itself (direction bin → list of vectors); right, a scene with copies of the template (translated, optionally rotated and scaled), partial occlusion, clutter shapes and noise, the accumulator and detections. Sliders: number of direction bins, rotation range and step, scale range and step, threshold, noise, occlusion. Click an edge point in the scene to see its votes. Presets: "translation only", "occluded copy still found", "rotation without rotation search: missed", "rotation search: found, 36× the work", "similar clutter shape: false positive", "circle template = circle Hough".
 - By hand: (a) build the R-table of a small square (4 directions) with the reference at its centre, and vote with the edges of a translated square; (b) the same square rotated by 90°: which table entries change, and does the unrotated table still find it? (c) predict: number of accumulator slices and votes for 36 rotations × 5 scales. *(math)*: (d) how the R-table changes under rotation by $\phi$ and scaling by $s$; (e) show that with one direction bin the GHT is the correlation of the two edge maps.
 
@@ -128,7 +128,7 @@ into `hough-circles/` and `ght/`.)
 - **RANSAC** (Fischler & Bolles 1981): repeat — pick a **minimal sample** (2 points for a line, 3 for a circle); fit the model exactly; count the points within a distance $\varepsilon$ (the **inliers**); keep the model with most inliers. At the end, refit by least squares on its inliers only.
 - Parameters and failure modes: $\varepsilon$ too small (true points rejected), too large (outliers accepted, two nearby lines merged); not enough iterations; several models in the data (sequential RANSAC: remove inliers, run again) — Hough finds all at once.
 - **Randomised Hough** (Xu, Oja & Kultanen 1990) as the bridge: pick a minimal sample, fit, and cast *one* vote for that parameter value (sparse accumulator). **Probabilistic Hough** (Kiryati et al. 1991; progressive variant Matas et al. 2000): vote with a random subset of edge points and stop once a peak is clear. Pointer: image libraries' "probabilistic Hough" returns segments.
-- **Comparison** (table): voting (Hough) vs hypothesise-and-verify (RANSAC): number of parameters (Hough suffers $N^d$, RANSAC does not), many instances (Hough natural, RANSAC sequential), outlier fraction (Hough copes with very high fractions, RANSAC's iterations explode), precision (Hough limited by bins, RANSAC + refit is continuous), determinism (Hough deterministic, RANSAC random: fixed seeds in the demo). Where RANSAC is standard: fitting geometric transforms between images from matched points (registration, panoramas): one-line pointer to the Motion elective (planned, after day 11).
+- **Comparison** (table): voting (Hough) vs hypothesise-and-verify (RANSAC): number of parameters (Hough suffers $N^d$, RANSAC does not), many instances (Hough natural, RANSAC sequential), outlier fraction (Hough copes with very high fractions, RANSAC's iterations explode), precision (Hough limited by bins, RANSAC + refit is continuous), determinism (Hough deterministic, RANSAC random: fixed seeds in the demo). Where RANSAC is standard: fitting geometric transforms between images from matched points (registration, panoramas): one-line pointer to the Motion elective (planned, after day 12).
 - **The math**: with inlier fraction $w$ and sample size $s$, one sample is all-inlier with probability $w^s$; after $N$ samples at least one is with probability $1 - (1 - w^s)^N$; so $N = \log(1 - p)/\log(1 - w^s)$. Worked: $w = 0.5$, $s = 2$, $p = 0.99$ gives $N = 17$; $s = 3$ gives 35; $w = 0.2$, $s = 2$ gives 113. Least-squares refit: total least squares for a line (the normal is the eigenvector of the scatter matrix $S$ with the smaller eigenvalue (PCA of the points, `pca/` day 1): unit 1's $(\theta, \rho)$ again), algebraic circle fit (linear in $(a, b, c)$ with $c = r^2 - a^2 - b^2$); MSAC / robust loss in one line.
 - **Demo `ransac`** (new): a point set (draggable; add / remove points) with inliers on a line or a circle and seeded outliers; model *line / circle*. Buttons *one sample* (the two or three chosen points highlighted, the model drawn with its $\varepsilon$ band, inliers counted), *run N*, *reset*. Sliders $\varepsilon$, outlier fraction, iterations, seed. Panels: best-so-far model and inlier count vs iteration; least squares on all points vs RANSAC + refit; the curve $1 - (1 - w^s)^N$ against $N$ with the current run marked; side toggle *same points in the Hough accumulator* (reusing `lib/hough.ts`). Presets: "least squares fails", "RANSAC: 17 iterations suffice", "80 % outliers: Hough still works, RANSAC needs hundreds", "ε too large: merges two lines", "two lines: sequential RANSAC", "circle".
 - By hand: (a) 8 given points, two given samples: fit the line through each, count inliers with $\varepsilon = 0.5$, choose; (b) compute $N$ for the three worked cases above and for a circle with $w = 0.3$; (c) predict: which is better for a line in 90 % clutter, and which for a 6-parameter model with 40 % outliers? *(math)*: (d) derive the formula for $N$; (e) show that the total-least-squares line normal is an eigenvector of the scatter matrix; (f) write the algebraic circle fit as a linear least-squares problem.

@@ -1,0 +1,188 @@
+---
+title: "Exercise: box filters and local statistics"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute **box filters** with a running sum and count the cost of four methods,
+- predict what **repeated boxes** do, and match them to a Gaussian by their **variance**,
+- compute the **local mean, variance and standard deviation** of a window from two integral images,
+- use **local contrast normalisation** and choose its window and $\varepsilon$,
+- say how many **bits** a table needs, and recognise **wrap-around**, **float32 rounding** and **cancellation**, with their fixes,
+- *(math)* prove the variance formula of repeated boxes and why wrapped integer sums are right.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Box filter, width $k$ | mean over the $k \times k$ window; at the border the window is clipped and divided by the number of pixels inside |
+| Cost per pixel | direct $k^2 - 1$; separable $2(k-1)$; running sum 4; integral image 6 (3 to build, 3 per lookup) |
+| Repeated boxes | $n$ passes of width $k$ have variance $n(k^2-1)/12$ and look like a Gaussian of that variance |
+| Local statistics | from the tables of $I$ and $I^2$: $m$ = sum / $n$, $\overline{I^2}$ = sum of squares / $n$, $s^2 = \overline{I^2} - m^2$ |
+| Contrast normalisation | $(I - m)/(s + \varepsilon)$ |
+| Bits of the table | bit depth + $\lceil\log_2(\text{number of pixels})\rceil$ |
+| float32 | integers exact up to $2^{24} = 16\,777\,216$ |
+| Wrap-around | unsigned 32-bit: everything modulo $2^{32}$; rectangle sums still right if the rectangle's sum $< 2^{32}$ |
+
+## By hand
+
+**B1.** **Running sums.** The row $f = (4, 8, 6, 2, 0, 4, 10, 6, 8, 2)$.
+(a) Compute the box mean of width 3 at every position with a running sum: start with the window at position 1 (clipped to pixels 1–2), then move one step at a time, adding the pixel that enters and subtracting the one that leaves. Divide by the number of pixels inside the window.
+(b) The same for width 5.
+(c) How many additions and subtractions did (a) take per position, apart from the start?
+
+**B2.** **Repeated boxes.**
+(a) Convolve the box $\tfrac13(1, 1, 1)$ with itself. What shape do you get?
+(b) What is the variance of one box of width 5? Of three passes of it? What $\sigma$ has the matching Gaussian?
+(c) You want a Gaussian blur with $\sigma \approx 3$ from three passes of the same odd-width box. Which width comes closest?
+(d) Why does a single large box give square-looking blobs around bright points, and three smaller boxes round ones?
+
+**B3.** **Local statistics from two tables.** The 5 × 5 image of the previous exercise,
+$I = \begin{bmatrix} 2 & 0 & 1 & 3 & 1 \\ 1 & 4 & 2 & 0 & 2 \\ 3 & 1 & 5 & 2 & 0 \\ 0 & 2 & 1 & 4 & 3 \\ 1 & 3 & 0 & 2 & 5 \end{bmatrix}$, has these two tables (rows $y = 0..5$ down, columns $x = 0..5$ across):
+
+| | $S$ (of $I$) | $Q$ (of $I^2$) |
+|---|---|---|
+| $y = 0$ | 0 0 0 0 0 0 | 0 0 0 0 0 0 |
+| $y = 1$ | 0 2 2 3 6 7 | 0 4 4 5 14 15 |
+| $y = 2$ | 0 3 7 10 13 16 | 0 5 21 26 35 40 |
+| $y = 3$ | 0 6 11 19 24 27 | 0 14 31 61 74 79 |
+| $y = 4$ | 0 6 13 22 31 37 | 0 14 35 66 95 109 |
+| $y = 5$ | 0 7 17 26 37 48 | 0 15 45 76 109 148 |
+
+(a) For the $3 \times 3$ window centred on $(3, 3)$, compute the sum of $I$ and of $I^2$ with four lookups each. Then the mean $m$, $\overline{I^2}$, the variance and the standard deviation.
+(b) Check the variance with the two-pass formula $\frac19\sum(I - m)^2$.
+(c) The same for the window centred on $(4, 4)$.
+
+**B4.** **Bits.**
+(a) A 12-bit $4096 \times 4096$ image. How many bits does its integral image need? And the table of $I^2$?
+(b) Does the sum of a $256 \times 256$ 8-bit image fit exactly in float32? A $512 \times 512$ one?
+(c) An 8-bit $1024 \times 1024$ image: which of the two tables ($I$, $I^2$) fits in 32-bit integers?
+
+**B5.** **Wrap-around, by hand.** Imagine 4-bit unsigned numbers: everything is stored modulo 16. The row $f = (5, 7, 6, 9, 3)$.
+(a) Write the running totals, and what is stored modulo 16.
+(b) Compute the sum of pixels 3–4 from the stored values (take the result modulo 16). Is it right?
+(c) The same for pixels 2–5. Is it right? What is the condition?
+
+**B6.** **Cancellation.** The values $199, 200, 201$.
+(a) Compute the variance as $\overline{I^2} - m^2$, rounding every intermediate result (each square, the sum, the mean) to 4 significant digits. Compare with the true variance.
+(b) Subtract 200 from every value first and repeat. Why is the variance allowed to change nothing?
+
+**B7.** **Contrast normalisation.** A microscope image has bright, contrasty cells on the left and faint cells on the right; the cells are about 20 pixels across.
+(a) What does $(I - m)/(s + \varepsilon)$ do to the two groups?
+(b) What goes wrong with a $5 \times 5$ window? With a $301 \times 301$ window?
+(c) What does $\varepsilon$ protect against, and what happens with $\varepsilon = 0$ in an empty background region?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Window sums 12 (pixels 1–2), then $+6 = 18$, then $+2 - 4 = 16$, $+0 - 8 = 8$, $+4 - 6 = 6$, $+10 - 2 = 14$, $+6 - 0 = 20$, $+8 - 4 = 24$, $+2 - 10 = 16$, and at the end $-6 = 10$ (pixels 9–10). Means: $6, 6, 5.33, 2.67, 2, 4.67, 6.67, 8, 5.33, 5$ (the first and last windows hold 2 pixels).
+(b) Sums $18, 20, 20, 20, 22, 22, 28, 30, 26, 16$ over $3, 4, 5, 5, 5, 5, 5, 5, 4, 3$ pixels: means $6, 5, 4, 4, 4.4, 4.4, 5.6, 6, 6.5, 5.33$.
+(c) One addition and one subtraction per step, whatever the width.
+
+**B2.** (a) $\tfrac19(1, 2, 3, 2, 1)$: a triangle (tent).
+(b) One box of width 5: $(25 - 1)/12 = 2$. Three passes: 6, $\sigma = \sqrt6 = 2.45$.
+(c) $k^2 = 12\sigma^2/3 + 1 = 37$, $k \approx 6.1$. Odd widths: $k = 5$ gives $\sigma = 2.45$, $k = 7$ gives $\sigma = \sqrt{3 \cdot 48/12} = 3.46$; $k = 7$ is slightly closer. (Mixing widths, e.g. two passes of 7 and one of 5, gets closer still.)
+(d) A bright point becomes a copy of the filter's 2D weights. One box has square weights; repeated boxes give weights that approach a 2D Gaussian, which is round.
+
+**B3.** (a) $\sum I = S(4,4) - S(4,1) - S(1,4) + S(1,1) = 31 - 6 - 6 + 2 = 21$; $\sum I^2 = Q(4,4) - Q(4,1) - Q(1,4) + Q(1,1) = 95 - 14 - 14 + 4 = 71$. $m = 21/9 = 2.333$, $\overline{I^2} = 71/9 = 7.889$, variance $7.889 - 5.444 = 2.444$, $s = 1.563$.
+(b) The nine values are $4, 2, 0, 1, 5, 2, 2, 1, 4$. Squared deviations from 2.333: $2.778, 0.111, 5.444, 1.778, 7.111, 0.111, 0.111, 1.778, 2.778$; sum 22.0, divided by 9: 2.444.
+(c) $\sum I = 48 - 16 - 17 + 7 = 22$, $\sum I^2 = 148 - 40 - 45 + 21 = 84$. $m = 2.444$, $\overline{I^2} = 9.333$, variance $9.333 - 5.975 = 3.358$, $s = 1.833$.
+
+**B4.** (a) $12 + 24 = 36$ bits for $I$; $I^2$ has up to 24 bits per pixel, so $24 + 24 = 48$ bits.
+(b) $256^2 \times 255 = 16\,711\,680 < 2^{24} = 16\,777\,216$: yes, just. $512^2 \times 255 = 66\,846\,720$: no.
+(c) $I$: $8 + 20 = 28$ bits, fits. $I^2$: $16 + 20 = 36$ bits, does not (but with wrap-around, window sums of $I^2$ up to $2^{32}$ are still right).
+
+**B5.** (a) Totals $0, 5, 12, 18, 27, 30$; stored $0, 5, 12, 2, 11, 14$.
+(b) $S(4) - S(2) = 11 - 12 = -1 \equiv 15 \pmod{16}$, and $6 + 9 = 15$: right, although both stored entries were wrong or wrapped.
+(c) $S(5) - S(1) = 14 - 5 = 9$, but $7 + 6 + 9 + 3 = 25$: wrong. $25 \bmod 16 = 9$: the result is right only modulo 16. The condition: the true range sum must be less than 16 (here $2^4$; with 32-bit integers, $2^{32}$).
+
+**B6.** (a) Squares rounded: $3.960\cdot10^4$, $4.000\cdot10^4$, $4.040\cdot10^4$; sum $1.200\cdot10^5$; mean of squares $4.000\cdot10^4$. Mean 200, squared $4.000\cdot10^4$. Variance $0$; the true value is $2/3 = 0.667$. All information was in the fifth digit.
+(b) Values $-1, 0, 1$: mean of squares $0.6667$, mean 0, variance $0.6667$: right. Shifting every value by the same constant moves the mean by that constant and leaves every deviation $I - m$ unchanged, so the variance is unchanged.
+
+**B7.** (a) Both groups get mean about 0 and local SD about 1: the faint cells look as strong as the bright ones.
+(b) $5 \times 5$ is smaller than the cells: inside a cell the window sees only the cell, so the cell's interior is normalised to about 0 and only its edges remain. $301 \times 301$ is larger than the region of each group: $m$ and $s$ mix bright and faint regions, so the normalisation no longer adapts and the faint cells stay faint. The window should be somewhat larger than the objects and smaller than the scale of the illumination changes.
+(c) In flat background $s$ is only the noise level. Dividing by it inflates the noise to SD about 1, the same as real structure. $\varepsilon$ (about the noise SD) keeps $s + \varepsilon$ from getting small; with $\varepsilon = 0$ the empty background becomes strong noise.
+:::
+
+### Math questions
+
+**B8.** *(math)* Show that a box of odd width $k$, viewed as the uniform distribution on $\{-\frac{k-1}{2}, \dots, \frac{k-1}{2}\}$, has variance $\frac{k^2-1}{12}$. Then show that $n$ passes have variance $n\frac{k^2-1}{12}$. (Use $\sum_{j=1}^{m} j^2 = m(m+1)(2m+1)/6$, and that the variance of a sum of independent variables is the sum of the variances.)
+
+**B9.** *(math)* Prove $\frac1n\sum(I - m)^2 = \overline{I^2} - m^2$ and $\operatorname{Var}(I - c) = \operatorname{Var}(I)$.
+
+**B10.** *(math)* Let the table be stored modulo $2^{32}$: $\tilde S = S \bmod 2^{32}$. Show that $(\tilde D - \tilde B - \tilde C + \tilde A) \bmod 2^{32}$ equals the true rectangle sum $R$ whenever $0 \le R < 2^{32}$.
+
+**B11.** *(math)* A float32 number has a 24-bit significand, so storing a number $X$ makes a relative error up to about $2^{-24}$. Estimate the error of a $7 \times 7$ window mean computed from float32 table entries near the bottom-right corner of a $1024 \times 1024$ image with mean 128. Compare with the error near the top-left corner.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** With $m = \frac{k-1}{2}$ the mean is 0 by symmetry, and $\sigma^2 = \frac1k \cdot 2\sum_{j=1}^m j^2 = \frac{2}{k}\cdot\frac{m(m+1)(2m+1)}{6}$. With $2m + 1 = k$ and $m(m+1) = \frac{(k-1)(k+1)}{4}$: $\sigma^2 = \frac{2}{k}\cdot\frac{(k^2-1)k}{24} = \frac{k^2-1}{12}$. Filtering with a normalised non-negative kernel and then with another is filtering with their convolution, which is the distribution of the **sum** of two independent offsets, one drawn from each kernel. Variances of independent variables add, so $n$ passes give $n\frac{k^2-1}{12}$.
+
+**B9.** $\frac1n\sum(I - m)^2 = \frac1n\sum I^2 - 2m\frac1n\sum I + m^2 = \overline{I^2} - 2m^2 + m^2 = \overline{I^2} - m^2$. For $J = I - c$: the mean is $m - c$, so $J - \bar J = I - m$ for every pixel, and the variance (the mean of the squared deviations) is the same.
+
+**B10.** Write $\tilde X = X - 2^{32}q_X$ with integers $q_X$. Then $\tilde D - \tilde B - \tilde C + \tilde A = R - 2^{32}(q_D - q_B - q_C + q_A) \equiv R \pmod{2^{32}}$. Taking the result modulo $2^{32}$ gives the unique representative in $[0, 2^{32})$, which is $R$ itself when $0 \le R < 2^{32}$. If $R \ge 2^{32}$ the result is $R \bmod 2^{32}$: wrong, with no warning.
+
+**B11.** Near the bottom-right corner the entries are about $1024^2 \times 128 \approx 1.3\cdot10^8$, each with an error up to about $2^{-24}\times1.3\cdot10^8 \approx 8$. The window sum is a combination of four entries: an error of order 10–30, divided by 49 pixels: about 0.2–0.6 grey levels in the mean. Near the top-left the entries are small (below $2^{24}$ up to about $360 \times 360$ pixels at mean 128) and exact. The error grows with the distance from the origin and shrinks with the window area. For the variance the same happens to the table of $I^2$, about 128 times larger.
+:::
+
+## Explore: box filters and their cost {#explore}
+
+**speed** tab: the image blurred with a $k \times k$ box (left); the additions per pixel of the four methods against $k$, on a log scale (middle); the readout lists the counts and the **measured** time of each method on your computer (median of three runs, measured when the slider rests; direct is skipped above $k = 51$). **repeated boxes** tab: $n$ passes of width $k$; the 1D weights (bars) against the Gaussian of the same variance (red), the 2D weights in 8 colour bands with a red contour of that Gaussian, and the image after $n$ passes (the **points** image shows each point as the 2D weights).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="boxspeed" data-preset="slow"></div>
+<script src="../demos/dist/boxspeed.js"></script>
+```
+
+**E1.** Preset **direct at k = 51 is slow**. Read the additions per pixel of the four methods. Which is fastest on your computer, and by how much is direct slower than the integral image? Is the ratio of the times the same as the ratio of the counts?
+
+**E2.** Move $k$ from 1 to 101. From which (odd) $k$ on does the integral image need fewer additions than direct filtering? Than separable filtering? Why is the running sum flat too?
+
+**E3.** **repeated boxes**, preset **one box: square artefacts** ($k = 15$). How large is the difference to the Gaussian? Raise $n$ to 2, 3, 4: note the variance and the difference. Describe the 2D weights for each $n$.
+
+**E4.** Preset **three boxes ≈ Gaussian** ($k = 9$, $n = 3$). Check the variance and $\sigma$ against B2. Then find, with $n = 3$, the width whose $\sigma$ is closest to 3 (compare with B2(c)).
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Direct 2600, separable 100, running sum 4, integral image 6 additions per pixel. The times depend on the computer; typically direct takes hundreds of milliseconds and the other three a few. The ratio of times is not the ratio of counts: memory access, loop overhead and the clipped border windows also cost time, and the running sum and the integral image do more work per addition (reading tables, dividing). The counts predict the trend, not the exact times.
+
+**E2.** Integral image (6) beats direct ($k^2 - 1$) from $k = 3$ (8 additions); it beats separable ($2(k-1)$) from $k = 5$ (8). The running sum adds the pixel entering and subtracts the one leaving, so its cost (2 per pass, 4 in total) does not depend on $k$ either.
+
+**E3.** $n = 1$: variance 18.67, difference 45.3 % of the Gaussian's peak; the 2D weights are a flat square. $n = 2$: 37.33, 7.8 %; a pyramid with square-ish bands. $n = 3$: 56, 6.1 %, bands nearly round. $n = 4$: 74.67, 3.5 %, round.
+
+**E4.** Variance 20, $\sigma = 4.47$, as $3 \cdot 80/12 = 20$. With $n = 3$: $k = 5$ gives $\sigma = 2.45$, $k = 7$ gives 3.46: $k = 7$ is closest to 3, as in B2(c).
+:::
+
+## Explore: local statistics and precision {#explore-localstats}
+
+**local statistics** tab: the input (click to choose the row for the profile, orange line), the local mean $m$, the local SD $s$ and the normalised image $(I - m)/(s + \varepsilon)$; the plot shows the row's grey levels with $m$ and the band $m \pm s$. The synthetic image has six cells with contrasts from 6 to 60 grey levels on a brightness gradient, with noise of SD 3. **precision** tab: the two tables in **float32**, **float64** or **32-bit integers** (wrapping), optionally after subtracting the image mean; **add to image** makes the image brighter, and the image can be tiled to $1024 \times 1024$. Panels: input, SD from these tables, exact SD, and its error (red where the computed variance is negative).
+
+```{=html}
+<div data-demo="localstats" data-preset="equalise"></div>
+<script src="../demos/dist/localstats.js"></script>
+```
+
+**E5.** Preset **normalisation equalises the cells** (window $17 \times 17$, $\varepsilon = 4$). Compare the six cells in the input and in the normalised image. Where is the local SD largest? Try window sizes $3 \times 3$ and $61 \times 61$, and explain with B7.
+
+**E6.** Preset **ε = 0**. What happens to the background? Raise $\varepsilon$ until the background is calm. About which value is enough, and how does it compare with the noise SD of 3?
+
+**E7.** **precision**, preset **float32, bright: negative variances** (image + 200, window $7 \times 7$). Read the largest error and the number of negative variances. Where in the image are the errors largest, and why?
+
+**E8.** Preset **subtract the offset: much better**. What are the largest error and the number of negative variances now? Then choose **1024 × 1024**. Does subtracting the offset still suffice? Why not? What fixes it?
+
+**E9.** Preset **32-bit integers wrap, sums are right**. Compare "sum of (I − c)²" with the stored last entry. Are the table entries right? Is the SD right? Explain with B5.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E5.** In the input the left cells on the dark side and the low-contrast cells are hard to see; in the normalised image all six look similar. The local SD is largest (27.0) at the rims of the high-contrast cells, where the window straddles the cell boundary. With $3 \times 3$ the SD is mostly noise: the normalised image is noisy everywhere and the cell interiors flatten out. With $61 \times 61$ the window holds whole cells and background: $m$ is a coarse blur, the faint cells stay faint relative to the bright ones nearby, and the normalisation loses its effect.
+
+**E6.** With $\varepsilon = 0$ the flat background is divided by its own noise SD (about 3) and becomes strong noise with SD about 1, as strong as the cells. $\varepsilon$ around the noise SD (3–6) calms it; the cells, whose $s$ is much larger, are hardly affected.
+
+**E7.** Largest SD error 22.7, 10 611 negative variances. The errors grow towards the bottom right (largest error per quadrant: 3.7 top-left, 12.1 top-right, 11.9 bottom-left, 22.7 bottom-right), where the table entries are largest (up to $7.2\cdot10^9$ for $I^2$, far above $2^{24}$) and each carries a larger rounding error.
+
+**E8.** At $256 \times 256$ with the offset (330) subtracted: largest error 1.32, no negative variances. At $1024 \times 1024$: largest error 6.08 and 49 392 negative variances: even the shifted sum of squares ($2.0\cdot10^9$) is far above $2^{24}$, so float32 still rounds. Fixes: float64 (largest error 0 here with the offset) or integer tables.
+
+**E9.** The true sum of all $I^2$ is $1.16\cdot10^{11}$; the stored last entry is $4.26\cdot10^9$: it has wrapped many times, and so have most entries. The SD is nevertheless exact (error about $10^{-11}$, from the final floating-point division): each $7 \times 7$ window's sum of squares (at most $49 \times 455^2 \approx 10^7$) is far below $2^{32}$, so the wraps cancel in $D - B - C + A$, exactly as in B5(b).
+:::
+
+## Where this leads
+
+Local means and standard deviations are the first **features** of a pixel. The next unit combines rectangles into **Haar-like features** (differences of neighbouring rectangle sums) and builds a whole stack of them at many scales, each at the cost of a few lookups.

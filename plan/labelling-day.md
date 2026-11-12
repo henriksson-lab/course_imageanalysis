@@ -3,11 +3,11 @@
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 Decided 2026-11-12: labelling is its own day, directly after the morphology day.
 
-**Course map (2026-11-12):** core day 8 of 17, Part II "From pixels to objects". Order:
-day 7 morphology → this → day 9 watershed. Entry point of the elective group "Objects"
+**Course map (2026-11-12):** core day 9 of 18, Part II "From pixels to objects". Order:
+day 8 morphology → this → day 10 watershed. Entry point of the elective group "Objects"
 (skeletons, moments). Edits from the three reviews applied 2026-11-12: units 1–2 merged;
-`shape-features/` moved here from the measurements day (day 10); PCA recalled from `pca/`
-(day 1) instead of introduced here; object-level evaluation is the evaluation day's (day 15).
+`shape-features/` moved here from the measurements day (day 11); PCA recalled from `pca/`
+(day 1) instead of introduced here; object-level evaluation is the evaluation day's (day 16).
 
 ## Goal of the day
 
@@ -31,9 +31,9 @@ a label image, and this day says what to do with it.
 
 ## Prerequisite gap
 
-- **Thresholding and binary masks**: taught on day 5 (`plan/thresholding-day.md`),
+- **Thresholding and binary masks**: taught on day 6 (`plan/thresholding-day.md`),
   hysteresis included; one-line recall.
-- **Morphology** (day 7, the previous day): opening, fill holes, clear border,
+- **Morphology** (day 8, the previous day): opening, fill holes, clear border,
   reconstruction and the **distance transform** (owned there) are used as known. The link "the component of $p$ is $R_A(\{p\})$" is stated there in one
   line and developed here in unit 1.
 - **Queue and stack**: assumed from programming; one slide with a picture of each.
@@ -41,7 +41,7 @@ a label image, and this day says what to do with it.
 - **Covariance matrix, eigenvectors, PCA**: taught in `pca/` (day 1, the owner); recalled
   in one slide in unit 2 (real eigenvalues, orthogonal eigenvectors, $S = Q \Lambda Q^\top$,
   eigenvalues in descending order).
-- **Distance transform** (day 7, morphology owns it): used for the inscribed radius in
+- **Distance transform** (day 8, morphology owns it): used for the inscribed radius in
   unit 3; one-line recall.
 
 ## Links to other days
@@ -52,17 +52,17 @@ a label image, and this day says what to do with it.
   an opening: it removes small objects without changing the shape of the others, like
   opening by reconstruction. The connectivity conventions (foreground 8, background 4)
   are the ones used there.
-- **Watershed** (day 9, next day): regional minima are the components of plateaus
+- **Watershed** (day 10, next day): regional minima are the components of plateaus
   (computed with this day's code); the watershed output is a label image measured with
   unit 2–4 tools. Watershed unit 1 recalls connected components in one line with a
   pointer here. Touching nuclei counted as one object (unit 4 here) are the motivation
   for that day.
-- **Measurements** (day 10): continues the catalogue with intensity, texture, relations
+- **Measurements** (day 11): continues the catalogue with intensity, texture, relations
   and colocalisation; it recalls this day's region properties and shape features as rows.
-- **Graph cuts** (day 12): a binary cut must still be labelled to count objects;
+- **Graph cuts** (day 13): a binary cut must still be labelled to count objects;
   α-expansion and normalized cuts return label images directly. The union–find structure
   reappears in Kruskal's minimum spanning tree (watershed on graphs, unit 5 there).
-- **Evaluation and statistics** (day 15, `plan/evaluation-day.md`): owns object-level
+- **Evaluation and statistics** (day 16, `plan/evaluation-day.md`): owns object-level
   evaluation (matching predicted to true objects by IoU, object F1/AP, split/merge
   errors). Here only one forward pointer in unit 4: "a count can be right while the
   objects are wrong".
@@ -102,7 +102,7 @@ from the measurements day.
   (6, 26) (18/6 also used). One picture of the 3×3×3 cube in each mode; stacks and voxel
   spacing are a pointer to `volumes3d/` (3D elective).
 - **Flood fill**: from a seed, BFS with a queue (grows ring by ring, like geodesic
-  dilation from day 7) or DFS with a stack (grows in long arms). Recursive DFS overflows
+  dilation from day 8) or DFS with a stack (grows in long arms). Recursive DFS overflows
   the call stack on a 1000×1000 blob: use an explicit stack. Labelling by repeated flood
   fill is $O(n)$, but with random memory access. Scan-line flood fill named in one line.
 - **Two-pass algorithm** (Rosenfeld & Pfaltz 1966): raster scan; for each foreground
@@ -176,7 +176,7 @@ from the measurements day.
   eigenvalues and Hu's seven invariants (rotation), named not derived (moments elective).
 - **Euler number** $E = \#\text{components} - \#\text{holes}$ (with the 8/4 pair).
   Holes = background components not touching the border (labelling the complement, or
-  via fill holes from day 7). Surprise: $E$ can be computed **locally** by counting 2×2
+  via fill holes from day 8). Surprise: $E$ can be computed **locally** by counting 2×2
   patterns (Gray's bit-quads) in one scan, without labelling. Thinning (skeleton
   elective) preserves $E$; in 3D the Euler number becomes components − tunnels +
   cavities (one sentence).
@@ -213,7 +213,7 @@ from the measurements day.
   shoelace formula** (the course's home of the shoelace formula; Green's theorem is its
   math layer, recalled by the moments and marching-cubes electives). **Solidity** =
   $A / A_{\text{hull}}$ (1 for convex, low for stars, crescents, clumps of two touching
-  nuclei: a classic "should I split this?" feature, and the bridge to day 9).
+  nuclei: a classic "should I split this?" feature, and the bridge to day 10).
 - **Form factor / circularity** $4\pi A / P^2$: 1 for a disc. Inherits the perimeter bias
   of unit 2: with edge-count perimeter a digital disc gives $\pi/4 \approx 0.79$; with a
   corrected estimator small discs give values **above 1**. Rule: compare form factors
@@ -225,7 +225,7 @@ from the measurements day.
   Feret** = the smallest width. Both are attained on the convex hull; **rotating
   calipers** find them in $O(h)$ for $h$ hull vertices (min width has one caliper flush
   with a hull edge). Small worked example by hand on a 5-vertex polygon.
-- **Radii from the distance transform** (recall from day 7, morphology owns
+- **Radii from the distance transform** (recall from day 8, morphology owns
   $\mathrm{DT}$): **maximum inscribed radius** $\max \mathrm{DT}$ (thickness, insensitive to
   protrusions); mean / median radius over the object. A rod of width $w$ has max radius
   $\approx w/2$ whatever its length; contrast with min Feret. Pointer: the largest disc
@@ -267,24 +267,24 @@ from the measurements day.
   integers per object; mask of object $k$ is $L = k$. Data type (uint16/uint32), relabel
   sequentially after deletion, display with a random colour map with neighbouring labels
   kept distinct (the label palette in `lib/colour.ts`). Sources: this day's labelling,
-  watershed (day 9), graph cuts (day 12), level sets (elective), and instance-segmentation
-  networks (day 16) all output label images.
+  watershed (day 10), graph cuts (day 13), level sets (elective), and instance-segmentation
+  networks (day 18) all output label images.
 - **The measurement table**: one row per object, one column per property; a scatter
   plot of two properties (area vs solidity) separates populations (debris, round nuclei,
   rod-shaped bacteria) that a single threshold cannot.
 - **Filtering objects by properties**: remove small objects (= area opening, a connected
   filter: shapes of the others unchanged, unlike a morphological opening), keep round
   ones (eccentricity, form factor, solidity), remove border objects (bounding box touches
-  the frame, or clear border from day 7). Hysteresis thresholding (the idea is taught on
-  day 5, thresholding unit 3): here only the implementation, reconstruction of the low
+  the frame, or clear border from day 8). Hysteresis thresholding (the idea is taught on
+  day 6, thresholding unit 3): here only the implementation, reconstruction of the low
   mask from the high mask, or label the low mask and keep labels containing a high pixel
   (one slide).
-- **Counting** and its errors: touching objects merge (undercount → day 9, watershed),
+- **Counting** and its errors: touching objects merge (undercount → day 10, watershed),
   fragmented objects split (overcount → closing before labelling), noise specks
   (→ area filter). **Border objects**: discarding all of them biases against large
   objects; the unbiased counting frame (Gundersen: count objects touching the top/left
   edges, exclude bottom/right) in one slide. Forward pointer (one line): a right count
-  with wrong objects is caught only by object-level matching, day 15.
+  with wrong objects is caught only by object-level matching, day 16.
 - The full pipeline on one real image: threshold → open → fill holes → label → measure →
   filter → count, with the effect of each step on the count.
 - **Demo `regionfilter`** (new; the course's feature-table + scatter shell, reused by
@@ -336,8 +336,8 @@ from the measurements day.
   Shape features (equivalent diameter, form factor, compactness variants, solidity,
   Feret, inscribed radius, Fourier outline) are computed in `lib/features.ts` (measurements
   day), first written here for unit 3.
-- Reused, not duplicated: `lib/morph.ts` (day 7: opening, fill holes, clear border,
-  reconstruction for hysteresis), `lib/distance.ts` (day 7: inscribed radius),
+- Reused, not duplicated: `lib/morph.ts` (day 8: opening, fill holes, clear border,
+  reconstruction for hysteresis), `lib/distance.ts` (day 8: inscribed radius),
   `lib/imageops.ts` (`loadGrey()` for `cell256.png`), `lib/synth.ts` (seeded synthetic
   nuclei; add a "mixed population" generator of discs, rods and specks), `lib/colour.ts`
   (label palette), `lib/fft.ts` (Fourier outline), `lib/gl3d.ts` (owner: 3D graphics
@@ -380,7 +380,7 @@ from the measurements day.
 - **Decided (course map / reviews):** units 1 and 2 merged; `shape-features/` moved here
   from the measurements day; PCA is recalled from `pca/` (day 1), not introduced here
   (review-ordering C3 proposed labelling as the PCA owner; the course map gives it to
-  `pca/`); object-level matching and F1/AP go to the evaluation day (day 15), not an
+  `pca/`); object-level matching and F1/AP go to the evaluation day (day 16), not an
   `object-eval/` unit here (review-gaps gap 4 proposed this day; the course map decides).
   Unit 1 is now the densest; if it overruns, run-based labelling and the `unionfind`
   demo's halving mode go to the exercise only.

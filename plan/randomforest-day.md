@@ -2,7 +2,7 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** core day 13 of 17, Part V "Learning from examples" (its first day). Order: graph cuts (day 12) → this → neural networks (day 14).
+**Course map (2026-11-12):** core day 14 of 18, Part V "Learning from examples" (its first day). Order: graph cuts (day 13) → this → neural networks (day 15).
 
 ## Goal of the day
 
@@ -23,7 +23,7 @@ structure tensor from the edges day, day 2). No machine learning is assumed: thi
 course's first learning day and the **owner of the classification basics** (feature space,
 training/validation/test data, overfitting, cross-validation, the pixel feature stack and the
 paint – train – correct loop), in the concept layer with pictures. Every later day that
-classifies (neural networks day 14, evaluation day 15, and the electives SVM, GMM, integral
+classifies (neural networks day 15, evaluation day 16, and the electives SVM, GMM, integral
 images, moments, measurements' feature tables) recalls them from here in one slide.
 
 ## Prerequisite gap / overlaps
@@ -59,27 +59,27 @@ map overrules this: **this day owns them**, and the SVM day (elective) recalls t
     `data-stack="gaussian|box"`; the SVM day's *cross-validate* tab is a tab of the shared shell.
     **One stack builder** `featureStack(img, groups, sigmas)` in `lib/imageops.ts` (owner: this
     day; not `lib/pixelfeatures.ts`, and not `lib/features.ts`, which holds **object** features).
-- **Measurements** (day 10): owns the object feature catalogue (`lib/features.ts`) and the
+- **Measurements** (day 11): owns the object feature catalogue (`lib/features.ts`) and the
   feature tables. Its optional `features-use/` is dissolved (review-organisation §2.6):
   classification of feature tables is unit 3 here, which uses that day's seeded synthetic
-  population as data. Shape features (`shape-features/`) are now on the labelling day (day 8).
+  population as data. Shape features (`shape-features/`) are now on the labelling day (day 9).
 - **Moments** (elective, Objects group): nearest-mean / nearest-neighbour classification of
   shape descriptors in its optional `moment-features/` recalls this day's vocabulary. Unit 1 names
   nearest neighbour in one line as another way to carve up feature space.
-- **Thresholding** (day 5, `seg-eval/`): owns **pixel-level evaluation** (confusion matrix,
+- **Thresholding** (day 6, `seg-eval/`): owns **pixel-level evaluation** (confusion matrix,
   precision/recall, Dice/Jaccard, ROC and PR). Reused, not re-taught: sweeping the forest's
   probability threshold traces that unit's ROC/PR curves (`lib/metrics.ts`). Its pointer
   "pixel classifiers (the step to machine learning, one slide)" in `threshold-more/` points here.
-- **Evaluation and statistics** (day 15): owns **object-level evaluation** (matching by IoU,
+- **Evaluation and statistics** (day 16): owns **object-level evaluation** (matching by IoU,
   object F1/AP), **data leakage** and statistics of measurements. Here only one line in unit 4:
-  "split by image (or region), never by pixel; day 15 does this in full".
-- **Graph cuts** (day 12, `seg-energy/`, `graphcut-seg/`): back-reference. The forest's
+  "split by image (or region), never by pixel; day 16 does this in full".
+- **Graph cuts** (day 13, `seg-energy/`, `graphcut-seg/`): back-reference. The forest's
   probability gives a data term $-\log P(\ell \mid \text{features}_p)$; smoothing a noisy pixel
   classification with a graph cut is one slide and one preset (the `graphcut` demo takes a data
   term), not a new demo.
-- **Neural networks** (day 14, the next day; its unit 1 is the built `neuralnet/` with demo
+- **Neural networks** (day 15, the next day; its unit 1 is the built `neuralnet/` with demo
   `nnfit`): forward pointers only. Unit 1: a regression tree fits **steps**, a ReLU network fits
-  **hinges** (`nnfit`). Unit 4: the feature stack is a hand-made first layer; a CNN / U-Net (day 14
+  **hinges** (`nnfit`). Unit 4: the feature stack is a hand-made first layer; a CNN / U-Net (day 15
   `cnn/`, `unet/`) learns its own filters and needs many more annotations; a forest on a stack is
   the strong baseline from a few strokes. Softmax/cross-entropy are not needed here (vote
   fractions).
@@ -121,7 +121,7 @@ Concept layer:
   model, the validation set chooses settings (depth, leaf size), the test set is touched once at
   the end. **k-fold cross-validation** when data are scarce: k rotations, average the error. One
   picture of a 5-fold split. One sentence on the trap that matters for images: pixels or cells
-  from the same image are not independent, so split by image (unit 4; day 15 owns leakage).
+  from the same image are not independent, so split by image (unit 4; day 16 owns leakage).
 - A tree as a **piecewise-constant function**; **regression trees** briefly: leaves hold the
   mean value instead of a class; split to reduce the spread. Picture: a step-function fit to a
   noisy intensity profile across a cell, next to the ReLU hinge fit of `nnfit`.
@@ -254,7 +254,7 @@ By hand:
 
 Concept layer:
 
-- Object classification: segment, measure (measurements, day 10), one row per object, a forest per
+- Object classification: segment, measure (measurements, day 11), one row per object, a forest per
   row: e.g. mitotic vs interphase nuclei, debris vs cells. Why forests are the default here:
   dozens of **heterogeneous features** in different units (area in µm², intensity in counts,
   ratios) with **no scaling**, irrelevant features mostly ignored, little tuning, fast
@@ -270,7 +270,7 @@ Concept layer:
   importance can make **both** look unimportant (shuffle one, the other still carries the
   information) and shuffling creates impossible objects (huge area, tiny perimeter). Importance
   is about *this model*, not about biology or causation. Remedy in words: group correlated
-  features (the correlation blocks of day 10) and permute groups.
+  features (the correlation blocks of day 11) and permute groups.
 - Feature importance as a guide for **which measurements to keep**, not as proof.
 
 The math:
@@ -327,8 +327,8 @@ Concept layer:
   - **Spatially correlated training pixels**: neighbouring pixels in a stroke are near
     copies. OOB error is then wildly optimistic (an "unseen" pixel has its neighbour in the
     bag). Evaluate on a **held-out region** of the image (or another image), with the
-    confusion matrix and Dice of `seg-eval/` (day 5). Rule: split by image or region, never by
-    pixel; day 15 treats leakage and object-level evaluation in full. The SVM elective meets
+    confusion matrix and Dice of `seg-eval/` (day 6). Rule: split by image or region, never by
+    pixel; day 16 treats leakage and object-level evaluation in full. The SVM elective meets
     the same trap as cross-validation by pixel vs by stroke (one-line pointer).
   - **Label imbalance**: a big background brushstroke vs a few nucleus pixels pushes the
     probabilities toward background; balance by sampling per class or weighting.
@@ -339,8 +339,8 @@ Concept layer:
     texture.
 - From probabilities to objects: threshold the probability map (ROC/PR as in `seg-eval/`),
   clean up (morphology), or smooth with a graph cut using $-\log P$ as the data term
-  (back-reference to day 12, `graphcut-seg/`), then label and measure.
-- Contrast (one slide): a convolutional network (day 14, `cnn/`, `unet/`) learns its own
+  (back-reference to day 13, `graphcut-seg/`), then label and measure.
+- Contrast (one slide): a convolutional network (day 15, `cnn/`, `unet/`) learns its own
   filters from far more labels; the forest + hand-made stack is the strong baseline that works
   from a few strokes. Contrast with the SVM on the same stack: the SVM needs standardised
   features and a $(C, \gamma)$ search, the forest does not (pointer to the SVM elective,
@@ -429,7 +429,7 @@ Library names follow review-organisation §3.1 (one file, one owner).
   **instrumented** single-split search returning the impurity curve per feature (for `treeplay`).
   Seeded by `rng(seed)` from `lib/random.ts` (re-exported by `lib/ui.ts`).
 - **Feature stack** (**owned by this day**): one builder `featureStack(img, groups, sigmas)` in
-  `lib/imageops.ts` (no `lib/pixelfeatures.ts`; `lib/features.ts` is day 10's object features).
+  `lib/imageops.ts` (no `lib/pixelfeatures.ts`; `lib/features.ts` is day 11's object features).
   Groups: intensity, gradient magnitude, LoG/DoG, Hessian eigenvalues, structure-tensor
   eigenvalues (the derivative filters come from `lib/edges.ts`, owned by the edges day), box mean
   / local variance / Haar (`lib/integral.ts`, integral-images elective). Returns channel names,
@@ -453,7 +453,7 @@ Library names follow review-organisation §3.1 (one file, one owner).
   rectangle; used by `pixelclass` and `graphcut`.
 - Reused: `lib/plot.ts` (bar charts, error curves, scatter; morphology day), `lib/metrics.ts`
   (confusion matrix, Dice, ROC/PR; segmentation section owned by thresholding), `lib/synth.ts`
-  synthetic generators with ground truth (thresholding), day 10's seeded object population and
+  synthetic generators with ground truth (thresholding), day 11's seeded object population and
   `lib/features.ts` (for `featimp`).
 - Speed: all TypeScript first. Expected: `treeplay` < 5 ms, `forestplay` ~50–100 ms per full
   map, `pixelclass` ~100–200 ms per full prediction with progressive display. Only if measurements

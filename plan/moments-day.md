@@ -3,7 +3,7 @@
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
 **Course map (2026-11-12):** elective, group "Objects" (skeletons, moments); entry after
-core day 8 (labelling). Core days 1–8 are known; random forests (day 13) may still be ahead.
+core day 9 (labelling). Core days 1–9 are known; random forests (day 14) may still be ahead.
 
 **Notation** (course conventions): images are $I$ in the concept layer; the math layer keeps
 $f$ for "the image as a function" when moments are inner products. Sample covariance is
@@ -33,14 +33,14 @@ it unchanged.
 ## Prerequisite gap
 
 - **Moments of order 0–2 as region properties** (area, centroid, central moments,
-  second-moment matrix $S$, orientation, equivalent ellipse, eccentricity) are taught on day 8
+  second-moment matrix $S$, orientation, equivalent ellipse, eccentricity) are taught on day 9
   (labelling, `regionprops/`, demo `moments`), and the covariance/eigenvector picture in
   `pca/` (day 1). This day recalls them in two slides (the formulas and one screenshot of the
   equivalent ellipse); the orientation derivation is not repeated, nor re-derived.
-- **Shoelace area / convex hull** (day 8, `shape-features/`): recalled in one line where
+- **Shoelace area / convex hull** (day 9, `shape-features/`): recalled in one line where
   Green's theorem appears (unit 1); this day owns the Green's-theorem math layer.
 - **Binary masks / segmentation**: shape moments need a mask of one object. One slide:
-  threshold (day 5) and label (day 8); the demos generate their own shapes, so no
+  threshold (day 6) and label (day 9); the demos generate their own shapes, so no
   segmentation code is needed.
 - **Orthogonal functions and projection**: known from linear algebra (inner product,
   orthogonal projection, Gram–Schmidt on vectors) and from *The Fourier transform*. The step
@@ -49,20 +49,20 @@ it unchanged.
 - **Polar coordinates and $e^{i\theta}$**: known from calculus and *The Fourier transform*;
   one-line recall that multiplying by $e^{i\alpha}$ rotates by $\alpha$.
 - **Classification**: train/test, overfitting and cross-validation are owned by the random
-  forests day (day 13). Optional unit 5 recalls them in one slide (a forward pointer when this
-  elective runs before day 13) and uses only nearest neighbour and nearest class mean in a
+  forests day (day 14). Optional unit 5 recalls them in one slide (a forward pointer when this
+  elective runs before day 14) and uses only nearest neighbour and nearest class mean in a
   feature space, explained with a scatter plot.
 
 ## Links to other days
 
-- **Labelling** (day 8, `plan/labelling-day.md`): owns orders 0–2 (region properties) and the
+- **Labelling** (day 9, `plan/labelling-day.md`): owns orders 0–2 (region properties) and the
   shape features (convex hull, shoelace, Feret, solidity, and the Fourier-descriptor slide).
   This day owns general order, normalisation, invariants, orthogonal moments and
   reconstruction. The labelling day's `moments` shell (`lib/shapecanvas.ts`) is extended here
   with new modes rather than duplicated; its `regionfilter` table can gain Hu and Zernike
   columns (unit 5 here), which makes its scatter plot a moment-feature space.
-- **Measurements** (day 10): lists Hu/Zernike as one catalogue row "(elective)" pointing here.
-- **Thresholding** (day 5, `plan/thresholding-day.md`): Tsai's moment-preserving threshold
+- **Measurements** (day 11): lists Hu/Zernike as one catalogue row "(elective)" pointing here.
+- **Thresholding** (day 6, `plan/thresholding-day.md`): Tsai's moment-preserving threshold
   chooses the threshold so that the binary image has the same first three grey-level moments
   as the histogram. It is a 1D use of the same definitions: one pointer slide in unit 1 here
   (decided; the thresholding day does not need it).
@@ -92,13 +92,13 @@ it unchanged.
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
 Four core units, about 1.5 h each including the exercise, plus two optional units. Units 1
-and 2 may merge into one (review-organisation §2.6) since day 8's moment material is
+and 2 may merge into one (review-organisation §2.6) since day 9's moment material is
 assumed; then a short `momentclass` task goes into the unit 4 exercise.
 
 ### 1. `moments-basis/`: Moments as projections onto monomials
 
 - Picture first: the same shape drawn as a binary mask and as a grey image; "which few numbers
-  summarise it?" Recall from day 8: $m_{00}$, centroid, $S$, equivalent ellipse.
+  summarise it?" Recall from day 9: $m_{00}$, centroid, $S$, equivalent ellipse.
   The ellipse misses everything that is not an ellipse (the L-shape, a pear): we need higher
   orders.
 - Definition, continuous: $m_{pq} = \iint x^p y^q f(x, y)\,dx\,dy$, i.e. the inner product
@@ -123,9 +123,9 @@ assumed; then a short `momentclass` task goes into the unit 4 exercise.
   $\mu_{20}$ (the variance of a uniform distribution on a unit interval), a first taste of
   discretisation error. For a polygon (snake, marching-squares contour), Green's theorem turns
   the area integral into a sum over the edges (math slide, formula for $m_{00}$ and $m_{10}$;
-  $m_{00}$ is the shoelace formula recalled from day 8 `shape-features/`).
+  $m_{00}$ is the shoelace formula recalled from day 9 `shape-features/`).
 - Pointer: Tsai's moment-preserving thresholding (1D moments of the histogram; histograms
-  from day 5).
+  from day 6).
 - **Demo `moments`** (labelling day's demo) with `data-mode="higher"`: same canvas, shapes and
   handles (drag, rotate, scale) plus a *mirror* button and a grey-image option (a blurred or
   textured shape). Side panel: a triangular table of $m_{pq}$ (or $\mu_{pq}$, toggle) up to
@@ -172,7 +172,7 @@ assumed; then a short `momentclass` task goes into the unit 4 exercise.
   rotating a 20-pixel-wide shape changes $\phi$ by several per cent; invariance holds for the
   continuous image only. Affine invariants (Flusser & Suk) named for slanted views.
 - **Pose normalisation** as the alternative to invariants: translate to the centroid, scale to
-  $m_{00} = 1$, rotate the principal axis onto $x$ (orientation from day 8).
+  $m_{00} = 1$, rotate the principal axis onto $x$ (orientation from day 9).
   Remaining 180° ambiguity: fix the sign of $\mu_{30}$. Fails when $\lambda_1 \approx \lambda_2$
   (square, star, gear): then use the phase of a higher complex moment $c_{k0}$ for $k$-fold
   symmetry. After normalisation shapes can be compared pixel by pixel (link to Procrustes on
@@ -292,8 +292,8 @@ assumed; then a short `momentclass` task goes into the unit 4 exercise.
 - A shape becomes a point in a feature space: $(\log\phi_1, \dots, \log\phi_7)$ or
   $(|Z_{nm}|)$. Scaling features (z-scores) so that no coordinate dominates. Classify by
   **nearest class mean** or **nearest neighbour** (Euclidean distance); no further machine
-  learning. One recall slide of day 13's vocabulary (feature space, training/test set,
-  overfitting, cross-validation; a forward pointer if day 13 is still ahead), then
+  learning. One recall slide of day 14's vocabulary (feature space, training/test set,
+  overfitting, cross-validation; a forward pointer if day 14 is still ahead), then
   leave-one-out error as an honest check.
 - Which invariants separate which classes: round vs kidney-shaped vs lobed nuclei, leaf
   species, digits/letters. What invariance costs: 6 and 9, M and W, b and d/p/q collapse
@@ -302,8 +302,8 @@ assumed; then a short `momentclass` task goes into the unit 4 exercise.
 - Robustness: boundary noise, salt-and-pepper, low resolution, partial occlusion (moments are
   global: one missing piece changes every moment, unlike local features). Moments vs
   skeleton features vs shape-model parameters (snakes elective) vs contour (Fourier)
-  descriptors (day 8) in one comparison table.
-- Moment-based **template matching** (template matching is owned by day 11, FFT
+  descriptors (day 9) in one comparison table.
+- Moment-based **template matching** (template matching is owned by day 12, FFT
   registration): compute invariants in a sliding window (one summed-area table per
   $x^p y^q f$ makes each window $O(1)$; integral-images elective), compare to the template's vector: rotation
   invariant matching without trying all angles; or pose-normalise and correlate.
@@ -394,7 +394,7 @@ assumed; then a short `momentclass` task goes into the unit 4 exercise.
 
 ## Open questions
 
-- **Decided (course map):** this is an elective after day 8, so day 8's moment material is
+- **Decided (course map):** this is an elective after day 9, so day 9's moment material is
   always taught first (no prelude needed). Units 1 and 2 may merge; then unit 5
   (classification) could become core, which gives the day an applied ending. Proposal: keep
   1–4 core and put a short classification task from `momentclass` into the unit 4 exercise.

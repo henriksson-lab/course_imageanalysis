@@ -2,31 +2,31 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** core day 10 of 17, Part II "From pixels to objects" (its last
-day). Order: day 9 watershed → this → day 11 FFT registration. Edits from the three
-reviews applied 2026-11-12: `shape-features/` moved to the labelling day (day 8);
+**Course map (2026-11-12):** core day 11 of 18, Part II "From pixels to objects" (its last
+day). Order: day 10 watershed → this → day 12 FFT registration. Edits from the three
+reviews applied 2026-11-12: `shape-features/` moved to the labelling day (day 9);
 `relations-coloc/` split into `relations/` and `coloc/`; optional `features-use/`
 dissolved (units/normalisation/aggregation → end of `intensity-features/`; classifying
-feature tables → random forests day 13, `forest-objects/`; statistics of measurements →
-evaluation day 15).
+feature tables → random forests day 14, `forest-objects/`; statistics of measurements →
+evaluation day 16).
 
 ## Goal of the day
 
 After the day a student can:
 
-1. read a per-object **measurement table** as produced by common tools, say for each common column what it measures, in which **units**, and what it is sensitive to (resolution, perimeter estimator, segmentation error, background, border); the size and shape columns are recalled from the labelling day (day 8, `regionprops/`, `shape-features/`);
+1. read a per-object **measurement table** as produced by common tools, say for each common column what it measures, in which **units**, and what it is sensitive to (resolution, perimeter estimator, segmentation error, background, border); the size and shape columns are recalled from the labelling day (day 9, `regionprops/`, `shape-features/`);
 2. compute **intensity** descriptors of an object (integrated, mean, median, quartiles, MAD, edge intensity, **mass displacement**, a **radial distribution** in normalised rings) and say which ones change under a background offset or a one-pixel mask error;
 3. build a **grey-level co-occurrence matrix** for a tiny patch and compute the main **Haralick** features from it, and explain the choices of distance, angle and number of grey levels;
 4. compute **neighbour** and **parent–child** measurements (number of neighbours, percent touching, nearest-neighbour distance, children per parent) and recognise how the definition of "neighbour" changes the answer;
 5. compute **colocalisation** coefficients of two channels (Pearson, Manders M1/M2 with thresholds), and recognise the classic pitfalls (background, missing thresholds, bleed-through, resolution);
-6. turn per-object features into something usable: physical units, normalisation and per-image / per-well aggregation (classification of feature tables: day 13; statistics of measurements and replicates: day 15).
+6. turn per-object features into something usable: physical units, normalisation and per-image / per-well aggregation (classification of feature tables: day 14; statistics of measurements and replicates: day 16).
 
 Why it fits this audience: every feature is a sum, a ratio, a maximum or a small
 matrix computed over a set of pixels; the statistics (mean, variance, median, Pearson
 correlation) are ones they already know, now applied to pixels. The new parts are
 **combinatorial** (the co-occurrence matrix, the neighbour graph) and statistical
 (colocalisation as a 2D histogram). The geometric descriptors (convex hull, calipers)
-were taught on day 8. The day is deliberately a practical
+were taught on day 9. The day is deliberately a practical
 **catalogue**: theory of individual measures lives on other days and is recalled here
 in one line with a pointer.
 
@@ -36,7 +36,7 @@ This day owns the practical **catalogue of common per-object measures** and how 
 them (definitions as the tools implement them, naming, units, pitfalls, aggregation).
 It does not re-derive measures whose theory another day owns:
 
-- **Labelling** (day 8, `plan/labelling-day.md`): owns, in `regionprops/`, area, centroid,
+- **Labelling** (day 9, `plan/labelling-day.md`): owns, in `regionprops/`, area, centroid,
   bounding box and extent, the **perimeter estimators and their bias**, central moments
   and the second-moment matrix $S$ → orientation, eccentricity, equivalent ellipse axes,
   and the **Euler number**; in `shape-features/` (moved there from this day) convex hull,
@@ -53,31 +53,31 @@ It does not re-derive measures whose theory another day owns:
 - **Skeletons** (elective, `plan/skeleton-day.md`): owns skeleton length, branch counts,
   Sholl analysis, tortuosity and radius along a centre line. Catalogue row only, marked
   "(elective)".
-- **Morphology** (day 7, `plan/morphology-day.md`): owns granulometry and the pattern spectrum
+- **Morphology** (day 8, `plan/morphology-day.md`): owns granulometry and the pattern spectrum
   (`morph-openclose/`, demo `granulo`). CellProfiler's `MeasureGranularity` and
   blockflow's granularity rows (survival/loss fraction per radius) are the per-image /
   per-object version: a catalogue row in unit 2 next to texture, with a pointer. The
   edge band for edge intensity (unit 1) is an erosion: one-line recall. Also owns the
   **distance transform** $\mathrm{DT}$ (`lib/distance.ts`), used here for radial bins and
   "expand until adjacent".
-- **Thresholding** (day 5, `plan/thresholding-day.md`): owns pixel-level segmentation
+- **Thresholding** (day 6, `plan/thresholding-day.md`): owns pixel-level segmentation
   **evaluation** (Dice, Jaccard, ROC). Here only the converse question is asked: how much
   does a feature change when the segmentation is slightly wrong (unit 1 presets). Its
   histogram helper is reused for intensity distributions. Manders thresholds and
   Costes' automatic threshold (unit 4) are thresholds on a 2D scatter plot; one-line
   back-reference to Otsu, not re-derived.
-- **Evaluation and statistics** (day 15, `plan/evaluation-day.md`): owns object-level
+- **Evaluation and statistics** (day 16, `plan/evaluation-day.md`): owns object-level
   evaluation and the **statistics of measurements** (unit of replication, cells vs
   replicates as $n$, effect sizes, multiple testing over many features, measurement bias).
   This day ends with a one-line forward pointer there.
-- **Random forests** (day 13): classification of feature tables (`forest-objects/`),
+- **Random forests** (day 14): classification of feature tables (`forest-objects/`),
   train/test, overfitting and feature selection. One-line forward pointer.
 - **Bit depth and noise** (day 3, `plan/bitdepth-day.md`): owns how intensities are stored
   (12/16-bit, rescaling, saturation, offset). Here: integrated and mean intensity are in
   **whatever units the file stored**, CellProfiler rescales to $[0, 1]$ by the container
   range (so a 12-bit image in uint16 gives "mean intensity 0.03"), and saturated pixels
   bias max, mean and integrated intensity. One slide in unit 2 with a pointer.
-- **Colour** (day 6, `plan/colour-day.md`): owns colour spaces. Colocalisation here works
+- **Colour** (day 7, `plan/colour-day.md`): owns colour spaces. Colocalisation here works
   on two **fluorescence channels** (or two stain concentration images); spectral
   **bleed-through** is named as a colocalisation artefact with a pointer to the spectral
   unmixing elective (`plan/unmixing-day.md`, which also owns stain deconvolution).
@@ -89,8 +89,8 @@ It does not re-derive measures whose theory another day owns:
 - **3D**: stacks, voxel spacing $(\Delta x, \Delta y, \Delta z)$, anisotropy: pointer to
   `volumes3d/` (marching-cubes elective).
 
-Links to other days: every segmentation day (thresholding day 5, watershed day 9, graph
-cuts day 12, networks days 14 and 16, level sets as an elective) ends in a label image,
+Links to other days: every segmentation day (thresholding day 6, watershed day 10, graph
+cuts day 13, networks days 15 and 18, level sets as an elective) ends in a label image,
 and this day is what is done with it next.
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -105,7 +105,7 @@ in CellProfiler and in blockflow (see the naming table below).
 
 ### 1. `intensity-features/`: Intensity inside an object
 
-- **Opening recall** (one catalogue slide, pointer to day 8 `regionprops/` and
+- **Opening recall** (one catalogue slide, pointer to day 9 `regionprops/` and
   `shape-features/`): the size and shape rows of the table (area, perimeter and its bias,
   extent, axis lengths $4\sqrt{\lambda_{1,2}}$ of $S$, eccentricity, Euler number, convex area,
   solidity, form factor, the compactness name collision, Feret, inscribed radius), with
@@ -127,17 +127,17 @@ in CellProfiler and in blockflow (see the naming table below).
   object (gap, then band) and subtract (blockflow composes this from ring labels).
   Pointer to day 3 (bit depth) for stored units and rescaling.
 - **Edge intensity**: the same statistics on the object's boundary band (object minus its
-  erosion by one pixel; recall from day 7). Ratio edge/mean distinguishes rim
+  erosion by one pixel; recall from day 8). Ratio edge/mean distinguishes rim
   staining (membrane) from filled staining.
 - **Intensity-weighted centroid** $\bar{\mathbf x}_I = \sum I(\mathbf x)\mathbf x / \sum I$
   vs geometric centroid; **mass displacement** = their distance (in µm). Large when the
   signal is polarised (one bright spot off-centre); 0 by symmetry for uniform and
   rim-stained discs. One line: it is the first intensity moment, i.e. the intensity
-  version of the region moments of day 8.
+  version of the region moments of day 9.
 - **Radial distribution** (CellProfiler `MeasureObjectIntensityDistribution`): divide
   the object into $n$ rings by **normalised distance** $\rho = d_c/(d_c + d_e)$ from the
   centre ($d_c$ = distance to the centre point, $d_e$ = distance to the edge, from the
-  distance transform $\mathrm{DT}$, day 7), so rings follow the object's shape instead of being circles.
+  distance transform $\mathrm{DT}$, day 8), so rings follow the object's shape instead of being circles.
   Per ring $k$: **FracAtD** = fraction of the total intensity in ring $k$; **MeanFrac** =
   FracAtD divided by the fraction of the object's pixels in ring $k$ (1 = uniform, >1 =
   enriched); **RadialCV** = coefficient of variation of the ring's intensity across
@@ -155,9 +155,9 @@ in CellProfiler and in blockflow (see the naming table below).
   wells, robust z with median and MAD; plate and batch effects (row/column gradients) in
   one picture; **redundancy** (area, perimeter, equivalent diameter, convex area and max
   Feret are strongly correlated: pick one per block, or PCA, recall `pca/` day 1).
-  Forward pointers, one line each: classifying objects from the table is day 13
+  Forward pointers, one line each: classifying objects from the table is day 14
   (`forest-objects/`); turning the numbers into a claim (replicates, effect sizes,
-  multiple testing) is day 15.
+  multiple testing) is day 16.
 - **Demo `intensityfeat`** (new): one synthetic cell (seeded, 160×160, a mask with an
   editable outline from `lib/shapes.ts` or a disc/ellipse), intensity pattern chosen from
   uniform / rim / off-centre spot / punctate / gradient, sliders for background offset,
@@ -214,8 +214,8 @@ in CellProfiler and in blockflow (see the naming table below).
   and frequency selective; link to the Fourier day: a Gaussian window times a complex
   exponential), **local binary patterns** (8 neighbours thresholded at the centre → an
   8-bit code, histogram of codes, rotation-invariant uniform patterns), and
-  **granularity** (opening spectrum; owned by day 7, CellProfiler
-  `MeasureGranularity`). Forward pointer: network embeddings as learned texture features (days 14 and 16).
+  **granularity** (opening spectrum; owned by day 8, CellProfiler
+  `MeasureGranularity`). Forward pointer: network embeddings as learned texture features (days 15 and 18).
 - **Demo `glcm`** (new): left, a texture patch (synthetic, seeded: oriented stripes with
   angle and period sliders, checkerboard, white noise, smoothed noise with a correlation
   length slider, blobs, the "same histogram" permuted pair; real: crops of `cell256.png`
@@ -244,11 +244,11 @@ in CellProfiler and in blockflow (see the naming table below).
   boundary, 4/8-connectivity), **within distance $r$** (boundaries or centroids closer
   than $r$), **expand until adjacent** (grow every object into the background up to the
   midline between objects, i.e. a Voronoi tessellation of the objects via the distance
-  transform $\mathrm{DT}$, day 7; the same picture as watershed, day 9). Per object:
+  transform $\mathrm{DT}$, day 8; the same picture as watershed, day 10). Per object:
   **number of neighbours**, **percent touching** (fraction of the boundary pixels adjacent to another object), **first and
   second closest** object and their distances, **angle between** the two closest
-  neighbours. The **neighbour graph** (objects as nodes; link to day 8's region
-  adjacency, and forward to the graphs of day 12). Population summaries: the
+  neighbours. The **neighbour graph** (objects as nodes; link to day 9's region
+  adjacency, and forward to the graphs of day 13). Population summaries: the
   nearest-neighbour-distance histogram compared with a random (Poisson) pattern of the
   same density (Clark–Evans ratio $R = \bar d_{\text{obs}} / (0.5/\sqrt{\rho})$: < 1
   clustered, > 1 regular). Edge effect: objects near the image border have fewer
@@ -260,7 +260,7 @@ in CellProfiler and in blockflow (see the naming table below).
   outside any parent and children overlapping two parents are explicit cases. Per-parent
   aggregation of child features (mean, sum, count) is how "spots per nucleus" columns
   are made. Overlap as a relation: overlap fraction of A and of B, Jaccard (pointer to
-  day 5's evaluation; object matching by IoU is day 15).
+  day 6's evaluation; object matching by IoU is day 16).
 - **Demo `neighbours`** (new): a seeded synthetic population of 30–80 cells (nuclei as
   ellipses from `lib/shapes.ts` with density and clustering sliders: Poisson, clustered,
   regular), cell bodies by expansion from the nuclei, and spots inside some nuclei.
@@ -428,7 +428,7 @@ per measurement.
   labelling day; `relations-coloc/` split into `relations/` and `coloc/` (colocalisation
   stays core, as recommended here); `features-use/` dissolved. Review-gaps gap 4 proposed
   making `features-use/` core with a "from measurements to conclusions" half; the course
-  map gives the statistics of measurements to the evaluation day (day 15), so only units,
+  map gives the statistics of measurements to the evaluation day (day 16), so only units,
   normalisation and aggregation stay here. If texture is too long, shorten it to GLCM
   only.
 - **Decided:** `shapefeat` is `data-mode="features"` of the labelling day's `moments`

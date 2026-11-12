@@ -67,13 +67,13 @@ from `cameranoise/` (day 3) as intuition only ("few photons, noisy counts").
 | Normal parameterisation of a line $(\rho, \theta)$, $\rho = x\cos\theta + y\sin\theta$ | both, **same convention** | Hough: voting, accumulator, peaks; this day: integrals, sinogram, inversion |
 | Radon transform, sinogram, back-projection, inversion | **this day** | Hough day: one optional slide "Hough of an edge map ≈ Radon transform of the edge map", pointing here |
 | Line detection by peaks in $(\rho,\theta)$ | **Hough day** | this day, optional unit 6: one slide, pointer to Hough |
-| Fourier slice theorem | **this day**, unit 2 | `fourier/`: none; FFT registration (day 11): may quote it for "rotation rotates the spectrum" (pointer) |
+| Fourier slice theorem | **this day**, unit 2 | `fourier/`: none; FFT registration (day 12): may quote it for "rotation rotates the spectrum" (pointer) |
 | 2D DFT, convolution theorem, continuous FT (math), `lib/fft.ts` | `fourier/` (day 1) | this day: recall + reuse of code |
 | Polar / log-polar resampling of an image or spectrum | shared code (`lib/polar.ts`, owner: dynprog elective) | FFT registration: Cartesian → (log-)polar; dynprog: polar unwrap; this day: polar → Cartesian **gridding** in direct Fourier reconstruction |
 | Beer–Lambert, absorption along a ray (line integral of attenuation) | **this day** (unit 1) | graphics3d `volrender/` generalises to emission–absorption and transmittance $\mathcal T$; stain optical density (unmixing elective, colour day) recalls it in one line |
 | Volume rendering, MIP/average projection | **graphics3d** `volrender/` | this day: "volume rendering computes projections to look at, tomography inverts projections to get the volume" |
 | Hounsfield units, display window/level | **`highbit/`** (day 3, `window16`) | this day: HU defined as the output scale of a reconstruction, one line, recall for display |
-| Energy = data + λ·prior | **graph cuts** `seg-energy/` (day 12) | this day unit 4: the same form with $\|A\mathbf x - \mathbf b\|^2$ as the data term |
+| Energy = data + λ·prior | **graph cuts** `seg-energy/` (day 13) | this day unit 4: the same form with $\|A\mathbf x - \mathbf b\|^2$ as the data term |
 | TV and quadratic priors | **ising** (`gmrf/`) | this day unit 4: one line for 2D TV |
 | Forward model, ill-posed inversion | **day 4** (image formation) | this day unit 4: recall |
 | Deconvolution (Wiener, Tikhonov, Richardson–Lucy), denoiser comparison | **deconvolution day** (`plan/deconvolution-day.md`) | this day: pointer only (MLEM ≈ Richardson–Lucy for emission data) |
@@ -325,7 +325,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 - **The math: regularised reconstruction** {.math}: $\min_{\mathbf x \ge 0}\
   \tfrac12\|A\mathbf x - \mathbf b\|^2 + \lambda\,\mathrm{TV}(\mathbf x)$,
   $\mathrm{TV}(\mathbf x) = \sum_p \|\nabla x_p\|$ (smoothed by $\sqrt{\|\nabla x_p\|^2 + \varepsilon^2}$
-  for gradient steps); the same "data + λ·prior" form as `seg-energy/` (day 12) and the Ising elective, with $A \ne I$. One
+  for gradient steps); the same "data + λ·prior" form as `seg-energy/` (day 13) and the Ising elective, with $A \ne I$. One
   line: for emission data (PET) the data term is the Poisson log-likelihood and the
   iteration becomes multiplicative (MLEM, $\mathbf x \leftarrow \tfrac{\mathbf x}{A^\top \mathbf 1}\,
   A^\top\tfrac{\mathbf b}{A\mathbf x}$), stated only; it is Richardson–Lucy with $A$ = the projector

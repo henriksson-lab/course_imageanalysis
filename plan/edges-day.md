@@ -58,7 +58,7 @@ What day 1 already teaches (checked in the built units), and what this day recal
   recalls "symmetric 2×2 ⇒ real eigenvalues, orthogonal eigenvectors" from it and `images/`
   (`matrix2x2` demo).
 - **Hysteresis thresholding: an ordering problem.** The Hough plan and the brief call it a
-  "recall from the thresholding day", but the thresholding day is now **day 5**, three days
+  "recall from the thresholding day", but the thresholding day is now **day 6**, three days
   *after* this one. Proposal: this day **introduces** hysteresis in its original context (it is
   Canny's invention, Canny 1986) as a two-slide concept ("strong pixels seed, weak pixels
   survive only if connected to a seed"; connectivity as a picture, not an algorithm), and the
@@ -488,7 +488,7 @@ Names follow the shared-infrastructure table in `plan/review-organisation.md` §
 
 ## Open questions
 
-1. **Hysteresis ownership**: the thresholding day is now day 5, after this day. Proposal above:
+1. **Hysteresis ownership**: the thresholding day is now day 6, after this day. Proposal above:
    introduce hysteresis here (Canny context), thresholding day recalls and generalises it. Needs
    agreement and a one-line edit of `plan/thresholding-day.md` (and of the Hough plan's
    "recall from the thresholding day").

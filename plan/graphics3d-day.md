@@ -45,7 +45,7 @@ marching cubes) is looked at through one of these two pipelines.
   unit 1 of the marching-cubes day, which comes first in the 3D group (decided). Unit 4 here
   opens with a one-slide recall.
 - **Colour** is used as RGB triples in $[0, 1]$; colour spaces, gamma and colour maps are
-  owned by the colour day (day 6, core). Bit depth, integer types and floating point are
+  owned by the colour day (day 7, core). Bit depth, integer types and floating point are
   owned by the bit-depth day (day 3, core: `quantisation/`, `cameranoise/`, `highbit/`,
   `floatingpoint/`); stride and endianness stay in `highbit/` and are recalled in unit 3.
 - **Sampling and aliasing** (Part 1, Fourier unit) is assumed for the texture-minification
@@ -66,7 +66,7 @@ marching cubes) is looked at through one of these two pipelines.
 | Normals **from the image gradient** $-\nabla I/\lVert\nabla I\rVert$, anisotropic spacing in the gradient | marching cubes `marchingcubes/` | this day unit 4 (isosurface ray casting) points there |
 | Isosurface extraction (marching squares/cubes/tetrahedra), measurement | marching cubes | this day unit 4: pointer |
 | 3D images: stacks, spacing, world ↔ voxel affine, trilinear, orthogonal and oblique slices, first MIP | marching cubes `volumes3d/` (unit 1, shared) | this day unit 4: recall; MIP/MinIP/AIP as rendering and DVR are owned here |
-| Colour spaces, gamma, sRGB, colour maps | colour day (day 6) | units 3 and 4: pointer |
+| Colour spaces, gamma, sRGB, colour maps | colour day (day 7) | units 3 and 4: pointer |
 | Floating point, bit depth | bit-depth day (day 3) | units 2 and 3: pointers (depth precision, float textures) |
 | Line integral of attenuation, Beer–Lambert | radon elective | unit 4 generalises it to emission–absorption |
 | 2D affine, inverse mapping, bilinear | `images/` (day 1) | this day: recall, extend to 3D |
@@ -223,7 +223,7 @@ bit-depth part to this elective.
   and single floats), **packed formats** (bits shared out, e.g. 10-10-10-2), and the built
   **`texformats`** demo ("the same data in different formats").
 - **sRGB storage** (more codes for the dark; the GPU decodes before filtering): storage only
-  here, the reason for the curve is the colour day's (day 6), one-line recall.
+  here, the reason for the curve is the colour day's (day 7), one-line recall.
 - **Texture mapping and filtering in hardware**: per-vertex $(u, v)$ interpolated
   perspective-correctly (unit 2), then sampled nearest or **bilinear** (`images/`).
   Magnification blocks or blurs; **minification aliases** (recall `fourier/` sampling).

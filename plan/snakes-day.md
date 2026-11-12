@@ -2,7 +2,7 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "Curves and energies" (snakes → level sets → dynamic programming; Ising/MRF); entry after core day 12 (graph cuts). First day of its chain: level sets (elective) follows.
+**Course map (2026-11-12):** elective, group "Curves and energies" (snakes → level sets → dynamic programming; Ising/MRF); entry after core day 13 (graph cuts). First day of its chain: level sets (elective) follows.
 
 ## Goal of the day
 
@@ -27,11 +27,11 @@ integral".
 ## Prerequisite gap
 
 - **Calculus of variations** is new. Present the discrete energy first (a function of $2n$ numbers; its gradient is ordinary partial derivatives), then the continuous Euler–Lagrange equation as the limit, with one worked case ($\int \tfrac12 \alpha |\mathbf{x}'|^2\,ds \Rightarrow -\alpha\mathbf{x}''$, via integration by parts on one slide). No function spaces, no boundary-term discussion beyond "the curve is closed, so they vanish".
-- **Covariance matrix and PCA**: taught on day 1 (`pca/`: 2D cloud, covariance $S$, eigenvectors); the second-moment matrix of a region came back on day 8 (`regionprops/`). Unit 3 recalls it in one slide and goes straight to $2n$ dimensions.
+- **Covariance matrix and PCA**: taught on day 1 (`pca/`: 2D cloud, covariance $S$, eigenvectors); the second-moment matrix of a region came back on day 9 (`regionprops/`). Unit 3 recalls it in one slide and goes straight to $2n$ dimensions.
 - **SVD** may not have been covered. In 2D the Procrustes rotation has a closed form (a $2\times 2$ least-squares problem, or complex numbers); SVD is named as the general-dimension tool (3D shapes) on one slide, with the $2\times2$ case computed in the demo.
-- **Segmentation**: known from Part II (thresholding, day 5) and from graph cuts (day 12). Unit 1 opens with one slide "find the boundary of this nucleus": a threshold gives a ragged, leaky outline; we want a smooth closed curve that sticks to edges.
+- **Segmentation**: known from Part II (thresholding, day 6) and from graph cuts (day 13). Unit 1 opens with one slide "find the boundary of this nucleus": a threshold gives a ragged, leaky outline; we want a smooth closed curve that sticks to edges.
 - **Image gradients and Gaussian smoothing** come from day 1 (`kernels/`) and day 2 (Gaussian derivatives at scale σ, `scale-space/`); one recall slide on $|\nabla(G_\sigma * I)|$ as an edge map.
-- **Energy minimisation** (data + λ·smoothness, MAP view) is owned by day 12 (`seg-energy/`); this day recalls it (unit 1) and never re-derives it.
+- **Energy minimisation** (data + λ·smoothness, MAP view) is owned by day 13 (`seg-energy/`); this day recalls it (unit 1) and never re-derives it.
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
@@ -40,7 +40,7 @@ Four core units, about 1.5 h each including the exercise, plus one optional unit
 ### 1. `snakes/`: Active contours as energy minimisation
 
 - Picture first: a closed rubber band of beads, pulled by springs to its neighbours and attracted to edges. Demo before formulas.
-- **Recall slide (day 12, `seg-energy/`):** same structure as the graph-cut energy: an image term pulls the curve to edges, an internal term keeps it smooth; here the unknown is a curve, not a labelling, and the weights are $\alpha, \beta$ instead of one λ (β is the course's only other use of the letter: snake rigidity).
+- **Recall slide (day 13, `seg-energy/`):** same structure as the graph-cut energy: an image term pulls the curve to edges, an internal term keeps it smooth; here the unknown is a curve, not a labelling, and the weights are $\alpha, \beta$ instead of one λ (β is the course's only other use of the letter: snake rigidity).
 - Contour as a polygon $\mathbf{x}_i = (x_i, y_i)$, $i = 0..n-1$, indices mod $n$ (closed). Energy
   $$E = \sum_i \tfrac12\alpha\,|\mathbf{x}_{i+1} - \mathbf{x}_i|^2 + \tfrac12\beta\,|\mathbf{x}_{i-1} - 2\mathbf{x}_i + \mathbf{x}_{i+1}|^2 + E_\text{ext}(\mathbf{x}_i).$$
   $\alpha$: elasticity (short is cheap; a snake alone shrinks to a point). $\beta$: rigidity (straight is cheap; corners cost). Image term $E_\text{ext} = -|\nabla(G_\sigma * I)|^2$: low on edges.
@@ -134,7 +134,7 @@ Four core units, about 1.5 h each including the exercise, plus one optional unit
 - **Decided (course map):** PCA is owned by day 1 `pca/` (2D point cloud → covariance → eigenvectors); unit 3 recalls it in one slide and reuses its figure.
 - Synthetic training sets only, or also a small real annotated set (e.g. hand outlines or nuclei with a clear licence)? Real data shows correspondence is hard; synthetic keeps the demo controlled.
 - Should the ASM unit include a snake-vs-ASM comparison exercise, or keep the two halves of the day independent?
-- Cross-references to keep consistent in both directions: the snakes-vs-level-sets slide (level set day: topology, GAC), the DP snake (dynamic programming day), shape priors (graph cut day 12 and level set day). **Decided (course map):** order inside the elective is snakes → level sets → dynamic programming, so all three are forward pointers from here.
+- Cross-references to keep consistent in both directions: the snakes-vs-level-sets slide (level set day: topology, GAC), the DP snake (dynamic programming day), shape priors (graph cut day 13 and level set day). **Decided (course map):** order inside the elective is snakes → level sets → dynamic programming, so all three are forward pointers from here.
 - Programming language for the code parts is still open (see README).
 
 ## References
