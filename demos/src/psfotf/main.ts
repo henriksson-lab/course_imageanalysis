@@ -36,8 +36,9 @@ const STYLE = baseStyle(NAME) + `
 [data-demo="${NAME}"] .po-right { flex: 1 1 330px; max-width: 420px; display: flex; flex-direction: column; gap: .3em; }
 [data-demo="${NAME}"] .po-otf { position: relative; }
 [data-demo="${NAME}"] .qb-slider.po-lambda input[type=range] { accent-color: var(--po-lambda); }
-.reveal [data-demo="${NAME}"] .po-imgs { flex: 0 1 380px; }
-.reveal [data-demo="${NAME}"] .po-right { flex: 0 1 380px; max-width: 380px; }
+.reveal [data-demo="${NAME}"] .po-imgs { flex: 0 1 430px; max-width: 430px; }
+.reveal [data-demo="${NAME}"] .po-right { flex: 0 1 400px; max-width: 400px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 0 1 280px; }
 `;
 
 function mount(host: HTMLElement): void {
@@ -58,7 +59,7 @@ function mount(host: HTMLElement): void {
   credit.style.gridColumn = "1 / 3";
 
   const right = htmlEl("div", "po-right", "", host);
-  const plot = new Plot(right, { width: 420, height: 290, x: [0, FMAX], y: [-0.2, 1], xlabel: "spatial frequency (cycles/µm)", ylabel: "OTF (contrast kept)", font: 19, margin: { l: 84 } });
+  const plot = new Plot(right, { width: 420, height: 290, x: [0, FMAX], y: [-0.2, 1], xlabel: "spatial frequency (cycles/µm)", ylabel: "OTF (contrast kept)", font: 23, margin: { l: 98 } });
   const zero = plot.hline(0, { color: "var(--qb-muted, #777)", width: 1.5, dash: "" });
   const lIdeal = plot.line([], [], { color: "var(--qb-muted, #777)", dash: "7 5", width: 2.5 });
   const lNow = plot.line([], [], { color: seriesColor(0), width: 3.5 });

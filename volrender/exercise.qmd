@@ -1,0 +1,208 @@
+---
+title: "Exercise: seeing voxels"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- choose between **MIP**, **MinIP** and the **average** projection, and say why they lose depth,
+- design a simple **transfer function** for what you want to see,
+- **composite** a ray by hand, front to back and back to front, and say where **early termination** may stop,
+- compute segment opacities $\alpha = 1 - e^{-\tau\Delta s}$ and apply **opacity correction**,
+- find an **isosurface** crossing along a ray, and compare ray casting with an extracted mesh,
+- compare the **memory** and uses of volumes and meshes.
+
+Do the pen-and-paper part first, then the demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Ray | one per pixel, sampled every $\Delta s$ (in voxels) with trilinear interpolation |
+| MIP / MinIP / average | maximum / minimum (within the body) / mean of the samples on the ray |
+| Transfer function | value $\to$ colour $c$ and opacity $\alpha$ (per reference step) |
+| Transmittance $\mathcal T$ | fraction of the light from a point that reaches the eye; starts at 1 |
+| Front to back | $C \leftarrow C + \mathcal T\alpha_i c_i$, $\mathcal T \leftarrow \mathcal T(1 - \alpha_i)$ |
+| Back to front | from the far end: $C \leftarrow \alpha_i c_i + (1 - \alpha_i)C$ |
+| Segment opacity | $\alpha = 1 - e^{-\tau\Delta s}$ for extinction $\tau$ |
+| Opacity correction | $\alpha' = 1 - (1 - \alpha_0)^{\Delta s/\Delta s_0}$ |
+| Early termination | stop when $\mathcal T < \varepsilon$ |
+
+The phantom of the demos (values 0–255): air 0, air cavity 8, ventricles (fluid) 40, soft tissue 70, brain 100, bone 170, vessels 230; $64\times64\times40$ voxels of $1\times1\times1.6$ mm.
+
+## By hand
+
+**B1.** A ray has 5 samples, from the eye outwards, with values $30, 80, 180, 230, 90$. The transfer function (opacity per sample, colour RGB):
+
+| value | 0–49 | 50–149 | 150–209 | 210–255 |
+|---|---|---|---|---|
+| $\alpha$ | 0 | 0.2 | 0.5 | 0.9 |
+| $c$ | – | $(0.9, 0.6, 0.5)$ | $(1, 1, 0.9)$ | $(1, 0.2, 0.2)$ |
+
+(a) What do the MIP and the average projection give for this ray?
+(b) Composite front to back: give $C$ and $\mathcal T$ after each sample.
+(c) Composite back to front (start at sample 5) and give $C$ after each sample. Compare the final colour with (b).
+(d) With early termination at $\varepsilon = 0.05$, after which sample does the ray stop? How much does the colour differ from the full result?
+
+**B2.** A material has extinction $\tau = 0.5$ per voxel.
+(a) What is the opacity of one step of $\Delta s = 1$ voxel? Of a step of $\Delta s = 0.5$?
+(b) Check that two steps of 0.5 let through as much light as one step of 1.
+(c) The step is halved but the table value 0.393 is used for each sample without correction. What is the opacity of two samples? Will the image look too dark, too opaque or too transparent?
+
+**B3.** A homogeneous slab of thickness $D = 10$ voxels with $\tau = 0.3$ per voxel, white, in front of a black background.
+(a) What is the true opacity of the slab?
+(b) The transfer function stores $\alpha_0 = 1 - e^{-0.3}$ for steps of 1 voxel. Without opacity correction, what opacity does the renderer get with steps of 2 voxels (5 samples) and of 0.5 voxels (20 samples)?
+
+**B4.** Which projection would you use, and why, for:
+(a) contrast-filled vessels in a CT angiogram, (b) the airways in a chest CT, (c) a quick overview that looks like a radiograph, (d) fluorescent spots in a thick confocal stack?
+Two vessels cross in a MIP. How can you tell which one is in front?
+
+**B5.** **Transfer functions** for the phantom.
+(a) Sketch the opacity (as a function of the value) that shows only the skull. Which value range must get opacity 0?
+(b) Sketch one that shows the vessels in red inside a faint, transparent head.
+(c) In real CT, contrast-filled vessels and bone have similar values. What does that mean for (b)? What extra information could separate them?
+
+**B6.** **Isosurface by ray casting.** Along a ray, the sample at $t = 3$ has value 80 and the sample at $t = 4$ has value 140. The isovalue is $c = 100$. Where is the crossing? Which formula of the marching-cubes day is this?
+
+**B7.** **Volumes and meshes.**
+(a) How much memory does a $512^3$ CT volume of 16-bit values take? And $512\times512\times300$?
+(b) A mesh of the skull surface has $10^6$ triangles. Estimate its memory (indexed, positions and normals as 32-bit floats, 32-bit indices).
+(c) For each task, voxels or mesh? Measuring the volume of the brain; measuring the area of the skull surface; 3D printing the skull; finding the mean intensity inside a tumour.
+
+### Math questions
+
+**B8.** *(math)* Solve $\dfrac{dL}{ds} = -\tau L + \tau c$ for constant $\tau$ and $c$ over a slab of thickness $D$, with light $L_0$ entering from behind. Show $L = c(1 - e^{-\tau D}) + L_0 e^{-\tau D}$.
+
+**B9.** *(math)* Show by induction that front-to-back compositing computes $C = \sum_i \mathcal T_i\alpha_i c_i$ with $\mathcal T_i = \prod_{j<i}(1 - \alpha_j)$, and that back-to-front compositing gives the same $C$.
+
+**B10.** *(math)* Derive the opacity correction $\alpha' = 1 - (1 - \alpha_0)^{\Delta s/\Delta s_0}$, and show that with it the opacity of a homogeneous slab of thickness $D$ does not depend on the step.
+
+**B11.** *(math)* Show that stopping a front-to-back ray when $\mathcal T < \varepsilon$ changes each channel of $C$ by at most $\varepsilon$ (colours in $[0, 1]$).
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) MIP: 230. Average: $(30 + 80 + 180 + 230 + 90)/5 = 122$.
+(b) Opacities $0, 0.2, 0.5, 0.9, 0.2$:
+
+| after sample | $C$ | $\mathcal T$ |
+|---|---|---|
+| 1 (value 30) | $(0, 0, 0)$ | 1 |
+| 2 (80) | $(0.18, 0.12, 0.10)$ | 0.8 |
+| 3 (180) | $(0.58, 0.52, 0.46)$ | 0.4 |
+| 4 (230) | $(0.94, 0.592, 0.532)$ | 0.04 |
+| 5 (90) | $(0.9472, 0.5968, 0.536)$ | 0.032 |
+
+(c) Back to front: after sample 5: $(0.18, 0.12, 0.10)$; after 4: $(0.918, 0.192, 0.190)$; after 3: $(0.959, 0.596, 0.545)$; after 2: $(0.9472, 0.5968, 0.536)$; after 1 (opacity 0): unchanged. The same final colour; the partial sums mean something else ("everything behind this sample").
+(d) After sample 4, $\mathcal T = 0.04 < 0.05$: stop. $C = (0.94, 0.592, 0.532)$; the skipped sample would have added $\mathcal T\alpha_5 c_5 = 0.04\cdot0.2\cdot(0.9, 0.6, 0.5) = (0.0072, 0.0048, 0.004)$, less than $\varepsilon$.
+
+**B2.** (a) $1 - e^{-0.5} = 0.393$; $1 - e^{-0.25} = 0.221$.
+(b) Two half steps let through $0.779^2 = 0.607 = e^{-0.5}$: the same as one step.
+(c) $1 - 0.607^2 = 0.632$ instead of 0.393: too opaque (and with more samples, more and more so).
+
+**B3.** (a) $1 - e^{-3} = 0.950$.
+(b) $\alpha_0 = 0.259$, so $1 - \alpha_0 = e^{-0.3}$. Five samples: $1 - e^{-1.5} = 0.777$ (too transparent). Twenty samples: $1 - e^{-6} = 0.998$ (too opaque). With correction both give 0.950.
+
+**B4.** (a) MIP: the contrast-filled vessels are the brightest thing on their rays. (b) MinIP (within the body): air is the darkest. (c) Average (or sum): it imitates the attenuation summed by an X-ray. (d) MIP: bright spots on a dark background. A MIP keeps only the value, not where it was on the ray, so crossing vessels cannot be ordered from one view: rotate the view (the one that moves less when you rotate about a vertical axis is nearer the axis), or look at slices or a depth-coded MIP.
+
+**B5.** (a) Opacity 0 up to about 140 (air, fluid, soft tissue and brain, which have 0–100 plus noise), rising to high opacity above about 160 (bone 170 and vessels 230). The vessels are inside the skull, so they are hidden anyway.
+(b) A low opacity (a few per cent) for soft tissue and brain (60–115), zero for air and fluid, a little for bone, and high opacity in a red colour above about 210.
+(c) The transfer function sees only the value, so bone and contrast-filled vessels would get the same colour and opacity. Separating them needs more information: the gradient magnitude or position (two-dimensional transfer functions), a segmentation, or a scan without contrast to subtract.
+
+**B6.** $t = 3 + \dfrac{100 - 80}{140 - 80}\cdot 1 = 3.333$: linear interpolation between the two samples, the same formula as the crossing point on an edge in marching squares and marching cubes.
+
+**B7.** (a) $512^3\cdot2 = 268\,435\,456$ bytes = 256 MiB; $512\cdot512\cdot300\cdot2 = 157\,286\,400$ bytes = 150 MiB.
+(b) About $5\cdot10^5$ vertices: positions 6 MB, normals 6 MB, indices $10^6\cdot3\cdot4 = 12$ MB: about 24 MB.
+(c) Brain volume: voxels (count the voxels of the segmentation times the voxel volume), or a closed mesh with the volume formula of the marching-cubes day. Skull area: mesh. 3D printing: mesh. Mean intensity inside a tumour: voxels (the mesh has no interior values).
+
+**B8.** With an integrating factor: $\frac{d}{ds}(L e^{\tau s}) = \tau c\,e^{\tau s}$. Integrate from $s = 0$ (where $L = L_0$, behind the slab) to $s = D$ (the front): $L(D)e^{\tau D} - L_0 = c(e^{\tau D} - 1)$, so $L(D) = c(1 - e^{-\tau D}) + L_0 e^{-\tau D}$.
+
+**B9.** Front to back: suppose after $k$ samples $C_k = \sum_{i \le k}\mathcal T_i\alpha_i c_i$ and $\mathcal T = \mathcal T_{k+1}$. The update adds $\mathcal T_{k+1}\alpha_{k+1}c_{k+1}$ and sets $\mathcal T = \mathcal T_{k+1}(1 - \alpha_{k+1}) = \mathcal T_{k+2}$. Back to front: let $B_k$ be the result for samples $k, \dots, n$; then $B_k = \alpha_k c_k + (1 - \alpha_k)B_{k+1}$. By induction from the far end, $B_{k+1} = \sum_{i > k}\big(\prod_{k < j < i}(1 - \alpha_j)\big)\alpha_i c_i$, and multiplying by $(1 - \alpha_k)$ and adding $\alpha_k c_k$ gives the same form for $B_k$. At $k = 1$ this is $\sum_i \mathcal T_i\alpha_i c_i$.
+
+**B10.** The light let through by a step is $e^{-\tau\Delta s}$; with $1 - \alpha_0 = e^{-\tau\Delta s_0}$ this is $(1 - \alpha_0)^{\Delta s/\Delta s_0}$. A slab of thickness $D$ needs $D/\Delta s$ steps, each letting through $e^{-\tau\Delta s}$: in total $e^{-\tau D}$, independent of $\Delta s$, so the opacity is $1 - e^{-\tau D}$.
+
+**B11.** After stopping, the rest of the ray could add $\sum_{i > k}\mathcal T_i\alpha_i c_i \le \mathcal T_{k+1}\sum_{i>k}\Big(\prod_{k<j<i}(1 - \alpha_j)\Big)\alpha_i \le \mathcal T_{k+1} < \varepsilon$, since the bracketed sum is the opacity of the rest, at most 1.
+:::
+
+## Explore: one ray {#explore-ray}
+
+A sagittal slice of the phantom (through the middle, $x = 32$ mm) with one ray; drag its ends (E is the eye side). Samples every $\Delta s$ mm. The plots show, along the ray, the value (dots in the transfer-function colour), the opacity $\alpha_i$ of each sample (red bars), the transmittance $\mathcal T$ (blue) and the brightness of the accumulated colour $C$ (green). **next sample** composites one more sample (**start** goes back, **all** to the end). The transfer-function editor shows the histogram of the volume; drag the red points. The opacity is per millimetre (one voxel); **opacity correction** adapts it to $\Delta s$.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="raycomposite" data-preset="layers"></div>
+<script src="../demos/dist/raycomposite.js"></script>
+```
+
+**C1.** **two layers** ($\Delta s = 1$ mm). How many samples are there? Where along the ray does $\mathcal T$ fall most, and which structures are those? What are the final $C$ and $\mathcal T$?
+
+**C2.** Press **start** and step through the first 20 samples with **next sample**. Then choose **back to front** and do the same. Compare the partial colours and the final colour.
+
+**C3.** Tick **early termination**. Where could the ray stop, and why there?
+
+**C4.** Change $\Delta s$ to 2 and 4 mm, with and without **opacity correction**. What happens to the final colour and $\mathcal T$? Why does the colour change even with the correction at $\Delta s = 4$?
+
+**C5.** **opaque wall hides what is behind**. Where does the ray stop? Drag the far end of the ray around: does the final colour change?
+
+**C6.** **MIP vs DVR on the same ray**. What is the MIP value, and which structure gives it? Set $\Delta s = 4$: what happens to the MIP, and why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**C1.** 67 samples along 67.2 mm. $\mathcal T$ stays 1 in the air, then falls steadily through soft tissue and brain (opacity 0.04 per mm; the skull, about 150 here because the ray crosses it obliquely and the edges are blurred, adds little), drops sharply at the vessel trunk (from 0.385 at 36.5 mm to 0.118 at 40.5 mm), and falls a little more at the far skull crossing (around 58 mm). Final $C = (0.669, 0.273, 0.299)$, $\mathcal T = 0.044$.
+
+**C2.** Front to back the partial $C$ is "what the eye sees of the first $k$ samples", with $\mathcal T$ telling how much is still visible behind them. Back to front the partial $C$ is "the far part of the ray, seen on its own". The final colours agree: $(0.669, 0.273, 0.299)$.
+
+**C3.** After sample 62 (61.5 mm), when $\mathcal T$ drops below 0.05 at the far side of the skull. Only 5 samples are saved here: the brain is nearly transparent in this transfer function.
+
+**C4.** With correction: $\Delta s = 2$: $C = (0.727, 0.350, 0.302)$, $\mathcal T = 0.015$; $\Delta s = 4$: $C = (0.652, 0.226, 0.297)$, $\mathcal T = 0.062$. Without correction at $\Delta s = 4$: $C = (0.352, 0.127, 0.154)$, $\mathcal T = 0.498$: far too transparent, since each sample still gets the opacity of 1 mm. Even with correction the result changes because large steps sample the thin skull and vessel at different places, or miss their peaks (undersampling).
+
+**C5.** At sample 15 (14.5 mm), at the first skull crossing: the bone is nearly opaque and $\mathcal T$ falls below 0.05. Final $C = (0.678, 0.441, 0.286)$; moving the far end changes nothing as long as the ray still crosses the skull first.
+
+**C6.** 209.9, from the vessel trunk (value 230, lowered by interpolation at the vessel's edge). At $\Delta s = 4$ the MIP drops to 181.6: the samples step over the 2.6-mm-wide vessel and catch only its edge. A thin bright structure needs a step of at most half a voxel.
+:::
+
+## Explore: volume rendering {#explore}
+
+The whole phantom rendered on the graphics card, one ray per pixel. Modes: MIP, MinIP, average, volume rendering (with the transfer-function editor) and isosurface. Drag the view to rotate it. The readout gives the voxel → world matrix and, for volume rendering and isosurfaces, the samples per ray (computed on the CPU with the same algorithm on a 48 × 48 grid of rays, so the numbers do not depend on the graphics card).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="volview" data-mode="render" data-preset="mip"></div>
+<script src="../demos/dist/volview.js"></script>
+```
+
+**V1.** **MIP finds the vessels**, then **MIP has no depth: rotate**. What do you see in front and side views? Drag to rotate slowly: how do you find out which branch is nearer?
+
+**V2.** **MinIP finds the air** and **average = an X-ray**. What does each show? Why is MinIP restricted to samples inside the body?
+
+**V3.** **only the skull**, then **semi-transparent soft tissue**. Drag the opacity points: make the skull disappear and keep only the vessels; make the brain visible as a faint cloud.
+
+**V4.** **step too large: wood grain** (step 3 voxels). Describe the artefact. At which step does it disappear?
+
+**V5.** **no opacity correction** (step 0.25). Compare with the correction ticked, and with step 1. Explain with B2.
+
+**V6.** **early termination saves samples** (heat map of samples per pixel). Which rays take the most samples, and which stop early? Read the readout: how many rays stop early and what do they save? Why is the overall saving smaller?
+
+**V7.** **ignored z spacing** (side view). What happens to the head, and what does the voxel → world matrix say?
+
+**V8.** **isosurface by ray casting** ($c = 135$). Which surface is this? Move $c$ to 60 and to 200. Compare the samples per ray with volume rendering.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**V1.** From the front the vessel tree (value 230) shows as a bright tree inside the ring of the skull (170, brightest where the rays run tangentially through the bone). From the side the left and right branches project onto each other. Rotating, the nearer branch moves the other way from the farther one (relative to the rotation axis): motion parallax restores depth.
+
+**V2.** MinIP: the dark air cavity (value 8) below the brain, inside the head; the ventricles (40) are faintly darker. Without the restriction, every ray that leaves the head through air outside (value 0) would give 0. Average: a soft, radiograph-like picture where thick bone paths are bright and the vessels barely show (they are thin compared with the path length).
+
+**V3.** For example: skull gone by moving the bone points down to opacity 0 between 150 and 200, keeping the vessel point (above 210) high; the brain as a cloud by giving 90–110 an opacity of a few hundredths.
+
+**V4.** Concentric rings on the skull: each ray samples the thin bone shell at depths that jump by 3 voxels from pixel to pixel, so neighbouring rays catch the shell at different phases (aliasing). At a step of 1 it is much weaker, at 0.5 it is gone.
+
+**V5.** Without correction at step 0.25, each of the four times as many samples gets the opacity meant for a whole voxel: the image is much more opaque (the rays' mean opacity is 0.334 instead of 0.222, by the demo's CPU ray caster). With the correction the result is the same as at step 1 (0.222). Without correction at step 2 it would be too transparent (0.143).
+
+**V6.** Rays through the box but outside the head take all their samples (nothing to stop them) and so do rays that graze the head; rays through the skull stop soon after it. The readout: 345 of the 1489 rays stop early and save 45 % of their samples; over all rays only 18 % (69.4 of 84.2 samples per ray), because most rays never become opaque. Rays through empty space need empty-space skipping instead.
+
+**V7.** The head is squashed to 40/64 of its height in the side view: the renderer treats the voxels as cubes. The matrix shows $1, 1, 1$ on its diagonal instead of $1, 1, 1.6$.
+
+**V8.** The outer surface of the skull ($c = 135$ lies between brain 100 and bone 170; from outside, the first crossing is the soft tissue → bone boundary). At $c = 60$ the skin (air 0 → soft tissue 70); at $c = 200$ only the vessels (230) are above it, but the bone is not, so the vessels appear (seen through the skull). Isosurface rays stop at their first hit: 59.0 samples per ray on average instead of 84.2 (30 % saved).
+:::
+
+## Where this leads
+
+The **marching-cubes day** extracts the same isosurfaces as meshes, to measure them. Compositing along rays is also how **3D Gaussian splatting** and neural radiance fields render scenes reconstructed from photographs (the elective on geometry from images). And the projections of this unit, MIP and the average, are the daily tools for looking at microscopy stacks and CT data.

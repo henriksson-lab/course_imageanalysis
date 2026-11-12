@@ -1,0 +1,176 @@
+---
+title: "From masks to objects"
+author: "Image analysis"
+format:
+  revealjs:
+    theme: [simple, ../theme.scss]
+    slide-number: c/t
+    width: 1280
+    height: 720
+    transition: none
+    history: false
+    highlight-style: github
+    code-overflow: wrap
+    code-line-numbers: false
+    incremental: false
+    chalkboard: false
+    menu: true
+    html-math-method: katex
+---
+
+## About this lecture
+
+*The network says "nucleus" for every nucleus pixel. Which pixels belong to which nucleus?*
+
+- A semantic mask is **not** a set of objects: touching cells come out as one blob.
+- A network has no fixed number of outputs, so it predicts a **map that makes separation easy**, and a classical step makes the objects.
+- Four such maps: a **boundary class**, a **distance map**, **star-convex polygons**, **flow fields**; what each one gets wrong.
+- Detection (boxes) as another output, and **panoptic** segmentation.
+
+*Slides titled **The math** give the formulas and proofs; the ideas are complete without them.*
+
+::: notes
+This unit builds on the U-Net unit of the neural networks day (pixel probabilities), the watershed day (distance transform + markers + flooding), the labelling day (connected components) and the evaluation day (matching objects at an IoU threshold, F1). It recalls them and does not re-teach them. All network outputs in the demo are simulated: the exact training target plus controllable errors, so that every failure can be switched on and off.
+:::
+
+## Recall: a U-Net gives a class per pixel
+
+The U-Net unit of the neural networks day: a probability "nucleus" per pixel, thresholded to a mask. Its "touching nuclei merge" preset: two touching nuclei become **one** connected blob.
+
+- **Semantic** segmentation: a class per pixel ("nucleus", "background").
+- **Instance** segmentation: an object identity per pixel ("nucleus 7").
+- **Panoptic** segmentation: both at once. Every pixel gets a class; countable **things** (nuclei, cells) also get an identity, uncountable **stuff** (background, stroma) does not.
+
+Counting, measuring, tracking: all need instances.
+
+## Why post-processing is unavoidable
+
+- A convolutional network does the same thing at every position (translation equivariance) and produces a **fixed** set of output maps.
+- The number of objects in an image varies from 0 to 1000.
+- So the network cannot output "object 1, object 2, …" directly. It outputs a **map that makes separation easy**, and a classical step turns the map into objects: labelling, watershed, suppression, following arrows.
+
+The question for every method: *which map, and which classical step?*
+
+## Route 1: a boundary class
+
+Train with **three** classes: background, cell interior, cell **boundary** (a thin ring around every cell, also between touching cells).
+
+- Label the connected **interiors** (the labelling day), then grow each one back over its boundary pixels.
+- Touching cells are separated by the boundary class between them.
+- Fails when the boundary is **missed in one place**: a one-pixel bridge connects two interiors and they merge. Thin structures are hard to predict, especially exactly where two cells touch.
+
+## Route 2: a predicted distance map
+
+Train the network to predict, for every cell pixel, its **distance to the cell's border** (scaled to 1 at the centre of each cell).
+
+- Then exactly the watershed day's pipeline: threshold for the mask, **h-maxima** as markers, flood $-D$ inside the mask.
+- Better than the distance transform of a mask: the network has seen the **image**, so it can put a deep neck between two cells even where the mask has none.
+- Fails on **elongated** cells: the distance has a long flat ridge, and small errors make several peaks on it: one cell is **split**.
+
+## Try it: four maps on one image
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="instancemaps" data-preset="dist"></div>
+<script src="../demos/dist/instancemaps.js"></script>
+```
+
+::: notes
+Simulated network output: the exact target of the chosen route, plus the error sliders. Tour: "semantic mask merges": 11 objects for 14 cells, three merges (M). "boundary: gaps merge": with contact bias 0.5 the boundary class fades exactly where cells touch: the same three merges. "distance separates": same contact bias, the distance route finds all 14. "elongated: oversplit": noise 0.2 and h = 0.1: the rod splits into 3, the C-shaped cell into 5 (S). Raise h to 0.3: all 14 again. Point at the map panel each time: the errors are visible in the map before they are visible in the labels.
+:::
+
+## Route 3: star-convex polygons
+
+For **every** pixel, the network predicts an **objectness** (how central the pixel is in its cell) and the distances to the border along $n$ fixed rays (e.g. 32 directions).
+
+- Each pixel thus proposes a **polygon** for "its" cell; pixels near the centre propose good ones.
+- Overlapping proposals are pruned by **non-maximum suppression**: keep the best, delete those that overlap it by more than $t$, repeat (next unit).
+- Works well for round and oval nuclei. Fails **by construction** on shapes that are not star-convex: a C-shaped or kidney-shaped cell has no point from which all of its border is visible along straight rays.
+
+## The math: the four targets {.math .smaller}
+
+Cell $O$, pixel $p \in O$:
+
+- **Boundary class**: $p$ is boundary if one of its 4 neighbours is not in $O$; loss: cross-entropy over the 3 classes.
+- **Distance**: $D(p) = \min_{q \notin O}\|p - q\| \,/\, \max_{p' \in O}\min_{q \notin O}\|p' - q\|$; loss: squared or absolute error.
+- **Star-convex rays**: $\mathbf u_k = (\cos\tfrac{2\pi k}{n}, \sin\tfrac{2\pi k}{n})$, $r_k(p) = \max\{r : p + s\,\mathbf u_k \in O \ \ \forall s \in [0, r]\}$; objectness = $D(p)$.
+- $O$ is **star-convex** with respect to $c$ if the segment from $c$ to every point of $O$ lies in $O$; then the ray distances from $c$ describe $O$ exactly (up to the angular sampling). Every convex set is star-convex with respect to each of its points.
+- **Flows** (next slides): $\mathbf v(p) = \nabla h(p)/\|\nabla h(p)\|$; loss: squared error on $\mathbf v$.
+
+## Route 4: flow fields
+
+For every cell pixel, the network predicts a small **arrow** pointing along a path **inside** the cell towards its centre.
+
+- Training targets: put a heat source at the cell's centre and let heat **diffuse inside the cell only**; the arrows point uphill in temperature. The paths bend around corners, so they follow a C-shape or a bent cell.
+- To segment: every pixel follows the arrows for a number of steps. Pixels that end in the same **sink** form one object.
+- Handles long, bent, irregular cells. Fails when the predicted arrows are **noisy** (spurious sinks: splits) or when two touching cells share one smooth field (merge).
+
+## The math: following the flow {.math}
+
+Heat target: $h$ solves the diffusion (heat) equation inside $O$ with a source at the centre $c$ and no flow through the border; in practice $h \leftarrow$ average of its neighbours in $O$, plus 1 at $c$, repeated. Flow $\mathbf v = \nabla h/\|\nabla h\|$.
+
+Following the flow = Euler steps of the ODE $\dot{\mathbf x} = \mathbf v(\mathbf x)$:
+
+$$\mathbf x_{j+1} = \mathbf x_j + \eta\,\mathbf v(\mathbf x_j), \qquad \eta = 1 \text{ pixel}.$$
+
+Along the path $\frac{d}{dt}h(\mathbf x(t)) = \nabla h \cdot \mathbf v = \|\nabla h\| > 0$: $h$ only increases, so a path can only end at a maximum of $h$. If $h$ has a single maximum in $O$ (the source), every path ends there: one sink per cell. Noise in $\mathbf v$ can create extra fixed points (sinks) where the arrows point at each other.
+
+## Try it: flows follow the bend
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="instancemaps" data-preset="flows"></div>
+<script src="../demos/dist/instancemaps.js"></script>
+```
+
+::: notes
+"flows follow the bend": all 14 cells, including the C-shape and the bent cell. Press "animate": the particles (white) run to their sinks. Click a pixel of the C on the map: its path bends around the arc. Then "C-shape: no polygon fits": the clicked pixel's 32 rays and polygon (red) cover only part of the C; the C is split into 2 (S), F1 0.97. Set rays n to 8: 19 objects. "noisy flows: many sinks": noise 0.7 gives 22 objects, splits in the rod, C and a round cell. Finally "contact bias: merges" on the distance route: 11 objects, three merges; switch route to flows: 12 objects.
+:::
+
+## Choosing a route
+
+| Cells | Good route | Typical failure |
+|---|---|---|
+| round, well separated | anything, even semantic + labelling | merges where they touch |
+| round, touching (nuclei) | distance, star-convex | merge if the neck is not predicted |
+| long, bent, irregular (bacteria, cytoplasm, neurites) | flows | splits where the field is noisy |
+| very crowded tissue | distance, star-convex, flows | merges when the contacts are weak |
+
+Whatever the route: **look at the predicted map**, not only at the final labels. Errors in the map turn into object errors (merges, splits, missed dim cells) that the evaluation day's matching counts.
+
+## Detection: objects as a list
+
+The other big family predicts a **list** of objects instead of a map: a **box** and a score per object, optionally a small mask inside each box ("detect, then segment inside the box").
+
+- A box is 4 numbers; good for counting, tracking and cropping; poor for long diagonal objects.
+- The detector proposes many overlapping boxes, removed by non-maximum suppression: the **next unit**.
+- Star-convex polygons are the same idea with a polygon instead of a box.
+
+## Panoptic segmentation
+
+A **semantic** head (stuff and thing classes for every pixel) and an **instance** head (identities of the things), merged by a rule: on "thing" pixels the instance label wins.
+
+Tissue example: nuclei are things (counted, measured one by one); stroma, lumen and background are stuff (area only).
+
+## The math: panoptic quality {.math}
+
+Match predicted and true segments one to one at IoU $> 0.5$ (the evaluation day's matching: above 0.5 the matching is unique). With TP matched pairs, FP unmatched predictions, FN unmatched truths:
+
+$$\mathrm{PQ} = \underbrace{\frac{\sum_{(p,g) \in TP}\mathrm{IoU}(p,g)}{|TP|}}_{\text{segmentation quality SQ}} \times \underbrace{\frac{|TP|}{|TP| + \tfrac12|FP| + \tfrac12|FN|}}_{\text{recognition quality RQ} \,=\, F_1}$$
+
+Example: 3 matches with IoU 0.9, 0.8, 0.7, one FP and two FN: SQ = 0.8, RQ = 3/4.5 = 0.67, PQ = 0.53. Computed per class and averaged over classes.
+
+## Recall: counting the errors
+
+From the evaluation day: match predicted to true objects one to one at IoU $\ge \tau$ (here $\tau = 0.5$), count TP, FP, FN objects; F1 $= 2\,TP/(2\,TP + FP + FN)$; **matching accuracy** $= TP/(TP + FP + FN)$; a **merge** is a predicted object covering two true ones, a **split** a true object covered by two predictions.
+
+The demo shows these numbers for every route and every error setting.
+
+## Summary
+
+- A semantic mask is not a set of objects; instance segmentation needs a map **plus** a classical step.
+- **Boundary class** + labelling: one missed boundary pixel merges two cells.
+- **Distance map** + watershed: separates round touching cells; oversplits long ones.
+- **Star-convex polygons** + suppression: great for round nuclei; cannot describe a C-shape.
+- **Flows** followed to their sinks: follow bends; noisy flows make extra sinks.
+- **Panoptic** = things with identities + stuff with classes. Always look at the predicted map.

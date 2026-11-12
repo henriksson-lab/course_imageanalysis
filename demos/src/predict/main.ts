@@ -31,22 +31,25 @@ const IMAGES: { id: ImgId; label: string; credit: string }[] = [
 const PRED_LABEL: Record<Predictor, string> = { none: "none", left: "left", up: "up", average: "average", planar: "planar a+b−c", paeth: "Paeth", med: "MED" };
 
 const STYLE = `
-[data-demo="${NAME}"] .pr-main { display: flex; flex-direction: column; gap: .5em; flex: 1 1 640px; min-width: 0; max-width: 880px; }
-[data-demo="${NAME}"] .pr-row { display: flex; gap: 10px; align-items: flex-start; }
-[data-demo="${NAME}"] .pr-row > figure { margin: 0; flex: 1 1 0; min-width: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
-[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
-[data-demo="${NAME}"] .pr-hist { flex: 1.9 1 0 !important; }
-[data-demo="${NAME}"] .pr-read { flex: 1 1 0; display: flex; flex-direction: column; gap: .4em; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 230px; max-width: 280px; }
-[data-demo="${NAME}"] .pr-btns { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
-[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
-[data-demo="${NAME}"] .pr-credit { font-size: 13px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { font-size: 14px; }
-.reveal [data-demo="${NAME}"] .pr-main { max-width: 860px; }
+.qb-demo[data-demo="${NAME}"] .pr-main { display: flex; flex-direction: column; gap: .5em; flex: 1 1 640px; min-width: 0; max-width: 880px; }
+.qb-demo[data-demo="${NAME}"] .pr-row { display: flex; gap: 10px; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .pr-row > figure { margin: 0; flex: 1 1 0; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
+.qb-demo[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+.qb-demo[data-demo="${NAME}"] .pr-hist { flex: 1.9 1 0 !important; }
+.qb-demo[data-demo="${NAME}"] .pr-read { flex: 1 1 0; display: flex; flex-direction: column; gap: .4em; }
+.qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 230px; max-width: none; }
+.reveal .qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { max-width: 280px; }
+.qb-demo[data-demo="${NAME}"] .pr-btns { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
+.qb-demo[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
+.qb-demo[data-demo="${NAME}"] .pr-credit { font-size: 13px; color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 14px; }
+.reveal .qb-demo[data-demo="${NAME}"] .pr-main { max-width: 860px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; }
 `;
 
 function injectStyle(): void {

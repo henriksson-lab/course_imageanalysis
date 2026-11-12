@@ -1,0 +1,143 @@
+---
+title: "Exercise: splitting touching objects with the distance transform"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- find the **peaks** and the **saddle** of a distance transform by hand and flood $-\mathrm{DT}$ inside the mask,
+- predict whether two touching discs are **split**, from the **neck depth** $r - \sqrt{r^2 - d^2/4}$ and $h$,
+- recognise the failure modes: **elongated** objects, **strong overlap**, **holes**, the wrong **metric**,
+- combine markers from the distance transform with flooding on the gradient,
+- *(math)* derive the neck height and the split condition, also for unequal discs.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Distance transform | $\mathrm{DT}(p)$ = distance from object pixel $p$ to the nearest background pixel (the morphology day); 0 on the background |
+| City-block | steps to the 4 neighbours, each of length 1 |
+| Peaks, saddle | one peak per round object; the neck between two touching objects is a saddle |
+| Markers | the h-maxima of $\mathrm{DT}$: peaks that rise more than $h$ above the saddle towards a higher (or equal) peak |
+| Landscape | $-\mathrm{DT}$ inside the mask; the background is not flooded |
+| Two discs | radius $r$, centres $d$ apart: peaks $r$, neck $\sqrt{r^2 - d^2/4}$, depth $r - \sqrt{r^2 - d^2/4}$ |
+
+## By hand
+
+**B1.** The $5 \times 9$ mask below is two $5 \times 5$ squares with clipped corners, overlapping in column 4. Pixels outside the grid are background.
+$$A = \begin{bmatrix} 0&1&1&1&0&1&1&1&0 \\ 1&1&1&1&1&1&1&1&1 \\ 1&1&1&1&1&1&1&1&1 \\ 1&1&1&1&1&1&1&1&1 \\ 0&1&1&1&0&1&1&1&0 \end{bmatrix}$$
+(a) Compute the city-block distance transform (count the steps to the nearest background pixel, inside the grid or just outside it).
+(b) Mark the peaks (regional maxima, 8 neighbours) and the saddle. What is the depth of the neck?
+(c) Flood $-\mathrm{DT}$ from the two peaks, inside the mask, with a watershed line (8 neighbours). Where is the line?
+(d) For which $h$ do the h-maxima give two markers?
+
+**B2.** Two discs of radius $r = 10$.
+(a) $d = 12$: compute the neck height and the depth. Split for $h = 1$? For $h = 2$?
+(b) The same for $d = 6$ and $d = 16$.
+(c) With $h = 1$, what is the smallest $d$ that still gives two objects? And with $h = 2$?
+(d) Tangent discs ($d = 2r$): what is the depth? Is there any $h$ that merges them?
+
+**B3.** Three discs of radius 24 in a row, centres 40 apart.
+(a) What is the depth of each neck?
+(b) How many objects for $h = 5$? For $h = 11$? Why not 2 for some $h$ in between?
+
+**B4.** Failure modes. Predict what goes wrong, and suggest a fix:
+(a) an elongated cell (an ellipse with semi-axes 55 and 22) with $h = 0$;
+(b) two nuclei that overlap so much that their centres are $d = 6$ apart ($r = 10$);
+(c) a nucleus whose thresholded mask has a few small holes (dark spots inside);
+(d) the chessboard metric on two discs with $r = 30$, $d = 40$.
+
+**B5.** You have a fluorescence image of touching nuclei. Describe a pipeline in four steps (no code) that gives one label per nucleus, with boundaries that follow faint edges between touching nuclei where there are any.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a)
+$$\mathrm{DT} = \begin{bmatrix} 0&1&1&1&0&1&1&1&0 \\ 1&2&2&2&1&2&2&2&1 \\ 1&2&3&3&2&3&3&2&1 \\ 1&2&2&2&1&2&2&2&1 \\ 0&1&1&1&0&1&1&1&0 \end{bmatrix}$$
+(For example (2, 2): 3 steps up or left to outside the grid; (2, 4): 2 steps to the clipped corner (0, 4) or (4, 4); (1, 4): 1 step.)
+(b) Two peaks of height 3: the pairs (2, 2)–(2, 3) and (2, 5)–(2, 6). The saddle is (2, 4), height 2, on the neck column. Depth $3 - 2 = 1$.
+(c) The line is the neck column: (1, 4), (2, 4), (3, 4) (the corners (0, 4) and (4, 4) are background). Left of it everything is A, right of it B:
+$$\begin{matrix} \cdot&A&A&A&\cdot&B&B&B&\cdot \\ A&A&A&A&|&B&B&B&B \\ A&A&A&A&|&B&B&B&B \\ A&A&A&A&|&B&B&B&B \\ \cdot&A&A&A&\cdot&B&B&B&\cdot \end{matrix}$$
+(d) For $h < 1$ (e.g. $h = 0.5$): both peaks survive. For $h \ge 1$ the peaks are lowered to the saddle and merge into one marker: one object.
+
+**B2.** (a) Neck $\sqrt{100 - 36} = 8$, depth 2. Split for $h = 1$ (2 > 1), not for $h = 2$ (a peak survives only if its depth is larger than $h$).
+(b) $d = 6$: neck $\sqrt{91} = 9.54$, depth 0.46: merged for any $h \ge 0.46$. $d = 16$: neck 6, depth 4.
+(c) Depth $> h$ $\iff d > 2\sqrt{2rh - h^2}$. $h = 1$: $d > 2\sqrt{19} = 8.72$. $h = 2$: $d > 2\sqrt{36} = 12$.
+(d) The neck has height 0 (the discs touch in a single point), depth $r$: they are split for every $h < r$. (In practice, on a pixel grid, the "neck" of two tangent discs is one or two pixels wide.)
+
+**B3.** (a) $24 - \sqrt{576 - 400} = 24 - 13.27 = 10.73$.
+(b) $h = 5$: 3 objects. $h = 11$: 1 object. The two necks have the same depth and the three peaks the same height: as soon as $h$ exceeds the depth, all three peaks are lowered to the saddle level and join one plateau at once. (In the demo, on the pixel grid: 3 objects up to $h = 10$, one from $h = 10.5$.)
+
+**B4.** (a) The Euclidean DT of a long ellipse has a ridge along its major axis that is almost flat, with small bumps from the pixel grid: each bump is a peak, and the cell is cut into many pieces (13 in the demo). Fix: $h$ of about 0.5–1 removes the bumps (their depth is a fraction of a pixel); real necks are deeper.
+(b) Depth 0.46: the shape barely has a neck. Any $h$ above 0.46 merges them, and an $h$ below that would also oversplit elongated cells. The shape alone cannot tell; use the intensity (two maxima of a smoothed intensity), or accept the error.
+(c) The DT drops to 0 at each hole, so a ring of small peaks appears around every hole: many false objects. Fix: fill holes in the mask first.
+(d) Chessboard distance reaches the outline fastest along the diagonals: the peak of each disc is only about $r/\sqrt2 \approx 21$ (on the pixel grid 23), while the neck, measured straight up from the midpoint, is about $\sqrt{900 - 400} = 22.4$ (on the grid 23). The neck is not lower than the peaks: one object. Fix: a near-Euclidean metric (chamfer 3-4 or exact).
+
+**B5.** (1) Threshold the (smoothed) image to a mask, fill holes, remove small specks. (2) Distance transform of the mask; markers = its h-maxima with $h$ of about 1–2 pixels. (3) Gradient magnitude of the smoothed intensity image. (4) Watershed of the gradient from the markers, restricted to the mask (or of $-\mathrm{DT}$ if there are no useful edges). Each marker gives one nucleus; the boundaries follow edges where there are any.
+:::
+
+### Math questions
+
+**B6** *(math)*. Two discs of radius $r$ with centres at $(\pm d/2, 0)$, $0 < d < 2r$. Show that the exact Euclidean distance transform of their union at the midpoint is $\sqrt{r^2 - d^2/4}$, and that the depth $\delta(d) = r - \sqrt{r^2 - d^2/4}$ is increasing in $d$. Solve $\delta(d) > h$ for $d$.
+
+**B7** *(math)*. Unequal discs: radii $r_1 \ge r_2$, centres $d$ apart with $r_1 - r_2 < d < r_1 + r_2$. Find the point where the circles cross, show that (when it lies between the centres) the neck height is the distance $y_c$ of the crossing points from the centre line, and give the depth that decides the split.
+
+**B8** *(math)*. Chessboard metric, continuous version: the chessboard DT at a point is the largest $t$ such that the square of half-width $t$ centred there lies inside the object.
+(a) Show that at the centre of a single disc of radius $r$ it is $r/\sqrt2$.
+(b) Two discs with centres $(\pm d/2, 0)$: show that at the midpoint it equals $y_c = \sqrt{r^2 - d^2/4}$ when $y_c \le d$.
+(c) Taking $r/\sqrt2$ as the height of the peaks, conclude that the neck is lower than the peaks only if $d > \sqrt2\, r$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** The background is the complement of the union; its boundary consists of the two outer arcs, which meet at the crossing points $(0, \pm y_c)$, $y_c^2 = r^2 - d^2/4$ (Pythagoras in the triangle centre, midpoint, crossing point). From the midpoint, any boundary point on the arc of the right disc, $(d/2 + r\cos\theta, r\sin\theta)$ with the point outside the left disc, is at distance at least that of the endpoint of the arc, the crossing point: the distance from $(0, 0)$ to a point of a circle centred at $(d/2, 0)$ grows with the angle from the direction of the origin, and the allowed part of the arc starts at the crossing points. So $\mathrm{DT}(0, 0) = y_c$. $\delta'(d) = \frac{d/4}{\sqrt{r^2 - d^2/4}} > 0$. $\delta > h \iff \sqrt{r^2 - d^2/4} < r - h \iff d^2/4 > r^2 - (r - h)^2 = 2rh - h^2 \iff d > 2\sqrt{2rh - h^2}$ (for $h < r$).
+
+**B7.** With the centres at $(0, 0)$ and $(d, 0)$: $x^2 + y^2 = r_1^2$ and $(x - d)^2 + y^2 = r_2^2$ give $x_c = \frac{d^2 + r_1^2 - r_2^2}{2d}$, $y_c = \sqrt{r_1^2 - x_c^2}$. On the centre line, the point $(x_c, 0)$ has the crossing points as nearest background (same argument as B6), so its DT is $y_c$, and it is the lowest point of the profile between the two peaks (the profile rises towards each centre). The peaks have heights $r_1$ and $r_2$; the smaller peak decides: split if $r_2 - y_c > h$. (If $x_c$ is not between the centres, the small disc's centre is close to the big disc's boundary, its peak is not a regional maximum, and there is no neck.)
+
+**B8.** (a) The square of half-width $t$ around the centre leaves the disc first at its corners, at distance $t\sqrt2$ from the centre: it fits for $t \le r/\sqrt2$.
+(b) The midpoint $(0, t)$ of the square's top edge is in the union only if $d^2/4 + t^2 \le r^2$, i.e. $t \le y_c$: so the DT is at most $y_c$. For $t = y_c$ the square lies in the union if its corners do (the right half of each edge is then inside the right disc, which is convex, and likewise on the left): the corner $(y_c, y_c)$ is in the right disc iff $(y_c - d/2)^2 + y_c^2 \le r^2 \iff 2y_c^2 - d\,y_c + d^2/4 \le r^2 \iff y_c^2 \le d\,y_c \iff y_c \le d$. Then the DT at the midpoint is exactly $y_c$.
+(c) Neck below the peaks: $y_c < r/\sqrt2 \iff r^2 - d^2/4 < r^2/2 \iff d > \sqrt2\, r$ (and there $y_c = r/\sqrt2 < d$, so (b) applies). For $r = 30$: $d > 42.4$; the demo, on the pixel grid, splits from $d = 44$.
+:::
+
+## Explore: distance transform and watershed {#explore}
+
+Three panels: the **mask** (drag the orange centre handle of a shape to move it, the white rim handle to resize it), its **distance transform** (colour, iso-lines every few pixels, white dots = the h-maxima = markers), and the **watershed of −DT** inside the mask (one colour per object). Options: the **metric**, **h**, **flood −DT** or **flood gradient, markers from DT**, **fill holes first**, and a **threshold** for the nuclei image. With exactly two discs, the plot below shows the DT along the line through their centres: the peaks (white), the neck (red), the depth (red bar) against $h$ (orange tick), and the formula.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="distws" data-preset="split"></div>
+<script src="../demos/dist/distws.js"></script>
+```
+
+**D1.** Preset **two discs: split** ($r = 30$, $d = 40$, $h = 2$). Read off the peaks, the neck and the depth. Compare with the formula. Raise $h$: at which value do the discs merge?
+
+**D2.** Preset **move them together until they merge** ($r = 30$, $d = 34$, $h = 3$). Drag the right disc slowly to the left. At which distance do they merge? Compare with B2(c)'s formula for $r = 30$, $h = 3$.
+
+**D3.** Back to **two discs: split**. Switch the metric to city-block, chamfer 3-4 and chessboard. Peaks, neck, depth, objects? Explain the chessboard result.
+
+**D4.** Preset **an ellipse is oversplit**. How many objects at $h = 0$? At $h = 0.5$? Try the other metrics at $h = 0$.
+
+**D5.** Preset **three in a row**. At which $h$ do the objects merge, and into how many? Compare with B3.
+
+**D6.** Preset **noisy mask with holes**. How many objects at $h = 0$, 3, 5? Tick **fill holes first**.
+
+**D7.** Preset **nuclei image** (15 synthetic nuclei, threshold 115). How many components has the mask? How many objects for $h = 0, 1, 2, 3, 6$? Switch to **flood gradient, markers from DT**: what changes?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** Peaks 30.0 (the DT at the centre pixels), neck 23.0, depth 7.02; the formula gives $30 - \sqrt{900 - 400} = 7.64$. The difference (about 0.6) comes from the pixel grid: the neck value 23 is the distance to the nearest background **pixel**, not to the exact crossing point (22.36). Still 2 objects at $h = 7$, one at $h = 7.5$.
+
+**D2.** With the left disc fixed, the measured depth falls in steps: 5.02 at $d = 34$, 4.02 for $d = 30$–33, 3.02 for $d = 28$–29, 2.02 at $d = 27$: they merge at $d = 27$. The formula: $d > 2\sqrt{2 \cdot 30 \cdot 3 - 9} = 2\sqrt{171} = 26.15$ for a split; the grid moves the merge by about one pixel.
+
+**D3.** City-block: peaks 31, neck 23, depth 8, 2 objects. Chamfer 3-4: peaks 29.3, neck 23.0, depth 6.3, 2 objects. Chessboard: peaks 23, neck 23, depth 0, **1 object**: the chessboard distance from the centre of a disc to the outline is only about $r/\sqrt2$ (along the diagonals), no more than the neck height (B4(d), B8).
+
+**D4.** 13 objects at $h = 0$ (Euclidean): bumps along the ridge; 1 at $h = 0.5$. At $h = 0$: city-block 1, chamfer 3-4 7, chessboard 5 (chessboard needs $h = 1$ to get down to 1).
+
+**D5.** 3 objects up to $h = 10$; from $h = 10.5$ one object: all three merge at once (equal necks, equal peaks). The formula gives depth 10.73.
+
+**D6.** 24 objects at $h = 0$ (the 21 hole pixels make many small peaks), 3 at $h = 3$, 2 from $h = 5$. With **fill holes first**: 2 objects at every $h$.
+
+**D7.** 9 components (labelling alone would count 9 nuclei). $h = 0$: 18 objects (three nuclei cut in two by bumps in their DT); $h = 1$ and $h = 2$: 15, one per nucleus; $h = 3$: 12 (three touching pairs merged); $h = 6$: 9, back to the components. Flooding the gradient from the same markers gives the same counts (the markers decide how many), but the boundaries between touching nuclei follow the intensity between them instead of the straight saddle line of the DT.
+:::
+
+## Where this leads
+
+The distance transform turns "two touching round things" into a landscape with two peaks, and the watershed cuts at the neck. The next day (**measurements**) measures every labelled object; the **evaluation** day counts how many were split correctly (object matching, oversplits and merges); the **modern deep learning** day learns the landscape (a distance map, boundaries or flows) from examples and keeps the watershed-like split at the end.

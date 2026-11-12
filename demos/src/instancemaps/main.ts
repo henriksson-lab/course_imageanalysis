@@ -42,6 +42,10 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; flex-basis: 350px; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 16px; padding: .3em .5em; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.reveal [data-demo="${NAME}"] .im-left { flex: 0 1 680px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 420px; max-width: 470px; }
+.reveal [data-demo="${NAME}"] .im-lab { display: none; }
+.reveal [data-demo="${NAME}"] .qb-slider { gap: .3em; }
 `;
 
 function injectStyle(): void {
@@ -62,13 +66,15 @@ const PRESETS: Preset[] = [
   { id: "semantic", label: "semantic mask merges", s: { scene: "mixed", route: "semantic" } },
   { id: "gap", label: "boundary: gaps merge", s: { scene: "mixed", route: "boundary", err: { contact: 0.5 } } },
   { id: "dist", label: "distance separates", s: { scene: "mixed", route: "distance", err: { contact: 0.5 } } },
-  { id: "elong", label: "elongated: oversplit", s: { scene: "mixed", route: "distance", err: { noise: 0.2 } } },
-  { id: "cshape", label: "C-shape: no polygon fits", s: { scene: "mixed", route: "star", click: 65 * N + 113 } },
+  { id: "elong", label: "elongated: oversplit", s: { scene: "mixed", route: "distance", err: { noise: 0.2 }, post: { h: 0.1 } } },
+  { id: "cshape", label: "C-shape: no polygon fits", s: { scene: "mixed", route: "star", click: 64 * N + 92 } },
   { id: "flows", label: "flows follow the bend", s: { scene: "mixed", route: "flows" } },
   { id: "noisyflows", label: "noisy flows: many sinks", s: { scene: "mixed", route: "flows", err: { noise: 0.7 } } },
   { id: "contact", label: "contact bias: merges", s: { scene: "mixed", route: "distance", err: { contact: 1 } } },
   { id: "crowded", label: "crowded tissue", s: { scene: "crowded", route: "distance", err: { noise: 0.1, blur: 1 } } },
 ];
+
+const nearestRays = (v: number) => [4, 8, 16, 32, 64].reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
 
 function mount(host: HTMLElement): void {
   injectStyle();
@@ -116,7 +122,6 @@ function mount(host: HTMLElement): void {
   const sceneBtns = (["mixed", "crowded"] as M.SceneId[]).map(s => button(btnRow, s === "mixed" ? "mixed cells" : "crowded", () => { st.scene = s; st.click = -1; run(); }));
   const note = htmlEl("div", "qb-note", "", panel);
 
-  const nearestRays = (v: number) => [4, 8, 16, 32, 64].reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
 
   pMap.svg.addEventListener("pointerdown", ev => {
     const [x, y] = svgPoint(pMap.svg, ev);
@@ -267,7 +272,7 @@ function mount(host: HTMLElement): void {
     return Array.from({ length: n }, (_, k) => [sx[k + 1] / (c[k + 1] || 1), sy[k + 1] / (c[k + 1] || 1)] as [number, number]);
   }
   function label(svg: SVGSVGElement, x: number, y: number, t: string, col: string): void {
-    const e = svgEl("text", { x: x + 0.5, y: y + 3.5, "text-anchor": "middle", fill: col }, svg); e.textContent = t;
+    const e = svgEl("text", { x: x + 0.5, y: y + 3.5, "text-anchor": "middle", style: `fill:${col}` }, svg); e.textContent = t;
   }
 
   function draw(): void {

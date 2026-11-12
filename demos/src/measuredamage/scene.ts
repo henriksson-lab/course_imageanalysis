@@ -234,3 +234,33 @@ export function meanAbsChange(a: Float64Array, b: Float64Array, idx: number[]): 
   for (const i of idx) s += Math.abs(b[i] - a[i]) / Math.max(1, Math.abs(a[i]));
   return 100 * s / Math.max(1, idx.length);
 }
+
+/** |horizontal| + |vertical| neighbour differences (wrapping at the border). */
+export function absDiff(img: Float64Array): Float64Array {
+  const o = new Float64Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = y * N + x;
+    o[i] = Math.abs(img[y * N + (x + 1) % N] - img[i]) + Math.abs(img[((y + 1) % N) * N + x] - img[i]);
+  }
+  return o;
+}
+
+/** The frequencies where 8-pixel blocking shows up: multiples of N/8 on both axes. */
+export const BLOCK_FREQS: [number, number][] = [[32, 0], [64, 0], [96, 0], [128, 0], [0, 32], [0, 64], [0, 96], [0, 128]];
+
+/**
+ * Blocking index: power of the spectrum of |neighbour differences| at the blocking
+ * frequencies, divided by the mean power around each (2–3 bins away), averaged. About 1 for an
+ * image without an 8-pixel grid; JPEG gives tens to hundreds.
+ */
+export function blockingIndex(img: Float64Array): number {
+  const P = powerSpectrum(absDiff(img));
+  const at = (fx: number, fy: number) => P[((fy + N) % N) * N + (fx + N) % N];
+  let s = 0;
+  for (const [fx, fy] of BLOCK_FREQS) {
+    let r = 0, n = 0;
+    for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) >= 2) { r += at(fx + dx, fy + dy); n++; }
+    s += at(fx, fy) / (r / n);
+  }
+  return s / BLOCK_FREQS.length;
+}

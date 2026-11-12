@@ -1,0 +1,142 @@
+---
+title: "Exercise: Chan–Vese"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute the **Chan–Vese energy** of a split by hand: the two means, the data sums and the length term,
+- say which way a pixel moves for given $c_1$, $c_2$, and why $\lambda = 0$ is **thresholding**,
+- predict the effect of $\lambda$, $\nu$, the width of $\delta_\varepsilon$ and the **start**,
+- say when region-based segmentation beats edge-based segmentation, and when it fails,
+- *(math)* derive the means and the gradient-descent equation, and connect the model to isodata.
+
+Do the pen-and-paper part first, then the demo. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Energy | $E = \sum_{\text{in}}(I - c_1)^2 + \sum_{\text{out}}(I - c_2)^2 + \lambda\cdot\text{Length} + \nu\cdot\text{Area}_{\text{in}}$ |
+| Best grey levels | $c_1$ = mean inside, $c_2$ = mean outside |
+| Moving the curve | $\phi$ changes like $\delta_\varepsilon(\phi)\,[\,(I - c_1)^2 - (I - c_2)^2 + \lambda\kappa + \nu\,]$: negative joins the inside |
+| $\lambda = 0$ | threshold at $(c_1 + c_2)/2$ and recompute the means: isodata |
+| $\delta_\varepsilon$ | a smoothed spike of width $\varepsilon$; wide lets new pieces and holes appear |
+| 1D length | the number of boundary points (neighbouring pixels with different labels) |
+
+::: {.callout-note collapse="true" title="The math: level set form"}
+With $\phi < 0$ inside and $H(\phi) = 1$ outside: $E = \int(I - c_1)^2(1 - H(\phi)) + \int(I - c_2)^2H(\phi) + \lambda\int\delta(\phi)|\nabla\phi| + \nu\int(1 - H(\phi))$, and gradient descent gives $\phi_t = \delta_\varepsilon(\phi)\big[\lambda\kappa + \nu + \lambda_1(I - c_1)^2 - \lambda_2(I - c_2)^2\big]$, with data weights $\lambda_1 = \lambda_2 = 1$ unless said otherwise.
+:::
+
+## By hand
+
+**B1.** **Eight pixels.** $I = (1, 1, 2, 6, 7, 7, 6, 1)$. For each choice of "inside" compute $c_1$, $c_2$, the two data sums, the number of boundary points and $E$ for $\lambda = 0$ and $\lambda = 1$ ($\nu = 0$):
+(a) pixels 4–7; (b) pixels 3–7; (c) pixels 4–6; (d) all pixels (no curve).
+Which split is best? How much does moving the boundary by one pixel cost?
+
+**B2.** **Which way?** Take $c_1 = 6.5$, $c_2 = 1.25$ from B1(a), $\lambda = \nu = 0$. Compute $(I - c_1)^2 - (I - c_2)^2$ for a pixel of grey level 4, and for one of grey level 2. Which joins the inside? What is the dividing grey level?
+
+**B3.** **λ removes a dark pixel.** $I = (1, 1, 1, 6, 6, 3, 6, 1)$.
+(a) Compute $E$ for inside = $\{4, 5, 7\}$ (the "3" left out) and for inside = $\{4, 5, 6, 7\}$, as functions of $\lambda$.
+(b) For which $\lambda$ is it better to fill in the dark pixel?
+(c) Is pixel 6 noise in a bright object, or a real gap? What decides it in Chan–Vese?
+
+**B4.** **λ = 0 is thresholding.** For B1(a), threshold the image at $(c_1 + c_2)/2$. Which pixels are above? Recompute the means of the two classes. Has anything changed? What does this say about B1(a)?
+
+**B5.** **The area term.** Add $\nu = 0.5$. How much does $E$ of B1(a) and B1(b) increase? Does the best split change? What would a large $\nu$ do to an image?
+
+**B6.** **Predict.** Will Chan–Vese (with a sensible $\lambda$) or a geodesic active contour do better, and why?
+(a) Disks at 0.7 on a background of 0.3, with noise of standard deviation 0.3.
+(b) The same disks, noise-free but blurred over 10 pixels.
+(c) A disk at 0.7 on a background that rises from 0.1 to 0.7 across the image.
+(d) Two objects, one at 0.5 and one at 0.9, on a background of 0.1.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.**
+
+| inside | $c_1$ | $c_2$ | data in | data out | boundary points | $E$, $\lambda = 0$ | $E$, $\lambda = 1$ |
+|---|---|---|---|---|---|---|---|
+| (a) 4–7 | 6.5 | 1.25 | 1 | 0.75 | 2 | **1.75** | **3.75** |
+| (b) 3–7 | 5.6 | 1 | 17.2 | 0 | 2 | 17.2 | 19.2 |
+| (c) 4–6 | 6.667 | 2.2 | 0.667 | 18.8 | 2 | 19.47 | 21.47 |
+| (d) all | 3.875 | – | 56.875 | – | 0 | 56.875 | 56.875 |
+
+(a) is best for both $\lambda$. Moving a boundary by one pixel costs about 15.5–17.7: the grey level 2 does not belong with 6 and 7, nor 6 with 1.
+
+**B2.** Grey level 4: $6.25 - 7.5625 = -1.31$, negative: joins the inside. Grey level 2: $20.25 - 0.5625 = 19.69$: outside. The two squared distances are equal at $(c_1 + c_2)/2 = 3.875$.
+
+**B3.** (a) $\{4, 5, 7\}$: $c_1 = 6$, $c_2 = 1.4$, data $0 + 3.2$, 4 boundary points: $E = 3.2 + 4\lambda$. $\{4, 5, 6, 7\}$: $c_1 = 5.25$, $c_2 = 1$, data $6.75 + 0$, 2 boundary points: $E = 6.75 + 2\lambda$.
+(b) Equal at $3.2 + 4\lambda = 6.75 + 2\lambda$: $\lambda = 1.775$. Above it, filling in is cheaper. (A brute-force check over all 256 labellings confirms that these are the best for $\lambda = 0, 1$ and for $\lambda = 2, 4$.)
+(c) The model cannot tell: only $\lambda$ decides how much boundary a deviating pixel is worth. A small $\lambda$ keeps real gaps and also noise; a large one removes both.
+
+**B4.** $(6.5 + 1.25)/2 = 3.875$: above are pixels 4–7 (6, 7, 7, 6), below the rest. The class means are again 6.5 and 1.25: nothing changes. B1(a) is a fixed point of isodata, and the Chan–Vese minimum for $\lambda = 0$.
+
+**B5.** $\nu\cdot$Area adds $0.5 \cdot 4 = 2$ to (a) and $0.5 \cdot 5 = 2.5$ to (b): (a) stays best. A large $\nu$ makes every inside pixel expensive: the inside shrinks or vanishes ($\nu < 0$: it grows). Since inside and outside are interchangeable in the data term, $\nu$ mainly matters when one region should be preferred.
+
+**B6.** (a) Chan–Vese: the means differ by 0.4 and the noise averages out; edge detection on noise with standard deviation 0.3 is hopeless without strong smoothing. (b) Chan–Vese: the means still differ, but the gradient of a 10-pixel blur is small, so $g$ hardly drops and a geodesic contour leaks. (c) Edge-based: the disk's edge is still a local step, but no single background mean fits: at the bright end the background is as bright as the disk and is labelled inside. (d) Chan–Vese with two phases puts the 0.5 object with whichever mean is closer; with $c_2 \approx 0.1$ and $c_1 \approx 0.7$ (the mean of both objects) the threshold is about 0.4, and both objects are found, but the model fits neither object well; more phases or local models are needed. Edge-based methods find both edges.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that for a fixed curve the minimising $c_1$, $c_2$ are the means. Then write $E$ with $H(\phi)$ and derive $\phi_t$ (constant $c_1$, $c_2$, data weights $\lambda_1$, $\lambda_2$).
+
+**B8.** *(math)* Show that at a fixed point of Chan–Vese with $\lambda = \nu = 0$ (and $\lambda_1 = \lambda_2$) the split is a threshold at $(c_1 + c_2)/2$ with $c_1$, $c_2$ the class means: the isodata condition. What changes with $\lambda_1 \ne \lambda_2$?
+
+**B9.** *(math)* For a signed distance function $\phi$ of a circle of radius $r$ and a sharp $\delta$, compute $\int\delta(\phi)|\nabla\phi|\,dx\,dy$. With $\delta_\varepsilon(x) = \varepsilon/(\pi(\varepsilon^2 + x^2))$, what is $\int\delta_\varepsilon(\phi)\,dx\,dy$ for a large image (assume $r \gg \varepsilon$)?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\partial/\partial c_1 \sum_{\text{in}}(I - c_1)^2 = -2\sum_{\text{in}}(I - c_1) = 0$ gives the mean; the other terms do not contain $c_1$. Level set form: $E = \int\lambda_1(I - c_1)^2(1 - H) + \int\lambda_2(I - c_2)^2H + \lambda\int\delta(\phi)|\nabla\phi| + \nu\int(1 - H)$. Varying $\phi$: $H' = \delta$, and the variation of the length term is $-\lambda\delta(\phi)\nabla\cdot(\nabla\phi/|\nabla\phi|) = -\lambda\delta\kappa$. So $\delta E/\delta\phi = \delta(\phi)[-\lambda_1(I - c_1)^2 + \lambda_2(I - c_2)^2 - \lambda\kappa - \nu]$ and $\phi_t = \delta(\phi)[\lambda\kappa + \nu + \lambda_1(I - c_1)^2 - \lambda_2(I - c_2)^2]$.
+
+**B8.** At a fixed point the bracket has the sign that keeps each pixel where it is: inside pixels have $(I - c_1)^2 \le (I - c_2)^2$, outside pixels the reverse. With $c_1 > c_2$ this is $I \ge (c_1 + c_2)/2$ inside: a threshold at the midpoint of the means, where the means are those of the two classes. That is the isodata condition. With $\lambda_1 \ne \lambda_2$ the dividing grey level is where $\lambda_1(I - c_1)^2 = \lambda_2(I - c_2)^2$, i.e. $|I - c_1|/|I - c_2| = \sqrt{\lambda_2/\lambda_1}$: no longer the midpoint; for $\lambda_1 > \lambda_2$ it moves towards $c_1$ and the inside shrinks.
+
+**B9.** In polar coordinates $\phi = \rho - r$, $|\nabla\phi| = 1$: $\int\delta(\rho - r)\,\rho\,d\rho\,d\theta = 2\pi r$, the length. For $\delta_\varepsilon$: $\int_0^\infty\delta_\varepsilon(\rho - r)\,2\pi\rho\,d\rho \approx 2\pi r\int_{-\infty}^{\infty}\delta_\varepsilon(s)\,ds = 2\pi r$ when $r \gg \varepsilon$, plus a correction from the slowly decaying tails ($\delta_\varepsilon \sim \varepsilon/(\pi s^2)$, so far pixels still contribute: the reason a wide $\delta_\varepsilon$ reaches the whole image).
+:::
+
+## Explore: regions instead of edges {#explore}
+
+The left image shows the result: the inside ($\phi < 0$) tinted, the contour in yellow. Next to it: the image thresholded at $(c_1 + c_2)/2$ with the **current** means, $\phi$ itself (blue < 0), the histogram with $c_1$ (inside), $c_2$ and the threshold, and the energy $E$ against the iteration. Grey levels run from 0 to 1. **Start**: a grid of small blobs, one large circle, a circle around the ring, or a small circle in the ring's hole. **Speed**: Chan–Vese, or the edge-based flow of the previous unit on the same image, shrink-wrapping from a box near the border ($\sigma = 2$, $k = 8$ on the 0–255 scale, balloon $-0.3$, $\varepsilon = 0.3$, advection 5; switching restarts). The readout gives the iteration, the means, the energy terms, how many pixels differ from the threshold image, and (test images only) the number of **wrong** pixels, counting the brighter region as object, also for the threshold. **math layer** shows the slider for the data weights $\lambda_1/\lambda_2$.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="chanvese" data-preset="noise"></div>
+<script src="../demos/dist/chanvese.js"></script>
+```
+
+**E1.** Preset **noise: regions work** (noise 0.3, $\lambda = 0.2$, grid start). Play for 300 iterations. Read $c_1$, $c_2$ and the wrong pixels, and compare with the threshold. Does $E$ decrease? Then choose **edge-based** and play until the front stops moving (about 2000 steps). What happens?
+
+**E2.** Preset **λ = 0 is thresholding** (noise 0.15). Watch "≠ threshold" over time (100, 300, 1000 iterations). What does it go towards, and why? Look at the histogram: where is the threshold?
+
+**E3.** From the default settings (noise 0.15, grid start), compare $\lambda = 0.1$, $0.5$, $1$ and $2$ (reset each time, 300 iterations). Which objects disappear first? Explain with the quiz's Q4.
+
+**E4.** Preset **a hole appears** (one circle around the ring, $\varepsilon = 1$). At about which iteration does the ring's hole open? Repeat with $\varepsilon = 0.1$ and $\varepsilon = 3$. Explain.
+
+**E5.** Preset **bad start** (a small circle in the ring's hole, $\varepsilon = 0.1$). What happens to the curve, and what is the final energy? Compare with the grid start under the same settings.
+
+**E6.** Preset **gradient background**. How many pixels are wrong, and which? Compare with the threshold. Switch to edge-based and play until it settles: better or worse?
+
+**E7.** Preset **micrograph** ($\lambda = 0.05$). After 300 iterations, which region is "inside" (look at $c_1$ and $c_2$)? What has been separated from what? Try $\lambda = 0.3$ and $\lambda = 1$.
+
+**E8.** *(math)* Reset the default (noise 0.15, $\lambda = 0.1$), run 300 iterations, then tick **math layer** and set $\lambda_1/\lambda_2 = 2$ without resetting. Run 300 more iterations and watch the area. Then try 0.5. Compare with B8.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** After 300 iterations: $c_1 = 0.698$, $c_2 = 0.304$ (the true levels 0.7 and 0.3), 371 wrong pixels; the threshold at $(c_1 + c_2)/2$ with the same means has 4312. $E$ drops steeply in the first 30–50 iterations and then levels off (1555). Edge-based (shrink-wrap from a box): the noise makes $g$ small almost everywhere, the front sticks in it and is still one ragged curve after 2000 steps (3966 wrong pixels). Even the plain threshold is not much worse.
+
+**E2.** "≠ threshold" falls from 172 (100 iterations) to 115 (300) and 72 (1000): towards 0. With $\lambda = 0$ every pixel eventually moves to the side of the nearer mean, which is the threshold at $(c_1 + c_2)/2$. The threshold sits at about 0.44, not at 0.5: there are 3.6 times as many background as object pixels, so many noisy background pixels lie above 0.44 and pull the inside mean down, while the outside keeps only the darker part of the background, so its mean drops below 0.3. The two means are 0.62 and 0.26: the isodata fixed point of this histogram, with 2775 wrong pixels after 300 iterations (and about as many for the threshold).
+
+**E3.** $\lambda = 0.1$: 183 wrong pixels, all six objects (the ring counts as two curves). $\lambda = 0.5$: 537, the thin bar and the small disk are gone (4 curves left). $\lambda = 1$: 712; $\lambda = 2$: 902, with the remaining objects more rounded. Thin and small objects have the most boundary per area: they go first.
+
+**E4.** With $\varepsilon = 1$ the hole's centre leaves the inside at about iteration 200; with $\varepsilon = 3$ at about 250; with $\varepsilon = 0.1$ only at about 350. With a narrow $\delta_\varepsilon$ the pixels in the hole, far from the start curve, are updated very little: the hole must wait until the curve gets near. (The very wide $\varepsilon = 3$ is not faster here, because it also weakens the update near the curve: $\delta_\varepsilon(0) = 1/(\pi\varepsilon)$.) By iteration 600 with $\varepsilon = 1$ all objects are found (273 wrong pixels).
+
+**E5.** The circle contains only background: $c_1 \approx c_2$, the data hardly push, and the curve shrinks and vanishes within 100 iterations. $E = 762.2$ (the whole image as one region). From the grid start: 430. A local minimum: Chan–Vese only goes downhill from where it starts.
+
+**E6.** About 4370 wrong pixels: the brighter right part of the background is labelled as object, because it is closer to the object mean (0.62) than to the background mean (0.23). The threshold makes the same mistake (4383). The edge-based flow only looks at local differences: the slow ramp is no edge, and it wraps the objects with 1463 wrong pixels (4 curves; the blurred disk's soft edge and the thin bar are the hard parts). Here edges win.
+
+**E7.** $c_1 = 0.81$ (inside) and $c_2 = 0.43$: the inside is the **bright** background between the cells; the outside is the darker cell, nucleus and cytoplasm together. Chan–Vese splits into the two best-fitting grey levels, and these are "light" and "dark", not "nucleus" and "the rest". $\lambda = 0.05$: 46 curves, a ragged boundary; $\lambda = 0.3$: 7; $\lambda = 1$: 3 smooth curves.
+
+**E8.** With $\lambda_1/\lambda_2 = 2$ the inside (the objects, $c_1 = 0.68$) shrinks from 3563 to 3399 pixels; with 0.5 it grows to 3677. A heavier weight on the inside data makes a pixel need to be closer to $c_1$ to join (B8). (From a grid start, unequal weights can tip the whole image to one side before the means separate; that is why we change them only after convergence here.)
+:::
+
+## Where this leads
+
+Chan–Vese fits **two constants**. Real images need more: several phases (more level set functions), colour (a mean vector per region), shading (smoothly varying grey levels), and knowledge of the expected **shape** (shape priors from the snakes day's shape models). The same energy on a pixel graph can be minimised globally with graph cuts (graph cuts day). The next day of this elective chain, **dynamic programming**, finds optimal curves in another way: as minimal paths, exactly and globally, for curves that can be ordered.

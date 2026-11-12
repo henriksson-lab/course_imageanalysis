@@ -31,27 +31,28 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; align-items: flex-start; }
-[data-demo="${NAME}"] .rf-img { flex: 0 1 360px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .rf-img canvas { width: 100%; image-rendering: pixelated; cursor: pointer; border: 1px solid var(--qb-grid); }
-[data-demo="${NAME}"] .rf-mid { flex: 1 1 330px; min-width: 0; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .rf-right { flex: 0 1 360px; min-width: 0; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .rf-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .rf-tab { max-height: 228px; overflow-y: auto; border: 1px solid var(--qb-grid); border-radius: 4px; }
-[data-demo="${NAME}"] .rf-tab table { border-collapse: collapse; width: 100%; font-size: 14px; }
-[data-demo="${NAME}"] .rf-tab th { position: sticky; top: 0; background: var(--qb-panel); cursor: pointer; font-weight: 600; padding: .1em .3em; text-align: right; white-space: nowrap; }
-[data-demo="${NAME}"] .rf-tab td { padding: .03em .3em; text-align: right; font-family: ui-monospace, monospace; border-bottom: 1px solid var(--qb-grid); }
-[data-demo="${NAME}"] .rf-tab tr.out td { color: var(--qb-muted); text-decoration: line-through; }
-[data-demo="${NAME}"] .rf-tab tr.sel td { background: #fff3b0; }
-[data-demo="${NAME}"] .rf-tab tr { cursor: pointer; }
-[data-demo="${NAME}"] .rf-sw { display: inline-block; width: .8em; height: .8em; border-radius: 2px; vertical-align: -.05em; }
-[data-demo="${NAME}"] .qb-slider { font-size: 15px; }
-[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
-[data-demo="${NAME}"] .rf-count { font-size: 18px; font-weight: 600; }
-[data-demo="${NAME}"] .rf-credit { font-size: 12px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .rf-tab { max-height: 200px; }
-@media (max-width: 1000px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: wrap; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .rf-img { flex: 0 1 340px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .rf-img canvas { width: 100%; image-rendering: pixelated; cursor: pointer; border: 1px solid var(--qb-grid); }
+.qb-demo[data-demo="${NAME}"] .rf-mid { flex: 1 1 330px; min-width: 0; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .rf-right { flex: 1 1 340px; max-width: 480px; min-width: 0; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .rf-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .rf-tab { max-height: 228px; overflow-y: auto; border: 1px solid var(--qb-grid); border-radius: 4px; }
+.qb-demo[data-demo="${NAME}"] .rf-tab table { border-collapse: collapse; width: 100%; font-size: 14px; }
+.qb-demo[data-demo="${NAME}"] .rf-tab th { position: sticky; top: 0; background: var(--qb-panel); cursor: pointer; font-weight: 600; padding: .1em .3em; text-align: right; white-space: nowrap; }
+.qb-demo[data-demo="${NAME}"] .rf-tab td { white-space: nowrap; padding: .03em .3em; text-align: right; font-family: ui-monospace, monospace; border-bottom: 1px solid var(--qb-grid); }
+.qb-demo[data-demo="${NAME}"] .rf-tab tr.out td { color: var(--qb-muted); text-decoration: line-through; }
+.qb-demo[data-demo="${NAME}"] .rf-tab tr.sel td { background: #fff3b0; }
+.qb-demo[data-demo="${NAME}"] .rf-tab tr { cursor: pointer; }
+.qb-demo[data-demo="${NAME}"] .rf-sw { display: inline-block; width: .8em; height: .8em; border-radius: 2px; vertical-align: -.05em; }
+.qb-demo[data-demo="${NAME}"] .qb-slider { font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
+.qb-demo[data-demo="${NAME}"] .rf-count { font-size: 18px; font-weight: 600; }
+.qb-demo[data-demo="${NAME}"] .rf-credit { font-size: 12px; color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .rf-tab { max-height: 200px; }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; }
+@media (max-width: 1000px) { .qb-demo[data-demo="${NAME}"] { flex-wrap: wrap; } }
 `;
 
 function injectStyle(): void {

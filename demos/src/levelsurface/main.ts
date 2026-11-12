@@ -14,30 +14,14 @@ import { htmlEl, slider, presets, button, autoMount } from "../lib/ui";
 import { GLView, OrbitCamera, viewButtons, heightFieldMesh, MeshData } from "../lib/gl3d";
 import { diverging, divergingT } from "../lib/colour";
 import { marchingSquares, Contour } from "../lib/marching";
-import { pointSegDist, sdfBox } from "../lib/levelset";
+import { ShapeId, Mode, SHAPES, MODES, EXT, sample, geometryAt } from "./shapes";
 
 const NAME = "levelsurface";
-const EXT = 3;            // world coordinates x, y in [−3, 3]
 const NT = 121;           // top-view grid (spacing 0.05)
 const NM = 49;            // mesh grid (spacing 0.125)
 const ZS = 1 / 12;        // mesh height per unit of φ (world size 1 = 6 units)
 const CLIP = 6;           // φ clipped to ±6 in the 3D view
 const CMAX = 3;           // colour map saturates at |φ| = 3
-
-type ShapeId = "circle" | "ellipse" | "two" | "square" | "egg";
-type Mode = "sdf" | "x3" | "sq";
-const SHAPES: { id: ShapeId; label: string; R: number }[] = [
-  { id: "circle", label: "circle", R: 1.5 },
-  { id: "ellipse", label: "ellipse", R: 2.2 },
-  { id: "two", label: "two circles", R: 1 },
-  { id: "square", label: "square", R: 1.5 },
-  { id: "egg", label: "egg crate", R: 1 },
-];
-const MODES: { id: Mode; label: string }[] = [
-  { id: "sdf", label: "distance d" },
-  { id: "x3", label: "3 × d" },
-  { id: "sq", label: "d + d²/2R" },
-];
 
 interface Preset { id: string; label: string; shape: ShapeId; mode: Mode; c: number; pt: [number, number] | null }
 const PRESETS: Preset[] = [
@@ -71,58 +55,6 @@ function injectStyle(): void {
   s.id = "qb-style-" + NAME;
   s.textContent = STYLE;
   document.head.appendChild(s);
-}
-
-// ---- the functions ----
-const ELL_A = 2.2, ELL_B = 1.2;
-const ELLIPSE: number[] = (() => {
-  const n = 720, P: number[] = [];
-  for (let k = 0; k < n; k++) {
-    const t0 = 2 * Math.PI * k / n, t1 = 2 * Math.PI * (k + 1) / n;
-    P.push(ELL_A * Math.cos(t0), ELL_B * Math.sin(t0), ELL_A * Math.cos(t1), ELL_B * Math.sin(t1));
-  }
-  return P;
-})();
-
-/** Signed distance (or, for the egg crate, the given function) at world point (x, y); y up. */
-function baseFn(shape: ShapeId, x: number, y: number): number {
-  switch (shape) {
-    case "circle": return Math.hypot(x, y) - 1.5;
-    case "two": return Math.min(Math.hypot(x - 1.2, y) - 1, Math.hypot(x + 1.2, y) - 1);
-    case "square": return sdfBox(x, y, 0, 0, 1.5, 1.5);
-    case "egg": return Math.sin(Math.PI * x / 2) * Math.sin(Math.PI * y / 2);
-    case "ellipse": {
-      let d = Infinity;
-      for (let s = 0; s < ELLIPSE.length; s += 4) d = Math.min(d, pointSegDist(x, y, ELLIPSE[s], ELLIPSE[s + 1], ELLIPSE[s + 2], ELLIPSE[s + 3]));
-      return (x / ELL_A) ** 2 + (y / ELL_B) ** 2 < 1 ? -d : d;
-    }
-  }
-}
-
-function phiFn(shape: ShapeId, mode: Mode, x: number, y: number): number {
-  const d = baseFn(shape, x, y);
-  if (shape === "egg") return d;
-  const R = SHAPES.find(s => s.id === shape)!.R;
-  return mode === "x3" ? 3 * d : mode === "sq" ? d + d * d / (2 * R) : d;
-}
-
-/** Sample on an n × n grid; row 0 = top (y = +3), column 0 = left (x = −3). */
-function sample(shape: ShapeId, mode: Mode, n: number): Float64Array {
-  const v = new Float64Array(n * n), hs = 2 * EXT / (n - 1);
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) v[j * n + i] = phiFn(shape, mode, -EXT + i * hs, EXT - j * hs);
-  return v;
-}
-
-/** φ, gradient, |∇φ| and κ at a world point by central differences of the function (h = 0.01). */
-function geometryAt(shape: ShapeId, mode: Mode, x: number, y: number) {
-  const h = 0.01, f = (a: number, b: number) => phiFn(shape, mode, a, b);
-  const c = f(x, y), l = f(x - h, y), r = f(x + h, y), d = f(x, y - h), u = f(x, y + h);
-  const fx = (r - l) / (2 * h), fy = (u - d) / (2 * h);
-  const fxx = (r - 2 * c + l) / (h * h), fyy = (u - 2 * c + d) / (h * h);
-  const fxy = (f(x + h, y + h) - f(x + h, y - h) - f(x - h, y + h) + f(x - h, y - h)) / (4 * h * h);
-  const g = Math.hypot(fx, fy);
-  const k = (fxx * fy * fy - 2 * fx * fy * fxy + fyy * fx * fx) / (g * g * g);
-  return { phi: c, fx, fy, g, k };
 }
 
 const f2 = (v: number) => (Math.abs(v) < 0.005 ? 0 : v).toFixed(2);
@@ -260,12 +192,12 @@ function mount(host: HTMLElement): void {
       const [x, y] = st.pt, G = geometryAt(st.shape, st.mode, x, y);
       const [px, py] = toPx(x, y), nx = G.fx / G.g, ny = G.fy / G.g;
       // osculating circle of the level line through the point
-      if (Math.abs(G.k) > 1e-3 && Math.abs(1 / G.k) < 20) {
+      if (G.g > 1e-6 && Math.abs(G.k) > 1e-3 && Math.abs(1 / G.k) < 20) {
         const r = 1 / G.k, cx = x - r * nx, cy = y - r * ny, [qx, qy] = toPx(cx, cy);
         ctx.strokeStyle = "rgba(0,110,0,0.9)"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
         ctx.beginPath(); ctx.arc(qx, qy, Math.abs(r) / (2 * EXT) * S, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
       }
-      const L = 0.7, [ex, ey] = toPx(x + L * nx, y + L * ny);
+      const L = G.g > 1e-6 ? 0.7 : 0, [ex, ey] = toPx(x + L * nx, y + L * ny);
       ctx.strokeStyle = "#111"; ctx.fillStyle = "#111"; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(ex, ey); ctx.stroke();
       const ang = Math.atan2(ey - py, ex - px);
@@ -273,14 +205,15 @@ function mount(host: HTMLElement): void {
       ctx.lineTo(ex - 14 * Math.cos(ang - 0.4), ey - 14 * Math.sin(ang - 0.4));
       ctx.lineTo(ex - 14 * Math.cos(ang + 0.4), ey - 14 * Math.sin(ang + 0.4)); ctx.fill();
       ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(px, py, 6, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+      const flat = !(G.g > 1e-6);
       lines.push(
         `point (${x.toFixed(2)}, ${y.toFixed(2)})`,
         `φ       = ${f2(G.phi)}`,
         `∇φ      = (${f2(G.fx)}, ${f2(G.fy)})`,
         `|∇φ|    = ${f2(G.g)}`,
-        `n       = (${f2(nx)}, ${f2(ny)})`,
-        `κ       = ${Math.abs(G.k) > 999 ? "> 999" : f2(G.k)}`,
-        `1/κ     = ${Math.abs(G.k) < 1e-3 ? "∞" : f2(1 / G.k)}`,
+        flat ? "∇φ = 0: no normal, no κ" : `n       = (${f2(nx)}, ${f2(ny)})`,
+        flat ? "" : `κ       = ${Math.abs(G.k) > 999 ? "> 999" : f2(G.k)}`,
+        flat ? "" : `1/κ     = ${Math.abs(G.k) < 1e-3 ? "∞" : f2(1 / G.k)}`,
       );
     } else lines.push("click the top view for n and κ");
     ro.textContent = lines.join("\n");

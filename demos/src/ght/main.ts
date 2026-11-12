@@ -29,6 +29,7 @@ const STYLE = PANEL_CSS(NAME) + `
 [data-demo="${NAME}"] .gh-bottom .qb-readout.ro { flex: 1 1 32%; font-size: 14px; white-space: pre-wrap; }
 [data-demo="${NAME}"] .qb-panel { flex: 0 1 290px; min-width: 230px; gap: .3em; }
 [data-demo="${NAME}"] .qb-slider { grid-template-columns: 6.6em 1fr 3.6em; }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .gh-left { flex: 0 0 830px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 0 0 300px; gap: .12em; }

@@ -32,20 +32,20 @@ const RES = 90;
 const KNAMES: Record<KernelType, string> = { linear: "linear", poly: "polynomial", rbf: "RBF" };
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
-[data-demo="${NAME}"] .sv-left { flex: 0 1 470px; min-width: 260px; }
-[data-demo="${NAME}"] .sv-left .qb-plot { max-width: none; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 430px; gap: .35em; }
-[data-demo="${NAME}"] .sv-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; overflow-x: auto; }
-[data-demo="${NAME}"] .sv-extra { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: .8em; }
-[data-demo="${NAME}"] .sv-extra > div { flex: 1 1 300px; min-width: 0; max-width: 480px; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .sv-left { flex-basis: 450px; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .sv-left { flex: 0 1 430px; min-width: 260px; }
+.qb-demo[data-demo="${NAME}"] .sv-left .qb-plot { max-width: none; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 270px; max-width: 430px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .sv-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; overflow-x: auto; }
+.qb-demo[data-demo="${NAME}"] .sv-extra { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: .8em; }
+.qb-demo[data-demo="${NAME}"] .sv-extra > div { flex: 1 1 300px; min-width: 0; max-width: 480px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .sv-left { flex: 0 0 490px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
-.reveal [data-demo="${NAME}"] .qb-panel { max-height: 560px; overflow-y: auto; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { max-height: 560px; overflow-y: auto; }
 `;
 
 function injectStyle(): void {
@@ -164,9 +164,12 @@ function mount(host: HTMLElement): void {
       return grid[Math.max(0, Math.min(RES - 1, j)) * RES + Math.max(0, Math.min(RES - 1, i))];
     }, { street: true }));
     // contours
-    pathEl(gBg, contourPath(W, pg, grid, RES, 0), "var(--qb-fg, #222)", 3.2);
-    pathEl(gBg, contourPath(W, pg, grid, RES, 1), colors[1], 2.4, "8 6");
-    pathEl(gBg, contourPath(W, pg, grid, RES, -1), colors[0], 2.4, "8 6");
+    const flat = !!m.w && Math.hypot(m.w[0], m.w[1]) < 1e-3;   // w ≈ 0: f is constant, no line to draw
+    if (!flat) {
+      pathEl(gBg, contourPath(W, pg, grid, RES, 0), "var(--qb-fg, #222)", 3.2);
+      pathEl(gBg, contourPath(W, pg, grid, RES, 1), colors[1], 2.4, "8 6");
+      pathEl(gBg, contourPath(W, pg, grid, RES, -1), colors[0], 2.4, "8 6");
+    }
     // RBF bumps
     if (st.kernel === "rbf" && st.bumps) {
       const r = 1 / Math.sqrt(p10(st.logG)), rpx = Math.abs(W.X(r) - W.X(0));
@@ -183,7 +186,7 @@ function mount(host: HTMLElement): void {
       const n2 = m.w[0] ** 2 + m.w[1] ** 2;
       for (const p of pts) {
         const yf = ny(p) * fAt(m, p.x, p.y, kf);
-        if (yf < 1 - 1e-3 && n2 > 0) {
+        if (yf < 1 - 1e-3 && n2 > 1e-6 && (1 - yf) / Math.sqrt(n2) < W.hi - W.lo) {
           const t = (1 - yf) * ny(p) / n2, tx = p.x + t * m.w[0], ty = p.y + t * m.w[1];
           const l = svgEl("line", { x1: W.X(p.x), y1: W.Y(p.y), x2: W.X(tx), y2: W.Y(ty) }, gTop);
           l.style.setProperty("stroke", "#e6a700"); l.style.setProperty("stroke-width", "4"); l.style.setProperty("stroke-linecap", "round");

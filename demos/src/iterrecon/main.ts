@@ -9,7 +9,7 @@ import { htmlEl, slider, presets, button, checkbox, autoMount } from "../lib/ui"
 import { Plot, plotFigure } from "../lib/plot";
 import { diverging } from "../lib/colour";
 import * as R from "../lib/radon";
-import { ObjectName, OBJECT_LABELS, objectImage, cellObject, imagePanel, injectStyle, baseCss, layout, CELL_CREDIT } from "../radonproj/view";
+import { ObjectName, OBJECT_LABELS, objectImage, cellObject, imagePanel, injectStyle, baseCss, layout, CELL_CREDIT, uniqueClip } from "../radonproj/view";
 
 const NAME = "iterrecon";
 const N = 128;
@@ -42,8 +42,8 @@ function mount(host: HTMLElement): void {
   const recP = imagePanel(L.figs, "reconstruction", N, 0, "rd-fig");
   const credit = htmlEl("div", "rd-credit", CELL_CREDIT, recP.fig);
   const errP = imagePanel(L.figs, "error", N, 0, "rd-fig");
-  const plotFig = plotFigure(L.figs, "error and residual per iteration", "rd-fig wide");
-  const plot = new Plot(plotFig, { width: 400, height: 300, x: [0, 10], y: [0.003, 1], ylog: true, xlabel: "iteration", ylabel: "" });
+  const plotFig = plotFigure(L.figs, "red: RMSE vs truth · blue: data residual · dashed: FBP", "rd-fig wide");
+  const plot = uniqueClip(new Plot(plotFig, { font: 22, width: 400, height: 300, x: [0, 10], y: [0.003, 1], ylog: true, xlabel: "iteration", ylabel: "" }));
   const [colA, colB, colC] = L.cols;
 
   htmlEl("div", "rd-lab", "presets", colA);
@@ -80,10 +80,9 @@ function mount(host: HTMLElement): void {
   const mask = R.fovMask(N);
   let running = false, timer = 0;
 
-  const errLine = plot.line([0], [1], { color: "var(--qb-c2)", width: 3, label: "RMSE vs truth" });
-  const resLine = plot.line([0], [1], { color: "var(--qb-c1)", width: 3, label: "data residual (relative)" });
-  const fbpLine = plot.hline(1, { color: "var(--qb-c2)", width: 2, dash: "6 4", text: "FBP RMSE" });
-  plot.legend(undefined, "tr");
+  const errLine = plot.line([0], [1], { color: "var(--qb-c2)", width: 3 });
+  const resLine = plot.line([0], [1], { color: "var(--qb-c1)", width: 3 });
+  const fbpLine = plot.hline(1, { color: "var(--qb-c2)", width: 2, dash: "6 4", text: "FBP" });
 
   function measure(): void {
     if (st.obj === "cell") { cellObject().then(() => measure2()); return; }

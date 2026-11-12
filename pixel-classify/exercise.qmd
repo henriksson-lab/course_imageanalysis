@@ -1,0 +1,159 @@
+---
+title: "Exercise: SVMs for pixel classification"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain why an RBF SVM needs **standardised** features and a forest does not, and standardise by hand,
+- choose $(C, \gamma)$ from a **cross-validation** map, and explain why folds must be **by stroke**,
+- handle **class imbalance** with class weights or a moved threshold,
+- read **one-vs-rest** decisions and count the classifiers of one-vs-one.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Feature stack | per pixel: intensity, edges, blobs, ridges, texture at several scales (the random forests day) |
+| Standardisation | $z_j = (x_j - \mu_j)/s_j$ per feature, with $\mu_j$, $s_j$ from the **training** pixels |
+| $(C, \gamma)$ grid | cross-validated error on a log grid; small values underfit, large values overfit |
+| Folds by stroke | all pixels of a stroke go into the same fold; folds by pixel are optimistic |
+| Class weights | penalty $C_c$ per class; balancing weights $n/(k\,n_c)$ |
+| One-vs-rest | $K$ SVMs (class $k$ vs the rest), take the largest $f_k$ |
+| One-vs-one | $K(K-1)/2$ SVMs (one per pair), majority vote |
+
+## By hand
+
+**B1.** Four training pixels with two features, intensity (0–4000) and a texture feature (0–1):
+class A: $(1000, 0.2)$, $(3000, 0.3)$; class B: $(1300, 0.8)$, $(2900, 0.9)$. A test pixel is $(2080, 0.3)$.
+(a) Compute the two class means. Classify the test pixel by the nearest mean using the raw features.
+(b) Standardise: compute the mean and standard deviation of each feature over the four training pixels (divide by 4), and the z-scores of the two class means and of the test pixel.
+(c) Classify the test pixel by the nearest mean in z-scores. Which answer do you believe, and why?
+
+**B2.** A one-vs-rest SVM for three classes (1 = background, 2 = nucleus, 3 = cytoplasm) gives these decision values:
+
+| pixel | $f_1$ | $f_2$ | $f_3$ |
+|---|---|---|---|
+| p | 1.2 | −0.8 | −1.5 |
+| q | 0.4 | 0.6 | −1.0 |
+| r | −0.3 | −0.7 | −0.2 |
+| s | −1.1 | 0.9 | −0.4 |
+
+Which class does each pixel get? Which decisions are ambiguous, and why?
+
+**B3.** A 5-fold cross-validation (folds by stroke) gives these error rates (rows $\gamma$, columns $C$):
+
+| $\gamma$ \\ $C$ | 0.1 | 1 | 10 | 100 |
+|---|---|---|---|---|
+| 0.01 | 31% | 24% | 18% | 17% |
+| 0.1 | 27% | 15% | 11% | 12% |
+| 1 | 30% | 14% | 13% | 19% |
+| 10 | 45% | 38% | 36% | 36% |
+
+(a) Which $(C, \gamma)$ do you pick? What do you do next?
+(b) Explain the corner with small $C$ and small $\gamma$, and the row $\gamma = 10$.
+(c) With folds by pixel the same grid shows 0–2% for most cells with $\gamma \ge 0.1$. Why?
+
+**B4.** You painted 2000 background pixels and 100 nucleus pixels.
+(a) Give the balancing weights $n/(k\,n_c)$ for the two classes, and the ratio $C_{\text{nucleus}}/C_{\text{background}}$ they imply.
+(b) Instead of retraining, how could you make the SVM find more nucleus pixels? What do you trade?
+
+**B5.** In which order would you do these steps, and which must be repeated inside each cross-validation fold? (i) compute $\mu_j$, $s_j$; (ii) standardise; (iii) train the SVM; (iv) choose $(C, \gamma)$; (v) report the error on the test region.
+
+### Math questions
+
+**B6** *(math)*. $K = 5$ classes, 200 training pixels each. How many SVMs, of which sizes, do one-vs-rest and one-vs-one train? If training costs about (size)² operations, which is cheaper, and by what factor?
+
+**B7** *(math)*. Show that a linear SVM trained on features scaled by a diagonal matrix $D$ ($\mathbf x' = D\mathbf x$) is **not** the same classifier as the one trained on $\mathbf x$, even though any line in $\mathbf x$ can be written as a line in $\mathbf x'$. (Hint: what happens to the penalty $\|\mathbf w\|^2$?)
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $\boldsymbol\mu_A = (2000, 0.25)$, $\boldsymbol\mu_B = (2100, 0.85)$. Distances of the test pixel: to A $\sqrt{80^2 + 0.05^2} = 80.0$, to B $\sqrt{20^2 + 0.55^2} = 20.0$: class **B**, decided by the intensity alone.
+(b) Intensity: mean 2050, standard deviation 906.9. Texture: mean 0.55, standard deviation 0.304. z-scores: $\boldsymbol\mu_A \to (-0.055, -0.986)$, $\boldsymbol\mu_B \to (0.055, 0.986)$, test pixel $\to (0.033, -0.822)$.
+(c) Distances in z-scores: to A 0.187, to B 1.809: class **A**. The z-scores are more believable: the intensity hardly differs between the classes (both span 1000–3000), while the texture separates them cleanly, and the test pixel's texture (0.3) is that of class A. In raw units, a difference of 80 grey levels outweighs any texture difference.
+
+**B2.** p: class 1 (only $f_1 > 0$; clear). q: $f_1$ and $f_2$ are both positive: two classifiers claim it; the largest is $f_2 = 0.6$: class 2, ambiguous. r: no classifier claims it (all negative); the largest is $f_3 = -0.2$: class 3, ambiguous. s: class 2 (only $f_2 > 0$; clear). The ambiguous decisions compare $f$ values of different SVMs, which were never trained to be comparable.
+
+**B3.** (a) $C = 10$, $\gamma = 0.1$ (11%). Then train on all training pixels with these settings and evaluate **once** on the test region (the 11% itself is slightly optimistic, being the minimum of 16 estimates).
+(b) Small $C$, small $\gamma$: almost a straight boundary that tolerates many violations: **underfitting** (31%). $\gamma = 10$: a length scale shorter than the distance between strokes; each training pixel has its own island, and the held-out strokes fall outside all islands: **overfitting**, whatever $C$.
+(c) With folds by pixel, every held-out pixel has its neighbours from the same stroke in training; those are nearly identical, so even an SVM that only memorises (large $\gamma$) gets them right. The by-pixel error measures memory, not generalisation to new places in the image.
+
+**B4.** (a) $n = 2100$, $k = 2$: background $2100/(2 \cdot 2000) = 0.525$, nucleus $2100/(2 \cdot 100) = 10.5$. Ratio 20: a nucleus violation costs 20 times as much as a background violation, so both classes count the same in total.
+(b) Lower the threshold on $f$ (classify as nucleus when $f > \theta$ with $\theta < 0$). More nuclei are found (higher recall) at the price of more background pixels called nucleus (lower precision); sweeping $\theta$ traces the ROC curve.
+
+**B5.** Inside each fold: (i) on the training folds only, (ii) both training and held-out fold with those numbers, (iii) train, then measure the error on the held-out fold. Repeat for every cell of the grid; then (iv) choose $(C, \gamma)$; then (i)–(iii) once more on all training pixels; finally (v) once, on the test region. Computing $\mu_j$, $s_j$ on all pixels before splitting lets the held-out pixels influence training.
+
+**B6.** One-vs-rest: 5 SVMs, each on all 1000 pixels: $5 \times 1000^2 = 5\,000\,000$. One-vs-one: $5 \cdot 4/2 = 10$ SVMs, each on $2 \times 200 = 400$ pixels: $10 \times 400^2 = 1\,600\,000$. One-vs-one is about 3.1 times cheaper, despite twice as many SVMs.
+
+**B7.** A line $\mathbf w\cdot\mathbf x + b$ equals $\mathbf w'\cdot\mathbf x' + b$ with $\mathbf w' = D^{-1}\mathbf w$, so the set of possible classifiers is the same. But the SVM minimises $\tfrac12\|\mathbf w'\|^2 + C\sum$ hinge in the new coordinates, and $\|\mathbf w'\|^2 = \|D^{-1}\mathbf w\|^2 = \sum_j w_j^2/D_{jj}^2 \ne \|\mathbf w\|^2$. Shrinking a feature (small $D_{jj}$) makes its weight expensive, enlarging it makes it cheap: the margin is measured differently, so the optimum differs. Only a forest (thresholds on single features) is fully indifferent to scaling.
+:::
+
+## Explore: an SVM in the pixel classifier {#explore}
+
+The pixel-classification demo of the random forests day, with the **SVM** selected (switch to the **random forest** to compare). Paint with the mouse; the classifier retrains when you lift it. The SVM's settings are sliders: kernel function (0 linear, 1 RBF), $C$, $\gamma$, standardise (0 no, 1 yes), and one-vs-rest or one-vs-one. The panel **SVM: settings and cross-validation** at the bottom has one-click settings, and runs a cross-validation over a $(C, \gamma)$ grid on the painted pixels, with folds **by stroke** or **by pixel**; **use the best** copies the best cell to the SVM. The readout gives the accuracy, Dice and the confusion matrix against the ground truth of the test image. (Training uses a random subset of about 500 painted pixels; prediction fills in row by row and takes a few seconds when there are many support vectors.)
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="pixelclass" data-preset="full" data-classifier="svm" data-classifiers="forest,svm" data-tabs="svmcv"></div>
+<script src="../demos/dist/pixelclass.js"></script>
+```
+
+**P1.** Preset **full stack**. Compare the SVM and the random forest: accuracy, Dice per class, and how long the prediction takes.
+
+**P2.** Press **unscaled features** in the panel. What happens to the accuracy, the nucleus Dice and the number of support vectors (in the readout)? Switch to the forest: does it care? Press **standardised** to go back. Explain with B1.
+
+**P3.** Press **γ = 10 (too large)**. Accuracy? How many of the training pixels are support vectors? What has the SVM learnt? Then try **linear**.
+
+**P4.** Back to the defaults (reload the preset). Run the cross-validation with **folds by stroke**, then with **folds by pixel**. Compare the two maps and the best cells. Which one would you trust, and why is the other so low?
+
+**P5.** Switch between **one-vs-rest** and **one-vs-one**. Does the accuracy change much on this image?
+
+**P6.** Preset **intensity only** with the SVM, then with the forest. Which class suffers, and why can no classifier fix that?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**P1.** SVM: accuracy 96.4%, Dice 0.99 (background), 0.87 (nucleus), 0.85 (granular cell), with 60 support vectors. Forest: 96.3%, Dice 0.99, 0.85, 0.86. Practically the same on a good feature stack. The SVM's prediction is noticeably slower: every pixel needs the kernel function with every support vector, while a tree needs a few comparisons.
+
+**P2.** Unscaled: accuracy 82.0%, nucleus Dice 0.06, granular 0.02: nearly everything becomes background. 410 of the 505 training pixels are support vectors. A few channels with large numbers (standard deviation over 200, against below 1 for others) dominate every distance, so with $\gamma = 0.01$ even nearby pixels look dissimilar and the SVM memorises. The forest is unaffected (96.3%): its thresholds do not depend on units. As in B1, the classes are separated by channels whose numbers are small.
+
+**P3.** $\gamma = 10$: accuracy 81.8%, and all 505 training pixels are support vectors: the SVM has memorised the painted pixels and calls everything else background (the value far from all bumps). Linear: 96.2%, with 27 support vectors: on this stack a linear boundary is already good.
+
+**P4.** By stroke: errors between about 19% and 30% everywhere; the best cell is $C = 1$, $\gamma = 0.001$ with 18.7%. By pixel: 0% in many cells (best $C = 10$, $\gamma = 0.001$). The by-pixel estimate is optimistic: held-out pixels have their stroke neighbours in training. The by-stroke map is the honest one, but here it is also pessimistic: there is only one granular-cell stroke (and two nucleus strokes), so when it is held out the training data contain no granular cell at all. Paint more strokes per class before trusting a by-stroke map.
+
+**P5.** One-vs-one 96.4%, one-vs-rest 96.2%: little difference with three well-separated classes; the ambiguous regions of one-vs-rest are small here.
+
+**P6.** Intensity only (6 channels): SVM 91.4%, forest 91.3%; the granular cells suffer most (Dice 0.52 with the SVM, 0.68 with the forest), confused with nuclei. Granular cells have the same mean brightness as bright nuclei; they differ in texture, which intensity channels do not describe. No classifier can separate classes that coincide in the feature space: that needs better features, not a better classifier.
+:::
+
+## Explore: training error, test error and cross-validation in 2D {#explore-cv}
+
+The 2D SVM demo in cross-validation mode: the filled points are the training set, the **hollow** points a test set from the same source. Below, the training and test error against $C$ (or against $\gamma$, with the other fixed at its slider value); the dashed line marks the current value. **5-fold CV over (C, γ)** computes the cross-validated error of the training points on a grid; **use the best** applies its best cell.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="svm2d" data-preset="cv" data-kernel="rbf" data-cv="1"></div>
+<script src="../demos/dist/svm2d.js"></script>
+```
+
+**C1.** Preset **noisy moons: train vs test** ($\gamma = 1$). Read the training and test error at $C = 0.01$, 1 and 1000 from the curve or the readout. Describe the shape of both curves.
+
+**C2.** Switch to **error against γ** ($C = 1$). Where is the test error lowest? What happens to the training error at $\gamma = 10$ and above, and to the test error?
+
+**C3.** Press **5-fold CV over (C, γ)**. Which cell is best, with which CV error? Press **use the best**: what is the test error now? Did cross-validation (which never saw the test points) find a good setting?
+
+**C4.** Preset **overlapping blobs: train vs test**. Repeat C3. Why is a small $\gamma$ best here?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**C1.** $C = 0.01$: training 45%, test 48% (underfitting: a nearly constant $f$). $C = 1$: training 13%, test 13%. $C = 1000$: training 1%, test 28%. The training error falls steadily with $C$; the test error first falls, then rises again: a U-shape with its minimum near $C = 1$ (12% at $C = 0.56$).
+
+**C2.** The test error is lowest around $\gamma = 0.3$–1 (12–13%). At $\gamma = 10$ the training error is 3% but the test error 32%; at $\gamma = 20$ the training error is 0% and the test error 35%. Small bumps memorise the training points, including the mislabelled ones.
+
+**C3.** Best cell: $C = 10$, $\gamma = 0.1$, CV error 13%. With it, the test error is 14.0%, close to the best the test curves showed (12%). Cross-validation used only the training points and still found a setting near the best for new data.
+
+**C4.** Best cell: $C = 1$, $\gamma = 0.01$, CV error 11%; test error 12.0%. The two blobs overlap and the best boundary is a straight line; a small $\gamma$ (length scale 10, wider than the data) gives an almost linear boundary, while a large $\gamma$ only fits the noise in the overlap (at $\gamma = 100$ the CV error is about 50%).
+:::
+
+## Where this leads
+
+The day's other half of "more learning" is the **Gaussian mixtures** day: generative models of each class, fitted even without labels. For pixels with many labels, the **neural networks** day learns the features themselves instead of using a hand-made stack. Detection of objects with a sliding window and a linear SVM on gradient-direction histograms is a classic application of this unit (not covered here).

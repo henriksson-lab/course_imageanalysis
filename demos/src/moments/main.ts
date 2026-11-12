@@ -7,6 +7,10 @@
 //   data-mode="features" (unit shape-features/): convex hull, solidity, form factor,
 //                        Feret diameters with rotating calipers and w(θ), inscribed and
 //                        enclosing circles, Fourier outline, units and anisotropic pixels.
+//   data-mode="higher"   (moments elective, unit moments-basis/): the triangle of moments up
+//                        to data-order, marginals, skewness/kurtosis, point vs square pixels.
+//   data-mode="invariants" (moments elective, unit moment-invariants/): reference vs current
+//                        m, μ, η, Hu's φ; pose-normalised inset (data-bars, data-rows).
 // Options: data-mode, data-preset (id of a preset of that mode), data-pixel (pixel size),
 // data-presets (comma-separated ids: show only these preset buttons, e.g. on a slide),
 // data-shapectl="off" (hide the draw/rotate/scale buttons; dragging still works).
@@ -40,16 +44,18 @@ import { shapeCanvas, rasterise, scalePoly, Poly } from "../lib/shapecanvas";
 import { getMode, Digitised, MomentsPreset } from "./registry";
 import "./mode-moments";
 import "./mode-features";
+import "./mode-higher";       // moments elective, unit moments-basis/
+import "./mode-invariants";   // moments elective, unit moment-invariants/
 
 const NAME = "moments";
 const SIZE = 64;
 const PIXELS = [0.25, 0.35, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8];
 
 const STYLE = `
-.qb-demo[data-demo="${NAME}"] { gap: .9em; flex-wrap: nowrap; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] { gap: .9em; flex-wrap: wrap; align-items: flex-start; }
 .qb-demo[data-demo="${NAME}"] .mo-canvas { flex: 0 1 410px; min-width: 240px; }
-.qb-demo[data-demo="${NAME}"] .mo-out { flex: 1 1 340px; min-width: 0; overflow-x: auto; display: flex; flex-direction: column; gap: .4em; }
-.qb-demo[data-demo="${NAME}"] .mo-ctl { flex: 0 0 280px; display: flex; flex-direction: column; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .mo-out { order: 2; flex: 1 1 420px; min-width: 0; overflow-x: auto; display: flex; flex-direction: column; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .mo-ctl { order: 1; flex: 0 0 280px; display: flex; flex-direction: column; gap: .4em; }
 .qb-demo[data-demo="${NAME}"] .mo-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
 .qb-demo[data-demo="${NAME}"] .mo-ctl .qb-btn { font-size: 14px; padding: .12em .45em; }
 .qb-demo[data-demo="${NAME}"] .mo-ctl .qb-note { font-size: 13px; }
@@ -58,10 +64,10 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] table.mo-tab td.v { font-family: ui-monospace, monospace; text-align: right; }
 .qb-demo[data-demo="${NAME}"] table.mo-tab tr.h td { font-weight: 600; color: var(--qb-muted); border-bottom: 2px solid var(--qb-grid); }
 .qb-demo[data-demo="${NAME}"] .mo-checks { display: flex; flex-wrap: wrap; gap: .1em .8em; font-size: 15px; }
-.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; flex-wrap: nowrap; }
 .reveal .qb-demo[data-demo="${NAME}"] table.mo-tab { font-size: 15px; line-height: 1.2; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 14px; }
-@media (max-width: 1000px) { .qb-demo[data-demo="${NAME}"] { flex-wrap: wrap; } }
+
 `;
 
 function injectStyle(): void {

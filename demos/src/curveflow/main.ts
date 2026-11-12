@@ -254,15 +254,15 @@ function mount(host: HTMLElement): void {
     const area = finite ? LS.insideArea(phi, N, N) : NaN, len = C ? LS.frontLength(phi, N, N) : NaN;
     const g = finite ? LS.meanGradNearFront(phi, N, N) : NaN;
     let mx = 0; for (let p = 0; p < N * N; p++) mx = Math.max(mx, Math.abs(phi[p]));
-    const r = (a: string, b: string) => a.padEnd(20) + b;
+    const r = (a: string, b: string) => a.padEnd(14) + b;
     ro.textContent = [
       r("speed", `F = ${st.F.toFixed(2)} − ${st.eps.toFixed(2)} κ`),
-      r("Δt", `${dt.toFixed(3)}  (limit ${Number.isFinite(lim) ? lim.toFixed(3) : "∞"})`),
-      r("steps, time t", `${steps}, ${t.toFixed(1)}`),
+      r("Δt", `${dt.toFixed(3)} (limit ${Number.isFinite(lim) ? lim.toFixed(3) : "∞"})`),
+      r("step, time", `${steps}, t = ${t.toFixed(1)}`),
       r("pieces", `${pieces}`),
-      r("area inside", `${Number.isFinite(area) ? area.toFixed(0) : "–"} px²`),
+      r("area", `${Number.isFinite(area) ? area.toFixed(0) : "–"} px²`),
       r("length", `${Number.isFinite(len) ? len.toFixed(1) : "–"} px`),
-      r("mean |∇φ| at front", Number.isFinite(g) ? g.toFixed(2) : "–"),
+      r("|∇φ| at front", Number.isFinite(g) ? g.toFixed(2) : "–"),
       r("max |φ|", mx > 1e5 || !Number.isFinite(mx) ? "exploded" : mx.toFixed(1)),
     ].join("\n");
   }

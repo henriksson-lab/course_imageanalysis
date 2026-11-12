@@ -4,12 +4,14 @@ import {
   neighbours, simpleTest, yokoi8, isSimpleCode, hitOrMissT, rotations8, T_END, T_ISOLATED, THIN_TEMPLATES, templateBits,
   thin, thinSimple, zhangSuen, topology, medialAxis, distanceMap, reconstructFromDiscs, lantuejoul, lantuejoulReconstruct,
   skeletonGraph, cyclomatic, prune, pathLength, chainCounts, lengthFromCounts, shollCrossings, classifySkeleton, Metric,
-  rotateTemplate, L1, L2, degreeAt, totalLength, edgePolylines, skeletonize,
+  rotateTemplate, L1, L2, degreeAt, totalLength, edgePolylines, skeletonize, boundarySpread,
 } from "../src/lib/skeleton";
 import { hitOrMiss, SE } from "../src/lib/morph";
 import { growTree, treeGraph, treeCoverage } from "../src/lib/trees";
 import { rasterise, ellipsePoly, starPoly } from "../src/lib/shapecanvas";
+import { SHAPES, shapeMask } from "../src/medialaxis/shapes";
 
+declare const process: { exit(code: number): never };
 let fails = 0, passes = 0;
 function check(name: string, ok: boolean, info = ""): void {
   if (ok) passes++; else { fails++; console.log("FAIL", name, info); }
@@ -155,7 +157,11 @@ for (const s of shapes) for (const se of ["cross", "square"] as const) {
   const { m, w, h } = fromText(["0000000000000", "0111111111110", "0111111111110", "0111111111110", "0111111111110", "0111111111110", "0000000000000"]);
   const ends = (metric: Metric) => skeletonGraph(skeletonize(medialAxis(m, w, h, metric), w, h), w, h).nodes.filter(n => n.kind === "end").length;
   check("rectangle: city-block axis forks (4 end points)", ends("cityblock") === 4, String(ends("cityblock")));
-  check("rectangle: Euclidean axis forks (4 end points)", ends("euclidean") === 4, String(ends("euclidean")));
+  // the 176 × 72 rectangle of the medialaxis demo: the Euclidean axis with λ = 8 forks at both ends
+  const R = shapeMask(SHAPES.rect.make(), 0, 0), sp = boundarySpread(R, 256, 256), axE = medialAxis(R, 256, 256, "euclidean");
+  const axL = Uint8Array.from(axE, (v, i) => (v && sp[i] >= 8 ? 1 : 0)), gE = skeletonGraph(skeletonize(axL, 256, 256), 256, 256);
+  check("rectangle: Euclidean axis (λ = 8) forks (4 end points, 1 piece)", gE.nodes.filter(n => n.kind === "end").length === 4 && gE.components === 1);
+  check("Euclidean maximal discs reconstruct the rectangle", same(reconstructFromDiscs(axE, distanceMap(R, 256, 256, "euclidean"), 256, 256, "euclidean"), R));
   check("rectangle: chessboard axis is a segment (2 end points)", ends("chessboard") === 2, String(ends("chessboard")));
 }
 

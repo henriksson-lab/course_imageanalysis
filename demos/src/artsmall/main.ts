@@ -11,7 +11,7 @@
 // data-preset="same|diag|sweep|three|plane|parallel|noisy".
 import { htmlEl, slider, presets, button, checkbox, autoMount, draggable, svgEl } from "../lib/ui";
 import { Plot, plotFigure, seriesColor } from "../lib/plot";
-import { injectStyle } from "../radonproj/view";
+import { injectStyle, uniqueClip, layout, baseCss } from "../radonproj/view";
 import * as M from "./model";
 
 const NAME = "artsmall";
@@ -33,25 +33,23 @@ const PRESETS: Preset[] = [
   { id: "noisy3", label: "noisy, ω = 0.3 settles", mode: "pixels", lines: [{ px: 2, py: 3.8, dir: 0 }, { px: 2.9, py: 3, dir: 75 }, { px: 1.2, py: 3, dir: 130 }], omega: 0.3 },
 ];
 
-const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .as-fig { flex: 1 1 260px; max-width: 360px; margin: 0; }
+const STYLE = baseCss(NAME) + `
+[data-demo="${NAME}"] .as-fig { flex: 1 1 220px; max-width: 320px; margin: 0; }
+[data-demo="${NAME}"] .as-fig.plane { max-width: 380px; }
 [data-demo="${NAME}"] .as-fig figcaption { font-size: 17px; text-align: center; margin: 0 0 .1em; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 330px; gap: .35em; }
 [data-demo="${NAME}"] .as-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .as-sub { display: flex; flex-direction: column; gap: .35em; }
 [data-demo="${NAME}"] .as-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
 [data-demo="${NAME}"] table.as-A { border-collapse: collapse; font-family: ui-monospace, monospace; font-size: 15px; }
 [data-demo="${NAME}"] table.as-A td, [data-demo="${NAME}"] table.as-A th { padding: .1em .35em; text-align: right; border-bottom: 1px solid var(--qb-grid); }
-[data-demo="${NAME}"] table.as-A th { color: var(--qb-muted); font-weight: 500; }
+[data-demo="${NAME}"] table.as-A th { color: var(--qb-muted); font-weight: 500; white-space: nowrap; }
 [data-demo="${NAME}"] table.as-A tr.cur td { background: #fde7c4; }
 [data-demo="${NAME}"] table.as-A td.one { color: var(--qb-c1); font-weight: 700; }
 [data-demo="${NAME}"] table.as-A td.zero { color: var(--qb-grid); }
 [data-demo="${NAME}"] .as-tab { flex: 1 1 300px; max-width: 420px; overflow-x: auto; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; }
+.reveal [data-demo="${NAME}"] .as-fig { max-width: 250px; }
+.reveal [data-demo="${NAME}"] .as-fig.plane { max-width: 330px; }
+.reveal [data-demo="${NAME}"] table.as-A { font-size: 14px; }
 `;
 
 const LETTERS = "abcdefghi";
@@ -71,17 +69,18 @@ function mount(host: HTMLElement): void {
 
   // ---------- layout ----------
   // pixels mode: the plane
-  const planeFig = plotFigure(host, "pixel 1 across, pixel 2 up", "as-fig");
-  const plane = new Plot(planeFig, { width: 360, height: 360, x: [-0.5, 5.5], y: [-0.5, 5.5], equal: true, xlabel: "x₁", ylabel: "x₂", xticks: [0, 1, 2, 3, 4, 5], yticks: [0, 1, 2, 3, 4, 5] });
+  const L = layout(host, 3);
+  const planeFig = plotFigure(L.figs, "pixel 1 across, pixel 2 up", "as-fig plane");
+  const plane = uniqueClip(new Plot(planeFig, { font: 22, width: 360, height: 360, x: [-0.5, 5.5], y: [-0.5, 5.5], equal: true, xlabel: "x₁", ylabel: "x₂", xticks: [0, 1, 2, 3, 4, 5], yticks: [0, 1, 2, 3, 4, 5] }));
   // image mode: the true image with rays, and the estimate
-  const truthFig = plotFigure(host, "true image (click: +1) and rays", "as-fig");
-  const tPlot = new Plot(truthFig, { width: 300, height: 300, x: [-0.6, 3.6], y: [-0.6, 3.6], equal: true, grid: false, xticks: [], yticks: [], margin: { l: 4, r: 4, t: 4, b: 4 } });
+  const truthFig = plotFigure(L.figs, "true image (click: +1) and rays", "as-fig");
+  const tPlot = uniqueClip(new Plot(truthFig, { font: 24, width: 300, height: 300, x: [-0.6, 3.6], y: [-0.6, 3.6], equal: true, grid: false, xticks: [], yticks: [], margin: { l: 4, r: 4, t: 4, b: 4 } }));
   tPlot.svg.querySelector(".qb-axes")?.setAttribute("display", "none");
-  const estFig = plotFigure(host, "estimate x", "as-fig");
-  const ePlot = new Plot(estFig, { width: 300, height: 300, x: [-0.6, 3.6], y: [-0.6, 3.6], equal: true, grid: false, xticks: [], yticks: [], margin: { l: 4, r: 4, t: 4, b: 4 } });
+  const estFig = plotFigure(L.figs, "estimate x", "as-fig");
+  const ePlot = uniqueClip(new Plot(estFig, { font: 24, width: 300, height: 300, x: [-0.6, 3.6], y: [-0.6, 3.6], equal: true, grid: false, xticks: [], yticks: [], margin: { l: 4, r: 4, t: 4, b: 4 } }));
   ePlot.svg.querySelector(".qb-axes")?.setAttribute("display", "none");
-  const tab = htmlEl("div", "as-tab", "", host);
-  const panel = htmlEl("div", "qb-panel", "", host);
+  const tab = htmlEl("div", "as-tab", "", L.figs);
+  const [panel, colB, colC] = L.cols;
 
   const modeRow = htmlEl("div", "as-row", "", panel);
   const modeBtns = (["pixels", "image"] as const).map(m => button(modeRow, m === "pixels" ? "mode: 2 pixels" : "mode: image", () => { mode = m; layoutMode(); }));
@@ -89,7 +88,7 @@ function mount(host: HTMLElement): void {
   htmlEl("div", "as-lab", "presets", panel);
   const presetBtns = presets(panel, PRESETS.map(p => ({ label: p.label, apply: () => load(p) })));
   // pixels controls
-  const pixBox = htmlEl("div", "as-sub", "", panel);
+  const pixBox = htmlEl("div", "as-sub", "", colB);
   const omS = slider(pixBox, "relaxation ω", 0.1, 1, 0.05, 1, v => { omega = v; drawPlane(); }, v => v.toFixed(2));
   const pRow = htmlEl("div", "as-row", "", pixBox);
   button(pRow, "next step", () => { shown++; drawPlane(); });
@@ -100,7 +99,7 @@ function mount(host: HTMLElement): void {
   button(pRow2, "− line", () => { if (lines.length > 2) { lines.pop(); rebuildHandles(); drawPlane(); } });
   const sirtCb = checkbox(pixBox, "show SIRT path", false, v => { showSirt = v; drawPlane(); });
   // image controls
-  const imgBox = htmlEl("div", "as-sub", "", panel);
+  const imgBox = htmlEl("div", "as-sub", "", colB);
   htmlEl("div", "as-lab", "rays (angle of the normal)", imgBox);
   const setRow = htmlEl("div", "as-row", "", imgBox);
   const allSets: M.RaySet[] = ["cols", "rows", "diag", "anti"];
@@ -111,13 +110,13 @@ function mount(host: HTMLElement): void {
   }));
   const sizeRow = htmlEl("div", "as-row", "", imgBox);
   const sizeBtns = [2, 3].map(k => button(sizeRow, `${k}×${k}`, () => { n = k; truth = Array.from({ length: k * k }, (_, i) => (k === 2 ? [1, 2, 3, 4][i] : [0, 1, 0, 1, 1, 1, 0, 1, 0][i])); rebuildSystem(); drawImage(); }));
-  button(sizeRow, "+ null image", () => { const v = M.nullImages(sys)[0]; if (v) { truth = truth.map((t, i) => t + v[i]); rebuildData(); drawImage(); } });
+  button(sizeRow, "+ null image", () => { const v = M.simpleNullImage(sys); if (v) { truth = truth.map((t, i) => t + v[i]); rebuildData(); drawImage(); } });
   const iRow = htmlEl("div", "as-row", "", imgBox);
   button(iRow, "next ray", () => { x = M.kaczmarzStep(sys, b, x, next, omega); next = (next + 1) % sys.rays.length; drawImage(); });
   button(iRow, "sweep", () => { for (let k = 0; k < sys.rays.length; k++) { x = M.kaczmarzStep(sys, b, x, next, omega); next = (next + 1) % sys.rays.length; } drawImage(); });
   button(iRow, "SIRT step", () => { x = M.sirtStep(sys, b, x, omega); drawImage(); });
   button(iRow, "x = 0", () => { x = new Float64Array(n * n); next = 0; drawImage(); });
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  const ro = htmlEl("div", "qb-readout", "", colC);
 
   // ---------- pixels mode ----------
   const pathMark = plane.line([0], [0], { color: "var(--qb-c4)", width: 2.5 });
@@ -218,9 +217,9 @@ function mount(host: HTMLElement): void {
       h += `<td>${fmt(b[i])}</td><td>${fmt(ax[i])}</td><td>${fmt(b[i] - ax[i])}</td></tr>`;
     });
     tab.innerHTML = h + "</table>";
-    const rk = M.rankOf(sys), ns = M.nullImages(sys);
+    const rk = M.rankOf(sys), dim = n * n - rk, nv = M.simpleNullImage(sys);
     let txt = `A: ${sys.rays.length} rays × ${n * n} pixels, rank ${rk}`;
-    txt += ns.length ? `\nnull space: ${ns.length} image${ns.length > 1 ? "s" : ""}, e.g.\n` + gridText(ns[0]) : "\nnull space: only 0 (data decide the image)";
+    txt += nv ? `\nnull space: dimension ${dim}, e.g. the image\n` + gridText(nv) : "\nnull space: only 0 (the data decide the image)";
     txt += `\nx = (${Array.from(x).map(fmt).join(", ")})`;
     ro.textContent = txt;
   }

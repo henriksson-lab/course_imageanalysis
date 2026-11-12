@@ -14,48 +14,27 @@ import { htmlEl, slider, presets, checkbox, autoMount, Slider } from "../lib/ui"
 import { pointPlayground } from "../lib/playground";
 import { QUALITATIVE, hexToRgb } from "../lib/colour";
 import { GLView, OrbitCamera, viewButtons, boxLines, MeshObject, PointsObject, LinesObject } from "../lib/gl3d";
-import { trainSVM, SVMModel } from "../lib/svm";
-import { paraboloidMap, quadMap } from "../lib/svmkernels";
-import { rings, xor, blobs, LPoint } from "../lib/datasets2d";
+import type { SVMModel } from "../lib/svm";
+import { MAPS, MapId, PRESETS, Preset, liftAndTrain } from "./presets";
 import { marchingSquares } from "../lib/marching";
 import { worldOf, sampleGrid, contourPath, pathEl, signColour } from "../svm2d/field";
 
 const NAME = "svmlift";
-type MapId = "paraboloid" | "saddle" | "quadratic";
-const MAPS: Record<MapId, { label: string; f: (x: number, y: number) => [number, number, number]; axes: string }> = {
-  paraboloid: { label: "x₁² + x₂² (paraboloid)", f: paraboloidMap, axes: "(x₁, x₂, x₁² + x₂²)" },
-  saddle: { label: "x₁x₂ (saddle)", f: (x, y) => [x, y, x * y], axes: "(x₁, x₂, x₁x₂)" },
-  quadratic: { label: "(x₁², √2 x₁x₂, x₂²)", f: quadMap, axes: "(x₁², √2 x₁x₂, x₂²)" },
-};
-
-interface Preset { id: string; label: string; map: MapId; points: () => LPoint[]; note: string }
-const to11 = (pts: LPoint[]): LPoint[] => pts.map(p => ({ x: 2 * p.x - 1, y: 2 * p.y - 1, c: p.c }));
-const PRESETS: Preset[] = [
-  { id: "ring", label: "ring → plane", map: "paraboloid", points: () => to11(rings({ n: 70, seed: 41, radii: [0.13, 0.36], noise: 0.03 }).points).map(p => ({ ...p, c: 1 - p.c })), note: "On the paraboloid the inner points sit low, the ring high: a flat plane separates them. Its cut through the paraboloid is a circle." },
-  { id: "xor", label: "XOR needs x₁x₂", map: "saddle", points: () => to11(xor({ n: 70, seed: 42 }).points), note: "Lifted by x₁x₂, the two diagonals go up and down: the plane x₁x₂ = 0 separates them. Try the paraboloid: it does not help here." },
-  { id: "blobs", label: "two blobs: lifting does not hurt", map: "paraboloid", points: () => to11(blobs([[0.32, 0.4], [0.68, 0.6]], { sd: 0.08, n: 50, seed: 43 }).points), note: "Separable in 2D already. In 3D the plane is nearly vertical and its cut is almost a straight line." },
-  {
-    id: "tworings", label: "two rings: one plane is not enough", map: "paraboloid",
-    points: () => to11(rings({ n: 110, seed: 44, radii: [0.1, 0.26, 0.42], noise: 0.02 }).points).map(p => ({ ...p, c: p.c === 1 ? 1 : 0 })),
-    note: "Blue inside, red ring, blue again outside: on the paraboloid red is a band in the middle height. No single plane cuts out a band: this map is not rich enough.",
-  },
-];
-
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
-[data-demo="${NAME}"] .sl-left { flex: 0 1 380px; min-width: 220px; }
-[data-demo="${NAME}"] .sl-left .qb-plot { max-width: none; }
-[data-demo="${NAME}"] .sl-mid { flex: 1 1 380px; min-width: 240px; max-width: 520px; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 280px; gap: .35em; }
-[data-demo="${NAME}"] .sl-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .sl-cap { font-size: 15px; text-align: center; color: var(--qb-muted); }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .sl-left { flex-basis: 340px; }
-.reveal [data-demo="${NAME}"] .sl-mid { flex-basis: 440px; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .sl-left { flex: 0 1 380px; min-width: 220px; }
+.qb-demo[data-demo="${NAME}"] .sl-left .qb-plot { max-width: none; }
+.qb-demo[data-demo="${NAME}"] .sl-mid { flex: 1 1 380px; min-width: 240px; max-width: 520px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 280px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .sl-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .sl-cap { font-size: 15px; text-align: center; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .sl-left { flex: 0 0 360px; }
+.reveal .qb-demo[data-demo="${NAME}"] .sl-mid { flex-basis: 440px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-panel { max-height: 560px; overflow-y: auto; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { max-height: 560px; overflow-y: auto; }
 `;
 
 function injectStyle(): void {
@@ -91,7 +70,7 @@ function mount(host: HTMLElement): void {
 
   htmlEl("div", "sl-lab", "feature map: third coordinate", panel);
   const mapBtns = presets(panel, (Object.keys(MAPS) as MapId[]).map(id => ({ label: MAPS[id].label, apply: () => { st.map = id; update(true); } })));
-  const cS: Slider = slider(panel, "C", -1, 3, 0.1, st.logC, v => { st.logC = v; update(true); }, v => Math.pow(10, v).toPrecision(2));
+  const cS: Slider = slider(panel, "C", -1, 3, 0.1, st.logC, v => { st.logC = v; update(true); }, v => { const c = Math.pow(10, v); return c >= 10 ? c.toFixed(0) : c.toPrecision(2); });
   checkbox(panel, "show the plane", st.plane, v => { st.plane = v; update(true); });
   checkbox(panel, "show the lifted surface", st.surface, v => { st.surface = v; update(true); });
   const ro = htmlEl("div", "qb-readout", "", panel);
@@ -115,11 +94,8 @@ function mount(host: HTMLElement): void {
   function draw(_final: boolean): void {
     mapBtns.forEach((b, i) => b.classList.toggle("active", (Object.keys(MAPS) as MapId[])[i] === st.map));
     const P = W.points(), M = MAPS[st.map], F = frame(st.map);
-    const n = P.length, X = new Float64Array(3 * n);
-    P.forEach((p, i) => X.set(M.f(p.x, p.y), 3 * i));
-    const nPos = P.filter(p => p.c === 1).length;
-    let model: SVMModel | null = null;
-    if (nPos > 0 && nPos < n) model = trainSVM(X, n, 3, P.map(p => (p.c === 1 ? 1 : -1)), { C: Math.pow(10, st.logC), tol: 1e-4 });
+    const n = P.length;
+    const model: SVMModel | null = liftAndTrain(P, st.map, Math.pow(10, st.logC));
     const fx = (x: number, y: number) => { if (!model) return 0; const v = M.f(x, y); return model.w![0] * v[0] + model.w![1] * v[1] + model.w![2] * v[2] + model.b; };
     // 2D
     gBg.replaceChildren();

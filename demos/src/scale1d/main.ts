@@ -85,7 +85,7 @@ function mount(host: HTMLElement): void {
   const peak = pR.vline(1, { color: seriesColor(1), width: 2, dash: "4 3" });
   const pred = pR.vline(1, { color: seriesColor(2), width: 2.5, dash: "2 3", text: "a" });
   const sR = pR.vline(1, { color: "var(--qb-c4)", width: 2, dash: "6 4" });
-  const tR = pR.text(0, 0, "", { anchor: "start", size: 17 });
+  const tR = pR.text(S0 * 1.05, 0, "", { anchor: "start", size: 17 });
 
   pA.svg.addEventListener("pointerdown", ev => { st.x = Math.max(0, Math.min(N - 1, Math.round(pA.toData(ev)[0]))); draw(); });
   pS.svg.addEventListener("pointerdown", ev => {

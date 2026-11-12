@@ -135,6 +135,10 @@ current = "endmembers";
   const Y = U.mix(E, n, k, Ab, P);
   const sv = U.stackSingularValues(Y, n, P);
   check(sv[2] > 1e-3 * sv[0] && sv[3] < 1e-6 * sv[0], `three singular values stand out (${Array.from(sv.slice(0, 5)).map(v => v.toExponential(2))})`);
+  const Yk = U.projectRank(Y, n, P, k);
+  let pe = 0;
+  for (let i = 0; i < Y.length; i++) pe = Math.max(pe, Math.abs(Yk[i] - Y[i]));
+  check(pe < 1e-5, `rank-K projection keeps rank-K data (err ${pe})`);
   const v = U.vertexFind(Y, n, P, k);
   check(v.length === 3 && [0, 1, 2].every(j => v.includes(j)), `vertex finding returns the pure pixels (${v})`);
   // NMF error never increases

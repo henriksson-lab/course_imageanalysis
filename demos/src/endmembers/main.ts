@@ -15,7 +15,8 @@ import { Plot } from "../lib/plot";
 import { RGB } from "../lib/colour";
 import * as U from "../lib/unmix";
 import { injectStyle, uniqueClip, canvasFigure, fmt, COMMON_CSS } from "../lsunmix/common";
-import { dyesFor, truthMaps, L0, L1, N_PIX, P } from "../lsunmix/model";
+import { L0, L1, N_PIX, P } from "../lsunmix/model";
+import { NCH, buildData, vertexSpectra, knownSpectra, EmData } from "./model";
 
 const NAME = "endmembers";
 const CSS = COMMON_CSS + `
@@ -28,10 +29,11 @@ const CSS = COMMON_CSS + `
 .reveal [data-demo="${NAME}"] .em-col { flex: 0 0 380px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 0 0 340px; max-width: 340px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .08em .35em; }
-.reveal [data-demo="${NAME}"] .um-readout { font-size: 15px; }
+.reveal [data-demo="${NAME}"] .um-readout { font-size: 14px; }
+.reveal [data-demo="${NAME}"] .qb-check, .reveal [data-demo="${NAME}"] .qb-slider { font-size: 17px; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
 `;
 
-const NCH = 16, SEP = 50;
 const COMP = ["nucleus", "mitochondria", "membrane", "autofluor."];
 const CSSCOL = ["#3f72ff", "#1fa83a", "#e03cc8", "#d99a12"];
 const FOUND = ["#000000", "#7f7f7f", "#8c564b", "#17becf"];
@@ -43,9 +45,8 @@ const hex = (h: string): RGB => [parseInt(h.slice(1, 3), 16) / 255, parseInt(h.s
 function mount(host: HTMLElement): void {
   injectStyle(NAME, CSS);
   const st: St = { K: 3, pure: true, logPhot: Math.log10(400), method: "vertex", seed: 1, known: false };
-  const Atrue = truthMaps();
   const bands = U.contiguousBands(L0, L1, NCH), cs = bands.map(b => (b.lo + b.hi) / 2);
-  const Mfull = U.channelMatrix(dyesFor(SEP), bands);
+  let data: EmData | null = null;
 
   // ---- layout ----
   const c1 = htmlEl("div", "em-col", "", host), c2 = htmlEl("div", "em-col", "", host);
@@ -64,7 +65,7 @@ function mount(host: HTMLElement): void {
     { id: "pure", label: "pure pixels: the vertices are the spectra", s: { K: 3, pure: true, method: "vertex", known: false }, run: 3 },
     { id: "nopure", label: "no pure pixels: vertex finding undershoots", s: { K: 3, pure: false, method: "vertex", known: false }, run: 3 },
     { id: "seeds", label: "NMF from two seeds: two answers, same error", s: { K: 3, pure: false, method: "nmf", seed: 1, known: false }, run: 400 },
-    { id: "known", label: "fix three known spectra, find the autofluorescence", s: { K: 4, pure: true, method: "nmf", seed: 1, known: true }, run: 200 },
+    { id: "known", label: "three spectra known: the 4th still has dips", s: { K: 4, pure: true, method: "nmf", seed: 1, known: true }, run: 200 },
   ];
   const pbtn = presets(panel, [...presetDefs.map(p => ({ label: p.label, apply: () => applyPreset(p) })), { label: "reset", apply: () => applyPreset({ s: { K: 3, pure: true, method: "vertex", seed: 1, known: false, logPhot: Math.log10(400) } }) }]);
   const mRow = htmlEl("div", "um-row", "", panel);
@@ -78,41 +79,22 @@ function mount(host: HTMLElement): void {
   const phS = slider(panel, "photons", 1.5, 3.7, 0.05, st.logPhot, v => { st.logPhot = v; manual(); rebuild(); }, v => String(Math.round(10 ** v)));
   const seedS = slider(panel, "NMF seed", 1, 5, 1, st.seed, v => { st.seed = v; manual(); restart(); });
   const knownC = checkbox(panel, "NMF: first 3 spectra known", st.known, v => { st.known = v; manual(); restart(); });
-  const read = htmlEl("div", "qb-readout um-readout", "", panel);
+  const read = htmlEl("div", "qb-readout um-readout", "", c2);
   void stepB; void runB;
   function manual(): void { pbtn.forEach(b => b.classList.remove("active")); }
 
   // ---- data ----
-  let Y: Float32Array = new Float32Array(0), K = 3, Mtrue: Float64Array = new Float64Array(0), cellIdx: number[] = [];
+  let K = 3, Mtrue: Float64Array = new Float64Array(0), cellIdx: number[] = [];
   let Yc: Float32Array = new Float32Array(0);          // cell pixels only (NCH × n)
   let pcaMean: Float64Array = new Float64Array(0), pc1: Float64Array = new Float64Array(0), pc2: Float64Array = new Float64Array(0), sv: Float64Array = new Float64Array(0);
   let found: Float64Array | null = null, verts: number[] = [], nmf: U.NMF | null = null, errs: number[] = [];
   let timer = 0;
-  const cell = U.cellScene(N_PIX, 3).cell;
 
   function rebuild(): void {
     K = st.K;
-    const A = new Float32Array(K * P);
-    for (let k = 0; k < K; k++) for (let p = 0; p < P; p++) A[k * P + p] = Atrue[k * P + p];
-    if (!st.pure) {
-      for (let p = 0; p < P; p++) {
-        let tot = 0;
-        for (let k = 0; k < K; k++) tot += Atrue[k * P + p];
-        for (let k = 0; k < K; k++) A[k * P + p] = 0.7 * Atrue[k * P + p] + 0.3 * (tot - Atrue[k * P + p]) / (K - 1);
-      }
-    }
-    Mtrue = new Float64Array(NCH * K);
-    for (let c = 0; c < NCH; c++) for (let k = 0; k < K; k++) Mtrue[c * K + k] = Mfull[c * 4 + k];
-    const ph = 10 ** st.logPhot;
-    const Yn = U.forward(Mtrue, NCH, K, A, P, { photons: ph, seed: 1 });
-    Y = new Float32Array(NCH * P);
-    for (let i = 0; i < Y.length; i++) Y[i] = Yn[i] / ph;
-    cellIdx = [];
-    for (let p = 0; p < P; p++) if (cell[p]) cellIdx.push(p);
+    const d = buildData(K, st.pure, 10 ** st.logPhot);
+    data = d; Mtrue = d.Mtrue; cellIdx = d.cellIdx; Yc = d.Yc; sv = d.sv;
     const n = cellIdx.length;
-    Yc = new Float32Array(NCH * n);
-    for (let c = 0; c < NCH; c++) cellIdx.forEach((p, i) => { Yc[c * n + i] = Y[c * P + p]; });
-    sv = U.stackSingularValues(Yc, NCH, n);
     // projection plane for the normalised cloud: PCA of the normalised bright pixels
     const Yn2 = U.normaliseSum(Yc, NCH, n), w = new Float64Array(n);
     for (let i = 0; i < n; i++) { let s = 0; for (let c = 0; c < NCH; c++) s += Yc[c * n + i]; w[i] = s > 0.15 && Number.isFinite(Yn2[i]) ? 1 : 0; if (!w[i]) for (let c = 0; c < NCH; c++) Yn2[c * n + i] = 0; }
@@ -145,7 +127,7 @@ function mount(host: HTMLElement): void {
       found = new Float64Array(NCH * K);
       for (let k = 0; k < K; k++) for (let c = 0; c < NCH; c++) found[c * K + k] = pca.vectors[c * NCH + k];
     } else if (st.method === "nmf") {
-      const known = st.known ? [0, 1, 2].map(k => { const v = new Float64Array(NCH); let s = 0; for (let c = 0; c < NCH; c++) { v[c] = Mtrue[c * K + k]; s += v[c]; } return v.map(x => x / s); }) : [];
+      const known = st.known ? knownSpectra(data!) : [];
       nmf = U.nmfInit(Yc, NCH, cellIdx.length, K, st.seed, st.known ? [...known, ...(K > 3 ? [null] : [])] : []);
       errs = [U.nmfError(Yc, nmf)];
       found = Float64Array.from(nmf.W);
@@ -155,12 +137,10 @@ function mount(host: HTMLElement): void {
   function step(times: number): void {
     if (st.method === "vertex") {
       if (verts.length >= K) return;
-      // on the rank-K projection of the pixels (noise outside the K-dimensional signal space removed)
-      verts = U.vertexFind(Yk ??= U.projectRank(Yc, NCH, cellIdx.length, K), NCH, cellIdx.length, K, 0.3, verts.length + 1);
-      found = new Float64Array(NCH * K);
-      // the found spectrum = the (denoised) pixel at the vertex, scaled to sum 1
-      const Z = Yk!, nn = cellIdx.length;
-      verts.forEach((i, k) => { let s = 0; for (let c = 0; c < NCH; c++) s += Z[c * nn + i]; for (let c = 0; c < NCH; c++) found![c * K + k] = Z[c * nn + i] / s; });
+      // on the rank-K projection of the pixels (noise outside the K-dimensional signal space
+      // removed); the found spectrum = the (denoised) pixel at the vertex, scaled to sum 1
+      const r = vertexSpectra(data!, verts.length + 1, Yk ??= U.projectRank(Yc, NCH, cellIdx.length, K));
+      verts = r.verts; found = r.F;
     } else if (st.method === "nmf" && nmf) {
       for (let t = 0; t < times; t++) { U.nmfStep(Yc, nmf); }
       const e = U.nmfError(Yc, nmf);

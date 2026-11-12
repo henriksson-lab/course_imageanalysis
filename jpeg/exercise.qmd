@@ -1,0 +1,166 @@
+---
+title: "Exercise: the JPEG pipeline, artefacts and quality metrics"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- take one block through **quantisation**, **zigzag**, **run-length symbols** and **Huffman** bits by hand,
+- scale a quantisation table for a **quality factor** and give the largest possible error per coefficient,
+- relate the quantisation step to **rate** and **distortion** (6 dB per bit),
+- recognise **blocking**, **ringing**, **colour bleeding** and **generation loss**,
+- compute **PSNR** and **SSIM** for small examples and explain why they can disagree.
+
+Do the pen-and-paper part first, then the demos.
+
+## Background
+
+| Step | What happens |
+|---|---|
+| Colour | Y′CbCr; 4:2:0 keeps the colour channels at half resolution in both directions |
+| Blocks | 8 × 8, pixel values − 128 |
+| DCT | 64 coefficients per block (previous unit) |
+| Quantise | $q = \operatorname{round}(c/Q)$, decoded $qQ$; error $\le Q/2$ |
+| Quality factor | $s = 5000/q$ ($q < 50$) or $200 - 2q$ ($q \ge 50$); $Q' = \lfloor (Q s + 50)/100 \rfloor$, between 1 and 255 |
+| Zigzag | read diagonally from the top left: low frequencies first |
+| DC | difference from the previous block's DC; Huffman code of its **size** + the value's bits |
+| AC | (run of zeros, size) Huffman-coded + the value's bits; EOB ends the block |
+| Size of a value | number of bits of $|v|$: 1 → 1, 2–3 → 2, 4–7 → 3, …; negative values: bits of $v - 1$ in that size, e.g. −3 → `00` |
+| PSNR | $10 \log_{10}(255^2/\text{MSE})$ dB for 8-bit images |
+| SSIM | $\frac{(2\mu_x\mu_y + C_1)(2\sigma_{xy} + C_2)}{(\mu_x^2 + \mu_y^2 + C_1)(\sigma_x^2 + \sigma_y^2 + C_2)}$, $C_1 = (0.01 \cdot 255)^2 = 6.50$, $C_2 = (0.03 \cdot 255)^2 = 58.5$ |
+
+Excerpt of the standard luminance Huffman tables: DC sizes 0: `00`, 1: `010`, 2: `011`, 3: `100`. AC symbols (run, size): (0,1) `00`, (0,2) `01`, (0,3) `100`, (1,1) `1100`, (1,2) `11011`, EOB `1010`.
+
+## By hand
+
+**B1.** A block's DCT coefficients are (row, column of the coefficient table): $c_{00} = 190$, $c_{01} = -33$, $c_{10} = 25$, $c_{20} = -15$, $c_{11} = 5$, $c_{02} = 9$; all others are smaller than half their step. The table at quality 50 has $Q_{00} = 16$, $Q_{01} = 11$, $Q_{10} = 12$, $Q_{20} = 14$, $Q_{11} = 12$, $Q_{02} = 10$.
+(a) Quantise. How many of the 64 values are non-zero?
+(b) Dequantise and give the error of each of the six coefficients. Is it always at most $Q/2$?
+
+**B2.** Continue with B1. The zigzag order starts (0,0), (0,1), (1,0), (2,0), (1,1), (0,2), (0,3), …
+(a) Write the zigzag sequence up to the last non-zero value.
+(b) The previous block had DC 9. Write the DC difference and the AC symbols (run, size) value, ending with EOB.
+(c) Count the bits with the table excerpt. How many bits per pixel is that?
+
+**B3.** Scale the table entries $Q_{00} = 16$ and $Q_{77} = 99$ for the qualities 10, 25, 75 and 100. What is the largest possible error of a decoded $c_{00}$ at quality 25?
+
+**B4.** You halve every quantisation step. Roughly how do the mean squared error, the PSNR and the number of bits change?
+
+**B5.** A 3 × 3 8-bit image is decoded with the errors `2 −1 0 / 0 3 0 / −2 1 0`. Compute the MSE and the PSNR.
+
+**B6.** Two image patches: $y = x + 10$ everywhere (a brightness shift), with local mean $\mu_x = 100$ in a window. Compute the MSE, the PSNR, and the SSIM of the window. Then think of a distortion with the same MSE that you would see immediately.
+
+**B7.** A 256 × 256 colour image has 3 values per pixel. How many values are left after Y′CbCr with 4:2:0 subsampling? Which of the artefacts on the lecture's list does subsampling cause?
+
+**B8.** Name the artefact: (a) a sky becomes a mosaic of slightly different flat squares; (b) a black text line on white gets faint grey copies parallel to it; (c) a red object on a blue background gets a purple seam; (d) an image saved, cropped by 3 pixels and saved again, ten times, gets steadily worse.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $190/16 = 11.9 \to 12$; $-33/11 = -3$; $25/12 = 2.08 \to 2$; $-15/14 = -1.07 \to -1$; $5/12 = 0.42 \to 0$; $9/10 = 0.9 \to 1$; all others 0. Five non-zero values out of 64. (b) Decoded: 192, −33, 24, −14, 0, 10. Errors: 2, 0, 1, 1, 5, 1, all within $Q/2$ = 8, 5.5, 6, 7, 6, 5.
+
+**B2.** (a) 12, −3, 2, −1, 0, 1. (b) DC difference $12 - 9 = 3$ (size 2). AC: (0,2) −3, (0,2) 2, (0,1) −1, (1,1) 1, EOB. (c) DC: `011` + `11` = 5 bits; (0,2) −3: `01` + `00` = 4; (0,2) 2: `01` + `10` = 4; (0,1) −1: `00` + `0` = 3; (1,1) 1: `1100` + `1` = 5; EOB `1010` = 4. Total **25 bits** for 64 pixels: 0.39 bits per pixel (raw 8).
+
+**B3.** Quality 10: $s = 500$: $Q_{00} = 80$, $Q_{77} = 495 \to 255$ (the maximum). Quality 25: $s = 200$: 32 and 198. Quality 75: $s = 50$: 8 and 50. Quality 100: $s = 0$: both 1 (the minimum). At quality 25 the decoded $c_{00}$ is off by at most $32/2 = 16$, i.e. the block mean by at most $16/8 = 2$ grey levels.
+
+**B4.** The squared error per coefficient ($\approx \Delta^2/12$) drops to a quarter, the PSNR rises by $10\log_{10} 4 = 6$ dB, and every coefficient that is not zero needs about one more bit (and some that were zero become non-zero).
+
+**B5.** Squared errors $4 + 1 + 9 + 4 + 1 = 19$, MSE $= 19/9 = 2.11$, PSNR $= 10\log_{10}(65\,025/2.11) = 44.9$ dB.
+
+**B6.** MSE $= 100$, PSNR $= 28.1$ dB, which sounds poor. SSIM: the contrast–structure term is exactly 1 ($y - \mu_y = x - \mu_x$); the luminance term is $\frac{2 \cdot 100 \cdot 110 + 6.5}{100^2 + 110^2 + 6.5} = 0.995$. The image looks the same, only brighter. The same MSE as noise of standard deviation 10, or as strong blocking, is clearly visible: PSNR does not see the difference, SSIM does.
+
+**B7.** $256^2 \cdot 3 = 196\,608$ values before; after 4:2:0: $65\,536 + 2 \cdot 128^2 = 98\,304$, half. Subsampling causes **colour bleeding** at sharp colour edges.
+
+**B8.** (a) Blocking. (b) Ringing (mosquito noise). (c) Colour bleeding. (d) Generation loss; the crop moves the 8 × 8 grid, so each save quantises different blocks.
+:::
+
+### Math questions
+
+**B9.** *(math)* Show that the error of a uniform quantiser with step $\Delta$, if it is uniformly distributed on $[-\Delta/2, \Delta/2]$, has variance $\Delta^2/12$. Why does this error appear unchanged in the pixels of the decoded block?
+
+**B10.** *(math)* A coefficient is spread uniformly over a range $R \gg \Delta$. Show that one more bit (halving $\Delta$) improves the PSNR by 6.02 dB.
+
+**B11.** *(math)* Show that the luminance term of SSIM, $\frac{2\mu_x\mu_y + C_1}{\mu_x^2 + \mu_y^2 + C_1}$, is at most 1, with equality iff $\mu_x = \mu_y$. Do the same for the contrast–structure term, using the Cauchy–Schwarz inequality $|\sigma_{xy}| \le \sigma_x \sigma_y$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B9.** $\int_{-\Delta/2}^{\Delta/2} e^2 \frac{de}{\Delta} = \frac{1}{\Delta} \cdot \frac{2}{3}\big(\tfrac{\Delta}{2}\big)^3 = \frac{\Delta^2}{12}$ (the mean is 0). The decoder applies the inverse DCT $X = D^\top C D$, which is orthonormal: the pixel error is $D^\top E D$ for the coefficient error matrix $E$, and $\|D^\top E D\|^2 = \|E\|^2$. So the summed squared error is the same in both domains, and the mean squared pixel error of a block is the mean of the coefficient error variances.
+
+**B10.** MSE $= \Delta^2/12$; with $\Delta/2$ it is $\Delta^2/48$, a factor 4. PSNR changes by $10\log_{10} 4 = 6.02$ dB. The number of levels $R/\Delta$ doubles: one more bit.
+
+**B11.** $\mu_x^2 + \mu_y^2 - 2\mu_x\mu_y = (\mu_x - \mu_y)^2 \ge 0$, so the numerator is at most the denominator (both positive thanks to $C_1 > 0$), with equality iff $\mu_x = \mu_y$. Similarly $2\sigma_{xy} \le 2\sigma_x\sigma_y \le \sigma_x^2 + \sigma_y^2$; equality needs $\sigma_x = \sigma_y$ and $\sigma_{xy} = \sigma_x\sigma_y$, i.e. $y - \mu_y = x - \mu_x$ in the window.
+:::
+
+## Explore: JPEG {#explore}
+
+Original | decoded | difference (×4, mid grey = 0) or SSIM map (white = 1). **quality** scales the standard table; **chroma 4:2:0** (colour card only) halves the colour resolution; **flat table (same size)** replaces the standard table by one equal step, chosen to give about the same file size; **generations** recompresses the decoded image again and again, optionally with the 8 × 8 grid moved by 4 pixels each time; **zoom ×4** shows the 64 × 64 pixels around the selected block (click an image to choose a block). The tabs show one block through the pipeline, the quantisation table, and the rate–distortion curves (PSNR and SSIM against bits per pixel for qualities 5, 10, …, 100). The size is the exact number of Huffman-coded bits plus the file header; "browser encoder" is the size of the browser's own JPEG of the same image and quality, as a cross-check.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="jpeg" data-preset="q90"></div>
+<script src="../demos/dist/jpeg.js"></script>
+```
+
+**J1.** Preset **quality 90: invisible**. Note size, ratio, PSNR and SSIM. Can you see any difference? Lower the quality to 50, 25 and 10 and note the same numbers. At which quality do you first see something, and where?
+
+**J2.** Preset **quality 10: blocking**. Open the **one block** tab and click a block in the white background. How many quantised values are non-zero? What does the block look like after decoding, and why do neighbouring background blocks differ?
+
+**J3.** Choose a block of the micrograph and compare its tab at quality 10 and 90: the zigzag sequence, the number of symbols and the bits. Where do the zeros come from?
+
+**J4.** Preset **ringing at an edge** (test card, quality 25). Where does the error appear? Switch to **SSIM map**. Then lower the quality to 10 and look at the gradient at the top of the card.
+
+**J5.** Preset **colour bleeding (4:2:0)**. Toggle **chroma 4:2:0** off and on: what changes in the image, the size and the PSNR? Why does the SSIM not change?
+
+**J6.** Preset **flat table, same size**. Compare PSNR and SSIM with the standard table at quality 50 (untick the flat table). Which wins on the numbers? Look at the difference image: where does each table put its error? Why does JPEG use the non-flat table anyway?
+
+**J7.** Preset **recompress 10×** (quality 75, grid moved 4 pixels each time). Compare 1 and 10 generations. Then untick **move grid**: what happens now, and why?
+
+**J8.** **rate–distortion** tab, micrograph and test card. At 1 bit per pixel, which image has the higher PSNR? Why are the curves so different?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**J1.** Quality 90: 34 681 bytes, 1.9 : 1, PSNR 36.5 dB, SSIM 0.985; no visible difference. Quality 50: 14 373 bytes (4.6 : 1), 26.7 dB, 0.891; quality 25: 9 219 bytes (7.1 : 1), 24.8 dB, 0.827; quality 10: 5 021 bytes (13.1 : 1), 22.6 dB, 0.719. Around quality 25–50 the fine grain starts to be smoothed and the background shows faint blocks; at 10 the blocks are obvious.
+
+**J2.** In the white background only the DC (and perhaps one or two low frequencies) survives: each block decodes to a flat square at its own mean. Neighbouring blocks have slightly different means (and their DCs are rounded to a step of 80/8 = 10 grey levels at quality 10), so the flat squares do not match at the borders: blocking.
+
+**J3.** At quality 10 a block of the cell has a handful of non-zero values at the start of the zigzag and then EOB; at quality 90 there are dozens of non-zero values (45 per block on average) and long symbol lists, about 270 bits per block on average. The zeros come from quantisation: high-frequency coefficients are smaller than half their (large) step.
+
+**J4.** Next to the thin dark lines and edges: ripples parallel to them, in the blocks that contain an edge; flat blocks without an edge are almost error-free. The SSIM map is dark in exactly those blocks. At quality 10 the steep ramps at the top become staircases of flat 8 × 8 blocks (PSNR 27.1 dB, SSIM 0.949).
+
+**J5.** At quality 75: 4:4:4 gives 5 230 bytes and PSNR 41.7 dB; 4:2:0 gives 3 567 bytes and 33.9 dB. The colour channels now cost a third of what they did; the red/blue edge gets a purple fringe a pixel or two wide. The SSIM is computed on the brightness (Y′) only, which is identical in both (0.996).
+
+**J6.** Flat table (step 42): 14 257 bytes, PSNR 27.1 dB, SSIM 0.900; standard table at quality 50: 14 373 bytes, 26.7 dB, 0.891. The flat table wins on both numbers at the same size: for squared error, an equal step for all coefficients is the better strategy. The standard table spends its bits on low frequencies and throws away more fine detail, which the eye notices less than noise in smooth areas; JPEG is tuned for viewers, not for MSE. (For data analysis that tuning is not necessarily what you want: next unit.)
+
+**J7.** One generation: 29.8 dB; ten generations with the grid moved: 25.1 dB (SSIM 0.883). Without moving the grid it stays at 29.8 dB: quantising the same blocks with the same table again changes almost nothing (the decoded image is already almost on the quantisation grid). A shifted grid sees new blocks, whose coefficients are not quantised yet: every save loses again.
+
+**J8.** At 1 bpp the test card is at about 41 dB (between quality 75: 0.88 bpp, 37.2 dB, and quality 90: 1.14 bpp, 46.3 dB), the micrograph at about 24 dB (between quality 10: 0.61 bpp, 22.6 dB, and quality 25: 1.13 bpp, 24.8 dB). The card is flat regions and a few edges, which few coefficients describe; the micrograph is grainy texture everywhere, which costs bits at every quality.
+:::
+
+## Explore: same MSE, different quality {#explore-ssim}
+
+The cell (or the test card) distorted five ways, each tuned to the same MSE: a brightness shift, a contrast change, Gaussian noise, a blur, and JPEG (with a continuously scaled table). Each panel shows its parameter, MSE, PSNR and SSIM. **show SSIM maps** replaces the images by their SSIM maps (white = 1).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="samemse" data-mse="144"></div>
+<script src="../demos/dist/samemse.js"></script>
+```
+
+**S1.** MSE 144. Rank the five distorted images by how good they look to you. Then rank them by SSIM. Do the rankings agree?
+
+**S2.** Show the SSIM maps. Where does each distortion lose structure?
+
+**S3.** Set the MSE to 25 and to 400. How does the SSIM of the brightness shift change, and that of the blur?
+
+**S4.** Choose the **test card** at MSE 144. Which distortion is now the worst by SSIM, and which is barely affected? Why is this different from the cell?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**S1.** PSNR is 26.6 dB for all. SSIM: brightness shift 0.996 (darker by 12.2), contrast change 0.973, JPEG 0.888, noise 0.884, blur 0.877 (σ = 0.66). Most viewers rank the shift and the contrast change as almost perfect and the other three as clearly degraded, like SSIM; MSE cannot tell them apart.
+
+**S2.** Shift and contrast: almost white everywhere (structure kept). Noise: uniformly grey, worst in flat regions where the noise is large compared with the local contrast. Blur and JPEG: darkest in the fine-textured regions, where the small structures are smoothed away; JPEG also in a block pattern.
+
+**S3.** Brightness shift: 0.999 at MSE 25, 0.987 at MSE 400. Blur: 0.981 at MSE 25, 0.629 at MSE 400 (σ = 1.22). The shift never hurts structure; the blur removes ever more of the fine texture.
+
+**S4.** Noise is now by far the worst (SSIM 0.613): the card is mostly flat, and noise is clearly visible there. Blur (0.975) and the brightness shift (0.991) are barely affected: the card has few fine details to blur. JPEG 0.947. Which distortion is "worst" depends on the image content, not only on the error energy.
+:::
+
+## Where this leads
+
+PSNR and SSIM measure what a viewer would notice. A scientist needs something else: are the **numbers** still right? The next unit runs a spot-counting and intensity measurement on compressed fluorescence images, and shows that a JPEG that looks perfect can still shift the intensities of dim spots by several percent. It also introduces JPEG 2000 (wavelets instead of blocks) and the formats that keep data intact.

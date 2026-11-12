@@ -1,0 +1,210 @@
+---
+title: "Exercise: from triangles to shaded pixels"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- decide with **edge functions** whether a pixel centre lies inside a triangle, and compute its **barycentric coordinates** and interpolated depth,
+- fill a small **z-buffer** and explain why the result does not depend on the drawing order,
+- explain the **top-left rule** and **back-face culling**,
+- compute a **perspective-correct** interpolation, and say why **depth precision** depends on the near plane,
+- compute **Lambert**, **Phong** and **Blinn–Phong** shading at a point, and say what **flat**, **Gouraud** and **per-pixel** shading miss,
+- transform a **normal** correctly with $M^{-\top}$.
+
+Do the pen-and-paper part first, then the demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Window coordinates | pixels, $x$ right, $y$ **up**; pixel $(i, j)$ has its centre at $(i + 0.5, j + 0.5)$ |
+| Edge function | $E_{ab}(\mathbf p) = (b_x - a_x)(p_y - a_y) - (b_y - a_y)(p_x - a_x)$: positive left of $\mathbf a \to \mathbf b$ |
+| Inside | counter-clockwise triangle: $E_{bc}, E_{ca}, E_{ab}$ all positive (on an edge: top-left rule) |
+| Barycentrics | $(b_a, b_b, b_c) = (E_{bc}, E_{ca}, E_{ab})(\mathbf p)/E_{ab}(\mathbf c)$; $f = b_a f_a + b_b f_b + b_c f_c$ |
+| Perspective-correct | $f = \sum b_i f_i/w_i \,\big/\, \sum b_i/w_i$ |
+| z-buffer | draw a pixel only if its depth is smaller than the stored one; then store it |
+| NDC depth | $z_\text{ndc} = A - B/d$ at distance $d$, $A = \frac{f+n}{f-n}$, $B = \frac{2fn}{f-n}$ |
+| Lambert | $k_a + k_d\max(0, \mathbf n\cdot\mathbf l)$ |
+| Phong, Blinn–Phong | $k_s\max(0, \mathbf r\cdot\mathbf v)^s$ with $\mathbf r = 2(\mathbf n\cdot\mathbf l)\mathbf n - \mathbf l$; $k_s\max(0, \mathbf n\cdot\mathbf h)^s$ with $\mathbf h = (\mathbf l + \mathbf v)/\lVert\mathbf l + \mathbf v\rVert$ |
+| Normals | transform with $M^{-\top}$, then renormalise |
+
+## By hand
+
+**B1.** The triangle $\mathbf a = (1, 1)$, $\mathbf b = (7, 2)$, $\mathbf c = (3, 6)$ with depths $z_a = 0.2$, $z_b = 0.6$, $z_c = 0.4$.
+(a) Compute $E_{ab}(\mathbf c)$. Is the triangle counter-clockwise?
+(b) For the pixel centres $(3.5, 2.5)$, $(6.5, 4.5)$, $(2.5, 5.5)$ and $(4.5, 3.5)$, compute $E_{bc}$, $E_{ca}$, $E_{ab}$ and decide which are inside. For the outside ones, which edge do they lie beyond?
+(c) For $(4.5, 3.5)$, compute the barycentric coordinates and the interpolated depth. Check that the barycentrics reproduce the point.
+
+**B2.** A $4\times4$ pixel grid (pixel $(i, j)$, centre $(i + 0.5, j + 0.5)$). Triangle $T_1$: $(0, 0)$, $(4.5, 0)$, $(0, 4.5)$, depth 0.3 everywhere. Triangle $T_2$: $(0, 1)$, $(4, 1)$, $(4, 4)$, depth 0.6 at $(0, 1)$ and 0.1 at the two other corners.
+(a) Which pixel centres does each triangle cover? (For $T_2$: the edge from $(4, 4)$ to $(0, 1)$ is the line $y = 1 + 0.75x$.)
+(b) What depth does $T_2$ have at each of its pixels? (It depends on $x$ only.)
+(c) Fill the z-buffer and the colour (which triangle) by drawing $T_1$ then $T_2$, and again $T_2$ then $T_1$. Compare.
+
+**B3.** Two triangles share an edge from $(1.5, 10.5)$ to $(13.5, 1.5)$, and four pixel centres lie exactly on it. Without a tie rule, what happens to those pixels when both triangles are drawn? Why is that a problem for a half-transparent surface, and what does the top-left rule do?
+
+**B4.** On the screen, the triangle $(0, 0), (4, 0), (0, 3)$ and the triangle $(0, 0), (0, 3), (4, 0)$ cover the same pixels. Compute $E_{ab}(\mathbf c)$ for both. Which one is culled by back-face culling, and what does that tell you about the mesh it came from?
+
+**B5.** **Perspective-correct interpolation.** An edge goes from a vertex with $w = 1$ and texture coordinate $u = 0$ to a vertex with $w = 3$ and $u = 1$.
+(a) At the midpoint **on the screen**, what $u$ does affine interpolation give, and what does perspective-correct interpolation give?
+(b) Where on the screen (as a fraction of the edge) does $u = 0.5$ appear? Why is the far half of the texture squeezed?
+
+**B6.** **Depth precision.** Far plane $f = 100$.
+(a) Compute $z_\text{ndc}$ for distances 50 and 51 with $n = 0.01$ and with $n = 1$.
+(b) A 16-bit depth buffer has steps of $2/65535$ in $z_\text{ndc}$. How many steps apart are the two surfaces in each case? Which case shows z-fighting?
+(c) At which distance is half of the depth range ($z_\text{ndc} = 0$) used up, for each $n$?
+
+**B7.** **Shading at a point.** $\mathbf n = (0, 0, 1)$, eye direction $\mathbf v = (0, 0, 1)$, light direction $\mathbf l = (1, 0, 1)/\sqrt2$, $k_a = 0.1$, $k_d = 0.8$, $k_s = 0.5$, shininess $s = 20$.
+(a) Compute the Lambert part $k_a + k_d\,\mathbf n\cdot\mathbf l$.
+(b) Compute $\mathbf r$ and the Phong specular term; compute $\mathbf h$ and the Blinn–Phong specular term.
+(c) Which exponent would Phong need to give the same specular value as Blinn–Phong with $s = 20$ here?
+
+**B8.** A coarse sphere (80 triangles) is lit so that the mirror point of the light falls in the middle of a triangle. What do you see with flat, Gouraud and per-pixel shading? What changes with a finer mesh?
+
+**B9.** $M = \mathrm{diag}(2, 1, 1)$. The plane $x + y = 1$ has normal $\mathbf n = (1, 1, 0)$ and the tangent $\mathbf t = (1, -1, 0)$.
+(a) Compute $M\mathbf t$, $M\mathbf n$ and $M^{-\top}\mathbf n$. Which of the two transformed normals is perpendicular to $M\mathbf t$?
+(b) What is the transformed plane, and its true normal?
+(c) For which matrices $M$ does $M\mathbf n$ work just as well?
+
+### Math questions
+
+**B10.** *(math)* Show that $E_{ab}(\mathbf p)$ is twice the signed area of the triangle $\mathbf a, \mathbf b, \mathbf p$, that $E_{bc}(\mathbf p) + E_{ca}(\mathbf p) + E_{ab}(\mathbf p) = E_{ab}(\mathbf c)$ for every $\mathbf p$, and that the barycentric coordinates reproduce $\mathbf p$: $b_a\mathbf a + b_b\mathbf b + b_c\mathbf c = \mathbf p$.
+
+**B11.** *(math)* Show that $1/w$ and $f/w$ (for an attribute $f$ that is affine in view space) are affine functions of the screen coordinates, and derive the perspective-correct interpolation formula.
+
+**B12.** *(math)* Show that normals must be transformed by $M^{-\top}$ to stay perpendicular to all transformed tangents. Why does the translation part of a $4\times4$ $M$ not matter?
+
+**B13.** *(math)* With $d$ the distance from the camera, show that the smallest distance step a depth buffer can resolve is $\Delta d \approx d^2\,\Delta z_\text{ndc}\,(f - n)/(2fn)$.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $E_{ab}(\mathbf c) = 6\cdot5 - 1\cdot2 = 28 > 0$: counter-clockwise.
+(b)
+
+| centre | $E_{bc}$ | $E_{ca}$ | $E_{ab}$ | |
+|---|---|---|---|---|
+| $(3.5, 2.5)$ | 12 | 9.5 | 6.5 | inside |
+| $(6.5, 4.5)$ | $-8$ | 20.5 | 15.5 | outside, beyond edge $\mathbf b\mathbf c$ |
+| $(2.5, 5.5)$ | 4 | $-1.5$ | 25.5 | outside, beyond edge $\mathbf c\mathbf a$ |
+| $(4.5, 3.5)$ | 4 | 12.5 | 11.5 | inside |
+
+(c) $(b_a, b_b, b_c) = (4, 12.5, 11.5)/28 = (0.143, 0.446, 0.411)$; depth $0.143\cdot0.2 + 0.446\cdot0.6 + 0.411\cdot0.4 = 0.461$. Check: $x = 0.143\cdot1 + 0.446\cdot7 + 0.411\cdot3 = 4.5$, $y = 0.143 + 0.446\cdot2 + 0.411\cdot6 = 3.5$.
+
+**B2.** (a) $T_1$ covers the centres with $x + y < 4.5$: $(0,0)$, $(1,0)$, $(2,0)$, $(3,0)$, $(0,1)$, $(1,1)$, $(2,1)$, $(0,2)$, $(1,2)$, $(0,3)$ (10 pixels). $T_2$ covers the centres above $y = 1$ and below $y = 1 + 0.75x$: $(1,1)$, $(2,1)$, $(3,1)$, $(2,2)$, $(3,2)$, $(3,3)$ (6 pixels).
+(b) $T_2$'s depth is $0.6 - 0.125x$: 0.4125 at $x = 1.5$, 0.2875 at $x = 2.5$, 0.1625 at $x = 3.5$.
+(c) Both orders give the same buffer (rows from the top, $j = 3$ to 0; "–" = empty):
+
+| $j$ | $i = 0$ | 1 | 2 | 3 |
+|---|---|---|---|---|
+| 3 | $T_1$ 0.3 | – | – | $T_2$ 0.1625 |
+| 2 | $T_1$ 0.3 | $T_1$ 0.3 | $T_2$ 0.2875 | $T_2$ 0.1625 |
+| 1 | $T_1$ 0.3 | $T_1$ 0.3 | $T_2$ 0.2875 | $T_2$ 0.1625 |
+| 0 | $T_1$ 0.3 | $T_1$ 0.3 | $T_1$ 0.3 | $T_1$ 0.3 |
+
+Where both cover a pixel, the nearer one wins: at $(1, 1)$ $T_1$ (0.3 < 0.4125), at $(2, 1)$ $T_2$ (0.2875 < 0.3). This happens whichever is drawn first: the z-buffer makes opaque drawing order-independent.
+
+**B3.** Both triangles would draw them: twice the work, and with transparency the colour would be blended twice (a visible bright or dark line along the edge). Leaving them out would give a crack. The top-left rule gives each such pixel to exactly one triangle: the one for which the shared edge is a "left" (or "top") edge.
+
+**B4.** First: $E_{ab}(\mathbf c) = 4\cdot3 - 0\cdot0 = 12 > 0$ (counter-clockwise, front-facing). Second: $0\cdot0 - 3\cdot4 = -12 < 0$: clockwise on the screen, so it is seen from behind and culled. In a closed mesh it is a triangle on the far side of the object, hidden by the near side anyway.
+
+**B5.** (a) Affine: $u = 0.5$. Correct: $\dfrac{0.5\cdot0/1 + 0.5\cdot1/3}{0.5/1 + 0.5/3} = \dfrac{1/6}{2/3} = 0.25$.
+(b) Solve $\dfrac{s/3}{(1 - s) + s/3} = 0.5$: $s/3 = 0.5 - s/3$, so $s = 0.75$. The texture's halfway point is three quarters of the way along the edge on the screen: the far end is three times farther away, so it is drawn smaller.
+
+**B6.** (a) $n = 0.01$: $z_\text{ndc}(50) = 0.9998000$, $z_\text{ndc}(51) = 0.9998078$. $n = 1$: $0.9797980$ and $0.9805902$.
+(b) Differences $7.84\cdot10^{-6}$ and $7.92\cdot10^{-4}$; in steps of $2/65535$: **0.26** steps (both surfaces get the same stored value: z-fighting) and **26** steps (fine).
+(c) $z_\text{ndc} = 0$ at $d = B/A = 2fn/(f + n)$: 0.02 for $n = 0.01$, 1.98 for $n = 1$.
+
+**B7.** (a) $\mathbf n\cdot\mathbf l = 0.707$: $0.1 + 0.8\cdot0.707 = 0.666$.
+(b) $\mathbf r = 2\cdot0.707\,(0, 0, 1) - (0.707, 0, 0.707) = (-0.707, 0, 0.707)$; $\mathbf r\cdot\mathbf v = 0.707$; Phong $0.5\cdot0.707^{20} = 0.00049$. $\mathbf h = (0.383, 0, 0.924)$, $\mathbf n\cdot\mathbf h = 0.924$; Blinn–Phong $0.5\cdot0.924^{20} = 0.103$.
+(c) $0.707^{s'} = 0.924^{20}$ gives $s' = 20\ln 0.924/\ln 0.707 = 4.57$: about a quarter.
+
+**B8.** Flat: no highlight shape, each triangle one colour (the triangle facing the mirror direction is the brightest facet). Gouraud: the specular term is computed only at the vertices, which are all far from the mirror point, so the highlight **disappears** (in the demo every vertex gets less than 0.001). Per pixel: a sharp highlight in the middle of the triangle. With a finer mesh Gouraud improves (vertices come closer to the mirror point), but the highlight is still star-shaped and moves in jumps when the object turns.
+
+**B9.** (a) $M\mathbf t = (2, -1, 0)$, $M\mathbf n = (2, 1, 0)$, $M^{-\top}\mathbf n = (\tfrac12, 1, 0)$. $M\mathbf n\cdot M\mathbf t = 4 - 1 = 3$: not perpendicular. $M^{-\top}\mathbf n\cdot M\mathbf t = 1 - 1 = 0$: perpendicular.
+(b) Points $(x, y, z)$ go to $(2x, y, z)$, so the plane becomes $x'/2 + y' = 1$, with normal $(\tfrac12, 1, 0)$: exactly $M^{-\top}\mathbf n$.
+(c) Rotations and uniform scales (and their products): then $M^{-\top}$ is a multiple of $M$, and renormalising removes the factor.
+
+**B10.** $E_{ab}(\mathbf p) = \det[\mathbf b - \mathbf a, \mathbf p - \mathbf a]$, and $|\det|$ of two edge vectors is the area of their parallelogram, twice the triangle's. Each $E$ is affine in $\mathbf p$, so the sum is affine; at $\mathbf p = \mathbf a$ it is $E_{bc}(\mathbf a) + 0 + 0 = E_{ab}(\mathbf c)$ (both are twice the area of $\mathbf a\mathbf b\mathbf c$), and likewise at $\mathbf b$ and $\mathbf c$. An affine function equal to the same constant at three non-collinear points is that constant. Finally $\mathbf q(\mathbf p) = b_a\mathbf a + b_b\mathbf b + b_c\mathbf c$ is affine in $\mathbf p$ and equals $\mathbf a$, $\mathbf b$, $\mathbf c$ at the three vertices, so it is the identity.
+
+**B11.** See the math slide: dividing the plane equation $\alpha x + \beta y + \gamma z = \delta$ by $w = -z$ gives $1/w = (\alpha x_s + \beta y_s - \gamma)/\delta$, affine in $(x_s, y_s)$. For $f = \mathbf g\cdot\mathbf x + h$: $f/w = g_1 x_s + g_2 y_s - g_3 + h/w$, affine too. Screen-space barycentrics interpolate affine functions exactly, so $\widehat{1/w} = \sum b_i/w_i$ and $\widehat{f/w} = \sum b_i f_i/w_i$ are exact, and $f = \widehat{f/w}/\widehat{1/w}$.
+
+**B12.** For every tangent $\mathbf t$ with $\mathbf n^\top\mathbf t = 0$ we want $(G\mathbf n)^\top(M\mathbf t) = \mathbf n^\top G^\top M\mathbf t = 0$. $G^\top M = I$ (or any multiple of it) does this for every $\mathbf t$, so $G = M^{-\top}$. Normals are directions ($w = 0$): the translation column never touches them; only the $3\times3$ part of $M$ is used.
+
+**B13.** $z_\text{ndc} = A - B/d$ gives $dz_\text{ndc}/dd = B/d^2$, so a step $\Delta z_\text{ndc}$ corresponds to $\Delta d \approx d^2\Delta z_\text{ndc}/B = d^2\Delta z_\text{ndc}(f - n)/(2fn)$.
+:::
+
+## Explore: the rasteriser {#explore-raster}
+
+A coarse pixel grid ($x$ right, $y$ up, pixel centres as dots) with one or two triangles. **next pixel** / **next row** step through the bounding box of each triangle (**start** goes back to the beginning, **all** to the end); the readout shows the edge functions, the inside test, the barycentric coordinates (on the screen and in 3D), the depth and the depth test. Click a pixel to read what happened there; drag a vertex (select it to change its depth $w$). Views: colour buffer, depth buffer (near = bright), barycentrics as RGB, the edge function $E_{ab}$. Pink frames mark pixels covered by both triangles.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="raster" data-preset="one"></div>
+<script src="../demos/dist/raster.js"></script>
+```
+
+**R1.** **one triangle** (32 × 24). How many pixels does the bounding box contain, and how many are drawn? Click pixel $(10, 10)$: check that the three edge functions add up to twice the area, and that the barycentrics are the edge functions divided by it. Why do the screen and 3D barycentrics differ?
+
+**R2.** Still **one triangle**: choose the view **edge function E_ab**. What does it look like, and where is it zero? Switch to 16 × 12 and read a few values: by how much does $E_{ab}$ change from one pixel to the next along a row?
+
+**R3.** **a shared edge**. How many pixels does each triangle draw? Untick **top-left rule**: which pixels are now covered by both, and why exactly those?
+
+**R4.** **flipped winding is culled**. Why does the right triangle disappear? Untick **back-face culling** and look at the barycentrics view: what is special about the right triangle's vertex order?
+
+**R5.** **two triangles intersect**. Look at the depth buffer. Where is the boundary between the two triangles, and why is it not one of their edges? Does it change if you drag a vertex of the orange triangle?
+
+**R6.** **affine vs perspective-correct**. Describe the checkerboard with and without **perspective-correct**. Where is the error largest?
+
+**R7.** **near plane 0.01 vs 1** (depth buffer of 14 bits). Which triangle should be in front where they overlap? What do you see with $n = 0.01$, and with $n = 1$? Use the small plot of $z_\text{ndc}(d)$ to explain.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**R1.** 437 pixels visited, 178 drawn. At $(10, 10)$: $E_{bc} = 166.5$, $E_{ca} = 57$, $E_{ab} = 132.5$, sum 356 = twice the area; barycentrics on the screen $(0.468, 0.160, 0.372)$, in 3D $(0.588, 0.101, 0.312)$. The vertices have different depths ($w = 2, 4, 3$): $a$ is nearest and covers more of the screen than its share in 3D, so the 3D weights (perspective-correct) shift towards $a$.
+
+**R2.** A linear ramp: a plane through the edge $\mathbf a\mathbf b$, zero along the line through $\mathbf a$ and $\mathbf b$, positive on the side of $\mathbf c$, negative on the other. Along a row it changes by the constant $-(b_y - a_y)$ per pixel (with $\mathbf a = (2, 1.5)$, $\mathbf b = (13, 4)$ in the 16 × 12 grid: $-2.5$), so a rasteriser needs one addition per pixel.
+
+**R3.** 51 and 57 pixels, none twice. Without the rule the four centres exactly on the diagonal, $(13, 1)$, $(9, 4)$, $(5, 7)$ and $(1, 10)$, are drawn by both: they have $E = 0$ for both triangles, and "$\ge 0$" accepts them twice. The diagonal has slope $-3/4$ and passes through a centre every 4 pixels in $x$.
+
+**R4.** Its vertices are in clockwise order on the screen: negative area, so it counts as a back face. Without culling it is drawn too (99 pixels, next to the 100 of the left triangle); in the barycentrics view its corners red, green, blue ($a'$, $b'$, $c'$) follow each other clockwise.
+
+**R5.** The triangles intersect: the RGB triangle's depth runs from $w = 2$ to $w = 8$, the orange one is at $w = 4$ everywhere. The z-buffer decides pixel by pixel, so the boundary is the line where the two depths are equal (the intersection line), not an edge. The orange triangle covers 157 pixels but is visible on only 54. Dragging a vertex moves the intersection line.
+
+**R6.** Without the correction the checks bend at the diagonal of the quad (each triangle is interpolated on its own, linearly on the screen), and the far checks are too large; with it the lines are straight and the checks shrink with distance. The error is largest along the diagonal and far away, where $w$ differs most between the vertices.
+
+**R7.** The orange triangle is at $w = 8.5$, the RGB one runs from 8 to 9: the orange one should be in front where the RGB one is farther than 8.5. With $n = 0.01$ all depths are crowded near $z_\text{ndc} = 1$ (0.999499 at $w = 8$, 0.999647 at $w = 8.5$, 0.999778 at $w = 9$) and 14 bits cannot separate them: the wrong surface wins on 58 pixels (orange visible on 119 pixels instead of 61), with a jagged border. With $n = 1$ ($z_\text{ndc}$ 0.9444, 0.9608, 0.9753) the result is exact: 61 pixels.
+:::
+
+## Explore: shading {#explore}
+
+A sphere (an icosphere, subdivision levels 0–3), a torus or a low-poly gem, drawn by the same software rasteriser. Drag to rotate; drag the yellow dot to move the light (the disc is the half of the sky facing you). Choose **where** the lighting is computed (flat, Gouraud, per pixel), the **model** (Lambert, Phong, Blinn–Phong) and its constants. **squash along y** scales the object non-uniformly; its normals are transformed **by M⁻ᵀ** or (wrongly) **by M**.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="shading" data-preset="gouraud"></div>
+<script src="../demos/dist/shading.js"></script>
+```
+
+**S1.** **Gouraud misses the highlight**. Is there a highlight? Switch to **per pixel**, then back, and raise the sphere level to 3. Explain with B8.
+
+**S2.** **facets vs smooth**. Switch between flat, Gouraud and per pixel. Which one fits a gem, and which a sphere? Look at the drawn normals: how many does each vertex have?
+
+**S3.** **squashed sphere: wrong normals**. How wrong are the normals according to the readout? Switch to **by M⁻ᵀ**. Then set the squash to 0.5 and switch back to **by M**: how large is the error now? What is it at squash 1?
+
+**S4.** **Phong vs Blinn–Phong at grazing light**. Compare the highlight of the two models at the same shininess. Which shininess for Blinn–Phong gives about the same highlight as Phong with 20?
+
+**S5.** Choose **Lambert**, per pixel, and set $k_a = 0$. Move the light around. Where is the sphere brightest, and why is exactly half of it black when the light is at the edge of the disc?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**S1.** No highlight: the light is placed so that the mirror point is the centre of a triangle, and the specular term at every vertex is below 0.001, so interpolated colours have no highlight. Per pixel: a bright spot in the middle of the triangle. At level 2 the largest vertex specular term is 0.12 and at level 3 (1280 triangles) 0.49: Gouraud shows a highlight again because vertices now lie close to the mirror point, but its shape follows the triangles (per pixel reaches nearly $k_s = 0.8$).
+
+**S2.** Flat fits the gem: its faces are really flat, and the creases are real. For a sphere flat shading shows facets that are not there; Gouraud and per pixel hide them (per pixel best). The gem has one smooth normal per vertex (area-weighted average of the faces around it); flat shading ignores them and uses the face normal.
+
+**S3.** Off by up to 46.4° at squash 0.4: the sphere looks lit from the wrong direction, with the bright band too wide on the flattened top. With $M^{-\top}$ the normals are perpendicular to the squashed surface again. At squash 0.5 the error is 36.9°; at squash 1 there is none ($M$ is a rotation).
+
+**S4.** At grazing light Phong's highlight is small and cut off at the silhouette; Blinn–Phong's is larger and smoother for the same shininess. Since the angle between $\mathbf n$ and $\mathbf h$ is about half the angle between $\mathbf r$ and $\mathbf v$, Blinn–Phong needs about 4 times the exponent: shininess about 80 to match Phong at 20.
+
+**S5.** Brightest where $\mathbf n$ points at the light ($\mathbf n\cdot\mathbf l = 1$), darker as $\cos\theta$ falls, black where $\mathbf n\cdot\mathbf l \le 0$. With the light at the edge of the disc it comes from the side, perpendicular to the viewing direction: the terminator (where $\mathbf n\cdot\mathbf l = 0$) runs straight across the visible disc, and the half facing away from the light is black.
+:::
+
+## Where this leads
+
+The fragment stage does more than light a pixel: it reads **textures**, images stored on the graphics card and sampled with the interpolation of the *images* unit. The next unit is about how those images are stored (formats, bit depth, sRGB), filtered (mipmaps against aliasing) and blended (premultiplied alpha), which is also the compositing used along a ray in **volume rendering**.

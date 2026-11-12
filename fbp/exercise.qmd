@@ -1,0 +1,162 @@
+---
+title: "Exercise: filtered back-projection and sampling"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- **filter** a projection with a (truncated) ramp kernel by hand and explain the negative sidelobes,
+- explain why the filter is a **ramp**, why it amplifies **noise**, and what a **tapered** ramp trades,
+- use the **angle rule** $N_\theta \approx \tfrac{\pi}{2}N$ and predict **streaks**,
+- predict the **missing wedge** of a limited tilt range and its effect on an object.
+
+Do the pen-and-paper part first, then the two demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| FBP | filter every projection with a ramp, then back-project, times $\pi/N_\theta$ |
+| Ramp | multiplies the projection's 1D spectrum by $|\omega|$; as a kernel (Ram–Lak): $h[0] = \tfrac14$, $h[k] = -1/(\pi k)^2$ for odd $k$, 0 for even $k \ne 0$ |
+| Taper | Shepp–Logan, cosine, Hann: multiply the ramp so it rolls off to 0 at the cutoff |
+| Zero padding | extend each projection with zeros to at least twice its length before filtering by FFT |
+| Angle rule | $N$ detector bins need about $\tfrac{\pi}{2}N$ angles over 180° |
+| Missing wedge | a tilt range of $\pm\alpha$ leaves a wedge of $180° - 2\alpha$ in the spectrum empty |
+
+## By hand
+
+**B1.** The truncated ramp kernel $(-0.1,\ 0.25,\ -0.1)$.
+(a) Filter the box projection $(0, 0, 1, 1, 1, 0, 0)$ (zeros outside). Where is the result largest, where negative?
+(b) Filter the wider box $(0, 0, 1, 1, 1, 1, 1, 0, 0)$. What happens inside a wide object?
+(c) Explain in words how the negative values just outside the object remove the glow of plain back-projection.
+
+**B2.** The full Ram–Lak kernel.
+(a) Compute $h[0]$, $h[1]$, $h[2]$ and $h[3]$.
+(b) The sum of the kernel over $|k| \le K$ is $\tfrac14 - 2\sum_{k \text{ odd} \le K}\frac{1}{\pi^2k^2}$. Compute it for $K = 1$ and $K = 3$. What is the limit, and why must it be so for a ramp?
+(c) Why is the three-tap kernel of B1 not quite right for a wide, flat object?
+
+**B3.** The angle rule.
+(a) How many angles over 180° does a detector with 512 bins need? With 256?
+(b) A scan of a 256-bin detector uses 90 angles. What artefact do you expect, and where in the image is it strongest?
+
+**B4.** An electron microscope records a tilt series from $-60°$ to $+60°$ in steps of $2°$; the beam is vertical at $0°$ tilt.
+(a) How many images are recorded? Which sector of the 2D spectrum stays empty, and how wide is it?
+(b) The same with a range of $\pm 70°$.
+
+**B5.** Same tilt series as B4. Sketch what a thin **horizontal** line and a thin **vertical** line look like after reconstruction. Which one suffers, and why? What happens to a disc?
+
+**B6.** Noise.
+(a) The noise variance of FBP grows like the cube of the cutoff frequency. By what factor does the noise standard deviation change if you halve the cutoff?
+(b) By what factor does it change if you double the number of photons per ray (shot noise: the variance of a line integral is about 1/counts)?
+(c) Why is it expensive in dose to halve the pixel size?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $(0,\ -0.1,\ 0.15,\ 0.05,\ 0.15,\ -0.1,\ 0)$. Largest at the two edges of the box (0.15), smaller inside (0.05), negative just outside (−0.1).
+(b) $(0,\ -0.1,\ 0.15,\ 0.05,\ 0.05,\ 0.05,\ 0.15,\ -0.1,\ 0)$: the interior is flat at 0.05; only the edges are emphasised.
+(c) Back-projected, the negative values make a negative band along both sides of each smear. Around the object the smears from all the other angles leave a positive glow there; the negative bands cancel it. Inside, the positive centre parts add up to the object's value.
+
+**B2.** (a) $h[0] = 0.25$, $h[1] = -1/\pi^2 = -0.101$, $h[2] = 0$, $h[3] = -1/(9\pi^2) = -0.011$.
+(b) $K = 1$: $0.25 - 0.203 = 0.047$; $K = 3$: $0.25 - 0.225 = 0.025$. The limit is 0 (with $\sum_{\text{odd}} 1/k^2 = \pi^2/8$). The ramp is 0 at frequency 0, so a constant input must give 0: the kernel must sum to 0.
+(c) The three taps sum to $0.05$, not 0: every flat part keeps 0.05 times its value, a low-frequency error that the far-reaching small negative taps would remove. For a wide object that leftover is a slow bump in the reconstruction.
+
+**B3.** (a) $\tfrac{\pi}{2}\cdot 512 = 804$, about 800 angles; for 256 bins about 400.
+(b) Far too few (about a quarter): **streaks** radiating from high-contrast edges, strongest around dense or bright structures and towards the edge of the field of view, where neighbouring spokes are farthest apart.
+
+**B4.** (a) $(60 - (-60))/2 + 1 = 61$ images. The spokes cover $120°$; a $60°$ wedge around the beam direction (the vertical frequency axis) stays empty.
+(b) 71 images; the empty wedge is $40°$ wide.
+
+**B5.** The **horizontal** line suffers: its spectrum lies along the vertical frequency axis, inside the missing wedge, so it is smeared out along the beam (vertically) and loses contrast, or nearly vanishes. The **vertical** line's spectrum lies along the horizontal axis, which is measured: it stays sharp. A disc is stretched along the beam and its top and bottom edges blur: a lemon.
+
+**B6.** (a) Variance $\times 1/8$, standard deviation $\times 1/\sqrt8 = 0.35$ (2.8 times smaller).
+(b) Variance halves, standard deviation $\times 1/\sqrt2 = 0.71$.
+(c) Half the pixel size needs twice the cutoff frequency (8 times the variance) and each detector bin collects half the photons (another factor 2): 16 times the variance at the same dose, or 16 times the dose for the same noise.
+:::
+
+### Math questions
+
+**B7.** *(math)* Derive FBP: write $f(\mathbf x) = \iint F(\boldsymbol\omega)e^{2\pi i\boldsymbol\omega\cdot\mathbf x}d\boldsymbol\omega$ in polar coordinates $\boldsymbol\omega = \omega\mathbf n_\theta$ with $\omega \in \mathbb R$, $\theta \in [0, \pi)$, and use the Fourier slice theorem.
+
+**B8.** *(math)* Derive the Ram–Lak kernel: $h[k] = \int_{-1/2}^{1/2}|f|\,e^{2\pi ifk}\,df$.
+
+**B9.** *(math)* For the untapered ramp with cutoff $\omega_c$, compute $\int_{-\omega_c}^{\omega_c}|\omega|^2\,d\omega$. For the Hann taper $W(\omega) = \tfrac12(1 + \cos(\pi\omega/\omega_c))$, show that the integral is still proportional to $\omega_c^3$.
+
+**B10.** *(math)* Derive the angle rule: the detector has $N$ bins (spacing 1), so the spectrum is sampled out to $|\omega| = \tfrac12$ in steps of $1/N$. Require the arc between neighbouring spokes at the outer ring to be at most one step.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $d\boldsymbol\omega = |\omega|\,d\omega\,d\theta$ (each point of the plane is covered once by $\omega \in \mathbb R$, $\theta \in [0, \pi)$). So $f(\mathbf x) = \int_0^\pi\int F(\omega\mathbf n_\theta)|\omega|e^{2\pi i\omega\,\mathbf x\cdot\mathbf n_\theta}d\omega\,d\theta$. By the slice theorem $F(\omega\mathbf n_\theta) = P_\theta(\omega)$, so the inner integral is the inverse 1D Fourier transform of $|\omega|P_\theta(\omega)$ evaluated at $\rho = \mathbf x\cdot\mathbf n_\theta$: the ramp-filtered projection $q_\theta(\mathbf x\cdot\mathbf n_\theta)$. The outer integral is back-projection.
+
+**B8.** $|f|$ is even, so $h[k] = 2\int_0^{1/2}f\cos(2\pi fk)\,df$. For $k = 0$: $2 \cdot \tfrac18 = \tfrac14$. For $k \ne 0$, integrate by parts: $\int_0^{1/2}f\cos(af)df = \big[\tfrac{f\sin af}{a} + \tfrac{\cos af}{a^2}\big]_0^{1/2}$ with $a = 2\pi k$; $\sin(\pi k) = 0$, so $h[k] = 2\,\frac{\cos(\pi k) - 1}{4\pi^2k^2} = \frac{(-1)^k - 1}{2\pi^2k^2}$: $-1/(\pi^2k^2)$ for odd $k$, $0$ for even.
+
+**B9.** $\int_{-\omega_c}^{\omega_c}\omega^2d\omega = \tfrac23\omega_c^3$. With $\omega = \omega_c u$: $\int_{-\omega_c}^{\omega_c}\omega^2W(\omega)^2d\omega = \omega_c^3\int_{-1}^1 u^2\,\tfrac14(1 + \cos\pi u)^2du$, a fixed number times $\omega_c^3$. Any taper that only scales with the cutoff gives the same cube law.
+
+**B10.** Neighbouring spokes differ by $\pi/N_\theta$ in angle; at radius $\tfrac12$ the arc between them is $\tfrac{\pi}{2N_\theta}$. Requiring $\tfrac{\pi}{2N_\theta} \le \tfrac1N$ gives $N_\theta \ge \tfrac{\pi}{2}N$.
+:::
+
+## Explore: filters, dose and padding {#explore-fbp}
+
+The demo of the previous unit, now with the filters. Middle panel: the filter's frequency response (red; dashed: the ideal $|f|$) and the current projection before (grey) and after (red) filtering, both scaled to height 1. **Show filtered sinogram** colours the filtered sinogram (red positive, blue negative). **Photons per ray** adds shot noise; the readout gives the RMSE against the phantom and the mean and standard deviation in a flat $8 \times 8$ region (the noise).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="backproj" data-preset="pointramp"></div>
+<script src="../demos/dist/backproj.js"></script>
+```
+
+**E1.** Preset **one point: ramp cancels the star** (16 angles). Describe the filtered projection in the lower plot. Press **clear** and add angles one by one: what does one filtered smear look like? Set **angles in the scan** to 180: what remains of the halo?
+
+**E2.** Preset **ramp: sharp**. Read the RMSE and the flat-region values. Switch to **none**: what changes?
+
+**E3.** Preset **ramp, low dose: grain** (1000 photons per ray). Read the noise (flat-region std) for ramp, Shepp–Logan, cosine and Hann. Rank the filters by noise and explain with the shape of their frequency responses.
+
+**E4.** Still with the ramp, set the photons per ray to $10^4$ and $10^5$. How does the noise change per factor 10 in dose? Compare with B6.
+
+**E5.** Hann filter at 1000 photons: lower the cutoff from 0.5 to 0.25. How do the noise and the RMSE change? What do you see in the image? Compare the noise ratio with the cube law.
+
+**E6.** Preset **forgot to pad** (a large disc, no zero padding). Look at the reconstruction towards the rim of the disc. Tick **zero padding**. What was wrong, and why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** The filtered projection is a sharp positive peak with negative dips on both sides. One filtered smear is a bright stripe with dark (negative) borders. At the point all stripes add; around it the dark borders of each stripe cancel the bright tails of the others. With 180 angles the halo is gone: a clean point (RMSE 0.002). With 16 angles some star-shaped streaks remain far from the point.
+
+**E2.** Ramp: RMSE 0.039, flat region mean 0.200 (the true value) with std 0.003. With **none** (plain back-projection) the image glows and its values are on a different scale (flat region mean 62.6): no RMSE is given.
+
+**E3.** Noise std: ramp 0.048, Shepp–Logan 0.038, cosine 0.023, Hann 0.016. The ramp keeps all high frequencies; the Shepp–Logan taper lowers them a little, the cosine more, and Hann goes smoothly to 0 at the cutoff. The more a filter suppresses the high frequencies, where the noise is, the smoother the image, and the softer its edges (RMSE: ramp 0.059, Hann 0.075).
+
+**E4.** $10^3$: 0.048, $10^4$: 0.017, $10^5$: 0.005. Each factor 10 in dose divides the noise by about 3 ($\sqrt{10} = 3.2$): shot noise.
+
+**E5.** Noise falls from 0.016 to 0.005 (ratio 3.2; the cube law predicts $\sqrt8 = 2.8$), but the RMSE rises from 0.075 to 0.116: the image is smooth but visibly blurred, the small ellipses smear out.
+
+**E6.** Without padding the disc gets darker towards its rim (about 0.79 instead of 1 near the edge; the centre 0.98). The FFT filter is circular: the kernel's negative tail reaching beyond one end of the projection wraps around to the other end, where the disc's projection is large, and subtracts there. With zero padding the projection has room and the disc is flat.
+:::
+
+## Explore: how much data? {#explore}
+
+One phantom, reconstructed by FBP with the Hann filter. Sliders: number of **angles**, **angular range** (a tilt series from $-$range/2 to $+$range/2; at 180° the full half turn), **detector bins** (each bin integrates 1, 2 or 4 pixel widths) and **photons per ray**; with **fixed total photons** the photons are shared over the views (slider value × 180 photons per ray in total, e.g. $10^3 \times 180$). Panels: reconstruction, error, and the spectrum of the reconstruction with the measured spokes in orange. The note under the angle slider gives the angle rule for the current detector.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="tomosampling" data-preset="enough"></div>
+<script src="../demos/dist/tomosampling.js"></script>
+```
+
+**E7.** Preset **enough angles** (200). Read the RMSE. Then **18 angles: streaks**. Where are the streaks, and how does the spectrum panel explain them? Find the number of angles below which you start to see streaks.
+
+**E8.** Preset **±60°: missing wedge** and **±60°: a disc becomes a lemon**. Where is the empty sector in the spectrum? In which direction is the disc stretched? Compare with B4 and B5.
+
+**E9.** Preset **few bins: blur** (32 bins). Compare the RMSE for 128, 64 and 32 bins. What does the angle rule say for 32 bins?
+
+**E10.** Presets **equal photons: many noisy views…** and **…or few clean ones**. Compare the RMSE, then try 15 views. With a fixed photon budget, is it better to take many noisy views or few clean ones?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E7.** 200 angles: RMSE 0.074 (most of it is the Hann filter's softening of the skull edge). 18 angles: 0.109, with streaks radiating from the bright skull out into the background. In the spectrum only 18 spokes are drawn; far from the centre the gaps between them are many frequency steps wide. Streaks become visible somewhere below about 90 angles and obvious below 45, although the RMSE barely changes until then (0.074 at 90, 0.075 at 45): RMSE is not a good judge of streaks.
+
+**E8.** The empty sector is around the vertical axis of the spectrum (the beam direction, vertical at 0° tilt), 60° wide. The phantom and the disc are stretched vertically: the disc (diameter 61 pixels) comes out about 58 wide and 70 tall, with blurred top and bottom edges. RMSE 0.132 for the phantom, 0.233 for the disc.
+
+**E9.** 128 bins: 0.074; 64: 0.126; 32: 0.164. Wide bins average the projection over 2 or 4 pixels: fine detail is lost before reconstruction, so the image is blurred. For 32 bins the angle rule asks only for about 51 angles: with fewer bins, fewer angles suffice.
+
+**E10.** 180 views with $10^3$ photons each: RMSE 0.075; 30 views with $6 \times 10^3$ each: 0.083; 15 views with $1.2 \times 10^4$: 0.128. With FBP, spreading the photons over many views wins: noise falls with the total number of photons either way, but streaks from too few views do not go away with more photons per view.
+:::
+
+## Where this leads
+
+FBP needs many angles and enough photons, and it cannot use anything we know about the object. The next unit writes reconstruction as a linear system $A\mathbf x = \mathbf b$, solves it iteratively (ART, SIRT), and adds **priors** (non-negativity, total variation), which is how low-dose CT and electron tomography cope with few views and missing wedges.

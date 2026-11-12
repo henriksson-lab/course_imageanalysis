@@ -19,12 +19,13 @@ import { injectStyle } from "../houghlines/view";
 const NAME = "houghdual";
 const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .hd-fig { flex: 0 1 380px; min-width: 200px; margin: 0; }
-[data-demo="${NAME}"] .hd-fig.par { flex: 0 1 470px; }
+[data-demo="${NAME}"] .hd-fig { flex: 0 1 320px; min-width: 200px; margin: 0; }
+[data-demo="${NAME}"] .hd-fig.par { flex: 0 1 435px; }
 [data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .1em; }
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 240px; max-width: 300px; gap: .4em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
 [data-demo="${NAME}"] .hd-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; }
 .reveal [data-demo="${NAME}"] { font-size: 18px; }
 .reveal [data-demo="${NAME}"] .hd-fig { flex-basis: 360px; }
 .reveal [data-demo="${NAME}"] .hd-fig.par { flex-basis: 450px; }

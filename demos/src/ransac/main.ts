@@ -21,19 +21,21 @@ const STYLE = `
 [data-demo="${NAME}"] { gap: .7em; flex-wrap: nowrap; }
 [data-demo="${NAME}"] figure { margin: 0; }
 [data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .1em; }
-[data-demo="${NAME}"] .rs-main { flex: 0 1 470px; min-width: 240px; }
+[data-demo="${NAME}"] .rs-main { flex: 0 1 435px; min-width: 240px; }
 [data-demo="${NAME}"] .rs-mid { flex: 0 1 330px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 320px; gap: .3em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
 [data-demo="${NAME}"] .rs-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .rs-hough canvas { width: 100%; height: 150px; display: block; image-rendering: pixelated; border-radius: 3px; }
+.reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .rs-main { flex-basis: 450px; }
+.reveal [data-demo="${NAME}"] .rs-main { flex: 0 0 400px; }
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .06em .4em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .4em; line-height: 1.25; }
 .reveal [data-demo="${NAME}"] .rs-hough canvas { height: 100px; }
-.reveal [data-demo="${NAME}"] .rs-mid { gap: .1em; flex: 0 0 290px; }
+.reveal [data-demo="${NAME}"] .rs-mid { gap: .1em; flex: 0 0 270px; }
+.reveal [data-demo="${NAME}"] .qb-panel { max-width: 450px; flex: 1 1 420px; }
 .reveal [data-demo="${NAME}"] .qb-panel .qb-readout { max-height: 8.4em; overflow-y: auto; }
 @media (max-width: 860px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
 `;
@@ -89,9 +91,9 @@ function mount(host: HTMLElement): void {
   sl.outliers = slider(panel, "outliers", 0, 0.9, 0.05, st.outliers, v => { st.outliers = v; newPoints(); }, v => `${Math.round(v * 100)} %`);
   sl.iters = slider(panel, "iterations", 1, 300, 1, st.iters, v => { st.iters = v; rerun(); });
   sl.seed = slider(panel, "seed", 1, 20, 1, st.seed, v => { st.seed = v; rerun(); });
-  const lsC = checkbox(panel, "least squares on all points", st.ls, v => { st.ls = v; draw(); });
-  const seqC = checkbox(panel, "sequential: a second model", st.seq, v => { st.seq = v; rerun(); });
-  const hC = checkbox(panel, "Hough accumulator (lines)", st.hough, v => { st.hough = v; draw(); });
+  const lsC = checkbox(panel, "least squares (all points)", st.ls, v => { st.ls = v; draw(); });
+  const seqC = checkbox(panel, "sequential: 2nd model", st.seq, v => { st.seq = v; rerun(); });
+  const hC = checkbox(panel, "Hough accumulator", st.hough, v => { st.hough = v; draw(); });
   button(panel, "reset", () => { Object.assign(st, start()); presetBtns.forEach(b => b.classList.remove("active")); sync(); newPoints(p0?.run ?? false); });
   const ro = htmlEl("div", "qb-readout", "", panel);
 
@@ -210,13 +212,13 @@ function mount(host: HTMLElement): void {
     itPlot.hline(Math.round(wTrue * n), { color: C_IN, width: 2, dash: "5 4", text: "true inliers" });
 
     // probability curve
-    const Nmax = Math.max(40, Math.min(1000, 1.3 * Math.max(st.iters, iterationsNeeded(wTrue, s) || 1)));
+    const Nmax = Math.max(40, Math.min(1000, 1.5 * Math.max(st.iters, iterationsNeeded(wTrue, s) || 1)));
     prPlot.setDomain([0, Nmax], [0, 1]);
     prPlot.fn(x => successProbability(wTrue, s, x), { color: C_BEST, width: 3 });
     const need = iterationsNeeded(wTrue, s);
     if (Number.isFinite(need) && need <= Nmax) prPlot.vline(need, { color: C_IN, width: 2, dash: "5 4", text: `N = ${need}` });
     prPlot.scatter([shown], [successProbability(wTrue, s, shown)], { color: C_SAMPLE, r: 7 });
-    prCap.textContent = `P(an all-inlier sample), w = ${wTrue.toFixed(2)}, s = ${s}`;
+    prCap.textContent = `P(success after N), w = ${wTrue.toFixed(2)}, s = ${s}`;
 
     // Hough of the same points (lines only)
     hFig.style.display = st.hough && st.kind === "line" ? "" : "none";

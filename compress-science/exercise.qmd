@@ -1,0 +1,124 @@
+---
+title: "Exercise: compression and measurements, JPEG 2000, formats"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- say which **measurements** lossy compression changes, and why dim, small structures suffer first,
+- test a codec with a **measurement** instead of by eye,
+- explain how **JPEG 2000** can be exactly lossless and why it shows no blocking,
+- estimate **storage** for a large data set and choose a **format** for a given use,
+- count the **chunks** a region read needs, for a given chunk shape.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Lossy damage | content-dependent: dim spots, noise, texture, an 8-pixel grid; not independent noise |
+| Bit depth | baseline JPEG is 8-bit; 12/16-bit data must be rescaled first |
+| Blocking peaks | the size of neighbour differences repeats every 8 pixels: spectrum peaks at multiples of $N/8$ |
+| JPEG 2000 | wavelet (no blocks); integer 5/3 lifting = exactly lossless; bit planes = cut the stream anywhere |
+| Lossless ratio | typically 1.5–3 for noisy scientific images |
+| OME-TIFF | multi-dimensional, 8/16/32-bit and float, lossless compression options (check that it is not JPEG) |
+| HDF5, Zarr | chunked n-D arrays; each chunk compressed on its own; a region reads only its chunks |
+| Chunks read | per dimension $\lfloor (b-1)/c \rfloor - \lfloor a/c \rfloor + 1$ for the region $[a, b)$ and chunk size $c$; multiply |
+
+## By hand
+
+**B1.** A time-lapse experiment: 2048 × 2048 pixels, 16 bit, 30 z-slices, 2 channels, 500 time points.
+(a) How large is one frame, and the whole experiment, stored raw?
+(b) How large with a lossless codec at a ratio of 2.5? With JPEG at a ratio of 20?
+(c) What would you lose with the JPEG option, besides some quality?
+
+**B2.** Choose a format (and lossless or lossy) and say why:
+(a) a 16-bit confocal z-stack that will be segmented and measured;
+(b) a figure panel for a paper;
+(c) the archive of a slide scanner, 50 000 slides of several gigapixels each, viewed by pathologists;
+(d) a 3D volume of 200 GB that colleagues browse over the network, region by region.
+
+**B3.** A 12-bit camera image uses grey levels 0 to 4095. It is rescaled to 8 bits (0–255) before a JPEG is made.
+(a) How many 12-bit levels fall into one 8-bit level? What is the standard deviation of the rounding error, in 12-bit units?
+(b) Compare it with the Poisson noise of a background of 400 photons and of a dim spot peak of 60 photons above it. Is the bit-depth loss itself important here?
+
+**B4.** A 2048 × 2048 × 100 stack (x, y, z), 16 bit, stored with chunks of 256 × 256 × 1.
+(a) How many chunks does reading the region x 100–611, y 300–811, z = 40 need? How many bytes are decoded, and how many are needed?
+(b) The same with chunks of 64 × 64 × 64.
+(c) Which chunk shape would you choose for a viewer that shows single z-slices? For an analysis that follows every pixel through z?
+
+**B5.** In a 512 × 512 JPEG image, at which spatial frequencies (in cycles per image width) do you expect blocking peaks in the spectrum of the neighbour differences?
+
+**B6.** A JPEG 2000 coefficient is 45 (binary `101101`) and the decoder receives the bit planes from the top. After 1, 2 and 3 planes, which values are still possible, and what is the largest error if the decoder takes the middle of that range?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $2048^2 \cdot 2$ bytes $= 8.39$ MB per frame; $8.39 \text{ MB} \cdot 30 \cdot 2 \cdot 500 = 252$ GB. (b) Lossless: about 101 GB. JPEG at 20: about 12.6 GB. (c) The 16-bit data become 8-bit, dim structures and their intensities change, noise and texture statistics change, and an 8-pixel grid is added: measurements on the JPEGs are not measurements of the sample.
+
+**B2.** (a) OME-TIFF (or another multi-dimensional format) with lossless compression: 16 bit and all dimensions kept, exact values for measurement. (b) PNG (lossless, small for figures with flat areas); a JPEG copy at high quality is acceptable for display, if the measurements were done on the originals. (c) JPEG 2000 (or a pyramidal TIFF with JPEG/JPEG 2000 tiles) in a lossy setting validated for diagnosis: lossless would be several times larger, and pyramids and region access matter more than exact values. (d) A chunked format (Zarr / OME-Zarr, HDF5) with lossless chunk compression and a multiresolution pyramid, so a viewer fetches only the chunks of the visible region and level.
+
+**B3.** (a) $4096/256 = 16$ levels; the rounding error is uniform over one step of 16: standard deviation $16/\sqrt{12} = 4.6$ 12-bit levels. (b) Poisson noise: $\sqrt{400} = 20$ for the background, about $\sqrt{460} = 21$ at the dim spot. The rescaling error (4.6) is small compared with the noise here, so the bit depth loss alone is not the main problem; the JPEG quantisation afterwards is. With brighter, low-noise data or after a rescale of a small range to 8 bits, it can matter.
+
+**B4.** (a) x: $\lfloor 611/256 \rfloor - \lfloor 100/256 \rfloor + 1 = 2 - 0 + 1 = 3$; y: $\lfloor 811/256 \rfloor - \lfloor 300/256 \rfloor + 1 = 3 - 1 + 1 = 3$; z: 1. **9 chunks**, decoded $9 \cdot 256^2 \cdot 2 = 1.18$ MB for $512^2 \cdot 2 = 0.52$ MB needed. (b) x: $\lfloor 611/64 \rfloor - \lfloor 100/64 \rfloor + 1 = 9 - 1 + 1 = 9$; y: $12 - 4 + 1 = 9$; z: $\lfloor 40/64 \rfloor - \lfloor 40/64 \rfloor + 1 = 1$. **81 chunks** of $64^3$: $81 \cdot 64^3 \cdot 2 = 42.5$ MB decoded for the same 0.52 MB. (c) Slices: thin chunks (one or a few slices deep). Profiles through z: chunks that are deep in z (e.g. $64 \times 64 \times 100$), so one chunk holds whole z-profiles; cubic chunks are the compromise when both happen.
+
+**B5.** The pattern repeats every 8 pixels: $512/8 = 64$ cycles per image width and its multiples, 128, 192 and 256 (the highest frequency), along both axes.
+
+**B6.** 6-bit values 0–63. After the first plane (`1`): 32–63, middle 47.5, error up to 16 (here 2.5). After two planes (`10`): 32–47, middle 39.5, error up to 8 (here 5.5). After three (`101`): 40–47, middle 43.5, error up to 4 (here 1.5). Every plane halves the largest possible error: about 6 dB per plane, as in the JPEG unit.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that the integer 5/3 lifting step of the lecture is exactly invertible for any integers, whatever the rounding (floor) does. Why would a version that first computes the real-valued wavelet coefficients and then rounds them not be invertible in general?
+
+**B8.** *(math)* Prove the chunk-count formula for one dimension: the chunks $k = \lfloor a/c \rfloor, \dots, \lfloor (b-1)/c \rfloor$ are exactly those that overlap $[a, b)$. What is the worst-case read amplification of a region of size $w$ with chunk size $c$ in one dimension?
+
+**B9.** *(math)* Spots of a fixed shape with integrated intensity $I$ are smoothed by the codec, roughly like a blur that removes frequencies above $f_c$. Why does an aperture measurement of the integrated intensity change less than the peak height? When does it change anyway?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Forward: $d_n = x_{2n+1} - P_n$ with $P_n = \lfloor (x_{2n} + x_{2n+2})/2 \rfloor$, which depends only on even samples; then $s_n = x_{2n} + U_n$ with $U_n = \lfloor (d_{n-1} + d_n + 2)/4 \rfloor$, which depends only on the $d$'s. The decoder knows all $d_n$, so it computes $U_n$ exactly and gets $x_{2n} = s_n - U_n$; then it knows the even samples, computes $P_n$ exactly and gets $x_{2n+1} = d_n + P_n$. Each step adds an integer function of values the decoder already has, so it can be subtracted again; the rounding inside $P_n$ and $U_n$ is reproduced exactly. Rounding the real-valued coefficients afterwards loses information: different integer images can round to the same coefficients, and the inverse of rounded coefficients is not an integer image in general.
+
+**B8.** Chunk $k$ covers $[kc, (k+1)c)$. It overlaps $[a, b)$ iff $kc < b$ and $(k+1)c > a$, i.e. $k \le \lfloor (b-1)/c \rfloor$ and $k \ge \lfloor a/c \rfloor$ (for integers). The count is the difference + 1. A region of size $w$ touches at most $\lceil (w - 1)/c \rceil + 1$ chunks, so up to $(\lceil (w-1)/c \rceil + 1)\,c$ values are decoded for $w$ needed: for $w = 1$ (a profile across the chunks' long side) the amplification is $c$.
+
+**B9.** The integrated intensity is the spot's zero-frequency content ($\hat f(0)$ of the spot), which a low-pass leaves unchanged; the peak height is $\int \hat f$ over all frequencies, which loses everything above $f_c$. So an aperture large enough to hold the smoothed spot keeps the integral. It changes anyway when (1) the codec is not a pure low-pass: quantisation of a dim spot's coefficients rounds them to zero or to a coarse step, and the DC of a block holding the spot is rounded too; (2) the smoothed spot spreads beyond the aperture, or into the background annulus, which then overestimates the background; (3) the spot is near the noise, where small coefficients become 0. That is why dim spots change by several percent while bright ones do not.
+:::
+
+## Explore: what happens to the measurements {#explore}
+
+A synthetic 12-bit fluorescence image with known ground truth: 60 Gaussian spots (peaks 60–1500 above the cell) in a cell with a darker nucleus, Poisson noise. Choose **lossless**, **JPEG** at a quality (the image is first rescaled to 8 bits), or a **wavelet** codec at the same size as that JPEG. The same analysis runs on the original and on the decoded image: spot detection (detected yellow, missed true spots red), the integrated intensity of every spot (scatter: change against the original; red = dimmest third, blue = brightest third), background mean and noise, the share of high-frequency power, and the **blocking index** (spectrum peaks at multiples of 1/8). **blocking spectrum** shows that spectrum with the expected peak positions circled. The plot on the right follows one measurement over all JPEG qualities (log scale of bits per pixel; dashed: the original; orange: the current setting).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="measuredamage" data-preset="q95"></div>
+<script src="../demos/dist/measuredamage.js"></script>
+```
+
+**M1.** Preset **quality 95 looks perfect**. Compare original and decoded by eye. Then read the numbers: file size and ratio, spots found, dim and bright spot changes, noise. Is the image "the same data"?
+
+**M2.** Lower the quality to 90, 75, 50 and 30. Note size, spots found and false, dim-spot change and noise sd. Which measurement goes first? Which survives longest?
+
+**M3.** Preset **quality 10: spots lost**. How many spots are found, how many false? Where are the false detections, and why?
+
+**M4.** Preset **blocking in the spectrum**. Where are the peaks, and what is the blocking index? Compare with the original (lossless) and with the wavelet codec.
+
+**M5.** Preset **wavelet, same size as q 30**. Compare all measurements with JPEG at quality 30 (same size). Which codec does less damage? Look at the decoded images: how do their errors look different?
+
+**M6.** Preset **lossless: identical**. What is the ratio? Use the plot with **noise sd** and with **HF power**: from which JPEG quality on are these measurements within 5% of the original?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**M1.** Quality 95: 17 200 bytes (7.6× smaller than the 131 072 raw bytes, 2.10 bits per pixel). All 60 spots found, no false ones; but the dim spots' integrated intensities change by 3.2% on average (each spot up or down), the bright ones by 0.3%; noise sd 36.3 against 35.1. Visually identical, numerically not.
+
+**M2.** Quality 90: 9 786 B, 60 found, dim 5.0%, noise 33.6. Quality 75: 4 206 B, 58 found, 0 false, dim 10.1%, noise 30.8. Quality 50: 2 480 B, 59 found, dim 13.6%, noise 29.8. Quality 30: 1 973 B, 56 found, 1 false, dim 24.7%, noise 30.2. The noise statistic and the high-frequency power change first (at 90 already −4% and −38%), then the dim spots' intensities; the detection count holds until about quality 50, the bright spots' intensities (within 1–4%) longest.
+
+**M3.** 45 of 60 found and 129 false detections. The false ones lie at block borders and corners, in the dark surroundings and inside the cell: blocking adds steps between flat squares, and the difference-of-Gaussians filter responds to them like to small spots. The threshold was set on the original, where the background was only noise.
+
+**M4.** Peaks on both axes at 32, 64, 96 and 128 cycles per image width (multiples of 256/8), circled; blocking index 136.5 at quality 30. The original (and lossless) has 0.9 (no peaks), the wavelet codec at the same size 0.7: no block grid.
+
+**M5.** Wavelet at 1 973 B: 57 found, 0 false, dim spots 11.2%, noise 29.7, blocking index 0.7. JPEG at quality 30: 56 found, 1 false, dim spots 24.7%, noise 30.2, blocking index 136.5. The wavelet codec does less damage at the same size; its error is smooth blur and faint ripples around spots, while JPEG's error is blocky. (The wavelet size is an entropy estimate, slightly optimistic compared with JPEG's real Huffman code, so the comparison favours it a little.)
+
+**M6.** Lossless: 55 586 bytes, 2.4× smaller, all numbers identical. Noise sd within 5% of 35.1 (33.3 to 36.9): qualities 95 and 100 (36.3 and 35.2); at 90 it is 33.6, 4.3% low, just inside; from 75 down (30.8) it is outside. High-frequency power within 5% of 1.08%: only quality 100 (1.11%); already at 95 it is 1.19% (+10%), at 90 0.67% (−38%). Texture measures are the most fragile.
+:::
+
+## Where this leads
+
+The day's chain is complete: entropy codes, prediction, transforms, quantisation, and their effect on data. Wavelet coding (the previous day) and JPEG 2000 replace the 8 × 8 blocks by a multiresolution transform; learned codecs (neural networks trained together with an entropy model) push the same rate–distortion trade-off further, with the same caution for scientific data: a codec that invents plausible detail is worse than one that blurs.

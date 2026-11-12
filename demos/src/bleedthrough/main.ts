@@ -11,13 +11,13 @@
 // data-mode="cells": the old demo's four cytometry populations (one point per cell).
 // Auto-mounts on <div data-demo="bleedthrough">. Options: data-s21, data-s12 (true
 // spillover, default 0.25 and 0.05; cells: 0.25 and 0.02), data-start="s21 s12" (initial
-// guess), data-seed, data-photons (image mode, default 600), data-mode (image|cells),
+// guess), data-seed, data-photons (image mode, default 1000), data-mode (image|cells),
 // data-preset (none|under|over|true|similar).
 import { htmlEl, slider, presets, checkbox, button, numList, autoMount } from "../lib/ui";
 import { Plot } from "../lib/plot";
 import { RGB } from "../lib/colour";
 import * as U from "../lib/unmix";
-import { poisson, rng } from "../lib/random";
+import { Data, imageData, cellsData, compensate, summary } from "./model";
 import { injectStyle, uniqueClip, canvasFigure, drawMerge, fmt, quantile, COMMON_CSS } from "../lsunmix/common";
 
 const NAME = "bleedthrough";
@@ -38,6 +38,8 @@ const CSS = COMMON_CSS + `
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .1em .4em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .bt-status { font-size: 16px; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
 `;
 
 const FLAT = 0.015;   // |slope| below this counts as flat (as in the old demo)
@@ -48,42 +50,12 @@ const PAL = ["#8c8c8c", "#009E73", "#D55E00", "#7B3294", "#c8c8c8"];
 const DARK = ["#444", "#00563f", "#8a3000", "#4b1d5c", "#999"];
 const C1: RGB = [0.1, 1, 0.25], C2: RGB = [1, 0.25, 0.85];
 
-interface Data { x: Float64Array; y: Float64Array; g: Uint8Array; w: number; h: number; inCell?: Uint8Array }
-
-function imageData(s21: number, s12: number, photons: number, seed: number, vesicles: boolean): Data {
-  const sc = U.cellScene(128, 3), P = 128 * 128, r = rng(seed);
-  const x = new Float64Array(P), y = new Float64Array(P), g = new Uint8Array(P);
-  // smooth brightness variation (staining is never uniform): a wide spread of intensities
-  // along each population, so the scatter shows a line and its slope is well defined
-  const field = (sd: number) => {
-    const q = rng(sd), f = U.blurMap(Float32Array.from({ length: P }, () => q.unif()), 128, 128, 4);
-    let lo = Infinity, hi = -Infinity;
-    for (const v of f) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
-    return f.map(v => (v - lo) / (hi - lo));
-  };
-  const f1 = field(21), f2 = field(22);
-  for (let p = 0; p < P; p++) {
-    const v = vesicles ? sc.vesicles[p] : 0;
-    const a1 = 0.01 + sc.nucleus[p] * (0.25 + 1.1 * f1[p]) + 0.8 * v, a2 = 0.01 + sc.membrane[p] * (0.3 + 1.1 * f2[p]) + 0.8 * v;
-    x[p] = poisson(r, photons * (a1 + s12 * a2));
-    y[p] = poisson(r, photons * (s21 * a1 + a2));
-    g[p] = v > 0.3 ? 3 : sc.nucleus[p] > 0.5 && sc.membrane[p] < 0.02 ? 1 : sc.membrane[p] > 0.5 && sc.nucleus[p] < 0.02 ? 2
-      : sc.nucleus[p] < 0.01 && sc.membrane[p] < 0.01 && v < 0.01 ? 0 : 4;
-  }
-  return { x, y, g, w: 128, h: 128, inCell: Uint8Array.from(sc.cell) };
-}
-
-function cellsData(s21: number, s12: number, seed: number): Data {
-  const c = U.cytometryCells(s21, s12, seed);
-  return { x: c.mx, y: c.my, g: Uint8Array.from(c.group), w: 0, h: 0 };
-}
-
 function mount(host: HTMLElement): void {
   injectStyle(NAME, CSS);
   const cells = host.dataset.mode === "cells";
   const num = (s: string | undefined, d: number) => (s !== undefined && s !== "" && Number.isFinite(Number(s)) ? Number(s) : d);
   const trueDefault = { s21: num(host.dataset.s21, 0.25), s12: num(host.dataset.s12, cells ? 0.02 : 0.05) };
-  const seed = num(host.dataset.seed, 1), photons = num(host.dataset.photons, 600);
+  const seed = num(host.dataset.seed, 1), photons = num(host.dataset.photons, 1000);
   const start = numList(host.dataset.start, [0, 0]);
   const T = { ...trueDefault };
   const gs = { s21: start[0] ?? 0, s12: start[1] ?? 0 };
@@ -105,7 +77,7 @@ function mount(host: HTMLElement): void {
   // ---- scatter plots ----
   const mkPlot = (title: string, xl: string, yl: string) => {
     const box = htmlEl("div", "bt-sc", "", host);
-    const p = new Plot(box, { width: 380, height: 380, x: [0, 1], y: [0, 1], title, xlabel: xl, ylabel: yl, xticks: 4, yticks: 4, font: 18 });
+    const p = new Plot(box, { width: 380, height: 380, x: [0, 1], y: [0, 1], title, xlabel: xl, ylabel: yl, xticks: 4, yticks: 4, font: host.closest(".reveal") ? 23 : 18 });
     uniqueClip(p.svg, NAME);
     return p;
   };
@@ -176,19 +148,17 @@ function mount(host: HTMLElement): void {
   }
 
   function draw(): void {
-    const k = 1 - gs.s21 * gs.s12, n = D.x.length;
-    const cx = new Float64Array(n), cy = new Float64Array(n);
-    for (let i = 0; i < n; i++) { cx[i] = (D.x[i] - gs.s12 * D.y[i]) / k; cy[i] = (-gs.s21 * D.x[i] + D.y[i]) / k; }
+    const k = 1 - gs.s21 * gs.s12;
+    const { cx, cy } = compensate(D, gs.s21, gs.s12), sm = summary(D, cx, cy);
     dB.set(D.x, D.y); dA.set(cx, cy);
     const pick = (v: Float64Array, g: number) => Array.from(v).filter((_, i) => D.g[i] === g);
-    const f1x = pick(cx, 1), f1y = pick(cy, 1), f2x = pick(cx, 2), f2y = pick(cy, 2);
-    const l1 = U.lsLine(f1x, f1y), l2 = U.lsLine(f2y, f2x);
+    const f1x = pick(cx, 1), f2y = pick(cy, 2), l1 = sm.line1, l2 = sm.line2;
     const mx1 = Math.min(...f1x), Mx1 = Math.max(...f1x), my2 = Math.min(...f2y), My2 = Math.max(...f2y);
     trend1.set([mx1, Mx1], [l1.a + l1.b * mx1, l1.a + l1.b * Mx1]);
     trend2.set([l2.a + l2.b * my2, l2.a + l2.b * My2], [my2, My2]);
-    const bgX = U.median(pick(cx, 0)), bgY = U.median(pick(cy, 0));
+    const bgX = sm.bgX, bgY = sm.bgY;
     ref1.set(bgY); ref2.set(bgX);
-    const med1 = U.median(f1y), med2 = U.median(f2x);
+    const med1 = sm.med1, med2 = sm.med2;
     const Si = [1 / k, -gs.s12 / k, -gs.s21 / k, 1 / k];
     mat.textContent =
       `S   = [${fmt(1)}  ${fmt(gs.s12)}]\n      [${fmt(gs.s21)}  ${fmt(1)}]\n` +
@@ -198,8 +168,8 @@ function mount(host: HTMLElement): void {
     st2.innerHTML = `${d2}: slope <b>${fmt(l2.b)}</b>: ${verdict(l2.b, "s₁₂", "leans right", "leans left")}<br>median dye 1 <b>${fmt(med2, 0)}</b> (${cells ? "unstained" : "background"} <b>${fmt(bgX, 0)}</b>)`;
     const lines: string[] = [];
     if (!cells && D.inCell) {
-      lines.push(`Pearson r (cell): ${fmt(U.pearson(D.x, D.y, D.inCell))} → ${fmt(U.pearson(cx, cy, D.inCell))}`);
-      lines.push(`nucleus, before: Σxy/Σx² = ${fmt(U.slopeThroughOrigin(pick(D.x, 1), pick(D.y, 1)), 3)}`);
+      lines.push(`Pearson r (cell): ${fmt(U.pearson(D.x, D.y, D.inCell))} → ${fmt(sm.pearson)}`);
+      lines.push(`nucleus, before: Σxy/Σx² = ${fmt(sm.controlSlope, 3)}`);
       const bg = pick(cy, 0), m = bg.reduce((s, v) => s + v, 0) / bg.length, sd = Math.sqrt(bg.reduce((s, v) => s + (v - m) ** 2, 0) / bg.length);
       const bx = pick(D.y, 0), mb = bx.reduce((s, v) => s + v, 0) / bx.length, sdb = Math.sqrt(bx.reduce((s, v) => s + (v - mb) ** 2, 0) / bx.length);
       lines.push(`background sd, ch 2: ${fmt(sdb, 1)} → ${fmt(sd, 1)}`);

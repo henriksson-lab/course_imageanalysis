@@ -8,7 +8,7 @@
 import { htmlEl, slider, presets, button, checkbox, autoMount } from "../lib/ui";
 import { Plot, plotFigure, seriesColor } from "../lib/plot";
 import * as R from "../lib/radon";
-import { ObjectName, OBJECT_LABELS, objectImage, cellObject, shiftImage, imagePanel, sinoPanel, injectStyle, baseCss, onPointer, lineSeg, layout, CELL_CREDIT } from "./view";
+import { ObjectName, OBJECT_LABELS, objectImage, cellObject, shiftImage, imagePanel, sinoPanel, injectStyle, baseCss, onPointer, lineSeg, layout, CELL_CREDIT, uniqueClip } from "./view";
 
 const NAME = "radonproj";
 const N = 128;
@@ -43,7 +43,7 @@ function mount(host: HTMLElement): void {
   const imgP = imagePanel(L.figs, "click: add a point · blue bar: detector", N, 14, "rd-fig img");
   const credit = htmlEl("div", "rd-credit", CELL_CREDIT, imgP.fig);
   const profFig = plotFigure(L.figs, "projection", "rd-fig prof");
-  const prof = new Plot(profFig, { width: 320, height: 290, x: [-64, 64], y: [0, 1], xlabel: "ρ (pixels)", ylabel: "p(ρ)", xticks: [-64, -32, 0, 32, 64] });
+  const prof = uniqueClip(new Plot(profFig, { font: 22, width: 320, height: 290, x: [-64, 64], y: [0, 1], xlabel: "ρ (pixels)", ylabel: "p(ρ)", xticks: [-64, -32, 0, 32, 64] }));
   const sinoP = sinoPanel(L.figs, "sinogram", N / 2, [0, 180], "rd-fig wide", 300);
   const [colA, panel, colC] = L.cols;
 
@@ -169,10 +169,10 @@ function mount(host: HTMLElement): void {
     curLine.set(a + 0.5);
     // readout
     const sum = pr.reduce((u, v) => u + v, 0);
-    let txt = `θ = ${a}°\nsum of this projection = ${sum.toFixed(1)}\ntotal of the image     = ${total.toFixed(1)}`;
+    let txt = `θ = ${a}°\nprojection sum ${sum.toFixed(1)}\nimage total    ${total.toFixed(1)}`;
     st.pts.forEach((p, i) => {
       const x = p.x + st.shift[0], y = p.y + st.shift[1];
-      txt += `\n${"ABCDEFGHIJ"[i] ?? "·"} (${x.toFixed(0)}, ${y.toFixed(0)}), m ${p.m}: ρ = ${R.pointRho(x, y, th).toFixed(1)}`;
+      txt += `\n${"ABCDEFGHIJ"[i] ?? "·"} (${x.toFixed(0)}, ${y.toFixed(0)}) m${p.m}: ρ ${R.pointRho(x, y, th).toFixed(1)}`;
     });
     if (st.shift[0] || st.shift[1]) txt += `\nshift t = (${st.shift[0].toFixed(0)}, ${st.shift[1].toFixed(0)})`;
     ro.textContent = txt;

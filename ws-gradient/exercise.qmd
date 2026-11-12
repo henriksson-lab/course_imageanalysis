@@ -1,0 +1,150 @@
+---
+title: "Exercise: watershed segmentation of a real image"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute a **gradient magnitude** landscape by hand, find its **minima**, and predict the regions of its watershed,
+- explain why **noise** gives **oversegmentation**, and what **smoothing**, **h-minima** and **markers** each change (and cost),
+- read the watershed as a **hierarchy** of merges across dams,
+- recognise **leakage** through a gap in an edge and place markers to prevent it,
+- *(math)* compute how edges and noise scale with the smoothing $\sigma$.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Landscape | $g = \|\nabla (G_\sigma * I)\|$: small inside regions (valleys), large on edges (ridges) |
+| Sobel by hand | $g_x$ = (right column − left column) of the $3 \times 3$ neighbourhood with weights 1, 2, 1; $g_y$ = (bottom row − top row), same weights; here $g = |g_x| + |g_y|$ to keep integers; outside the image: repeat the border pixel |
+| Depth (dynamic) of a minimum | lowest pass to a deeper basin minus its bottom |
+| h-minima markers | the minima with depth $> h$ |
+| Marker-controlled | flood only from chosen markers: the markers fix the number of regions, the flooding the boundaries |
+| Hierarchy | merging neighbouring basins in order of their dam height |
+| Leakage | a gap in an edge is a low pass: water crosses there |
+
+## By hand
+
+**B1.** A $6 \times 6$ image of two flat regions (grey level 2 on the left, 8 on the right) with one noisy pixel of grey level 3 at (row 1, column 1):
+$$I = \begin{bmatrix} 2&2&2&8&8&8 \\ 2&3&2&8&8&8 \\ 2&2&2&8&8&8 \\ 2&2&2&8&8&8 \\ 2&2&2&8&8&8 \\ 2&2&2&8&8&8 \end{bmatrix}$$
+(a) Compute $g = |g_x| + |g_y|$ (Sobel, border repeated) at (0, 0), (1, 1), (1, 2) and (3, 2).
+(b) The full gradient image is
+$$g = \begin{bmatrix} 2&2&24&24&0&0 \\ 2&0&22&24&0&0 \\ 2&2&24&24&0&0 \\ 0&0&24&24&0&0 \\ 0&0&24&24&0&0 \\ 0&0&24&24&0&0 \end{bmatrix}.$$
+Find its regional minima (8 neighbours). How many regions does the watershed with all minima give? Which pixels of the left region belong to which basin?
+(c) What is the depth of the basin of the noisy pixel? How many regions remain with h-minima for $h = 1$, and for $h = 2$? Where is the boundary then?
+
+**B2.** Smoothing. A step of height $J = 95$ grey levels is already blurred by the optics with $\sigma_0 = 1.2$; the image has white noise of standard deviation $s = 8$. The gradient of a Gaussian of width $\sigma$ gives an edge peak of $J / (\sqrt{2\pi}\,\sigma_{\text{tot}})$, $\sigma_{\text{tot}} = \sqrt{\sigma_0^2 + \sigma^2}$, and a noise level (mean of $\|\nabla\|$) of about $1.25\, s / (\sqrt{8\pi}\, \sigma^2)$.
+(a) Compute the edge peak and the noise level for $\sigma = 1.5$ and $\sigma = 4$.
+(b) Does smoothing remove the noise minima? What does it cost?
+
+**B3.** Choosing $h$. In a gradient image, the noise basins have depths up to 2.4; the weakest real boundary gives its region a depth of 7.
+(a) Which values of $h$ give one region per real region? Which would you choose?
+(b) You multiply the image by 2 (contrast stretch) and compute the gradient again. Which $h$ now?
+(c) The noise doubles. What happens to the range of good $h$?
+
+**B4.** A 1D gradient profile (samples 0–10): $g = 2\,0\,3\,1\,6\,0\,4\,1\,5\,0\,2$.
+(a) Find the regional minima, the dams between consecutive basins, and their heights.
+(b) Merge neighbouring regions one at a time, always across the lowest remaining dam. Write the number of regions after each merge.
+(c) Compute the depth (dynamic) of each minimum. Which regions does h-minima keep for $h = 2$, $h = 3$, $h = 5$? Compare with (b).
+
+**B5.** Two touching nuclei of **the same** brightness on a dark background.
+(a) Sketch the gradient magnitude along a line through both centres. Is there a ridge between the nuclei?
+(b) What does the gradient watershed with h-minima give? And with one marker per nucleus (plus a background marker)?
+(c) Which landscape would make the split robust? (This is the next unit.)
+
+**B6.** Leakage. A cell is outlined by a dark membrane with a gap; inside and outside have the same grey level. You flood the gradient from a marker inside the cell and a background marker far away.
+(a) Where do the two lakes meet? Why is the boundary not across the gap?
+(b) You add a second marker of the **cell** just inside the gap. What happens? And what if you instead add a second **background** marker just outside the gap? Both?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) At (0, 0) the $3 \times 3$ neighbourhood (border repeated) has rows $(2, 2, 2), (2, 2, 2), (2, 2, 3)$: $g_x = (2 + 4 + 3) - (2 + 4 + 2) = 1$, $g_y = (2 + 4 + 3) - (2 + 4 + 2) = 1$, $g = 2$. At (1, 1) the noisy pixel is in the centre; all eight neighbours are 2: $g = 0$. At (1, 2): $g_x = (8 + 16 + 8) - (2 + 6 + 2) = 22$, $g_y = (2 + 4 + 8) - (2 + 4 + 8) = 0$, $g = 22$. At (3, 2): $g_x = 32 - 8 = 24$, $g_y = 0$, $g = 24$.
+(b) Three regional minima: the right plateau of 0s (columns 4–5), the noisy pixel (1, 1) (0, surrounded by 2s and 22), and the plateau of 0s at rows 3–5, columns 0–1. Three regions: the basin of the noisy pixel takes the top of the left region (rows 0–2, columns 0–2), the lower plateau takes rows 3–5; the right region is one basin. (With a watershed line, the dam runs along row 2 on the left, between the two left basins, and down the edge.) The left region is cut in two by a speck of noise: oversegmentation.
+(c) Depth 2 (bottom 0, the ring of 2s around it). $h = 1$: it survives ($2 > 1$), still 3 regions. $h = 2$: it is filled ($2 \le 2$), 2 regions: left (columns 0–2) and right (columns 3–5), with the boundary on the edge between columns 2 and 3.
+
+**B2.** (a) $\sigma = 1.5$: $\sigma_{\text{tot}} = 1.92$, edge $95 / (2.507 \cdot 1.92) = 19.7$, noise $1.25 \cdot 8 / (5.013 \cdot 2.25) \approx 0.89$. $\sigma = 4$: $\sigma_{\text{tot}} = 4.18$, edge 9.1, noise 0.13. The ratio grows from about 22 to about 73.
+(b) No: the noise dips become shallower but are still minima (any noise at all leaves local dips in a flat region); the demo's test image still has 725 minima at $\sigma = 4$. The cost: edges get weaker and wider, nearby edges merge, small objects and thin structures disappear, corners round off.
+
+**B3.** (a) Any $h$ with $2.4 \le h < 7$ (a minimum survives when its depth is larger than $h$). Choose one well inside the range, about 4–5, so that small changes in noise or contrast do not matter.
+(b) All heights of the gradient double, so all depths double: noise up to 4.8, weakest real region 14; $h$ about 8–10.
+(c) The noise depths roughly double (up to about 4.8) while the real edges stay: the range shrinks to $4.8 \le h < 7$. With even more noise there is no good $h$: smooth more, or use markers.
+
+**B4.** (a) Minima at samples 1 (0), 3 (1), 5 (0), 7 (1), 9 (0): five regions, $1\,1\,1\,2\,2\,3\,3\,4\,4\,5\,5$. Dams: between 2 and 3 (height 3), 4 and 5 (6), 6 and 7 (4), 8 and 9 (5).
+(b) Dam 3: basins of samples 1 and 3 merge → 4 regions. Dam 4: 5 and 7 merge → 3. Dam 5: (5, 7) and 9 merge → 2. Dam 6: everything → 1.
+(c) Depths: sample 3: lowest pass to a deeper minimum is 3 → 2. Sample 7: pass 4 to sample 5 → 3. Samples 1, 5, 9 (all 0): sample 5 and 9 are joined by a pass of 5, so one of them has depth 5; sample 1 reaches the others only over 6: depth 6 (the deepest region always survives). $h = 2$: sample 3 goes ($2 \le 2$): 4 regions. $h = 3$: also sample 7: 3 regions. $h = 5$: one of samples 5 and 9 too: 2 regions. These are exactly the cuts of the merge sequence in (b): here the order of dynamics and the order of dam heights agree.
+
+**B5.** (a) The gradient is high on the outer outline of the pair and low inside both nuclei; between them the intensity hardly changes, so there is no ridge, at most a small bump where the outlines meet.
+(b) h-minima: the two nuclei are one basin (one minimum, or two with a depth below any useful $h$): one region. With one marker per nucleus: two regions, but the boundary between them is wherever the two lakes meet in the flat interior, not along a real feature.
+(c) A landscape with a ridge at the neck of the pair: the negative distance transform of the thresholded mask (next unit), whose two peaks are the centres of the nuclei and whose saddle is the neck.
+
+**B6.** (a) The background water enters the cell through the gap (no ridge there), and the two lakes then meet somewhere in the flat interior, wherever they happen to arrive at the same time; the gap itself is not a dam. In the demo's test image the background takes 53 % of the inside of the cell.
+(b) A cell marker near the gap: now the cell's water reaches the gap first and floods out into the background, and the cell region becomes most of the image. A background marker outside the gap only: no change (the background water already arrived from the other side). Both: the two lakes meet in the gap, and the cell is segmented correctly. Markers have to be on both sides of every weak spot.
+:::
+
+### Math questions
+
+**B7** *(math)*. Show that the gradient of a unit step blurred with a Gaussian of width $\sigma_0$, then differentiated with the derivative of a Gaussian of width $\sigma$, peaks at $1 / \big(\sqrt{2\pi}\, \sigma_{\text{tot}}\big)$ with $\sigma_{\text{tot}}^2 = \sigma_0^2 + \sigma^2$.
+
+**B8** *(math)*. White noise $n$ with variance $s^2$ per pixel, filtered with $\partial_x G_\sigma$ (continuous approximation of the kernel). Show that the result has variance $s^2 \int\!\!\int (\partial_x G_\sigma)^2\, dx\, dy = s^2 / (8\pi\sigma^4)$.
+
+**B9** *(math)*. Show that merging regions across dams in increasing order of height is Kruskal's algorithm on the graph whose nodes are the basins and whose edges are the dams (weight = dam height), and that the regions after all merges below $t$ are the connected components of the graph of dams lower than $t$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Across the edge only $x$ matters: the blurred step is $\Phi(x/\sigma_0)$ (the Gaussian cumulative distribution), and differentiating $G_\sigma * \Phi(\cdot/\sigma_0)$ gives $G_\sigma * G_{\sigma_0} = G_{\sigma_{\text{tot}}}$ (a convolution of two Gaussians is a Gaussian whose variance is the sum). Its peak, at the edge, is $1/(\sqrt{2\pi}\,\sigma_{\text{tot}})$.
+
+**B8.** Filtering white noise with a kernel $k$ gives variance $s^2 \sum k^2$, or in the continuous approximation $s^2 \iint k^2$. With $\partial_x G_\sigma = -\frac{x}{\sigma^2} G_\sigma$ and $G_\sigma^2 = \frac{1}{4\pi^2\sigma^4} e^{-(x^2 + y^2)/\sigma^2}$:
+$$\iint \frac{x^2}{\sigma^4} G_\sigma^2 = \frac{1}{4\pi^2 \sigma^8} \int x^2 e^{-x^2/\sigma^2} dx \int e^{-y^2/\sigma^2} dy = \frac{1}{4\pi^2\sigma^8} \cdot \frac{\sqrt\pi\,\sigma^3}{2} \cdot \sqrt\pi\,\sigma = \frac{1}{8\pi\sigma^4}.$$
+The two components are uncorrelated with equal variance, so $\|\nabla\|$ has a Rayleigh distribution with mean $\sqrt{\pi/2}$ times that standard deviation ($\approx 1.25$).
+
+**B9.** Kruskal's algorithm processes the edges of a graph in increasing weight and adds an edge whenever it joins two different components; the components after processing all edges below $t$ are the components of the subgraph of edges below $t$. Merging basins across the lowest remaining dam does exactly this (a dam between two basins that are already merged changes nothing). The merges form a minimum spanning tree of the basin graph, and the sequence of merges is the hierarchy (dendrogram).
+:::
+
+## Explore: watershed of an image {#explore}
+
+Three panels: the **input** (click to place markers), the **landscape** that is flooded (dark = high; red: markers, translucent for h-minima) and the **watershed** (regions or boundaries over the input). The landscape is the gradient magnitude after smoothing with $\sigma$ (or the smoothed intensity, or its inverse). **Markers**: all regional minima, the h-minima, or clicked markers (**new object** for each click, **same object** to add to the last one, **background** to paint the background marker; **clear** removes them). The **flood level** slider replays the flooding: only pixels flooded at or below that water level are coloured. Images: a seeded synthetic test image (six bright blobs, two of them touching, and a cell with a dark outline that has a gap on its left) with adjustable noise, and a micrograph.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="watershed" data-preset="raw"></div>
+<script src="../demos/dist/watershed.js"></script>
+```
+
+**W1.** Preset **raw gradient: oversegmentation**. How many regional minima and regions? Move the flood level down and up.
+
+**W2.** Preset **smoothing alone** ($\sigma = 4$). How many regions? Try $\sigma = 6$. What happens to the boundaries of the blobs compared with $\sigma = 1.5$?
+
+**W3.** Preset **h-minima** ($\sigma = 1.5$, $h = 2.5$). How many regions? Raise $h$ to 3, 4, 6. What are the regions at $h = 3$? Which objects are **not** separated, and why?
+
+**W4.** Keep $\sigma = 1.5$, $h = 2.5$ and change the noise to 0, 4, 16, 24. How many regions? What does this tell you about choosing $h$?
+
+**W5.** Preset **one click per object: marker-controlled**. How many markers and regions? Is the touching pair split now? Look at the ring cell.
+
+**W6.** Preset **edge with a gap: leakage**. Describe the cell's region. Then add a marker of the cell (**same object**) just inside the gap, on the left inside the ring. What happens? Clear, reload the preset, and add one more **background** marker just outside the gap and one more cell marker just inside. Compare with B6.
+
+**W7.** With **h-minima**, switch the landscape to **intensity** and to **inverted** ($\sigma = 1.5$, $h = 10$). How many regions, and what do they look like?
+
+**W8.** Preset **micrograph: nucleus + background clicks**. Where does the boundary follow the nuclear envelope, and where does it leak? Add background clicks to fix it.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**W1.** 6295 regional minima and 6295 regions ($\sigma = 1$): every noise dip is a basin. Replaying, thousands of tiny lakes grow at once and meet everywhere.
+
+**W2.** 725 regions at $\sigma = 4$, 318 at $\sigma = 6$: far fewer, still far too many. The blob boundaries are smoother but sit less precisely on the edges, and the dark ring becomes a broad blurred band.
+
+**W3.** 11 regions at $h = 2.5$; 8 from $h = 3$ to $h = 6$. At $h = 3$: (1) the background together with the inside of the ring cell (the background water enters through the gap), (2) the touching pair of blobs as **one** region, (3–6) the four other blobs, (7) the nucleus inside the ring cell, (8) the dark ring itself (a flat dark band is a valley of the gradient too). The touching pair is not separated: both blobs have the same intensity, so there is no edge, hence no ridge, between them.
+
+**W4.** Noise 0: 8 regions (the 104 minima of the clean image are all shallow); noise 4: 8; noise 16: 25; noise 24: 115. The depth of the noise basins grows with the noise, so $h$ must grow with it (or $\sigma$ must).
+
+**W5.** 8 markers (six blobs, the ring cell, the background), 8 regions. The touching pair is split, one region per marker; the boundary runs across the neck between them. The ring cell's region leaks: the background takes part of its inside through the gap.
+
+**W6.** The cell keeps 3610 pixels, all inside the ring; the background takes 53 % of the inside (3972 of 7521 pixels) through the gap. A cell marker just inside the gap: the cell water now floods out through the gap and takes most of the background (about 53 000 pixels). A background marker just outside plus a cell marker just inside: the lakes meet in the gap; the cell region is the whole inside (7726 pixels, all but 2 inside the ring).
+
+**W7.** Intensity: 1 region at $h = 10$ (the dark background is one huge valley; the bright blobs are hills that get flooded from it). Inverted: 6 regions; the bright blobs become valleys, but each region contains its blob **plus** the background around it, up to the darkest line between neighbouring blobs (the touching pair shares one region). Intensity flooding segments the image into zones around objects; a mask (threshold) must cut the objects out.
+
+**W8.** On the left the boundary runs along the dark nuclear envelope. At the bottom and at the top right it leaks into the cytoplasm and out to the background markers, where the envelope is faint or interrupted. Background clicks on the cytoplasm close to those spots stop the leaks.
+:::
+
+## Where this leads
+
+Markers turn the watershed from an oversegmenting edge detector into a reliable way to place boundaries; the question is where good markers come from. The **next unit** gets them from the distance transform of a thresholded mask, which also splits touching objects that have no edge between them. Later, the graph-cut day uses the same kind of markers (there called seeds) with an energy that penalises long boundaries, and so does not leak through a single weak spot.

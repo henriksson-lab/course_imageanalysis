@@ -27,10 +27,11 @@ const STYLE = baseStyle(NAME) + `
 [data-demo="${NAME}"] .rs-beads { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .4em .5em; }
 [data-demo="${NAME}"] .rs-beads .rs-field { grid-column: 1 / 4; max-width: 300px; justify-self: center; width: 100%; }
 [data-demo="${NAME}"] .rs-beads .rs-field canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
-.reveal [data-demo="${NAME}"] .rs-left { flex: 0 1 400px; }
-.reveal [data-demo="${NAME}"] .rs-mid { flex: 0 1 380px; max-width: 380px; }
-.reveal [data-demo="${NAME}"] .rs-xz { max-width: 330px; }
-.reveal [data-demo="${NAME}"] .rs-beads .rs-field { grid-column: 1 / 4; max-width: 250px; justify-self: center; width: 100%; }
+.reveal [data-demo="${NAME}"] .rs-left { flex: 0 1 440px; max-width: 440px; }
+.reveal [data-demo="${NAME}"] .rs-mid { flex: 0 1 400px; max-width: 400px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 0 1 280px; }
+.reveal [data-demo="${NAME}"] .rs-xz { max-width: 280px; }
+.reveal [data-demo="${NAME}"] .rs-beads .rs-field { grid-column: 1 / 4; max-width: 290px; justify-self: center; width: 100%; }
 `;
 
 function showSlider(s: Slider, on: boolean): void { s.input.closest("label")!.style.display = on ? "" : "none"; }
@@ -83,7 +84,7 @@ function mountTwoPoints(host: HTMLElement): void {
   const fig = htmlEl("figure", "rs-pix", "", left);
   const cap = htmlEl("figcaption", "", "", fig);
   const cv = htmlEl("canvas", "", "", fig);
-  const plot = new Plot(left, { width: 460, height: 250, x: [-FIELD_W / 2, FIELD_W / 2], y: [0, 1], xlabel: "position along the line (nm)", ylabel: "photons / pixel", font: 19, margin: { l: 84 } });
+  const plot = new Plot(left, { width: 460, height: 250, x: [-FIELD_W / 2, FIELD_W / 2], y: [0, 1], xlabel: "position along the line (nm)", ylabel: "photons / pixel", font: 23, margin: { l: 98 } });
   const lCont = plot.line([], [], { color: seriesColor(0), width: 3 });
   const lPix = plot.step([], [], { color: seriesColor(1), width: 2.5 }, "mid");
   const vA = plot.vline(0, { color: "var(--qb-muted, #777)", width: 1.5 }), vB = plot.vline(0, { color: "var(--qb-muted, #777)", width: 1.5 });
@@ -178,7 +179,7 @@ function mountAxial(host: HTMLElement): void {
   const pA = imagePanel(xz, "xz slice"), pB = imagePanel(xz, "sampled every Δz");
   const capAx = htmlEl("div", "qb-note", "", left);
   const mid = htmlEl("div", "rs-mid", "", host);
-  const plot = new Plot(mid, { width: 420, height: 290, x: [-3, 3], y: [0, 1.05], xlabel: "distance from the focus (µm)", ylabel: "intensity", font: 19, margin: { l: 84 } });
+  const plot = new Plot(mid, { width: 420, height: 290, x: [-3, 3], y: [0, 1.05], xlabel: "distance from the focus (µm)", ylabel: "intensity", font: 23, margin: { l: 98 } });
   const lLat = plot.line([], [], { color: seriesColor(0), width: 3 });
   const lAx = plot.line([], [], { color: seriesColor(1), width: 3 });
   const dots = plot.scatter([], [], { color: seriesColor(1), r: 6 });
@@ -269,7 +270,7 @@ function mountBeads(host: HTMLElement): void {
   const pRaw = imagePanel(grid, "one bead"), pAvg = imagePanel(grid, "averaged"), pTrue = imagePanel(grid, "true PSF");
   const mid = htmlEl("div", "rs-mid", "", host);
   const R = M.PATCH / 2 * M.BEAD_PIXEL;
-  const plot = new Plot(mid, { width: 420, height: 290, x: [-R, R], y: [-0.05, 1.1], xlabel: "x (nm)", ylabel: "PSF / true peak", font: 19, margin: { l: 84 } });
+  const plot = new Plot(mid, { width: 420, height: 290, x: [-R, R], y: [-0.05, 1.1], xticks: [-400, 0, 400], xlabel: "x (nm)", ylabel: "PSF / true peak", font: 23, margin: { l: 98 } });
   const lTrue = plot.line([], [], { color: "var(--qb-muted, #777)", width: 3, dash: "7 5" });
   const lAvg = plot.line([], [], { color: seriesColor(0), width: 3 });
   legendRow(mid, [{ label: "measured (averaged beads)", color: seriesColor(0) }, { label: "true PSF", color: "var(--qb-muted, #777)", dash: true }]);

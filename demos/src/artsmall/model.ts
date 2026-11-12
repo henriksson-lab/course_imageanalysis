@@ -62,6 +62,29 @@ export function nullImages(s: SmallSystem): Float64Array[] {
   });
 }
 
+/**
+ * A readable null-space image: the vector with entries in {-1, 0, 1} and the fewest nonzeros
+ * (first in a fixed search order) with A v = 0, or null if the null space is {0}. n <= 3.
+ */
+export function simpleNullImage(s: SmallSystem): Float64Array | null {
+  if (nullImages(s).length === 0) return null;
+  const N = s.n * s.n;
+  let best: Float64Array | null = null, bestNz = Infinity;
+  const v = new Float64Array(N);
+  const total = 3 ** N;
+  for (let code = 1; code < total; code++) {
+    let c = code, nz = 0;
+    for (let i = 0; i < N; i++) { v[i] = (c % 3) - 1; c = Math.floor(c / 3); if (v[i] !== 0) nz++; }
+    if (nz === 0 || nz >= bestNz) continue;
+    if (apply(s, v).every(x => x === 0)) {
+      // sign convention: first nonzero entry positive
+      const first = Array.from(v).find(x => x !== 0)!;
+      best = v.map(x => x * first); bestNz = nz;
+    }
+  }
+  return best;
+}
+
 /** One Kaczmarz step on ray i: spread the error of that ray evenly over its pixels (times omega). */
 export function kaczmarzStep(s: SmallSystem, b: ArrayLike<number>, x: ArrayLike<number>, i: number, omega = 1): Float64Array {
   const r = s.rays[i], out = Float64Array.from(x);

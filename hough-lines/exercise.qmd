@@ -1,0 +1,177 @@
+---
+title: "Exercise: Hough transform for lines"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- turn edge points into **sinusoids** in $(\theta, \rho)$ and find the line they share,
+- fill a small **accumulator** by hand and read off the line,
+- predict the effect of **gaps**, **bin size**, **thresholds**, **NMS** and **clutter** on the peaks,
+- count the **votes and memory** of a Hough transform, with and without gradient voting,
+- *(math)* derive the crossing of two sinusoids and the amplitude–phase form of a point's curve.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Normal form | a line is $\{x\cos\theta + y\sin\theta = \rho\}$, $\theta \in [0°, 180°)$, $\rho$ signed; origin at the image centre, $y$ up |
+| A point's curve | $\rho(\theta) = x\cos\theta + y\sin\theta$: a sinusoid; all lines through the point |
+| Accumulator | bins $(\theta_j, \rho_k)$; each edge point adds one vote per $\theta_j$, in the bin of its $\rho$ |
+| Peak | a bin with many votes = many collinear points; votes ≈ length of the line in pixels |
+| Threshold, NMS | keep bins with ≥ $t$ votes that are the largest in a window around them |
+| Gradient voting | vote only for $\theta$ within a small window of the point's gradient direction (taken modulo 180°) |
+| Segments | edge points within ~1 px of a detected line, split at gaps > $g$, pieces shorter than $L_\text{min}$ dropped |
+
+## By hand
+
+**B1.** The points $(2, 0)$, $(1, 1)$, $(0, 2)$.
+(a) Compute $\rho = x\cos\theta + y\sin\theta$ for each point at $\theta = 0°, 45°, 90°, 135°$ (two decimals).
+(b) Fill a $4 \times 5$ accumulator: rows $\theta = 0°, 45°, 90°, 135°$, columns $\rho = -2, -1, 0, 1, 2$ (round each $\rho$ to the nearest integer). Which bin has the most votes?
+(c) Which line is it? Write it as $x\cos\theta + y\sin\theta = \rho$ and as $y = \dots$.
+
+**B2.** Predict, then explain:
+(a) A straight line of 120 edge pixels gives a peak of 120 votes. The same line is now dashed: 10 pixels on, 10 off. Where is the peak and how high is it?
+(b) Half of the line's pixels are moved by one pixel, at random, to either side. What happens to the peak with $\Delta\rho = 1$, and with $\Delta\rho = 3$?
+
+**B3.** Two parallel lines 3 px apart, $\rho_1 = 10$ and $\rho_2 = 13$ at the same $\theta$, each 100 px long. The bins have $\Delta\rho = 4$ and the NMS window is ±1 bin.
+(a) Which bins do the two lines vote into if the bins are $[8, 12)$, $[12, 16)$? And if they are $[10, 14)$?
+(b) How many lines are detected in each case? What $\Delta\rho$ and NMS window would you need to see two?
+
+**B4.** A 512 × 512 image has 10 000 edge points. The accumulator has $\Delta\theta = 0.5°$ and $\Delta\rho = 1$ px.
+(a) How many $\theta$ bins and $\rho$ bins are there (the $\rho$ range is ± half the diagonal)? How many bins in total, and how much memory with 4 bytes per bin?
+(b) How many votes are cast?
+(c) With gradient voting in a window of ±1° (5 bins), and with 1 bin per point?
+
+**B5.** The rule of thumb for $\Delta\theta$: the far end of a line should move by about one pixel. A line through the image centre reaches about half the diagonal away.
+(a) What $\Delta\theta$ does this give for a 192 × 192 image, and for a 512 × 512 image?
+(b) A line segment of length 100 px has end points that are uncertain by about 0.5 px. The slide gives its angle uncertainty as $\sigma\sqrt2/L$. How large is that, in degrees? Is 1° bins a sensible choice for it?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a)
+
+| θ | 0° | 45° | 90° | 135° |
+|---|---|---|---|---|
+| $(2, 0)$ | 2.00 | 1.41 | 0.00 | −1.41 |
+| $(1, 1)$ | 1.00 | 1.41 | 1.00 | 0.00 |
+| $(0, 2)$ | 0.00 | 1.41 | 2.00 | 1.41 |
+
+(b) Rounded: 0°: 2, 1, 0; 45°: 1, 1, 1; 90°: 0, 1, 2; 135°: −1, 0, 1.
+
+| θ \\ ρ | −2 | −1 | 0 | 1 | 2 |
+|---|---|---|---|---|---|
+| 0° | 0 | 0 | 1 | 1 | 1 |
+| 45° | 0 | 0 | 0 | **3** | 0 |
+| 90° | 0 | 0 | 1 | 1 | 1 |
+| 135° | 0 | 1 | 1 | 1 | 0 |
+
+The bin $(45°, 1)$ has 3 votes; every other bin has at most 1.
+(c) $x\cos 45° + y\sin 45° = \sqrt2$ (the bin holds $\rho = 1.41$), i.e. $x + y = 2$, or $y = 2 - x$. The bin centre $\rho = 1$ is only accurate to half a bin; the exact value comes from the points themselves.
+
+**B2.** (a) Same position, about half the height: 60 votes. Each present pixel still votes for the same bin; the missing ones simply do not vote. (b) With $\Delta\rho = 1$, a pixel moved by one changes its $\rho$ by about 1 (times $|\cos|$ of the angle between the move and the normal), so up to half the votes move to the neighbouring bins: the peak drops towards 60 and two or three neighbouring bins rise. With $\Delta\rho = 3$ most moved pixels stay in the same bin and the peak stays near 120, at the price of a coarser $\rho$.
+
+**B3.** (a) Bins $[8, 12)$, $[12, 16)$: the lines vote into neighbouring bins (100 votes each). Bins $[10, 14)$: both lines vote into the same bin, 200 votes. (b) First case: two neighbouring bins with 100 votes each; NMS with a window of ±1 keeps only one of them (the first in scan order at a tie): one detection. Second case: one bin, one detection, with twice the votes. To separate lines 3 px apart, use $\Delta\rho \le 1.5$ (so they are at least two bins apart) and an NMS window smaller than their distance in bins (for $\Delta\rho = 1$: window ±1 or ±2).
+
+**B4.** (a) $180° / 0.5° = 360$ angles. The diagonal is $512\sqrt2 = 724$ px, so $\rho$ runs over $\pm 362$: 725 bins. In total $360 \times 725 = 261\,000$ bins, about 1.04 MB. (b) $10\,000 \times 360 = 3.6$ million votes. (c) $10\,000 \times 5 = 50\,000$ votes; with one bin per point $10\,000$. The memory is the same; the work drops by a factor 72 or 360.
+
+**B5.** (a) A rotation by $\Delta\theta$ moves a point at distance $d$ by about $d\,\Delta\theta$. With $d = $ half the diagonal: $192\sqrt2/2 = 136$ px, so $\Delta\theta = 1/136$ rad $= 0.42°$; for 512 × 512: $362$ px, $\Delta\theta = 0.16°$. (b) $0.5\sqrt2/100 = 0.0071$ rad $= 0.41°$. Bins of 1° are a bit coarser than the uncertainty, so the votes of the segment fall into one or two angle bins: a robust peak, with an angle known to about half a degree. Much finer bins (0.1°) would split the peak over several bins.
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that the sinusoids of $(x_1, y_1)$ and $(x_2, y_2)$ cross at $\tan\theta = (x_2 - x_1)/(y_1 - y_2)$, and that the line with these parameters passes through both points. Check it for $(2, 0)$ and $(0, 2)$.
+
+**B7.** *(math)* Show that $x\cos\theta + y\sin\theta = A\cos(\theta - \varphi)$ with $A = \sqrt{x^2 + y^2}$ and $\varphi = \operatorname{atan2}(y, x)$. What are the amplitude and the position of the maximum of the curve of $(1, 1)$? Which points have the flattest curves, and why does that make sense?
+
+**B8.** *(math)* Show that $(\theta + 180°, -\rho)$ describes the same line as $(\theta, \rho)$. Why does the accumulator only need $\theta \in [0°, 180°)$, and what does that imply for non-maximum suppression near $\theta = 0°$ and $\theta = 180°$?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** Equal $\rho$: $(x_1 - x_2)\cos\theta + (y_1 - y_2)\sin\theta = 0$, so $\tan\theta = -(x_1 - x_2)/(y_1 - y_2) = (x_2 - x_1)/(y_1 - y_2)$. The equation says $(\cos\theta, \sin\theta) \perp \mathbf p_1 - \mathbf p_2$, so with $\rho = \mathbf n \cdot \mathbf p_1$ also $\mathbf n \cdot \mathbf p_2 = \mathbf n \cdot \mathbf p_1 + \mathbf n \cdot (\mathbf p_2 - \mathbf p_1) = \rho$: both points are on the line. For $(2, 0)$, $(0, 2)$: $\tan\theta = (0 - 2)/(0 - 2) = 1$, $\theta = 45°$, $\rho = 2\cos 45° = \sqrt2$.
+
+**B7.** Write $x = A\cos\varphi$, $y = A\sin\varphi$ (polar coordinates of the point). Then $x\cos\theta + y\sin\theta = A(\cos\varphi\cos\theta + \sin\varphi\sin\theta) = A\cos(\theta - \varphi)$. For $(1, 1)$: $A = \sqrt2 = 1.41$, $\varphi = 45°$: the maximum is $\rho = 1.41$ at $\theta = 45°$. Points near the origin have small amplitude, so flat curves: every line through a point near the origin passes close to the origin, so $|\rho|$ is small for all $\theta$.
+
+**B8.** $x\cos(\theta + 180°) + y\sin(\theta + 180°) = -(x\cos\theta + y\sin\theta)$, so the equation for $(\theta + 180°, -\rho)$ is the same equation multiplied by $-1$: the same set of points. Every line therefore has exactly one representative with $\theta \in [0°, 180°)$. A line with $\theta$ just below 180° is a neighbour of the line with $\theta$ just above 0° and the opposite $\rho$: the accumulator wraps around with $\rho$ mirrored, and NMS must compare bins across that seam (the demos do), or a nearly vertical line can be detected twice.
+:::
+
+## Explore: points and their curves {#explore-dual}
+
+The left panel is the image plane ($x$ right, $y$ up, origin in the middle). Drag the points, click on empty space to add one (up to 8), right-click a point or use **remove last** to delete. The right panel is parameter space: one curve per point, in the **normal** form (sinusoids in $(\theta, \rho)$) or in **slope–intercept** form (straight lines in $(m, c)$). Grey dots mark where the curves of two points cross; a green ring marks a crossing shared by all curves, and the green line is that line in the image. Click anywhere in parameter space to draw that line (red, dashed). **Accumulator** shows the binned votes behind the curves, with bin sizes $\Delta\theta$, $\Delta\rho$.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="houghdual" data-preset="three"></div>
+<script src="../demos/dist/houghdual.js"></script>
+```
+
+**D1.** Preset **three collinear points**. Read the common $(\theta, \rho)$ from the readout and compare with B1. Click on the curves at $\theta = 0°$ and $\theta = 90°$, at the height of the blue curve: which lines are these in the image, and why do they pass through the blue point?
+
+**D2.** Drag the point $(0, 2)$ to $(0, 3)$. What happens to the common crossing? How far is the farthest point from the best-fitting line now (readout)?
+
+**D3.** Preset **towards vertical**, in slope–intercept form. Where do the three lines meet, and why can you not see it? Switch to the normal form: what are $\theta$ and $\rho$ of the line? Now drag the middle point to $(0.6, 0)$ and the top point to $(0.6, 3)$, so that the three points are on a vertical line: what happens in each form?
+
+**D4.** Preset **two lines**. How many grey crossings would six points in general position give? Where do they pile up here, and which lines are the two piles?
+
+**D5.** Preset **noisy collinear** (6 points close to a line). Switch on the accumulator with $\Delta\theta = 15°$, $\Delta\rho = 1.5$, then 10° and 1, then 5° and 0.5, then 2° and 0.25. Note the number of votes in the highest bin each time. Explain the trend.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** $\theta = 45.0°$, $\rho = 1.41$. At $\theta = 0°$ the blue curve (point $(2, 0)$) has $\rho = 2$: the vertical line $x = 2$; at $\theta = 90°$ it has $\rho = 0$: the horizontal line $y = 0$. Both pass through $(2, 0)$, because every point of the blue curve is a line through the blue point.
+
+**D2.** The three curves no longer meet in one point: there are three separate pairwise crossings (grey dots), and the readout says "not collinear". The best-fitting line has $\theta = 33.0°$, $\rho = 1.57$, and the farthest point is 0.18 from it.
+
+**D3.** The lines meet at $m = 7.5$, $c = -7.5$, far outside the panel ($|m| \le 4$). In the normal form the line has $\theta = 172.4°$, $\rho = -0.99$: well inside the panel. With all three points at $x = 0.6$ the line is vertical: in slope–intercept form the three lines $c = y_i - 0.6\,m$ become parallel (all have slope $-0.6$) and never meet ($m = \infty$); in the normal form the crossing simply moves to $\theta = 180° \equiv 0°$, $\rho = 0.6$.
+
+**D4.** Six points give $6 \cdot 5/2 = 15$ pairs, so 15 crossings. Here the three pairs within each line coincide: one pile at $\theta = 108.4°$, $\rho = -0.63$ (the line through $(-4, -2)$, $(-1, -1)$, $(2, 0)$, i.e. $y = (x - 2)/3$) and one at $\theta = 56.3°$, $\rho = 0.83$ (through $(-3, 3)$, $(0, 1)$, $(3, -1)$, i.e. $y = 1 - 2x/3$). The other 9 crossings are lines through one point of each line, spread out.
+
+**D5.** Highest bin: 6 of 6 votes ($15°$, 1.5), 3 ($10°$, 1), 3 ($5°$, 0.5), 4 ($2°$, 0.25). With coarse bins all six slightly scattered curves fall into one bin; with finer bins the near-crossings no longer share a bin and the peak splits. The noise (the points are up to 0.14 off the best line) sets how small the bins can usefully be. (The small rise at 2° comes from where the bin edges happen to fall.)
+:::
+
+## Explore: line detection {#explore}
+
+Three panels: the **edge points** (Canny from the edges day, orange; the *edges* buttons choose fine, medium or smooth settings), the **accumulator** ($\theta$ across from 0° to 180°, $\rho$ up; brightness is the square root of the votes; detected peaks are ringed), and the **detected lines** or **segments**. Click an edge point to see its votes (cyan) in the accumulator; click the accumulator to draw that bin's line dashed on the image. The readout gives the number of edge points, the votes cast, the peaks, and the time.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="houghlines" data-preset="clean"></div>
+<script src="../demos/dist/houghlines.js"></script>
+```
+
+**E1.** Preset **clean lines**. How many edge points and how many votes? Explain the ratio. How many lines are detected, and how many votes has the strongest? Click an edge point on the long side of the triangle and follow its curve to the peak.
+
+**E2.** Still on **clean lines**, set the threshold to 30, then 60. How many lines are detected each time? Which sides of the shapes are lost first, and why?
+
+**E3.** Preset **no NMS: clusters**. How many detections are there now, and what do they look like? Set the NMS window back to ±4.
+
+**E4.** Preset **bins too fine** (noise 18, $\Delta\theta = 0.25°$, $\Delta\rho = 0.5$). How many lines are found, and how strong is the strongest peak? Now set $\Delta\theta = 1°$, $\Delta\rho = 1$ px (same noise). Then preset **bins too coarse** on the window grid: what goes wrong there?
+
+**E5.** Preset **clutter raises the floor** (threshold 30). How many lines are detected? Compare with the same scene without clutter (clutter 0). Then preset **gradient voting**: votes per point, total votes, and detections. Finally widen the gradient window to ±15°: what changes?
+
+**E6.** Preset **segments with gaps** (road, $g = 6$, $L_\text{min} = 12$). How many segments are drawn? Is the dashed centre line among them? Set $g = 30$: what appears, and what else appears? Which $g$ would you choose for lane markings?
+
+**E7.** Preset **deskew the page**. What dominant angle does the readout give, and what tilt? Why is the dominant angle near 90° rather than near 0°?
+
+**E8.** Preset **filaments** (gradient voting, segments). How many filaments are found? Switch gradient voting off: how many detections now, and why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 815 edge points and 146,700 votes: every point votes once for each of the 180 angles ($815 \times 180$). 8 lines above the threshold of 40; the strongest has 114 votes, at $\theta = 148°$, $\rho = 35$: the long left side of the triangle (about 140 px, partly hidden by the quadrilateral). The clicked point's sinusoid passes through that peak, as do the sinusoids of all other points on the side.
+
+**E2.** Threshold 30: 11 lines (every side of the three shapes); threshold 60: 3 lines. The threshold is a minimum length in pixels: the short sides of the quadrilateral and the partly hidden sides go first, the long sides of the triangle remain.
+
+**E3.** 22 detections instead of 8: each strong line comes as a bundle of nearly identical lines (neighbouring bins of the same peak are all above the threshold).
+
+**E4.** Fine bins: 3 lines, strongest peak 63 votes. With 1° and 1 px at the same noise: 9 lines, strongest 110. The noisy edge points of one side spread their votes over many small bins, so the peaks drop below the threshold. Coarse bins ($5°$, 8 px) on the window grid: 21 detections; each bin covers several neighbouring window edges, so lines from different rows and columns merge, and the detected lines run at the wrong angles between them.
+
+**E5.** 32 lines with clutter, 11 without. The clutter blobs add about 1300 edge points whose curves raise the whole accumulator (the 99th percentile of the non-empty bins goes from 17 to 27 votes), so chance alignments of blob edges pass the threshold. Gradient voting: 7 votes per point (±3° in 1° bins), 14,826 votes instead of 381,240, and 5 detections: the blob edges point in all directions and no longer pile up. With ±15°: 31 votes per point, 65,658 votes and 9 detections: a wider window lets clutter back in.
+
+**E6.** 7 segments: the horizon, the two sides of the road (road edge and lane line fall into the same peak), and four short pieces of accidental alignments; the dashed centre line is **not** among them: its peak has 50 votes, but each dash is only 10 px long, shorter than $L_\text{min}$, and the gaps (10 px) are longer than $g$. With $g = 30$: 10 segments; the centre line appears as one segment of 117 px, but the four accidental diagonals also grow into long false segments (52 to 95 px), because points scattered along them are now joined. A gap just above the dash spacing (about 12 px) joins the dashes without bridging larger empty stretches; the false diagonals are better removed with a higher threshold.
+
+**E7.** $\theta = 97.0°$, a tilt of 7.0°. The text lines are nearly horizontal; the **normal** of a horizontal line points up, $\theta = 90°$. A page tilted by 7° counter-clockwise has normals at 97°.
+
+**E8.** 6 peaks, 7 segments (one filament is split by a gap): the six filaments. Without gradient voting: 22 peaks and 14 segments; the clutter blobs and noise create chance alignments, and the two sides of each filament (about 2.5 px apart) can also give separate peaks.
+:::
+
+## Where this leads
+
+A circle has three parameters instead of two; the same voting idea gives the **circle Hough transform** in the next unit, where the gradient direction saves even more work. For any shape without a formula, the **generalised Hough transform** stores the shape as a table. And when voting needs too many bins, **RANSAC** guesses and checks instead.

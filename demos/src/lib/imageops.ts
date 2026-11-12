@@ -475,9 +475,11 @@ export function toBytes(img: Grey, opts: DisplayOptions = {}): Uint8ClampedArray
  */
 export function toRGBA(img: Grey, opts: DisplayOptions = {}, lut?: ArrayLike<number>): Uint8ClampedArray<ArrayBuffer> {
   const g = toBytes(img, opts), out = new Uint8ClampedArray(4 * g.length);
+  // LUT stride: 256 RGB entries (768 values) or 256 RGBA entries (1024, as lib/colour.ts colormapLUT returns).
+  const st = lut && lut.length >= 1024 ? 4 : 3;
   for (let i = 0; i < g.length; i++) {
     const v = g[i];
-    if (lut) { out[4 * i] = lut[3 * v]; out[4 * i + 1] = lut[3 * v + 1]; out[4 * i + 2] = lut[3 * v + 2]; }
+    if (lut) { out[4 * i] = lut[st * v]; out[4 * i + 1] = lut[st * v + 1]; out[4 * i + 2] = lut[st * v + 2]; }
     else out[4 * i] = out[4 * i + 1] = out[4 * i + 2] = v;
     out[4 * i + 3] = 255;
   }

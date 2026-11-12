@@ -63,7 +63,7 @@ export function verdict3d(mask: ArrayLike<number>, n: number, fgConn: Conn3, bgC
   if (okPair) return { ok: true, text: `Consistent pair (${fgConn}/${bgConn}).` };
   const a = analyse3d(mask, n, fgConn, bgConn), ref = analyse3d(mask, n, fgConn, complement3(fgConn));
   if (a.enclosed < ref.enclosed) return { ok: false, text: `${fgConn}/${bgConn}: the shell is closed, yet the cavity leaks out through a corner or an edge.` };
-  if (a.enclosed > ref.enclosed) return { ok: false, text: `${fgConn}/${bgConn}: the shell falls apart, yet the cavity is sealed.` };
+  if (a.enclosed > ref.enclosed) return { ok: false, text: `${fgConn}/${bgConn}: the shell has a gap at a corner or an edge, yet the cavity is sealed.` };
   return { ok: false, text: `${fgConn}/${bgConn} is not a consistent pair; this volume happens to show no conflict.` };
 }
 

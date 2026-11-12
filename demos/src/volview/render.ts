@@ -23,18 +23,21 @@ const STYLE = `
 .reveal .qb-demo[data-mode="render"] .vr-left { flex: 0 0 420px; }
 .reveal .qb-demo[data-mode="render"] .qb-panel { flex: 1 1 600px; max-width: 680px; gap: .12em; }
 .reveal .qb-demo[data-mode="render"] .qb-btn { font-size: 16px; padding: .02em .35em; }
-.reveal .qb-demo[data-mode="render"] .qb-readout { font-size: 13px; padding: .2em .4em; }
-.reveal .qb-demo[data-mode="render"] .qb-tfedit { max-width: 360px; }
+.reveal .qb-demo[data-mode="render"] .qb-readout { font-size: 14px; padding: .2em .4em; }
+.reveal .qb-demo[data-mode="render"] .qb-tfedit { max-width: none; }
 .reveal .qb-demo[data-mode="render"] .vr-cols { display: flex; gap: .6em; align-items: flex-start; }
+.reveal .qb-demo[data-mode="render"] .vr-cols > div:first-child { flex: 0 0 330px; }
+.reveal .qb-demo[data-mode="render"] .vr-cols > div:last-child { flex: 1 1 240px; min-width: 0; }
+.reveal .qb-demo[data-mode="render"] .qb-slider { font-size: 15px; grid-template-columns: auto 1fr 2.8em; }
 `;
 
 const SKULL: TF = { points: [[140, 0], [165, 0.9], [255, 0.9]], map: "bone" };
 const SOFT: TF = { points: [[45, 0], [60, 0.03], [115, 0.03], [135, 0], [150, 0], [170, 0.12], [200, 0.12], [222, 0.95]], map: "bone" };
 const VESSELS: TF = { points: [[180, 0], [215, 0.9]], map: "inferno" };
 
-interface VState extends RenderSettings { tf: TF; view: StandardView | [number, number]; ortho: boolean }
-const DEF: VState = { mode: "dvr", step: 0.5, correction: true, eps: 0, iso: 135, nearest: false, ignoreSpacing: false, showCount: false, tf: SOFT, view: [0.5, 0.25], ortho: false };
-const PRESETS: { id: string; label: string; s: Partial<VState> }[] = [
+export interface VState extends RenderSettings { tf: TF; view: StandardView | [number, number]; ortho: boolean }
+export const DEF: VState = { mode: "dvr", step: 0.5, correction: true, eps: 0, iso: 135, nearest: false, ignoreSpacing: false, showCount: false, tf: SOFT, view: [0.5, 0.25], ortho: false };
+export const PRESETS: { id: string; label: string; s: Partial<VState> }[] = [
   { id: "mip", label: "MIP finds the vessels", s: { mode: "mip", view: "front" } },
   { id: "mipside", label: "MIP has no depth: rotate", s: { mode: "mip", view: "right" } },
   { id: "minip", label: "MinIP finds the air", s: { mode: "minip", view: "front" } },

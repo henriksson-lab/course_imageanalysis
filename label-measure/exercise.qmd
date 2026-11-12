@@ -1,0 +1,150 @@
+---
+title: "Exercise: working with label images"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- filter a label image by a rule on its measurement table and **relabel** it,
+- count objects with the **unbiased counting frame**,
+- predict how each step of a pipeline (threshold, opening, fill holes, connectivity, border rule, filters) changes the **count**,
+- write down a measurement **pipeline** for a given task.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Step | What it does |
+|---|---|
+| label image | 0 = background, 1, 2, … = objects; touching objects keep different labels |
+| relabel | renumber the remaining labels 1, 2, 3, … in raster order of their first pixel |
+| area opening | keep components with area $\ge a$, whole and unchanged |
+| solidity | area / area of the convex hull of the pixel corners |
+| counting frame | inner frame $[m, W - m) \times [m, H - m)$; inclusion edges top and left; exclusion line = right edge (extended up to the image top) and bottom edge (extended left to the image border); count an object if it has a pixel in the frame and no pixel on the exclusion line |
+
+## By hand
+
+**B1.** A $10 \times 10$ label image (rows 0–9, columns 0–9):
+
+```
+1 1 1 . . . . 2 . .
+1 1 1 . 3 . . . . .
+1 1 1 . 3 . . . 4 .
+. . . . 3 3 . 4 4 4
+5 5 . . 3 3 . . 4 .
+5 5 . . . . . . . .
+5 5 . 6 6 6 6 . . 7
+. . . 6 6 6 6 . 7 7
+8 . . . . . . . 7 7
+8 8 . . . . . . . 7
+```
+
+and its measurement table, with two entries missing:
+
+| label | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| area | 9 | 1 | 6 | 5 | 6 | 8 | 6 | 3 |
+| solidity | 1.00 | 1.00 | ? | ? | 1.00 | 1.00 | 0.86 | 0.86 |
+| touches border | yes | yes | no | yes | yes | no | yes | yes |
+
+(a) Compute the solidity of objects 3 and 4 (convex hull of the pixel corners).
+(b) Which objects survive the rule "area $\ge 5$ and solidity $> 0.9$"? Write the relabelled image.
+(c) Which objects survive "remove objects touching the border"? What is the problem with this rule here?
+
+**B2.** Use a counting frame with margin 2 on the image of B1: the frame is rows and columns 2 to 7, the exclusion line is column 8 (rows 0 to 8) and row 8 (columns 0 to 8). Which objects are counted, and why are the others not?
+
+**B3.** Predict the effect on the count (more, fewer, the same) and say which objects are affected:
+(a) raising the threshold (bright objects on a dark background);
+(b) an opening with a disc of radius 2 before labelling;
+(c) fill holes before labelling;
+(d) 4- instead of 8-connectivity;
+(e) a closing with a disc of radius 2 before labelling.
+
+**B4.** Write the pipeline (as a list of steps, with the parameter you would choose and what you would check) for: "Count the nuclei in a fluorescence image and report their mean area. Some nuclei touch, there are small bright specks of debris, and nuclei are cut by the image border." Which number would you report next to the count?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Object 3 (column 4 in rows 1–4 and column 5 in rows 3–4): the corner hull has vertices $(4,1)$, $(5,1)$, $(6,3)$, $(6,5)$, $(4,5)$ in $(x, y)$, area 7: solidity $6/7 = 0.86$. Object 4 (a plus sign of 5 pixels): the hull cuts the four corners of its $3 \times 3$ box, area $9 - 4 \cdot \tfrac12 = 7$: solidity $5/7 = 0.71$.
+(b) Area $\ge 5$: objects 1, 3, 4, 5, 6, 7; of these solidity $> 0.9$: **1, 5, 6**. Relabelled (raster order of first pixel): $1 \to 1$, $5 \to 2$, $6 \to 3$:
+
+```
+1 1 1 . . . . . . .
+1 1 1 . . . . . . .
+1 1 1 . . . . . . .
+. . . . . . . . . .
+2 2 . . . . . . . .
+2 2 . . . . . . . .
+2 2 . 3 3 3 3 . . .
+. . . 3 3 3 3 . . .
+. . . . . . . . . .
+. . . . . . . . . .
+```
+
+(c) Only 3 and 6 do not touch the border. Six of eight objects are thrown away, among them the largest (1): the count is far too low and the remaining sizes are biased. In a small field of view most objects touch the border.
+
+**B2.** Counted: **1** (it hits the frame at $(2,2)$ and touches the inclusion edges, not the exclusion line), **3** and **6** (inside). Not counted: 4 and 7 touch column 8; 5 lies left of the frame, 8 below-left and 2 above it: they do not hit the frame. Count **3**.
+
+**B3.** (a) Fewer or the same overall: dim objects and specks disappear; but an object with a dim waist may split (more). (b) Fewer: specks smaller than the disc disappear, and thin bridges between touching objects break (that can increase the count by splitting merged objects). (c) The same: filling holes does not change the number of components. (d) More or the same: diagonal-only contacts no longer join objects. (e) Fewer or the same: close objects and gaps merge.
+
+**B4.** For example: (1) smooth lightly and threshold (a value between background and nuclei, checked on the histogram; thresholding day); (2) remove debris with an area filter (below the smallest nucleus area, e.g. a third of the typical area) or an opening smaller than a nucleus; (3) fill holes; (4) label with 8-connectivity; (5) split touching nuclei (watershed day), and check the split with solidity; (6) measure area (in µm²); (7) count with a counting frame and a guard zone at least one nucleus wide, and report the mean area of the counted nuclei only; (8) report the count with the frame area (a density), the parameters of every step, and how many objects each step removed.
+:::
+
+### Math questions
+
+**B5.** *(math)* Discs of diameter $d$ are placed uniformly at random in a $W \times W$ image (centres uniform in a large area around it, so that some are cut). (a) What fraction of the discs that intersect the image do not touch its border? (b) For $W = 256$, compare $d = 10$ and $d = 40$. (c) Explain why the mean size of the "complete" discs is biased when the sizes vary.
+
+**B6.** *(math)* Show that "label the low-threshold mask and keep the labels that contain at least one high-threshold pixel" gives the same result as the reconstruction by dilation of the low mask from the high mask (morphology day), when both use the same connectivity.
+
+**B7.** *(math)* An object is a union of components $C_1, \dots, C_k$ after thresholding. Show that the Euler number of a union of disjoint, non-adjacent sets is the sum of their Euler numbers, and that the area opening therefore changes the Euler number of an image only by the Euler numbers of the removed components.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B5.** (a) A disc intersects the image if its centre lies in the $(W + d) \times (W + d)$ square around the image, and lies completely inside if its centre is in the central $(W - d)\times(W - d)$ square: fraction $(W - d)^2/(W + d)^2$. (b) $d = 10$: $(246/266)^2 = 0.855$; $d = 40$: $(216/296)^2 = 0.532$. (c) Larger discs are kept with a smaller probability, so among the kept discs small ones are over-represented and the mean diameter is too small; the counting frame keeps every object with the same probability (proportional to the frame area), whatever its size.
+
+**B6.** Let $L$ = low mask, $H \subseteq L$ high mask. Reconstruction $R_L(H)$ = all pixels of $L$ connected inside $L$ to some pixel of $H$ (repeated geodesic dilation until stable). A pixel $p \in L$ is connected inside $L$ to a pixel of $H$ exactly when its component of $L$ contains a pixel of $H$. So $R_L(H)$ = union of the components of $L$ that meet $H$: the labels kept by the rule.
+
+**B7.** Euler's formula $\chi = V - E + F$ counts cells; non-adjacent sets (as closed unions of pixel squares, with 8-connectivity: not even touching at a corner) share no vertices, edges or faces, so the counts add: $\chi(\bigcup C_j) = \sum \chi(C_j)$. Removing a component $C_j$ therefore changes the Euler number of the image by $-\chi(C_j)$: by $-1$ for each removed solid speck, by 0 for a removed ring.
+:::
+
+## Explore {#explore}
+
+Three linked panels. **Left**: the image with the labels (coloured: counted; grey: filtered out or excluded by the border rule); click an object to select it. **Middle**: the pipeline controls (threshold, opening radius, fill holes, connectivity, border rule), the count, and the measurement table (click a column header to sort, a row to select). **Right**: a scatter plot of two properties (the buttons cycle through them); drag a rectangle to keep only the objects inside. Input: a synthetic image (round nuclei, rods, specks and three touching pairs, seed 3) or the course micrograph (dark regions as objects).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="regionfilter" data-preset="start"></div>
+<script src="../demos/dist/regionfilter.js"></script>
+```
+
+**E1.** Preset **the pipeline**. How many objects are labelled? Sort the table by area: what are the smallest and the largest objects? Select the largest in the table: what is it?
+
+**E2.** Preset **debris: filter by area**: how many objects remain, and what is the mean area? Now instead clear the filter and set the opening radius to 1, 2, 3: how many labels? Which method keeps the shapes of the remaining objects unchanged?
+
+**E3.** Preset **rods vs round: eccentricity**. How many objects remain? Which kinds are kept? Cycle the y axis to **form factor**: does it separate rods from nuclei too?
+
+**E4.** Preset **touching nuclei: solidity flags them**. How many objects remain? Which objects does the solidity rule remove besides the pairs? Find a rectangle in the (area, solidity) plot that removes only the pairs (and the specks).
+
+**E5.** Preset **border objects: counting frame**. How many objects are counted? Compare with the border rules **keep** and **remove touching** (keep the area filter). Why does **remove touching** give more than the frame here?
+
+**E6.** Move the threshold of the synthetic image to 60, 80, 120 and 140 (no filter, no opening). How many labels? Explain the jump at 60.
+
+**E7.** Preset **connectivity changes the count** (the micrograph, threshold 95, no filling, no opening). Count with 4- and with 8-connectivity. Then set the opening radius to 1 and turn on fill holes: the two counts now? What does this say about counting objects in a raw thresholded real image?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 41 labels (the 22 specks placed in the image give only 14, the others are too faint after blurring). Smallest: specks of 1–11 pixels; largest: the merged pairs (693–932 pixels): a large object with solidity below 0.9, two touching nuclei.
+
+**E2.** 27 objects, mean area 371.8. Opening radius 1: 34 labels; 2: 27; 3: 27. The area filter keeps the remaining objects exactly as they were; the opening also rounds their outlines and shrinks thin parts (the rods lose their tips).
+
+**E3.** 18 objects: the 15 single nuclei and the 3 merged pairs (eccentricity 0.82–0.84); the 9 rods (0.95–0.98) are removed. Form factor separates them too: rods 0.47–0.58, nuclei 0.69–1.01.
+
+**E4.** 15 objects: the single nuclei (solidity 0.93–0.96). The rule also removes the 9 rods (solidity 0.85–0.90: thin digital objects have a low corner-hull solidity). To remove only the pairs, use the area: a rectangle from about 40 to 600 pixels (any solidity) keeps the 15 nuclei and the 9 rods, since the largest single nucleus has 545 pixels and the smallest pair 693. Solidity flags pairs well only among objects of nucleus size and shape.
+
+**E5.** Frame: 19 (with area $\ge 40$; 29 without the area filter). Keep: 27. Remove touching: 24 (3 nuclei touch the border). Removing border objects keeps every object that lies fully inside the image, also those near the edges; the frame counts only objects that hit the inner frame (margin 20), i.e. it samples a smaller area, and in exchange it is unbiased.
+
+**E6.** Threshold 60: 1057 labels; 80: 51; 100: 41; 120: 37; 140: 29. At 60 the threshold is within a few noise standard deviations of the background (40, noise 10): hundreds of single noise pixels become objects. Above 100 dim specks and the rims of objects are lost.
+
+**E7.** 4-connectivity: 1141 objects, 8-connectivity: 764 (mean area 7.5 and 11.2 pixels): most "objects" are noise specks that touch diagonally. With opening radius 1 and fill holes: 172 and 145. The count of a raw thresholded real image is dominated by noise and by the connectivity convention; cleaning and an area filter are needed before the number means anything.
+:::
+
+## Where this leads
+
+Touching objects are the main counting error left: the **watershed** day (day 10) splits them, starting from labelled markers and returning a label image that this day's tools measure. The **measurements** day (day 11) adds intensity and texture columns to the table, and the **evaluation** day (day 16) matches predicted objects to true ones, which a count alone cannot do.

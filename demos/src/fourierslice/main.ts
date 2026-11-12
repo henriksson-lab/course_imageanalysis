@@ -9,7 +9,7 @@ import { htmlEl, slider, presets, button, autoMount } from "../lib/ui";
 import { Plot, plotFigure } from "../lib/plot";
 import { diverging, grey } from "../lib/colour";
 import * as R from "../lib/radon";
-import { cellObject, objectImage, imagePanel, injectStyle, baseCss, layout, onPointer, drawHeat, lineSeg, CELL_CREDIT } from "../radonproj/view";
+import { cellObject, objectImage, imagePanel, injectStyle, baseCss, layout, onPointer, drawHeat, lineSeg, CELL_CREDIT, uniqueClip } from "../radonproj/view";
 import * as FS from "./model";
 
 const NAME = "fourierslice";
@@ -43,9 +43,9 @@ function mount(host: HTMLElement): void {
   const imgP = imagePanel(L.figs, "image: drag to turn", N, 6, "rd-fig");
   const credit = htmlEl("div", "rd-credit", CELL_CREDIT, imgP.fig);
   const specFig = plotFigure(L.figs, "2D spectrum", "rd-fig");
-  const spec = new Plot(specFig, { width: 320, height: 320, x: [-0.5, 0.5], y: [-0.5, 0.5], equal: true, grid: false, xticks: [-0.5, 0, 0.5], yticks: [-0.5, 0, 0.5], margin: { l: 48, b: 30, t: 6, r: 8 } });
-  const plotFig = plotFigure(L.figs, "", "rd-fig wide");
-  const cmp = new Plot(plotFig, { width: 400, height: 300, x: [-0.5, 0.5], y: [0, 1], xlabel: "frequency f (cycles per pixel)", xticks: [-0.5, -0.25, 0, 0.25, 0.5] });
+  const spec = uniqueClip(new Plot(specFig, { font: 22, width: 320, height: 320, x: [-0.5, 0.5], y: [-0.5, 0.5], equal: true, grid: false, xticks: [-0.5, 0, 0.5], yticks: [-0.5, 0, 0.5], margin: { l: 62, b: 34, t: 6, r: 12 } }));
+  const plotFig = plotFigure(L.figs, "projection spectrum vs slice", "rd-fig wide");
+  const cmp = uniqueClip(new Plot(plotFig, { font: 22, width: 400, height: 300, x: [-0.5, 0.5], y: [0, 1], xlabel: "frequency f (cycles per pixel)", xticks: [-0.5, -0.25, 0, 0.25, 0.5] }));
   const errP = imagePanel(L.figs, "error", N, 0, "rd-fig");
   const [colA, colB, colC] = L.cols;
 
@@ -150,8 +150,7 @@ function mount(host: HTMLElement): void {
     cmp.setDomain(undefined, [lo, hi * 1.05 || 1]);
     cmp.setLabels({ ylabel: COMP_LABEL[st.comp] });
     projLine.set(Ps.f, a); sliceCurve.set(Ps.f, b);
-    cmp.legend(undefined, "tr");
-    (plotFig.querySelector("figcaption") as HTMLElement).textContent = `θ = ${st.theta}°: projection spectrum vs slice`;
+    (plotFig.querySelector("figcaption") as HTMLElement).textContent = `θ = ${st.theta}°: blue = projection spectrum, red dashed = slice`;
     const d = FS.relDiff(Ps.re, Ps.im, Sl.re, Sl.im);
     ro.textContent = `θ = ${st.theta}°\nrelative difference between the curves: ${(100 * d).toFixed(2)} %\n(0 at 0° and 90°: the line runs along grid points)`;
   }

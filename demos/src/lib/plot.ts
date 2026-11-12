@@ -41,11 +41,19 @@ export function makeScale(domain: [number, number], range: [number, number], log
 
 /** About `count` "nice" tick values (steps of 1, 2 or 5 times a power of ten) in [lo, hi]. */
 export function niceTicks(lo: number, hi: number, count = 5): number[] {
-  if (!(hi > lo)) return [lo];
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || !(hi > lo)) return Number.isFinite(lo) ? [lo] : [];
+  // A range below float resolution relative to the values cannot be stepped through.
+  if (hi - lo <= 1e-12 * Math.max(Math.abs(lo), Math.abs(hi))) return [lo];
   const raw = (hi - lo) / Math.max(1, count), p = 10 ** Math.floor(Math.log10(raw)), m = raw / p;
   const step = (m >= 7.5 ? 10 : m >= 3.5 ? 5 : m >= 1.5 ? 2 : 1) * p;
+  if (!(step > 0) || !Number.isFinite(step)) return [lo, hi];
   const out: number[] = [];
-  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  const first = Math.ceil(lo / step - 1e-9);
+  for (let k = 0; k < 1000; k++) {   // hard cap: never loop forever
+    const v = (first + k) * step;
+    if (v > hi + step * 1e-9) break;
+    out.push(Math.abs(v) < step * 1e-9 ? 0 : v);
+  }
   return out;
 }
 
@@ -219,7 +227,13 @@ export interface PlotOptions {
   cls?: string;
 }
 
-let clipCounter = 0;
+/** Clip-path ids must be unique on the page, and every demo bundle has its own copy of this
+ *  module, so the counter lives on globalThis (shared by all bundles). */
+function nextClipId(prefix: string): string {
+  const g = globalThis as unknown as { __qbClipCounter?: number };
+  g.__qbClipCounter = (g.__qbClipCounter ?? 0) + 1;
+  return prefix + g.__qbClipCounter;
+}
 
 /** A 2D plot with axes, ticks and labels; data marks are added with the methods below. */
 export class Plot extends MarkHost {
@@ -240,7 +254,7 @@ export class Plot extends MarkHost {
     super(svg, font);
     this.axes = axes;
     this.opts = opts; this.W = W; this.H = H;
-    const id = "qb-clip-" + (++clipCounter);
+    const id = nextClipId("qb-clip-");
     const defs = svgEl("defs", {}, svg);
     const cp = svgEl("clipPath", { id }, defs);
     this.clipRect = svgEl("rect", {}, cp);
@@ -386,6 +400,7 @@ export class Plot extends MarkHost {
   /** Filled band between y0s and y1s (e.g. ±1 SD, or under a curve with y0s = 0s). */
   band(xs: ArrayLike<number>, y0s: ArrayLike<number>, y1s: ArrayLike<number>, style: MarkStyle = {}): Mark<[ArrayLike<number>, ArrayLike<number>, ArrayLike<number>]> {
     return this.mark((g, X, A, B) => {
+      if (X.length === 0) return; // empty band (used to hide it): draw nothing
       const top: string[] = [], bot: string[] = [];
       for (let i = 0; i < X.length; i++) {
         top.push(`${this.x(X[i]).toFixed(2)},${this.y(B[i]).toFixed(2)}`);
@@ -465,6 +480,7 @@ export class Plot extends MarkHost {
   vline(x: number, style: MarkStyle & { text?: string } = {}): Mark<[number]> {
     return this.mark((g, X) => {
       const px = this.x(X);
+      if (!Number.isFinite(px)) return; // NaN / off a log axis: hidden
       this.strokeStyle(svgEl("line", { x1: px, x2: px, y1: this.box.t, y2: this.box.b }, g), { dash: "6 4", width: 2.5, color: "var(--qb-fg, #222)", ...style });
       if (style.text) {
         const t = svgEl("text", { x: px + 5, y: this.box.t + this.font, class: "qb-halo" }, g);
@@ -478,6 +494,7 @@ export class Plot extends MarkHost {
   hline(y: number, style: MarkStyle & { text?: string } = {}): Mark<[number]> {
     return this.mark((g, Y) => {
       const py = this.y(Y);
+      if (!Number.isFinite(py)) return; // NaN / off a log axis: hidden
       this.strokeStyle(svgEl("line", { x1: this.box.l, x2: this.box.r, y1: py, y2: py }, g), { dash: "6 4", width: 2.5, color: "var(--qb-fg, #222)", ...style });
       if (style.text) {
         const t = svgEl("text", { x: this.box.r - 4, y: py - 6, "text-anchor": "end", class: "qb-halo" }, g);
@@ -625,7 +642,7 @@ export function colorbar(parent: Element, map: ColorMap, lo: number, hi: number,
   const f = opts.font ?? 18, vert = !!opts.vertical;
   const W = opts.width ?? (vert ? 90 : 400), H = opts.height ?? (vert ? 300 : 30 + 2 * f + (opts.label ? f * 1.2 : 0));
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", class: "qb-plot-svg", role: "img", "aria-label": `colour bar ${opts.label ?? ""}` }, parent);
-  const id = "qb-cb-" + (++clipCounter);
+  const id = nextClipId("qb-cb-");
   const grad = svgEl("linearGradient", { id, x1: 0, y1: vert ? 1 : 0, x2: vert ? 0 : 1, y2: 0 }, svgEl("defs", {}, svg));
   for (let i = 0; i <= 16; i++) {
     const c = map(i / 16);

@@ -4,7 +4,7 @@
 // is lowered by alternating: c1, c2 = means inside and outside; one semi-implicit step of
 // φ_t = δ_ε(φ)[λκ + ν + (I − c1)² − (I − c2)²]. Side panels: thresholding at (c1 + c2)/2, φ,
 // the histogram with c1, c2 and the threshold, and E against the iteration. A toggle runs the
-// edge-based flow of the gac demo on the same image instead, for comparison.
+// edge-based flow of the gac demo (shrink-wrap from a box) on the same image instead.
 // Auto-mounts on <div data-demo="chanvese">. Optional: data-preset=<id>, data-steps=<n>,
 // data-math="on" (show the data-weight slider of the math layer).
 import { htmlEl, slider, presets, button, checkbox, autoMount } from "../lib/ui";
@@ -16,12 +16,12 @@ import * as LS from "../lib/levelset";
 import { Contour } from "../lib/marching";
 import { Animator } from "../curveflow/anim";
 import { N, SceneId, scene, addNoise, InitId, initPhi } from "./model";
-import { edgeMap, gacTerms } from "../gac/model";
+import { edgeMap, gacTerms, boxPhi } from "../gac/model";
 
 const NAME = "chanvese";
 const S = 512;
 const DT = 10;
-const GAC = { sigma: 2, k: 8, c: 0.3, eps: 0.3, a: 2 };
+const GAC = { sigma: 2, k: 8, c: -0.3, eps: 0.3, a: 5 };
 
 type ImageId = SceneId | "cell";
 interface Settings { image: ImageId; noise: number; init: InitId; lambda: number; nu: number; eps: number; ratio: number; mode: "cv" | "edge" }
@@ -53,10 +53,11 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 [data-demo="${NAME}"] .cv-row { display: flex; gap: .3em; flex-wrap: wrap; align-items: center; }
 [data-demo="${NAME}"] .cv-sliders { display: flex; flex-direction: column; gap: .3em; }
-.reveal [data-demo="${NAME}"] { font-size: 16px; gap: .6em; }
-.reveal [data-demo="${NAME}"] .cv-main { flex-basis: 380px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; gap: .6em; }
+.reveal [data-demo="${NAME}"] .cv-main { flex-basis: 360px; }
+.reveal [data-demo="${NAME}"] .cv-mid { flex-basis: 250px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; max-width: 380px; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; max-width: 450px; flex-basis: 420px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .45em; }
 .reveal [data-demo="${NAME}"] .cv-sliders { gap: .05em; }
@@ -133,8 +134,10 @@ function mount(host: HTMLElement): void {
   function setMode(m: "cv" | "edge"): void {
     if (m === st.mode) return;
     st.mode = m;
-    if (m === "edge") { LS.reinitExact(phi, N, N); makeEdge(); }
-    changed();
+    anim.pause();
+    if (m === "edge") makeEdge();
+    presetBtns.forEach(b => b.classList.remove("active"));
+    restart();
   }
   function load(p: Preset): void {
     anim.pause();
@@ -177,7 +180,7 @@ function mount(host: HTMLElement): void {
   let c1 = 0, c2 = 1;
   function params(): LS.CVParams { return { lambda: st.lambda, nu: st.nu, eps: st.eps, w1: st.ratio, w2: 1 }; }
   function restart(): void {
-    phi = initPhi(st.init);
+    phi = st.mode === "edge" ? boxPhi() : initPhi(st.init);
     if (st.mode === "edge") LS.reinitExact(phi, N, N);
     steps = 0; energies = []; eSteps = [];
     record();
@@ -200,7 +203,7 @@ function mount(host: HTMLElement): void {
     record();
   }
   function frame(): boolean {
-    advance(5);
+    advance(st.mode === "edge" ? 15 : 5);
     draw();
     return steps < 3000;
   }
@@ -256,9 +259,10 @@ function mount(host: HTMLElement): void {
     c1Mark.set(c1); c2Mark.set(c2); tMark.set(th);
     const xs = eSteps;
     const lo = Math.min(...energies), hi = Math.max(...energies);
-    EP.setDomain([0, Math.max(50, xs[xs.length - 1] || 0)], [lo - 0.05 * (hi - lo + 1), hi + 0.05 * (hi - lo + 1)]);
+    const pad = Math.max(0.05 * (hi - lo), 0.02 * Math.abs(hi), 1e-6);
+    EP.setDomain([0, Math.max(50, xs[xs.length - 1] || 0)], [lo - pad, hi + pad]);
     eLine.set(xs, energies);
-    cap.textContent = st.mode === "cv" ? "Chan–Vese: inside tinted, contour yellow" : "edge-based speed on the same image";
+    cap.textContent = st.mode === "cv" ? "Chan–Vese: inside tinted, contour yellow" : "edge-based: shrink-wrap from a box";
     // readout
     const E = LS.cvEnergy(I, phi, N, N, params(), { c1, c2 });
     let wrong = "";

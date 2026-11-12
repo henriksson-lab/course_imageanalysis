@@ -16,7 +16,7 @@
 //  - Skeleton graph: pixel classes (end, regular, junction), junction clusters, nodes and
 //    edges with pixel paths, chain-code length estimators, pruning of short terminal edges,
 //    cyclomatic number, tortuosity, radius along edges, Sholl crossings.
-import { chamfer, edt } from "./distance";
+import { chamfer, edt, edtWithNearest } from "./distance";
 import { label2d } from "./label";
 
 type A = ArrayLike<number>;
@@ -308,9 +308,9 @@ export interface SimpleThinStep { pass: number; dir: number; index: number; remo
 
 /**
  * Sequential thinning by simple points: in each pass, for each direction (N, E, S, W),
- * visit the border pixels whose neighbour in that direction is background, in raster order,
- * and remove each one that is simple (and not an end point, if keepEnds) on the current
- * image. Repeat until nothing changes.
+ * take the border pixels whose neighbour in that direction is background (at the start of
+ * this subiteration), visit them in raster order, and remove each one that is simple (and
+ * not an end point, if keepEnds) on the current image. Repeat until nothing changes.
  */
 export function thinSimple(m: A, w: number, h: number, opts: { keepEnds?: boolean; maxPasses?: number; record?: boolean } = {}): { skeleton: Uint8Array; passes: number; steps: SimpleThinStep[] } {
   const keepEnds = opts.keepEnds ?? true;
@@ -322,9 +322,11 @@ export function thinSimple(m: A, w: number, h: number, opts: { keepEnds?: boolea
     let changed = 0;
     for (const dir of [0, 2, 4, 6]) {
       const [dx, dy] = RING[dir];
-      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-        const i = y * w + x;
-        if (!sk[i] || isOn(sk, w, h, x + dx, y + dy)) continue;
+      // the border pixels on this side, as the image is at the start of the subiteration
+      const cand: number[] = [];
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (sk[y * w + x] && !isOn(sk, w, h, x + dx, y + dy)) cand.push(y * w + x);
+      for (const i of cand) {
+        const x = i % w, y = (i - x) / w;
         const nb = neighbours(sk, w, h, x, y), test = simpleTest(nb), end = test.degree === 1;
         const rem = test.simple && !(keepEnds && end);
         if (rem) { sk[i] = 0; changed++; }
@@ -396,11 +398,51 @@ export function metricDist(dx: number, dy: number, metric: Metric): number {
 
 /**
  * Centres of maximal discs (the discrete medial axis, the ridges of DT): object pixels p
- * with no neighbour q whose disc contains p's disc, i.e. DT(q) ≥ DT(p) + d(p, q).
- * Neighbours: 4 for city-block, 8 otherwise.
+ * whose disc {q : d(p, q) < DT(p)} is not contained in the disc of a neighbour (4
+ * neighbours for city-block, 8 otherwise). For city-block and chessboard this is the test
+ * DT(q) ≥ DT(p) + d(p, q). For Euclidean discs, containment is tested on the pixel grid
+ * itself (a lattice disc can fit inside a neighbour's even when the round discs do not),
+ * with the squared distances, which are integers.
  */
 export function medialAxis(m: A, w: number, h: number, metric: Metric, dt?: ArrayLike<number>): Uint8Array {
-  const D = dt ?? distanceMap(m, w, h, metric), out = new Uint8Array(w * h);
+  const out = new Uint8Array(w * h);
+  if (metric === "euclidean") {
+    const D2 = edt(m, w, h, { squared: true });
+    const cache = new Map<number, Int32Array>();
+    // M[k] = max over lattice points v with |v|² < D of |v + δ_k|², for the 8 neighbour offsets δ_k
+    const maxShift = (D: number): Int32Array => {
+      let M = cache.get(D);
+      if (M) return M;
+      M = new Int32Array(8).fill(-1);
+      const R = Math.floor(Math.sqrt(Math.max(0, D - 1)));
+      for (let y = -R; y <= R; y++) {
+        const r2 = D - 1 - y * y;
+        if (r2 < 0) continue;
+        const xm = Math.floor(Math.sqrt(r2));
+        for (const x of [-xm, xm]) for (let k = 0; k < 8; k++) {
+          const v = (x + RING[k][0]) ** 2 + (y + RING[k][1]) ** 2;
+          if (v > M[k]) M[k] = v;
+        }
+      }
+      cache.set(D, M);
+      return M;
+    };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!m[i]) continue;
+      const D = Math.round(D2[i]), M = maxShift(D);
+      let maximal = true;
+      for (let k = 0; k < 8 && maximal; k++) {
+        // q = p − δ_k contains p's disc if every point of it is closer than √D_q to q
+        const xx = x - RING[k][0], yy = y - RING[k][1];
+        if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+        if (Math.round(D2[yy * w + xx]) > M[k]) maximal = false;
+      }
+      if (maximal) out[i] = 1;
+    }
+    return out;
+  }
+  const D = dt ?? distanceMap(m, w, h, metric);
   const nb: [number, number][] = metric === "cityblock" ? [[0, -1], [1, 0], [0, 1], [-1, 0]] : RING;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x;
@@ -416,6 +458,33 @@ export function medialAxis(m: A, w: number, h: number, metric: Metric, dt?: Arra
   return out;
 }
 
+/**
+ * Spread of the nearest boundary points: for each object pixel, the largest distance between
+ * its nearest background pixel and that of one of its 4 neighbours. Small on the smooth
+ * part of the shape, large where two boundary pieces meet (on the medial axis). Keeping the
+ * axis pixels with spread ≥ λ removes the branches caused by small boundary details
+ * (the "λ-medial axis").
+ */
+export function boundarySpread(m: A, w: number, h: number): Float32Array {
+  const { nearest } = edtWithNearest(m, w, h), out = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x;
+    if (!m[i] || nearest[i] < 0) continue;
+    const a = nearest[i], ax = a % w, ay = (a - ax) / w;
+    let best = 0;
+    for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+      const xx = x + dx, yy = y + dy;
+      if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+      const b = nearest[yy * w + xx];
+      if (b < 0) continue;
+      const d = Math.hypot((b % w) - ax, Math.floor(b / w) - ay);
+      if (d > best) best = d;
+    }
+    out[i] = best;
+  }
+  return out;
+}
+
 /** Union of the discs {q : d(p, q) < r(p)} over the pixels p with axis[p] = 1. */
 export function reconstructFromDiscs(axis: A, radius: A, w: number, h: number, metric: Metric): Uint8Array {
   const out = new Uint8Array(w * h);
@@ -426,7 +495,7 @@ export function reconstructFromDiscs(axis: A, radius: A, w: number, h: number, m
     for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
       const xx = x + dx, yy = y + dy;
       if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
-      if (metricDist(dx, dy, metric) < r - 1e-6) out[yy * w + xx] = 1;
+      if (metricDist(dx, dy, metric) < r - 1e-4 * Math.max(1, r)) out[yy * w + xx] = 1;
     }
   }
   return out;
@@ -438,7 +507,7 @@ function erode3(a: Uint8Array, w: number, h: number, square: boolean): Uint8Arra
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x;
     if (!a[i]) continue;
-    let ok = isOn(a, w, h, x - 1, y) && isOn(a, w, h, x + 1, y) && isOn(a, w, h, x, y - 1) && isOn(a, w, h, x, y + 1);
+    let ok = !!(isOn(a, w, h, x - 1, y) && isOn(a, w, h, x + 1, y) && isOn(a, w, h, x, y - 1) && isOn(a, w, h, x, y + 1));
     if (ok && square) ok = !!(isOn(a, w, h, x - 1, y - 1) && isOn(a, w, h, x + 1, y - 1) && isOn(a, w, h, x - 1, y + 1) && isOn(a, w, h, x + 1, y + 1));
     if (ok) out[i] = 1;
   }
@@ -472,7 +541,7 @@ export interface LantuejoulResult {
  */
 export function lantuejoul(m: A, w: number, h: number, se: "cross" | "square"): LantuejoulResult {
   const sq = se === "square";
-  let E = Uint8Array.from(m as ArrayLike<number>, v => (v ? 1 : 0));
+  let E: Uint8Array = Uint8Array.from(m as ArrayLike<number>, v => (v ? 1 : 0));
   const skeleton = new Uint8Array(w * h), radius = new Int32Array(w * h).fill(-1), counts: number[] = [];
   for (let r = 0; ; r++) {
     let any = false;
@@ -701,7 +770,7 @@ export function totalLength(g: SkelGraph, est: LengthEstimator): number {
  * A junction always keeps at least two edges (the longest ones).
  */
 export function prune(sk: A, w: number, h: number, k: number, opts: { est?: LengthEstimator; dt?: ArrayLike<number>; passes?: number } = {}): { skeleton: Uint8Array; removed: number } {
-  let cur = Uint8Array.from(sk as ArrayLike<number>, v => (v ? 1 : 0));
+  let cur: Uint8Array = Uint8Array.from(sk as ArrayLike<number>, v => (v ? 1 : 0));
   let removed = 0;
   const est = opts.est ?? "weighted";
   for (let pass = 0; pass < (opts.passes ?? 2); pass++) {

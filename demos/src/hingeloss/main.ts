@@ -17,18 +17,18 @@ import { PRESETS, Preset, LOSSES, avgLoss, argminT, margins } from "./losses";
 const NAME = "hingeloss";
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
-[data-demo="${NAME}"] .hl-plots { flex: 1 1 560px; min-width: 0; max-width: 760px; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .8em; }
-[data-demo="${NAME}"] .hl-plots > .hl-wide { grid-column: 1 / span 2; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 300px; gap: .35em; }
-[data-demo="${NAME}"] .hl-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
-[data-demo="${NAME}"] .hl-wide svg { touch-action: none; cursor: ew-resize; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .hl-plots { flex-basis: 760px; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .hl-plots { flex: 1 1 560px; min-width: 0; max-width: 760px; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .8em; }
+.qb-demo[data-demo="${NAME}"] .hl-plots > .hl-wide { grid-column: 1 / span 2; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 300px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .hl-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .hl-wide svg { touch-action: none; cursor: ew-resize; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .hl-plots { flex-basis: 760px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-panel { max-height: 560px; overflow-y: auto; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { max-height: 560px; overflow-y: auto; }
 `;
 
 function injectStyle(): void {

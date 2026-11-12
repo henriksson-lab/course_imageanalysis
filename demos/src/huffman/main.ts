@@ -34,33 +34,32 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { display: grid; grid-template-columns: minmax(280px, 400px) minmax(340px, 1fr) minmax(200px, 250px);
-  grid-template-areas: "hist tree panel" "table info panel"; gap: .6em 1em; align-items: start; }
-[data-demo="${NAME}"] .hf-hist { grid-area: hist; }
-[data-demo="${NAME}"] .hf-tree { grid-area: tree; }
-[data-demo="${NAME}"] .hf-table { grid-area: table; }
-[data-demo="${NAME}"] .hf-info { grid-area: info; display: flex; flex-direction: column; gap: .4em; }
-[data-demo="${NAME}"] .qb-panel { grid-area: panel; max-width: none; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; color: var(--qb-fg); }
-[data-demo="${NAME}"] table { border-collapse: collapse; font-size: 16px; width: 100%; }
-[data-demo="${NAME}"] th, [data-demo="${NAME}"] td { padding: 1px 6px; text-align: right; border-bottom: 1px solid var(--qb-grid); }
-[data-demo="${NAME}"] td.code { font-family: ui-monospace, monospace; text-align: left; }
-[data-demo="${NAME}"] th { font-weight: 600; }
-[data-demo="${NAME}"] .hf-msg { font-family: ui-monospace, monospace; font-size: 16px; line-height: 1.5; word-break: break-all; }
-[data-demo="${NAME}"] .hf-msg .w0 { color: ${BLUE}; } [data-demo="${NAME}"] .hf-msg .w1 { color: ${ORANGE}; }
-[data-demo="${NAME}"] .hf-row { display: flex; gap: .35em; flex-wrap: wrap; align-items: center; }
-[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
-.reveal [data-demo="${NAME}"] { font-size: 18px; grid-template-columns: 360px 1fr 230px; }
-.reveal [data-demo="${NAME}"] table { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .hf-msg { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-note { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .35em; }
-@media (max-width: 900px) {
-  [data-demo="${NAME}"] { grid-template-columns: 1fr; grid-template-areas: "panel" "hist" "tree" "table" "info"; }
-}
+.qb-demo[data-demo="${NAME}"] .hf-col { display: flex; flex-direction: column; gap: .5em; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .hf-left { flex: 1 1 320px; max-width: 420px; }
+.qb-demo[data-demo="${NAME}"] .hf-right { flex: 1.4 1 400px; max-width: 600px; }
+.qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 220px; max-width: none; }
+.reveal .qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { max-width: 260px; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; color: var(--qb-fg); }
+.qb-demo[data-demo="${NAME}"] table { border-collapse: collapse; font-size: 16px; width: 100%; }
+.qb-demo[data-demo="${NAME}"] th, .qb-demo[data-demo="${NAME}"] td { padding: 1px 6px; text-align: right; border-bottom: 1px solid var(--qb-grid); }
+.qb-demo[data-demo="${NAME}"] td.code { font-family: ui-monospace, monospace; text-align: left; }
+.qb-demo[data-demo="${NAME}"] th { font-weight: 600; }
+.qb-demo[data-demo="${NAME}"] .hf-msg { font-family: ui-monospace, monospace; font-size: 15px; line-height: 1.5; word-break: break-all; }
+.qb-demo[data-demo="${NAME}"] .hf-msg .w0 { color: ${BLUE}; } [data-demo="${NAME}"] .hf-msg .w1 { color: ${ORANGE}; }
+.qb-demo[data-demo="${NAME}"] .hf-row { display: flex; gap: .35em; flex-wrap: wrap; align-items: center; }
+.qb-demo[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .hf-left { flex: 0 0 360px; }
+.reveal .qb-demo[data-demo="${NAME}"] .hf-right { flex: 1 1 520px; }
+.reveal .qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 0 230px; gap: .35em; }
+.reveal .qb-demo[data-demo="${NAME}"] table { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .hf-msg { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; }
 `;
 
 function injectStyle(): void {
@@ -89,19 +88,20 @@ function mount(host: HTMLElement): void {
   let code: HuffmanCode = huffman(st.counts, st.tie);
 
   // ---- layout ----
-  const histFig = htmlEl("figure", "hf-hist", "", host);
+  const colL = htmlEl("div", "hf-col hf-left", "", host), colR = htmlEl("div", "hf-col hf-right", "", host);
+  const histFig = htmlEl("figure", "hf-hist", "", colL);
   htmlEl("figcaption", "", "histogram: drag a bar to change a count", histFig);
   const HW = 400, HH = 250, hl = 44, hr = 8, ht = 24, hb = 40;
   const hsvg = svgEl("svg", { viewBox: `0 0 ${HW} ${HH}`, width: "100%" }, histFig);
   const hg = svgEl("g", {}, hsvg), hitG = svgEl("g", {}, hsvg);
   let hitK = -1;
-  const treeFig = htmlEl("figure", "hf-tree", "", host);
+  const treeFig = htmlEl("figure", "hf-tree", "", colR);
   const treeCap = htmlEl("figcaption", "", "", treeFig);
   const TW = 560, TH = 300;
   const tsvg = svgEl("svg", { viewBox: `0 0 ${TW} ${TH}`, width: "100%" }, treeFig);
-  const tableBox = htmlEl("div", "hf-table", "", host);
+  const tableBox = htmlEl("div", "hf-table", "", colL);
   if (host.dataset.table === "0") tableBox.style.display = "none";
-  const info = htmlEl("div", "hf-info", "", host);
+  const info = htmlEl("div", "hf-info", "", colR);
   const BW = 560, BH = 104;
   const bsvg = svgEl("svg", { viewBox: `0 0 ${BW} ${BH}`, width: "100%" }, info);
   const msgBox = htmlEl("div", "hf-msg", "", info);
@@ -158,17 +158,17 @@ function mount(host: HTMLElement): void {
     hg.replaceChildren();
     for (const v of [0, 10, 20, 30, 40, 50]) {
       svgEl("line", { x1: hl, x2: HW - hr, y1: by(v), y2: by(v), stroke: "var(--qb-grid)" }, hg);
-      txt(hg, hl - 6, by(v) + 6, String(v), { "text-anchor": "end", "font-size": 16 });
+      txt(hg, hl - 6, by(v) + 6, String(v), { "text-anchor": "end", "font-size": 18 });
     }
     const bw = 0.7 * (HW - hl - hr) / K();
     const last = st.step > 0 ? code.merges[st.step - 1] : null;
     st.counts.forEach((c, i) => {
       const merged = last && (last.a === i || last.b === i);
       svgEl("rect", { x: bx(i) - bw / 2, y: by(c), width: bw, height: Math.max(0, by(0) - by(c)), fill: merged ? ORANGE : BLUE, rx: 2 }, hg);
-      txt(hg, bx(i), by(c) - 4, String(c), { "font-size": 15 });
+      txt(hg, bx(i), by(c) - 4, String(c), { "font-size": 17 });
       txt(hg, bx(i), HH - hb + 22, st.labels[i], { "font-size": K() > 8 ? 15 : 18, "font-weight": 600 });
     });
-    txt(hg, 14, (ht + HH - hb) / 2, "count", { "font-size": 16, transform: `rotate(-90 14 ${(ht + HH - hb) / 2})` });
+    txt(hg, 14, (ht + HH - hb) / 2, "count", { "font-size": 18, transform: `rotate(-90 14 ${(ht + HH - hb) / 2})` });
     // invisible hit areas, one per bar column (rebuilt only when the number of symbols changes,
     // so a drag keeps its pointer capture)
     if (hitK === K()) return;

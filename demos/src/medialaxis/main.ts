@@ -11,14 +11,14 @@
 // <div data-demo="medialaxis" data-preset="rect|bump|ring|star|metric|fire"
 //      data-shape="rect|ellipse|L|star|dumbbell|ring" data-metric="cityblock|chessboard|euclidean"
 //      data-method="ridges|lantuejoul|thinning"></div>
-import { autoMount, htmlEl, slider, presets, checkbox, button, svgEl, draggable, svgPoint } from "../lib/ui";
-import { rasterise, ellipsePoly, starPoly, Poly } from "../lib/shapecanvas";
+// The λ slider keeps only the axis pixels whose two nearest boundary points are at least λ
+// apart (removes the small branches that boundary pixels create; maximal-disc method only).
+import { autoMount, htmlEl, slider, presets, button, svgEl, draggable, svgPoint } from "../lib/ui";
 import { viridis } from "../lib/colour";
-import {
-  Metric, distanceMap, medialAxis, reconstructFromDiscs, lantuejoul, lantuejoulReconstruct, skeletonize, skeletonGraph,
-} from "../lib/skeleton";
+import { Metric } from "../lib/skeleton";
 import { ImgView, injectStyle } from "../canny/imgview";
 import { choice, CHOICE_CSS } from "./choice";
+import { Method, ShapeId, Shape, SHAPES, State, Preset, BASE, PRESETS, analyseShape } from "./shapes";
 
 const NAME = "medialaxis";
 const N = 256;
@@ -36,53 +36,9 @@ const STYLE = CHOICE_CSS + `
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 360px; gap: .2em; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .06em .38em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .2em .45em; }
+.reveal [data-demo="${NAME}"] .qb-note { font-size: 14px; line-height: 1.2; }
 @media (max-width: 860px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
 `;
-
-type Method = "ridges" | "lantuejoul" | "thinning";
-type ShapeId = "rect" | "ellipse" | "L" | "star" | "dumbbell" | "ring";
-
-interface Shape { polys: Poly[]; rule: "evenodd" | "nonzero" }
-const SHAPES: Record<ShapeId, { label: string; make: () => Shape }> = {
-  rect: { label: "rectangle", make: () => ({ polys: [[[40, 92], [216, 92], [216, 164], [40, 164]]], rule: "evenodd" }) },
-  ellipse: { label: "ellipse", make: () => ({ polys: [ellipsePoly(128, 128, 100, 56, 16)], rule: "evenodd" }) },
-  L: { label: "L", make: () => ({ polys: [[[50, 30], [110, 30], [110, 166], [214, 166], [214, 222], [50, 222]]], rule: "evenodd" }) },
-  star: { label: "star", make: () => ({ polys: [starPoly(128, 136, 112, 46, 5)], rule: "evenodd" }) },
-  dumbbell: { label: "dumbbell", make: () => ({ polys: [ellipsePoly(68, 128, 48, 48, 12), ellipsePoly(188, 128, 48, 48, 12), [[60, 114], [196, 114], [196, 142], [60, 142]]], rule: "nonzero" }) },
-  ring: { label: "ring", make: () => ({ polys: [ellipsePoly(128, 128, 104, 84, 14), ellipsePoly(128, 128, 52, 34, 10)], rule: "evenodd" }) },
-};
-
-interface State {
-  shape: ShapeId; metric: Metric; method: Method; t: number; bump: number; bumpPos: number; pick: [number, number] | null;
-}
-interface Preset { id: string; label: string; s: Partial<State> }
-const BASE: State = { shape: "rect", metric: "euclidean", method: "ridges", t: 99, bump: 0, bumpPos: 0.12, pick: null };
-const PRESETS: Preset[] = [
-  { id: "rect", label: "a rectangle forks at the ends", s: { shape: "rect", metric: "euclidean", method: "ridges", pick: [44, 96] } },
-  { id: "bump", label: "one bump, one branch", s: { shape: "ellipse", metric: "euclidean", method: "thinning", bump: 7, bumpPos: 0.2 } },
-  { id: "ring", label: "the ring keeps its loop", s: { shape: "ring", metric: "euclidean", method: "thinning" } },
-  { id: "star", label: "reconstruct the star from its axis", s: { shape: "star", metric: "chessboard", method: "lantuejoul" } },
-  { id: "metric", label: "city-block vs Euclidean axis", s: { shape: "rect", metric: "cityblock", method: "ridges" } },
-  { id: "fire", label: "grassfire", s: { shape: "dumbbell", metric: "euclidean", method: "ridges", t: 22 } },
-];
-
-/** Point at arc-length fraction s along a closed polygon, and the outward unit normal. */
-function boundaryPoint(p: Poly, s: number): { x: number; y: number; nx: number; ny: number } {
-  const n = p.length, L: number[] = [];
-  let tot = 0, area = 0;
-  for (let i = 0; i < n; i++) {
-    const a = p[i], b = p[(i + 1) % n];
-    L.push(Math.hypot(b[0] - a[0], b[1] - a[1])); tot += L[i];
-    area += a[0] * b[1] - b[0] * a[1];
-  }
-  let d = ((s % 1) + 1) % 1 * tot, i = 0;
-  while (i < n - 1 && d > L[i]) { d -= L[i]; i++; }
-  const a = p[i], b = p[(i + 1) % n], u = L[i] ? d / L[i] : 0;
-  const tx = (b[0] - a[0]) / (L[i] || 1), ty = (b[1] - a[1]) / (L[i] || 1);
-  // screen coordinates (y down): for area > 0 the polygon runs clockwise on screen, outward = (ty, −tx)
-  const sg = area > 0 ? 1 : -1;
-  return { x: a[0] + u * (b[0] - a[0]), y: a[1] + u * (b[1] - a[1]), nx: sg * ty, ny: -sg * tx };
-}
 
 function mount(host: HTMLElement): void {
   injectStyle(NAME, STYLE);
@@ -112,17 +68,19 @@ function mount(host: HTMLElement): void {
   const methodC = choice<Method>(panel, "axis", [["ridges", "maximal discs"], ["lantuejoul", "Lantuéjoul"], ["thinning", "thinning"]], st.method, v => { st.method = v; recompute(); });
   const metricC = choice<Metric>(panel, "metric", [["cityblock", "city-block"], ["chessboard", "chessboard"], ["euclidean", "Euclidean"]], st.metric, v => { st.metric = v; recompute(); });
   const tS = slider(panel, "grassfire t", 0, 99, 1, st.t, v => { st.t = v; draw(); }, v => (v >= 99 ? "off" : String(v)));
+  const lS = slider(panel, "λ (axis pruning)", 0, 24, 1, st.lambda, v => { st.lambda = v; recompute(); }, v => (v ? `${v} px` : "off"));
   const bS = slider(panel, "bump size", 0, 14, 1, st.bump, v => { st.bump = v; recompute(); });
   const bpS = slider(panel, "bump position", 0, 1, 0.01, st.bumpPos, v => { st.bumpPos = v; recompute(); });
   const note = htmlEl("div", "qb-note", "", panel);
   button(panel, "⟲ reset", () => { Object.assign(st, start()); shape = SHAPES[st.shape].make(); pbtns.forEach(b => b.classList.remove("active")); sync(); recompute(); });
 
-  function sync(): void { shapeC.set(st.shape); methodC.set(st.method); metricC.set(st.metric); tS.set(st.t); bS.set(st.bump); bpS.set(st.bumpPos); }
+  function sync(): void { shapeC.set(st.shape); methodC.set(st.method); metricC.set(st.metric); tS.set(st.t); lS.set(st.lambda); bS.set(st.bump); bpS.set(st.bumpPos); }
   function load(p: Preset): void { Object.assign(st, BASE, p.s); shape = SHAPES[st.shape].make(); sync(); recompute(); }
 
   // ---- computation ----
-  let mask = new Uint8Array(N * N), dt = new Float32Array(N * N), axis = new Uint8Array(N * N), radius = new Float32Array(N * N);
-  let recon = new Uint8Array(N * N), maxDT = 1, info = "";
+  let mask: Uint8Array = new Uint8Array(N * N), dt: Float32Array = new Float32Array(N * N), axis: Uint8Array = new Uint8Array(N * N), radius: Float32Array = new Float32Array(N * N);
+  let recon: Uint8Array = new Uint8Array(N * N), maxDT = 1, info = "";
+  const fmtR = (v: number) => (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(2));
   let pending = false;
   function recompute(): void {
     if (pending) return;
@@ -130,50 +88,8 @@ function mount(host: HTMLElement): void {
     requestAnimationFrame(() => { pending = false; compute(); draw(); });
   }
   function compute(): void {
-    mask = rasterise(shape.polys, N, N, shape.rule);
-    if (st.bump > 0) {
-      const b = boundaryPoint(shape.polys[0], st.bumpPos), r = st.bump, cx = b.x + b.nx * r * 0.45, cy = b.y + b.ny * r * 0.45;
-      for (let y = Math.floor(cy - r - 1); y <= cy + r + 1; y++) for (let x = Math.floor(cx - r - 1); x <= cx + r + 1; x++)
-        if (x >= 0 && y >= 0 && x < N && y < N && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) < r) mask[y * N + x] = 1;
-    }
-    // keep a background frame, so the image border is never part of the shape
-    for (let k = 0; k < N; k++) { mask[k] = 0; mask[(N - 1) * N + k] = 0; mask[k * N] = 0; mask[k * N + N - 1] = 0; }
-    const lMetric: Metric = st.metric === "cityblock" ? "cityblock" : "chessboard";
-    const useMetric: Metric = st.method === "lantuejoul" ? lMetric : st.metric;
-    dt = distanceMap(mask, N, N, useMetric);
-    maxDT = 1;
-    for (let i = 0; i < N * N; i++) if (mask[i] && dt[i] > maxDT) maxDT = dt[i];
-    if (st.method === "ridges") {
-      axis = medialAxis(mask, N, N, useMetric, dt);
-      radius = dt;
-      recon = reconstructFromDiscs(axis, radius, N, N, useMetric);
-    } else if (st.method === "lantuejoul") {
-      const se = lMetric === "cityblock" ? "cross" : "square";
-      const L = lantuejoul(mask, N, N, se);
-      axis = L.skeleton;
-      radius = Float32Array.from(L.radius, r => r + 1);
-      recon = lantuejoulReconstruct(L, N, N, se);
-    } else {
-      axis = skeletonize(mask, N, N);
-      radius = dt;
-      recon = reconstructFromDiscs(axis, radius, N, N, useMetric);
-    }
-    let nAxis = 0, nShape = 0, missing = 0, extra = 0;
-    for (let i = 0; i < N * N; i++) {
-      if (axis[i]) nAxis++;
-      if (mask[i]) nShape++;
-      if (mask[i] && !recon[i]) missing++;
-      if (!mask[i] && recon[i]) extra++;
-    }
-    const g = skeletonGraph(skeletonize(axis, N, N), N, N);
-    const ends = g.nodes.filter(n => n.kind === "end").length;
-    info = `shape: ${nShape} pixels, largest DT ${fmt(maxDT)}\n` +
-      `axis: ${nAxis} pixels (${(100 * nAxis / Math.max(1, nShape)).toFixed(1)} %)\n` +
-      `axis graph: ${ends} end points, ${g.edges.length} branches, ${g.components} piece${g.components === 1 ? "" : "s"}\n` +
-      (missing || extra ? `reconstruction: ${missing} missing, ${extra} extra` : "reconstruction: exact");
-    note.textContent = st.method === "lantuejoul"
-      ? `Lantuéjoul with B = ${lMetric === "cityblock" ? "the 3 × 3 cross (city-block discs)" : "the 3 × 3 square (chessboard discs)"}; colour = r of S_r.`
-      : st.method === "thinning" ? "Thinning: connected and one pixel wide, but not exactly centred; radius = DT on it." : "Maximal discs: a pixel whose disc no neighbour's disc contains.";
+    const r = analyseShape(shape, st);
+    mask = r.mask; dt = r.dt; axis = r.axis; radius = r.radius; recon = r.recon; maxDT = r.maxDT; info = r.info; note.textContent = r.note;
   }
   const fmt = (v: number) => (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(2));
 
@@ -226,7 +142,7 @@ function mount(host: HTMLElement): void {
         else if (m === "chessboard") view.add("rect", { x: cx - r + 0.5, y: cy - r + 0.5, width: 2 * r - 1, height: 2 * r - 1, fill: "none", stroke: col, "stroke-width": 2.5 });
         else { const R = r - 0.5; view.add("polygon", { points: `${cx},${cy - R} ${cx + R},${cy} ${cx},${cy + R} ${cx - R},${cy}`, fill: "none", stroke: col, "stroke-width": 2.5 }); }
         view.add("circle", { cx, cy, r: 2.2, fill: col, stroke: "#000", "stroke-width": 1 });
-        legend.textContent = `disc at (${x}, ${y}): radius ${fmt(r)}`;
+        legend.textContent = `disc at (${x}, ${y}): radius ${fmtR(r)}`;
       } else legend.textContent = "drag the handles · click near the axis for its disc";
     } else legend.textContent = "drag the handles · click near the axis for its disc";
     // vertex handles

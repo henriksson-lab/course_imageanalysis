@@ -40,6 +40,10 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .25em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
+.reveal [data-demo="${NAME}"] .nb-stage { flex: 0 0 430px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 560px; max-width: 680px; }
+.reveal [data-demo="${NAME}"] .nb-lab { display: none; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; line-height: 1.2; padding: .25em .5em; }
 `;
 
 function injectStyle(): void {

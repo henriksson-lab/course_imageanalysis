@@ -10,15 +10,15 @@
 //
 // <div data-demo="arbor" data-preset="neuron|vessel|noise|scale|junction|count|tortuous"></div>
 import { autoMount, htmlEl, slider, presets, button, svgEl } from "../lib/ui";
-import { inferno, viridis, toCss, diverging } from "../lib/colour";
+import { inferno, viridis, toCss, diverging, scalarToRGBA } from "../lib/colour";
 import { Plot, seriesColor } from "../lib/plot";
 import { displayRange } from "../lib/imageops";
-import { scalarToRGBA } from "../lib/colour";
 import { pathLength, chord, LengthEstimator } from "../lib/skeleton";
 import { ImgView, injectStyle } from "../canny/imgview";
 import { choice, CHOICE_CSS } from "../medialaxis/choice";
 import {
-  N, GenParams, SegParams, Generated, Segmented, generate, vesselness, segment, measure, truthMeasures, matchPoints, sholl, SHOLL_RADII,
+  N, Generated, Segmented, generate, vesselness, segment, measure, truthMeasures, matchPoints, sholl, SHOLL_RADII,
+  Tab, Overlay, State, Preset, NEURON, VESSEL, SEG_N, SEG_V, PRESETS,
 } from "./pipeline";
 
 const NAME = "arbor";
@@ -45,30 +45,11 @@ const STYLE = CHOICE_CSS + `
 @media (max-width: 860px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
 `;
 
-type Tab = "image" | "vessel" | "mask" | "skeleton" | "graph";
-type Overlay = "none" | "radius" | "tortuosity" | "sholl" | "truth";
-interface State { gen: GenParams; seg: SegParams; tab: Tab; overlay: Overlay; est: LengthEstimator; shollR: number }
-interface Preset { id: string; label: string; s: { gen?: Partial<GenParams>; seg?: Partial<SegParams>; tab?: Tab; overlay?: Overlay; est?: LengthEstimator; shollR?: number } }
-
-const NEURON: GenParams = { kind: "neuron", seed: 7, branching: 0.022, tortuosity: 0.5, noise: 6, blur: 1, spots: 0 };
-const VESSEL: GenParams = { kind: "vessel", seed: 15, branching: 0.02, tortuosity: 0.5, noise: 6, blur: 1, spots: 0 };
-const SEG_N: SegParams = { sMin: 1, sMax: 3, c: 15, tHigh: 0.5, tLow: 0.15, k: 8 };
-const SEG_V: SegParams = { sMin: 1, sMax: 5, c: 15, tHigh: 0.5, tLow: 0.15, k: 8 };
-const PRESETS: Preset[] = [
-  { id: "neuron", label: "neuron: Sholl profile", s: { gen: NEURON, seg: SEG_N, tab: "graph", overlay: "sholl", shollR: 50 } },
-  { id: "vessel", label: "vessels: length and branching density", s: { gen: VESSEL, seg: SEG_V, tab: "graph", overlay: "radius" } },
-  { id: "noise", label: "noise: spurs inflate the branch count", s: { gen: { ...NEURON, noise: 14 }, seg: { ...SEG_N, k: 0 }, tab: "graph", overlay: "truth" } },
-  { id: "scale", label: "one scale misses the thick vessels", s: { gen: VESSEL, seg: { ...SEG_V, sMax: 1 }, tab: "mask", overlay: "truth" } },
-  { id: "junction", label: "junctions fade: branch points lost", s: { gen: VESSEL, seg: { ...SEG_V, tHigh: 0.85, tLow: 0.85 }, tab: "vessel", overlay: "truth" } },
-  { id: "count", label: "pixel counting underestimates length", s: { gen: VESSEL, seg: SEG_V, tab: "skeleton", overlay: "none", est: "count" } },
-  { id: "tortuous", label: "tortuous vessels", s: { gen: { ...VESSEL, seed: 13, tortuosity: 1.3 }, seg: SEG_V, tab: "graph", overlay: "tortuosity" } },
-];
-
 function mount(host: HTMLElement): void {
   injectStyle(NAME, STYLE);
   const p0 = PRESETS.find(p => p.id === host.dataset.preset) ?? PRESETS[0];
   const fromPreset = (p: Preset): State => ({
-    gen: { ...(p.s.gen ?? NEURON) }, seg: { ...(p.s.seg ?? SEG_N) }, tab: p.s.tab ?? "graph", overlay: p.s.overlay ?? "none",
+    gen: { ...NEURON, ...(p.s.gen ?? {}) }, seg: { ...SEG_N, ...(p.s.seg ?? {}) }, tab: p.s.tab ?? "graph", overlay: p.s.overlay ?? "none",
     est: p.s.est ?? "corrected", shollR: p.s.shollR ?? 50,
   });
   const st: State = fromPreset(p0);
@@ -121,20 +102,22 @@ function mount(host: HTMLElement): void {
   function load(p: Preset): void { Object.assign(st, fromPreset(p)); sync(); runGen(); }
 
   // ---- computation (debounced: the vesselness takes ~0.2 s) ----
-  let gen: Generated | null = null, V = new Float32Array(N * N), bestSigma = new Float32Array(N * N), seg: Segmented | null = null;
+  let gen: Generated | null = null, V: Float32Array = new Float32Array(N * N), bestSigma: Float32Array = new Float32Array(N * N), seg: Segmented | null = null;
   let timer = 0, level = 0;
-  function schedule(l: number): void {
+  function run(): void {
+    const L = level; level = 0;
+    if (L >= 3 || !gen) gen = generate(st.gen);
+    if (L >= 2) { const r = vesselness(gen.image, st.seg); V = r.V; bestSigma = r.bestSigma; }
+    seg = segment(V, st.seg);
+    busy.textContent = "";
+    draw();
+  }
+  function schedule(l: number, now = false): void {
     level = Math.max(level, l);
-    busy.textContent = "computing …";
     clearTimeout(timer);
-    timer = window.setTimeout(() => {
-      const L = level; level = 0;
-      if (L >= 3 || !gen) gen = generate(st.gen);
-      if (L >= 2) { const r = vesselness(gen.image, st.seg); V = r.V; bestSigma = r.bestSigma; }
-      seg = segment(V, st.seg);
-      busy.textContent = "";
-      draw();
-    }, 60);
+    if (now) { run(); return; }
+    busy.textContent = "computing …";
+    timer = window.setTimeout(run, 60);
   }
   const runGen = () => schedule(3), runV = () => schedule(2), runSeg = () => schedule(1);
 
@@ -226,7 +209,7 @@ function mount(host: HTMLElement): void {
   }
 
   pbtns[PRESETS.indexOf(p0)]?.classList.add("active");
-  runGen();
+  schedule(3, true);
 }
 
 autoMount(NAME, mount);

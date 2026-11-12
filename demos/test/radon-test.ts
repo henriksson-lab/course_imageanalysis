@@ -217,6 +217,12 @@ function testSmall(): void {
   // one SIRT step from zero (averaging): (1.75, 2.25, 2.75, 3.25)
   const s = S.sirtStep(sys, [3, 7, 4, 6], [0, 0, 0, 0], 1);
   check(maxDiff(s, [1.75, 2.25, 2.75, 3.25]) < 1e-12, `SIRT step: ${Array.from(s)}`);
+  const nv = S.simpleNullImage(sys);
+  check(!!nv && maxDiff(nv, [1, -1, -1, 1]) === 0, `simple null image of the 2x2 example: ${nv && Array.from(nv)}`);
+  check(maxDiff(S.apply(sys, a.map((v, i) => v + nv![i])), [3, 7, 4, 6]) === 0, "adding the null image keeps the data");
+  check(S.simpleNullImage(withDiag) === null, "no null image with the diagonals");
+  const s3 = S.smallSystem(3, ["rows", "cols", "diag"]), n3 = S.simpleNullImage(s3);
+  check(!!n3 && S.apply(s3, n3).every(v => v === 0), "3x3 null image is in the null space");
   // A^T b = (7, 9, 11, 13)
   check(maxDiff(S.applyT(sys, [3, 7, 4, 6]), [7, 9, 11, 13]) === 0, "A^T b");
 }

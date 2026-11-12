@@ -249,9 +249,10 @@ export function flowTarget(lab: Int32Array, n: number, D: Float32Array): { vx: F
 export interface Targets {
   fg: Float32Array; bnd: Uint8Array; D: Float32Array; rays: Float32Array;
   vx: Float32Array; vy: Float32Array; centre: Int32Array;
-  /** The same targets for the merged mask (every group of touching cells as one): what a network shows under contact bias. */
-  Du: Float32Array; raysU: Float32Array; vxU: Float32Array; vyU: Float32Array;
-  /** Weight of the contact zone (1 at a contact, fading over ~3 px). */
+  /** The same targets for the merged mask (every group of touching cells as one): what a
+   *  network shows under contact bias. Computed on first use (mergedTargets). */
+  Du?: Float32Array; raysU?: Float32Array; vxU?: Float32Array; vyU?: Float32Array;
+  /** Weight of the contact zone (1 at a contact, fading over a few pixels). */
   zone: Float32Array;
   merged: Int32Array; nMerged: number;
 }
@@ -265,15 +266,21 @@ export function computeTargets(sc: Scene): Targets {
   const fl = flowTarget(lab, n, D);
   const fgm = Uint8Array.from(lab, l => (l ? 1 : 0));
   const L = label2d(fgm, N, N, 4), merged = L.data, nMerged = L.count;
-  const Du = distanceTarget(merged, nMerged);
-  const raysU = rayTarget(merged);
-  const flU = flowTarget(merged, nMerged, Du);
   const c = contacts(lab);
   const zg = createGrey(N, N); for (let i = 0; i < N * N; i++) zg.data[i] = c[i];
   const zb = gaussianBlur(zg, 4);
   let mx = 0; for (const v of zb.data) mx = Math.max(mx, v);
-  const zone = Float32Array.from(zb.data, (v, i) => (lab[i] ? Math.min(1, 3 * v / (mx || 1)) : 0));
-  return { fg, bnd, D, rays, vx: fl.vx, vy: fl.vy, centre: fl.centre, Du, raysU, vxU: flU.vx, vyU: flU.vy, zone, merged, nMerged };
+  const zone = Float32Array.from(zb.data, (v, i) => (lab[i] ? Math.min(1, 4 * v / (mx || 1)) : 0));
+  return { fg, bnd, D, rays, vx: fl.vx, vy: fl.vy, centre: fl.centre, zone, merged, nMerged };
+}
+
+/** Fill in the merged-mask targets (rays and flows of every touching group as one object). */
+export function mergedTargets(T: Targets): void {
+  if (T.raysU) return;
+  T.Du = distanceTarget(T.merged, T.nMerged);
+  T.raysU = rayTarget(T.merged);
+  const f = flowTarget(T.merged, T.nMerged, T.Du);
+  T.vxU = f.vx; T.vyU = f.vy;
 }
 
 // ---------------------------------------------------------------------------------------
@@ -313,8 +320,9 @@ export function predict(sc: Scene, T: Targets, route: Route, e: Errors): Predict
   const f1 = smoothField(101), f2 = smoothField(202), f3 = smoothField(303);
   const dimF = dimFactor(sc, e.missed);
   const fgRaw = Float32Array.from(T.fg, (v, i) => v * dimF[i]);
-  const fg = blurArr(fgRaw, e.blur).map((v, i) => Math.min(1, Math.max(0, v + 0.35 * e.noise * f3[i])));
+  const fg = blurArr(fgRaw, e.blur).map((v, i) => Math.min(1, Math.max(0, v + 0.2 * e.noise * f3[i])));
   const z = T.zone, c = e.contact;
+  if (c > 0 && (route === "star" || route === "flows")) mergedTargets(T);
   if (route === "semantic") return { route, fg };
   if (route === "boundary") {
     // contact bias: the boundary class fades where cells touch
@@ -331,7 +339,7 @@ export function predict(sc: Scene, T: Targets, route: Route, e: Errors): Predict
   }
   // distance (also the objectness of the star route): contact bias = the network does not see
   // the contact and fills the neck up to the height of the cell centres
-  const Dm = Float32Array.from(T.D, (v, i) => ((1 - c * z[i]) * v + c * z[i] * Math.max(v, 0.9)) * dimF[i]);
+  const Dm = Float32Array.from(T.D, (v, i) => ((1 - c * z[i]) * v + c * z[i] * Math.max(v, 1)) * dimF[i]);
   const D = blurArr(Dm, e.blur).map((v, i) => Math.max(0, v + 0.25 * e.noise * f1[i] * (T.fg[i] ? 1 : 0.4)));
   if (route === "distance") return { route, fg, D };
   if (route === "star") {
@@ -340,15 +348,15 @@ export function predict(sc: Scene, T: Targets, route: Route, e: Errors): Predict
       if (!T.fg[p]) continue;
       const w = c * z[p];
       for (let k = 0; k < MAX_RAYS; k++) {
-        const v = (1 - w) * T.rays[p * MAX_RAYS + k] + w * T.raysU[p * MAX_RAYS + k];
+        const v = w > 0 ? (1 - w) * T.rays[p * MAX_RAYS + k] + w * T.raysU![p * MAX_RAYS + k] : T.rays[p * MAX_RAYS + k];
         rays[p * MAX_RAYS + k] = Math.max(0.5, v * (1 + 0.35 * e.noise * (f2[p] + r.norm())));
       }
     }
     return { route, fg, D, rays };
   }
   // flows
-  let vx: Float32Array = Float32Array.from(T.vx, (v, i) => (1 - c * z[i]) * v + c * z[i] * T.vxU[i]);
-  let vy: Float32Array = Float32Array.from(T.vy, (v, i) => (1 - c * z[i]) * v + c * z[i] * T.vyU[i]);
+  let vx: Float32Array = c > 0 ? Float32Array.from(T.vx, (v, i) => (1 - c * z[i]) * v + c * z[i] * T.vxU![i]) : T.vx.slice();
+  let vy: Float32Array = c > 0 ? Float32Array.from(T.vy, (v, i) => (1 - c * z[i]) * v + c * z[i] * T.vyU![i]) : T.vy.slice();
   vx = blurArr(vx, e.blur); vy = blurArr(vy, e.blur);
   for (let i = 0; i < N * N; i++) {
     const a = vx[i] + 0.9 * e.noise * f1[i], b = vy[i] + 0.9 * e.noise * f2[i], m = Math.hypot(a, b);

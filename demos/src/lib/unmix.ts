@@ -738,7 +738,7 @@ export function stainScene(n = 160, seed = 7, mode: "he" | "hdab" = "he"): Stain
       const dx = x - x0, dy = y - y0, u = dx * Math.cos(th) + dy * Math.sin(th), v = -dx * Math.sin(th) + dy * Math.cos(th);
       const d = Math.sqrt((u / a) ** 2 + (v / b) ** 2);
       if (d < 1.2) {
-        const w = 1 - smoothstep((d - 0.8) / 0.35), p = y * n + x, tex = 0.85 + 0.15 * Math.sin(1.7 * x / s + 2.3 * y / s);
+        const w = 1 - smoothstep((d - 0.8) / 0.35), p = y * n + x, tex = 0.85 + 0.15 * Math.sin(0.6 * x / s + 0.8 * y / s);
         const h = w * dens * tex * (pos ? 0.45 : 1);
         cH[p] = Math.max(cH[p], h);
         if (pos) cD[p] = Math.max(cD[p], w * (0.5 + 0.25 * dens) * tex);

@@ -31,8 +31,8 @@ const STYLE = `
 .reveal .qb-demo[data-demo="${NAME}"] .p3-left { flex: 0 0 700px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 420px; max-width: 450px; gap: .1em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .02em .35em; }
-.reveal .qb-demo[data-demo="${NAME}"] .p3-mats { font-size: 13px; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .4em; line-height: 1.2; }
+.reveal .qb-demo[data-demo="${NAME}"] .p3-mats { font-size: 14px; gap: .3em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .2em .4em; line-height: 1.2; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
 `;
 

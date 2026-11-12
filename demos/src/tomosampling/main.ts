@@ -8,7 +8,7 @@ import { htmlEl, slider, presets, button, checkbox, autoMount } from "../lib/ui"
 import { Plot, plotFigure } from "../lib/plot";
 import { diverging, grey } from "../lib/colour";
 import * as R from "../lib/radon";
-import { ObjectName, OBJECT_LABELS, objectImage, cellObject, imagePanel, injectStyle, baseCss, layout, drawHeat, CELL_CREDIT } from "../radonproj/view";
+import { ObjectName, OBJECT_LABELS, objectImage, cellObject, imagePanel, injectStyle, baseCss, layout, drawHeat, CELL_CREDIT, uniqueClip } from "../radonproj/view";
 import { centredSpectrum } from "../fourierslice/model";
 
 const NAME = "tomosampling";
@@ -42,7 +42,7 @@ function mount(host: HTMLElement): void {
   const credit = htmlEl("div", "rd-credit", CELL_CREDIT, recP.fig);
   const errP = imagePanel(L.figs, "error", N, 0, "rd-fig");
   const specFig = plotFigure(L.figs, "spectrum + measured spokes", "rd-fig");
-  const spec = new Plot(specFig, { width: 320, height: 320, x: [-0.5, 0.5], y: [-0.5, 0.5], equal: true, grid: false, xticks: [-0.5, 0, 0.5], yticks: [-0.5, 0, 0.5], margin: { l: 48, b: 30, t: 6, r: 8 } });
+  const spec = uniqueClip(new Plot(specFig, { font: 22, width: 320, height: 320, x: [-0.5, 0.5], y: [-0.5, 0.5], equal: true, grid: false, xticks: [-0.5, 0, 0.5], yticks: [-0.5, 0, 0.5], margin: { l: 62, b: 34, t: 6, r: 12 } }));
   const [colA, colB, colC] = L.cols;
 
   htmlEl("div", "rd-lab", "presets", colA);
@@ -57,7 +57,7 @@ function mount(host: HTMLElement): void {
   const bS = slider(colB, "detector bins", 0, BINS.length - 1, 1, BINS.indexOf(st.bins), v => { st.bins = BINS[v]; recon(); }, v => String(BINS[v]));
   const dS = slider(colC, "photons per ray", 0, DOSES.length - 1, 1, DOSES.indexOf(st.dose), v => { st.dose = DOSES[v]; recon(); },
     v => (Number.isFinite(DOSES[v]) ? DOSES[v].toExponential(0).replace("e+", "e") : "∞"));
-  const fixCb = checkbox(colC, "fixed total: photons per ray × 180 shared over the views", st.fixedTotal, v => { st.fixedTotal = v; recon(); });
+  const fixCb = checkbox(colC, "fixed total photons", st.fixedTotal, v => { st.fixedTotal = v; recon(); });
   button(htmlEl("div", "rd-row", "", colC), "reset", () => load(start));
   const ro = htmlEl("div", "qb-readout", "", colC);
 

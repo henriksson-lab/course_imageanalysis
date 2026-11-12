@@ -34,7 +34,7 @@ export const PRESETS: { id: string; label: string; s: Partial<State> }[] = [
   { id: "ortho", label: "orthographic vs perspective", s: { ortho: true, space: "ndc" } },
   { id: "dolly", label: "dolly zoom", s: { dist: 9, fov: 18.4, near: 6, far: 12, space: "screen" } },
   { id: "near", label: "near plane too close", s: { near: 0.05, far: 30, space: "ndc" } },
-  { id: "behind", label: "a vertex behind the camera", s: { tz: 2, dist: 2.2, az: 0, el: 0, near: 0.3, space: "screen", pick: 9 } },
+  { id: "behind", label: "a vertex behind the camera", s: { tz: 1, dist: 1.5, az: 40, el: 40, near: 0.1, space: "screen", pick: 9 } },
   { id: "scale", label: "non-uniform scale", s: { sx: 2.5, space: "world" } },
 ];
 

@@ -15,15 +15,15 @@ const TRUTH = PROFILE_TRUTH;
 const COL_OBJ = "#ff7f0e", COL_BG = "#1f77b4";
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; }
-[data-demo="${NAME}"] .sc-plot { flex: 1 1 560px; min-width: 0; max-width: 820px; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 330px; gap: .45em; }
-[data-demo="${NAME}"] .sc-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; overflow-x: auto; }
-[data-demo="${NAME}"] svg text { font-size: 17px; }
-.reveal [data-demo="${NAME}"] { font-size: 19px; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 16px; }
-.reveal [data-demo="${NAME}"] .qb-note { font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .sc-plot { flex: 1 1 560px; min-width: 0; max-width: 820px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 330px; gap: .45em; }
+.qb-demo[data-demo="${NAME}"] .sc-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; overflow-x: auto; }
+.qb-demo[data-demo="${NAME}"] svg text { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 19px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 15px; }
 `;
 
 function injectStyle(): void {

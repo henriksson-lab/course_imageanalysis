@@ -21,18 +21,18 @@ import { LIN_PRESETS, LinPreset, Line, f, norm, signedDistance, errors, minMargi
 
 const NAME = "linclass";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
-[data-demo="${NAME}"] .lc-left { flex: 0 1 470px; min-width: 260px; }
-[data-demo="${NAME}"] .lc-left .qb-plot { max-width: none; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 420px; gap: .4em; }
-[data-demo="${NAME}"] .lc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; overflow-x: auto; }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .lc-left { flex-basis: 460px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .45em; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .lc-left { flex: 0 1 430px; min-width: 260px; }
+.qb-demo[data-demo="${NAME}"] .lc-left .qb-plot { max-width: none; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 270px; max-width: 420px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .lc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; overflow-x: auto; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .lc-left { flex: 0 0 490px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
 `;
 
 function injectStyle(): void {
@@ -182,7 +182,7 @@ function mount(host: HTMLElement): void {
     const ang = Math.atan2(Y1 - Y0, X1 - X0);
     const ar = svgEl("path", { d: `M${X0},${Y0}L${X1},${Y1}M${X1 - 16 * Math.cos(ang - 0.4)},${Y1 - 16 * Math.sin(ang - 0.4)}L${X1},${Y1}L${X1 - 16 * Math.cos(ang + 0.4)},${Y1 - 16 * Math.sin(ang + 0.4)}`, fill: "none" }, gHandles);
     ar.style.setProperty("stroke", "var(--qb-fg, #222)"); ar.style.setProperty("stroke-width", "3.5");
-    const wl = svgEl("text", { x: X1 + 10 * Math.cos(ang) - 6, y: Y1 + 14 * Math.sin(ang) + 6, class: "qb-halo" }, gHandles);
+    const wl = svgEl("text", { x: X1 + 26 * Math.cos(ang) - 7, y: Y1 + 26 * Math.sin(ang) + 7, class: "qb-halo" }, gHandles);
     wl.textContent = "w"; wl.style.fontSize = "22px"; wl.style.setProperty("font-weight", "700"); wl.style.setProperty("font-style", "italic");
     handle(X0, Y0, "var(--qb-fg, #222)", (x, y) => { foot = [x, y]; line = { w: line.w, b: -(line.w[0] * x + line.w[1] * y) }; draw(""); });
     handle(X1, Y1, "#e6a700", (x, y) => {
@@ -195,7 +195,7 @@ function mount(host: HTMLElement): void {
     // readout
     const e = errors(line, pts), mm = minMargin(line, pts);
     let txt = `f(x) = ${fmt(line.w[0])} x₁ ${line.w[1] >= 0 ? "+" : "−"} ${fmt(Math.abs(line.w[1]))} x₂ ${line.b >= 0 ? "+" : "−"} ${fmt(Math.abs(line.b))}\n‖w‖ = ${fmt(norm(line))}\nerrors: ${e} of ${pts.length}\nsmallest y·f/‖w‖: ${Number.isFinite(mm) ? signed(mm) : "–"}`;
-    if (pts.length <= 6) txt += "\n" + pts.map(p => `(${fmt(p.x, 1)}, ${fmt(p.y, 1)}) ${p.c ? "+1" : "−1"}: f = ${signed(f(line, p.x, p.y))}, d = ${signed(signedDistance(line, p.x, p.y))}`).join("\n");
+    if (pts.length <= 6) txt += "\npoint      y    f      d\n" + pts.map(p => `(${fmt(p.x, 1)}, ${fmt(p.y, 1)}) ${p.c ? "+1" : "−1"} ${signed(f(line, p.x, p.y)).padStart(6)} ${signed(signedDistance(line, p.x, p.y)).padStart(6)}`).join("\n");
     ro.textContent = txt;
     note.textContent = msg || preset.note;
   }

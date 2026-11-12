@@ -11,7 +11,7 @@ import { htmlEl, slider, presets, button, checkbox, autoMount } from "../lib/ui"
 import { Plot, plotFigure } from "../lib/plot";
 import { diverging, grey } from "../lib/colour";
 import * as R from "../lib/radon";
-import { ObjectName, OBJECT_LABELS, objectImage, cellObject, imagePanel, sinoPanel, injectStyle, baseCss, layout, CELL_CREDIT } from "../radonproj/view";
+import { ObjectName, OBJECT_LABELS, objectImage, cellObject, imagePanel, sinoPanel, injectStyle, baseCss, layout, CELL_CREDIT, uniqueClip } from "../radonproj/view";
 
 const NAME = "backproj";
 const N = 128;
@@ -50,9 +50,9 @@ function mount(host: HTMLElement): void {
   const sinoP = sinoPanel(L.figs, "sinogram", N / 2, [0, 180], "rd-fig wide", 300);
   const plots = htmlEl("div", "bp-plots", "", L.figs);
   const fFig = plotFigure(plots, "filter response", "");
-  const fPlot = new Plot(fFig, { width: 320, height: 150, x: [0, 0.5], y: [0, 0.55], xticks: [0, 0.25, 0.5], yticks: [0, 0.25, 0.5], margin: { l: 52, b: 34 } });
+  const fPlot = uniqueClip(new Plot(fFig, { font: 22, width: 320, height: 175, x: [0, 0.5], y: [0, 0.55], xticks: [0, 0.25, 0.5], yticks: [0, 0.25, 0.5], margin: { l: 62, b: 34 } }));
   const pFig = plotFigure(plots, "projection: before / after filter", "");
-  const pPlot = new Plot(pFig, { width: 320, height: 150, x: [-64, 64], y: [-0.7, 1.1], xticks: [-64, 0, 64], yticks: [0, 1], margin: { l: 52, b: 34 } });
+  const pPlot = uniqueClip(new Plot(pFig, { font: 22, width: 320, height: 175, x: [-64, 64], y: [-0.7, 1.1], xticks: [-64, 0, 64], yticks: [0, 1], margin: { l: 62, b: 34 } }));
   const recP = imagePanel(L.figs, "reconstruction", N, 0, "rd-fig");
   const credit = htmlEl("div", "rd-credit", CELL_CREDIT, recP.fig);
   const [colA, colB, colC] = L.cols;

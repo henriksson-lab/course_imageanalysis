@@ -34,6 +34,8 @@ const CSS = COMMON_CSS + `
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .08em .35em; }
 .reveal [data-demo="${NAME}"] .um-fig figcaption { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .um-readout { font-size: 15px; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.reveal [data-demo="${NAME}"] .qb-slider { font-size: 17px; }
 `;
 
 const COMP = ["nucleus", "mitochondria", "membrane", "autofluor."];
@@ -65,8 +67,9 @@ function mount(host: HTMLElement): void {
   const cTrue = canvasFigure(row1, "true", N_PIX, N_PIX), cUnm = canvasFigure(row1, "unmixed", N_PIX, N_PIX), cRes = canvasFigure(row1, "residual", N_PIX, N_PIX);
   const cAb = COMP.map((c, k) => { const f = canvasFigure(row2, c, N_PIX, N_PIX); f.cap.style.color = CSSCOL[k]; return f; });
   const plots = htmlEl("div", "ls-plots", "", host);
-  const pSpec = new Plot(plots, { width: 400, height: 230, x: [L0 - 10, L1 + 10], y: [0, 1.05], xlabel: "wavelength (nm)", ylabel: "spectrum", xticks: [500, 550, 600, 650, 700], yticks: [0, 1], font: 17, margin: { l: 58 } });
-  const pPix = new Plot(plots, { width: 400, height: 230, x: [L0 - 10, L1 + 10], y: [0, 1], xlabel: "wavelength (nm)", ylabel: "pixel", xticks: [500, 550, 600, 650, 700], yticks: 3, font: 17, margin: { l: 58 } });
+  const F = host.closest(".reveal") ? 21 : 17;
+  const pSpec = new Plot(plots, { width: 400, height: 230, x: [L0 - 10, L1 + 10], y: [0, 1.05], xlabel: "wavelength (nm)", ylabel: "spectrum", xticks: [500, 600, 700], yticks: [0, 1], font: F, margin: { l: 74 } });
+  const pPix = new Plot(plots, { width: 400, height: 230, x: [L0 - 10, L1 + 10], y: [0, 1], xlabel: "wavelength (nm)", ylabel: "pixel", xticks: [500, 600, 700], yticks: 3, font: F, margin: { l: 74 } });
   uniqueClip(pSpec.svg, NAME); uniqueClip(pPix.svg, NAME);
   const panel = htmlEl("div", "qb-panel", "", host);
   const pbtn = presets(panel, [
@@ -80,7 +83,7 @@ function mount(host: HTMLElement): void {
   const phS = slider(panel, "photons", 1, 3.7, 0.05, st.logPhot, v => { st.logPhot = v; manual(false); }, v => String(Math.round(10 ** v)));
   const autoC = checkbox(panel, "autofluorescence in M", st.auto, v => { st.auto = v; manual(true); });
   const truthC = checkbox(panel, "show true abundances", st.truth, v => { st.truth = v; drawAll(); });
-  const read = htmlEl("div", "qb-readout um-readout", "", panel);
+  const read = htmlEl("div", "qb-readout um-readout", "", plots);
   const note = htmlEl("div", "qb-note", "Click a pixel to see its spectrum and the fit. Photons = expected count of a pixel with abundance 1, over all channels.", panel);
   void note;
 

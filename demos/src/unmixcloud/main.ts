@@ -31,6 +31,8 @@ const CSS = COMMON_CSS + `
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 0 0 300px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .08em .35em; }
 .reveal [data-demo="${NAME}"] .uc-axes { font-size: 15px; }
+.reveal [data-demo="${NAME}"] .qb-check, .reveal [data-demo="${NAME}"] .qb-slider { font-size: 17px; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
 `;
 
 type V3 = [number, number, number];
@@ -148,8 +150,8 @@ function mount(host: HTMLElement): void {
   const normC = checkbox(panel, "normalise (divide by the total)", st.normalise, v => { st.normalise = v; drawAll(); });
   const faceC = checkbox(panel, "cone faces", st.faces, v => { st.faces = v; drawAll(); });
   const fourthC = he ? null : checkbox(panel, "unmodelled 4th component", st.fourth, v => { st.fourth = v; recompute(); });
-  const read = htmlEl("div", "qb-readout um-readout", "", panel);
-  const legend = htmlEl("div", "um-row", "", panel);
+  const read = htmlEl("div", "qb-readout um-readout", "", triBox);
+  const legend = htmlEl("div", "um-row", "", triBox);
   for (const [k, c] of Object.entries(MCOL)) { const s = htmlEl("span", "", "● " + (k === "ls" ? "LS" : k === "nnls" ? "NNLS" : "fully constr."), legend); s.style.color = c; s.style.fontSize = "15px"; }
 
   // ---- computation helpers ----
@@ -251,7 +253,7 @@ function mount(host: HTMLElement): void {
     let negLS = 0, cnt = 0;
     const M = Mof();
     const Pi = U.pseudoInverse(M, 3, K);
-    if (Pi) for (let p = 0; p < P; p++) { const s = Y[p] + Y[P + p] + Y[2 * P + p]; if (s < (he ? 0.15 : 0.1)) continue; cnt++; for (let k = 0; k < K; k++) { const a = Pi[k * 3] * Y[p] + Pi[k * 3 + 1] * Y[P + p] + Pi[k * 3 + 2] * Y[2 * P + p]; if (a < 0) { negLS++; break; } } }
+    if (Pi) for (let p = 0; p < P; p++) { const s = Y[p] + Y[P + p] + Y[2 * P + p]; if (s < (he ? 0.15 : 0.1)) continue; cnt++; for (let k = 0; k < K; k++) { const a = Pi[k * 3] * Y[p] + Pi[k * 3 + 1] * Y[P + p] + Pi[k * 3 + 2] * Y[2 * P + p]; if (a < -1e-9) { negLS++; break; } } }
     lines2.push(`bright pixels with an LS abundance < 0: ${fmt(100 * negLS / Math.max(cnt, 1), 1)} %`);
     if (pick >= 0) {
       const s = solve(pick);

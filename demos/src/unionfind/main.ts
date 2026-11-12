@@ -30,25 +30,29 @@ const PRESETS: Preset[] = [
   { id: "compress", label: "compression flattens on the way", n: 8, byRank: false, comp: "full", ops: [...chain(8), F(1), F(1)] },
   { id: "halving", label: "halving: every other pointer", n: 8, byRank: false, comp: "halving", ops: [...chain(8), F(1), F(1)] },
   { id: "comb", label: "two-pass equivalences of the comb", n: 5, byRank: true, comp: "full", ops: [U(2, 1), U(3, 1), U(4, 1), U(5, 1)] },
-  { id: "hand", label: "6 unions (exercise)", n: 8, byRank: false, comp: "none", ops: [U(1, 2), U(3, 4), U(2, 4), U(5, 6), U(7, 8), U(6, 8), U(4, 8), F(1)] },
+  { id: "hand", label: "6 unions (exercise)", n: 7, byRank: false, comp: "none", ops: [U(1, 2), U(3, 4), U(2, 4), U(5, 6), U(6, 7), U(4, 7), F(1)] },
   { id: "random", label: "random: 16 nodes", n: 16, byRank: true, comp: "full", ops: randomOps(16, 14, 5) },
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .uf-plot { flex: 1 1 560px; min-width: 0; max-width: 760px; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; gap: .45em; }
-[data-demo="${NAME}"] .uf-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .uf-ops { font-family: ui-monospace, monospace; font-size: 15px; line-height: 1.5; }
-[data-demo="${NAME}"] .uf-ops span { padding: 0 .2em; border-radius: 4px; white-space: nowrap; cursor: pointer; }
-[data-demo="${NAME}"] .uf-ops span.done { color: var(--qb-muted); }
-[data-demo="${NAME}"] .uf-ops span.cur { background: var(--qb-c4); color: #fff; }
-[data-demo="${NAME}"] svg text { font-size: 19px; }
-[data-demo="${NAME}"] svg .node { cursor: pointer; }
-.reveal [data-demo="${NAME}"] { font-size: 19px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .uf-lab { font-size: 15px; }
-@media (max-width: 900px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
+.qb-demo[data-demo="${NAME}"] .uf-plot { flex: 1 1 560px; min-width: 0; max-width: 760px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; gap: .45em; }
+.qb-demo[data-demo="${NAME}"] .uf-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .uf-ops { font-family: ui-monospace, monospace; font-size: 15px; line-height: 1.5; }
+.qb-demo[data-demo="${NAME}"] .uf-ops span { padding: 0 .2em; border-radius: 4px; white-space: nowrap; cursor: pointer; }
+.qb-demo[data-demo="${NAME}"] .uf-ops span.done { color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .uf-ops span.cur { background: var(--qb-c4); color: #fff; }
+.qb-demo[data-demo="${NAME}"] svg text { font-size: 19px; }
+.qb-demo[data-demo="${NAME}"] svg .node { cursor: pointer; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 19px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note, .reveal .qb-demo[data-demo="${NAME}"] .uf-lab { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 470px; gap: .3em; }
+.reveal .qb-demo[data-demo="${NAME}"] .uf-plot { flex: 1 1 520px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+@media (max-width: 900px) { .qb-demo[data-demo="${NAME}"] { flex-wrap: wrap; } }
 `;
 
 function injectStyle(): void {

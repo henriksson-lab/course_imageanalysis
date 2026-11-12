@@ -34,21 +34,21 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
-[data-demo="${NAME}"] .cp-main { flex: 1 1 520px; min-width: 0; display: flex; gap: .8em; align-items: flex-start; }
-[data-demo="${NAME}"] .cp-grid { flex: 1 1 440px; min-width: 0; max-width: 470px; }
-[data-demo="${NAME}"] .cp-3d { flex: 1 1 420px; min-width: 0; max-width: 580px; display: flex; flex-direction: column; gap: .4em; }
-[data-demo="${NAME}"] .cp-slices { display: grid; grid-template-columns: repeat(5, 1fr); gap: .3em; }
-[data-demo="${NAME}"] .cp-slices .qb-grid-svg { max-width: 110px !important; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 330px; max-width: 420px; gap: .45em; }
-[data-demo="${NAME}"] .cp-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
-[data-demo="${NAME}"] .cp-verdict { font-weight: 600; padding: .35em .5em; border-radius: 6px; border: 2px solid var(--qb-c3); }
-[data-demo="${NAME}"] .cp-verdict.bad { border-color: var(--qb-c2); color: var(--qb-c2); }
-.reveal [data-demo="${NAME}"] { font-size: 19px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .cp-lab { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .cp-grid { max-width: 500px; }
-@media (max-width: 900px) { [data-demo="${NAME}"], [data-demo="${NAME}"] .cp-main { flex-wrap: wrap; } }
+.qb-demo[data-demo="${NAME}"] { gap: 1em; flex-wrap: nowrap; }
+.qb-demo[data-demo="${NAME}"] .cp-main { flex: 1 1 520px; min-width: 0; display: flex; gap: .8em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .cp-grid { flex: 1 1 440px; min-width: 0; max-width: 470px; }
+.qb-demo[data-demo="${NAME}"] .cp-3d { flex: 1 1 420px; min-width: 0; max-width: 580px; display: flex; flex-direction: column; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .cp-slices { display: grid; grid-template-columns: repeat(5, 1fr); gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .cp-slices .qb-grid-svg { max-width: 110px !important; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 330px; max-width: 420px; gap: .45em; }
+.qb-demo[data-demo="${NAME}"] .cp-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .cp-verdict { font-weight: 600; padding: .35em .5em; border-radius: 6px; border: 2px solid var(--qb-c3); }
+.qb-demo[data-demo="${NAME}"] .cp-verdict.bad { border-color: var(--qb-c2); color: var(--qb-c2); }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 19px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note, .reveal .qb-demo[data-demo="${NAME}"] .cp-lab { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .cp-grid { max-width: 500px; }
+@media (max-width: 900px) { .qb-demo[data-demo="${NAME}"], .qb-demo[data-demo="${NAME}"] .cp-main { flex-wrap: wrap; } }
 `;
 
 function injectStyle(): void {

@@ -3,8 +3,9 @@
 // wavelet codec at the same size as the JPEG; the same analysis runs on the original and the
 // decoded image: spot detection (found, missed, false), integrated intensity of every spot
 // (change against the original, scatter), background mean and noise, the share of
-// high-frequency power, and the spectrum of the error, where JPEG's 8-pixel blocks show up as
-// peaks at multiples of 1/8 of the sampling frequency. A plot follows one measurement over all
+// high-frequency power, and the spectrum of the absolute neighbour differences, where JPEG's
+// 8-pixel blocks show up as peaks at multiples of 1/8 of the sampling frequency (circled; the
+// "blocking index" is their average height above the surrounding spectrum). A plot follows one measurement over all
 // JPEG qualities against the size.
 // Auto-mounts on <div data-demo="measuredamage">. Options: data-preset="q95|q30|q10|spectrum|
 // lossless|wavelet", data-codec="lossless|jpeg|wavelet", data-quality="90",
@@ -30,20 +31,23 @@ const PRESETS: { id: string; label: string; s: Partial<State> }[] = [
 const CURVE_LABEL: Record<Curve, string> = { dim: "dim spots: mean |change| %", found: "spots found (of 60)", false: "false detections", bgsd: "background noise sd", hf: "high-frequency power %" };
 
 const STYLE = `
-[data-demo="${NAME}"] .md-main { display: flex; flex-direction: column; gap: .4em; flex: 1 1 700px; min-width: 0; max-width: 860px; }
-[data-demo="${NAME}"] .md-row { display: flex; gap: 10px; align-items: flex-start; }
-[data-demo="${NAME}"] .md-row > figure { margin: 0; flex: 1 1 0; min-width: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
-[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 230px; max-width: 270px; gap: .4em; }
-[data-demo="${NAME}"] .md-btns { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
-[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
-[data-demo="${NAME}"] .md-credit { font-size: 13px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 17px; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .3em .5em; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
-.reveal [data-demo="${NAME}"] .qb-note { font-size: 13px; }
-.reveal [data-demo="${NAME}"] .md-main { max-width: 760px; }
+.qb-demo[data-demo="${NAME}"] .md-main { display: flex; flex-direction: column; gap: .4em; flex: 1 1 700px; min-width: 0; max-width: 860px; }
+.qb-demo[data-demo="${NAME}"] .md-row { display: flex; gap: 10px; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .md-row > figure { margin: 0; flex: 1 1 0; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
+.qb-demo[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
+.qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 230px; max-width: none; gap: .4em; }
+.reveal .qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { max-width: 270px; }
+.qb-demo[data-demo="${NAME}"] .md-btns { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
+.qb-demo[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
+.qb-demo[data-demo="${NAME}"] .md-credit { font-size: 13px; color: var(--qb-muted); }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .3em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"] .md-main { max-width: 760px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; }
 `;
 
 function injectStyle(): void {
@@ -90,7 +94,7 @@ function mount(host: HTMLElement): void {
   const codecBtns = (["lossless", "jpeg", "wavelet"] as Codec[]).map(c => button(cRow, c === "wavelet" ? "wavelet (same size)" : c === "jpeg" ? "JPEG" : "lossless", () => { st.codec = c; syncUI(); update(); }));
   const qS = slider(panel, "JPEG quality", 5, 100, 5, st.q, v => { st.q = v; later(); });
   const vRow = htmlEl("div", "md-btns", "", panel);
-  const viewBtns = [button(vRow, "error image", () => { st.view = "error"; syncUI(); update(); }), button(vRow, "error spectrum", () => { st.view = "spectrum"; syncUI(); update(); })];
+  const viewBtns = [button(vRow, "error image", () => { st.view = "error"; syncUI(); update(); }), button(vRow, "blocking spectrum", () => { st.view = "spectrum"; syncUI(); update(); })];
   htmlEl("div", "", "plot against size:", panel);
   const kRow = htmlEl("div", "md-btns", "", panel);
   const curveBtns = (Object.keys(CURVE_LABEL) as Curve[]).map(c => button(kRow, { dim: "dim spots", found: "found", false: "false", bgsd: "noise sd", hf: "HF power" }[c], () => { st.curve = c; syncUI(); drawCurve(); }));
@@ -111,6 +115,7 @@ function mount(host: HTMLElement): void {
   const bgMask = M.backgroundMask(sc.spots, sc.clean);
   const m0 = M.measure(sc.image, T, sc, bgMask);
   const th = M.thirds(sc.spots);
+  const bi0 = M.blockingIndex(sc.image);
   const disp = { lo: 100, hi: 1100 };
   drawScalarImage(cOrig, sc.image, N, N, disp);
   circles(cOrig, m0.det.centres, "#ffd400");
@@ -135,18 +140,19 @@ function mount(host: HTMLElement): void {
       drawScalarImage(cErr, err, N, N, { map: diverging, lo: -150, hi: 150 });
       fe.cap.textContent = "error (±150)";
     } else {
-      const P = M.powerSpectrum(err), L = new Float64Array(N * N);
+      // blocking: the size of the jumps between neighbouring pixels repeats every 8 pixels
+      const P = M.powerSpectrum(M.absDiff(dec.image)), L = new Float64Array(N * N);
       for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) L[((y + N / 2) % N) * N + (x + N / 2) % N] = Math.log10(1 + P[y * N + x]);
       let mx = 0;
       for (const v of L) mx = Math.max(mx, v);
-      drawScalarImage(cErr, L, N, N, { lo: Math.max(0, mx - 6), hi: mx });
-      const ctx = cErr.getContext("2d")!;   // ticks at multiples of N/8 (blocking frequencies)
-      ctx.strokeStyle = "#40d0ff"; ctx.lineWidth = 2;
-      for (let k = -4; k <= 4; k++) {
-        const p = N / 2 + k * N / 8 + 0.5;
-        ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, 6); ctx.moveTo(0, p); ctx.lineTo(6, p); ctx.stroke();
+      drawScalarImage(cErr, L, N, N, { lo: Math.max(0, mx - 5), hi: mx });
+      const ctx = cErr.getContext("2d")!;   // rings at multiples of N/8 on the axes (blocking frequencies)
+      ctx.strokeStyle = "#40d0ff"; ctx.lineWidth = 1.5;
+      for (const [fx, fy] of M.BLOCK_FREQS) for (const sg of [1, -1]) {
+        if (sg < 0 && (fx === 128 || fy === 128)) continue;
+        ctx.beginPath(); ctx.arc(N / 2 + sg * fx + 0.5, N / 2 + sg * fy + 0.5, 6, 0, 2 * Math.PI); ctx.stroke();
       }
-      fe.cap.textContent = "spectrum of the error (ticks: k/8)";
+      fe.cap.textContent = "spectrum of |pixel differences|";
     }
     // scatter of the per-spot change
     scatter.clear();
@@ -163,7 +169,8 @@ function mount(host: HTMLElement): void {
       `bright spots: ${M.meanAbsChange(m0.integ, m.integ, th.bright).toFixed(1)}%\n` +
       `background ${m.bg.mean.toFixed(1)} (orig. ${m0.bg.mean.toFixed(1)})\n` +
       `noise sd ${m.bg.sd.toFixed(1)} (orig. ${m0.bg.sd.toFixed(1)})\n` +
-      `HF power ${(100 * m.hf).toFixed(2)}% (orig. ${(100 * m0.hf).toFixed(2)}%)`;
+      `HF power ${(100 * m.hf).toFixed(2)}% (orig. ${(100 * m0.hf).toFixed(2)}%)\n` +
+      `blocking index ${M.blockingIndex(dec.image).toFixed(1)} (orig. ${bi0.toFixed(1)})`;
     cur = { bpp: dec.bpp, v: curveValue(m, dec) };
     drawCurve();
   }

@@ -21,7 +21,20 @@ typecheck:
 
 # Correctness tests of the demo algorithms (demos/test/): bundled for node by esbuild
 # and run directly, no files written. E.g. max-flow against brute force over all cuts.
-TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts
+TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts \
+  demos/test/foundation-2d-test.ts demos/test/foundation-ui-test.ts \
+  demos/test/edges-test.ts demos/test/imageformation-test.ts \
+  demos/test/deconvolution-test.ts demos/test/thresholding-test.ts \
+  demos/test/colour-test.ts demos/test/morphology-test.ts demos/test/labelling-test.ts \
+  demos/test/watershed-test.ts demos/test/measurements-test.ts \
+  demos/test/fftregistration-test.ts demos/test/randomforest-test.ts \
+  demos/test/neuralnets-test.ts demos/test/evaluation-test.ts \
+  demos/test/moderndl-test.ts demos/test/skeleton-test.ts demos/test/moments-test.ts \
+  demos/test/snakes-test.ts demos/test/levelsets-test.ts demos/test/dynprog-test.ts \
+  demos/test/ising-test.ts demos/test/hough-test.ts demos/test/integral-test.ts \
+  demos/test/svm-test.ts demos/test/gmm-test.ts demos/test/wavelets-test.ts \
+  demos/test/compression-test.ts demos/test/radon-test.ts demos/test/unmixing-test.ts \
+  demos/test/marchingcubes-test.ts demos/test/graphics3d-test.ts
 test:
 	@for t in $(TESTS); do echo "== $$t"; \
 	  js=$$(node_modules/.bin/esbuild $$t --bundle --platform=node --log-level=warning) && printf '%s\n' "$$js" | node || exit 1; \

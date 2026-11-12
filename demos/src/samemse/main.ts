@@ -15,22 +15,26 @@ const N = SIZE;
 const MSES = [16, 25, 50, 100, 144, 200, 300, 400];
 
 const STYLE = `
-[data-demo="${NAME}"] .sm-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; flex: 1 1 640px; min-width: 0; max-width: 800px; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.25; }
-[data-demo="${NAME}"] figcaption b { font-size: 17px; }
-[data-demo="${NAME}"] figcaption .ss { font-weight: 600; }
-[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 220px; max-width: 260px; }
-[data-demo="${NAME}"] .sm-btns { display: flex; flex-wrap: wrap; gap: .3em; }
-[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
-[data-demo="${NAME}"] .sm-credit { font-size: 13px; color: var(--qb-muted); grid-column: 1 / -1; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .sm-grid { max-width: 660px; gap: 4px 10px; }
-.reveal [data-demo="${NAME}"] figcaption { font-size: 15px; line-height: 1.15; }
-.reveal [data-demo="${NAME}"] figcaption b { font-size: 16px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { font-size: 14px; }
+.qb-demo[data-demo="${NAME}"] .sm-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; flex: 1 1 640px; min-width: 0; max-width: 800px; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.25; }
+.qb-demo[data-demo="${NAME}"] figcaption b { font-size: 17px; }
+.qb-demo[data-demo="${NAME}"] figcaption .ss { font-weight: 600; }
+.qb-demo[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; }
+.qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 220px; max-width: none; }
+.reveal .qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { max-width: 260px; }
+.qb-demo[data-demo="${NAME}"] .sm-btns { display: flex; flex-wrap: wrap; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
+.qb-demo[data-demo="${NAME}"] .sm-credit { font-size: 13px; color: var(--qb-muted); grid-column: 1 / -1; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .sm-grid { max-width: 660px; gap: 4px 10px; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 15px; line-height: 1.15; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption b { font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 14px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 14px; line-height: 1.15; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption b { font-size: 15px; }
 `;
 
 function injectStyle(): void {
@@ -104,7 +108,7 @@ function mount(host: HTMLElement): void {
   const cache = new Map<string, { out: Float64Array; p: number; mse: number; ss: number; map: Float64Array }>();
   function compute(): void {
     const T = MSES[st.mi];
-    const lines: string[] = [`target MSE ${T} (PSNR ${psnrFromMse(T, 255).toFixed(2)} dB)`];
+    const lines: string[] = [`MSE ${T}, PSNR ${psnrFromMse(T, 255).toFixed(2)} dB`];
     for (const pane of panes) {
       if (pane.id === "original") {
         paint(pane.c, st.maps ? new Float64Array(N * N).fill(255) : img);
@@ -121,7 +125,7 @@ function mount(host: HTMLElement): void {
       }
       paint(pane.c, st.maps ? r.map.map(v => 255 * Math.max(0, v)) : r.out);
       pane.cap.innerHTML = `<b>${LABEL[id]}</b><br>${describe(id, r.p, img)}<br>MSE ${r.mse.toFixed(1)} · PSNR ${psnrFromMse(r.mse, 255).toFixed(1)} dB<br><span class="ss">SSIM ${r.ss.toFixed(3)}</span>`;
-      lines.push(`${LABEL[id].padEnd(17)} SSIM ${r.ss.toFixed(3)}`);
+      lines.push(`SSIM ${r.ss.toFixed(3)}  ${id}`);
     }
     ro.textContent = lines.join("\n");
   }

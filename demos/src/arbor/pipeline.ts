@@ -16,6 +16,28 @@ export interface SegParams { sMin: number; sMax: number; c: number; tHigh: numbe
 
 export const N = 256;
 
+// ---- presets of the demo
+export type Tab = "image" | "vessel" | "mask" | "skeleton" | "graph";
+export type Overlay = "none" | "radius" | "tortuosity" | "sholl" | "truth";
+export interface State { gen: GenParams; seg: SegParams; tab: Tab; overlay: Overlay; est: LengthEstimator; shollR: number }
+export interface Preset { id: string; label: string; s: { gen?: Partial<GenParams>; seg?: Partial<SegParams>; tab?: Tab; overlay?: Overlay; est?: LengthEstimator; shollR?: number } }
+
+export const NEURON: GenParams = { kind: "neuron", seed: 7, branching: 0.022, tortuosity: 0.5, noise: 6, blur: 1, spots: 0 };
+export const VESSEL: GenParams = { kind: "vessel", seed: 15, branching: 0.02, tortuosity: 0.5, noise: 6, blur: 1, spots: 0 };
+export const SEG_N: SegParams = { sMin: 1, sMax: 3, c: 15, tHigh: 0.5, tLow: 0.15, k: 8 };
+export const SEG_V: SegParams = { sMin: 1, sMax: 5, c: 15, tHigh: 0.5, tLow: 0.15, k: 8 };
+export const PRESETS: Preset[] = [
+  { id: "neuron", label: "neuron: Sholl profile", s: { gen: NEURON, seg: SEG_N, tab: "graph", overlay: "sholl", shollR: 50 } },
+  { id: "vessel", label: "vessels: length and branching density", s: { gen: VESSEL, seg: SEG_V, tab: "graph", overlay: "radius" } },
+  { id: "noise", label: "noise: spurs inflate the branch count", s: { gen: { ...NEURON, noise: 14 }, seg: { ...SEG_N, k: 0 }, tab: "graph", overlay: "truth" } },
+  { id: "scale", label: "one scale misses the thick vessels", s: { gen: VESSEL, seg: { ...SEG_V, sMax: 1 }, tab: "mask", overlay: "truth" } },
+  { id: "junction", label: "junctions fade: branch points lost", s: { gen: VESSEL, seg: { ...SEG_V, tHigh: 0.85, tLow: 0.85 }, tab: "vessel", overlay: "truth" } },
+  { id: "count", label: "pixel counting underestimates length", s: { gen: VESSEL, seg: SEG_V, tab: "skeleton", overlay: "none", est: "count" } },
+  { id: "tortuous", label: "tortuous vessels", s: { gen: { ...VESSEL, seed: 13, tortuosity: 1.3 }, seg: SEG_V, tab: "graph", overlay: "tortuosity" } },
+];
+
+
+
 export interface Generated { tree: Tree; truth: TreeGraph; image: Grey; centre: [number, number]; somaR: number }
 
 export function generate(p: GenParams): Generated {

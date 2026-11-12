@@ -33,20 +33,23 @@ const CREDIT: Record<ImgId, string> = {
 };
 
 const STYLE = `
-[data-demo="${NAME}"] .db-cols { display: flex; gap: 12px; flex: 1 1 760px; min-width: 0; max-width: 900px; }
-[data-demo="${NAME}"] .db-col { display: flex; flex-direction: column; gap: 6px; flex: 1 1 0; min-width: 0; }
-[data-demo="${NAME}"] figure { margin: 0; }
-[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
-[data-demo="${NAME}"] canvas.img { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 220px; max-width: 270px; }
-[data-demo="${NAME}"] .db-btns { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
-[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
-[data-demo="${NAME}"] .db-credit { font-size: 13px; color: var(--qb-muted); }
-[data-demo="${NAME}"] svg.grid text { font-family: ui-monospace, monospace; }
-.reveal [data-demo="${NAME}"] { font-size: 18px; }
-.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
-.reveal [data-demo="${NAME}"] .qb-note { font-size: 14px; }
+.qb-demo[data-demo="${NAME}"] .db-cols { display: flex; gap: 12px; flex: 1 1 760px; min-width: 0; max-width: 900px; }
+.qb-demo[data-demo="${NAME}"] .db-col { display: flex; flex-direction: column; gap: 6px; flex: 1 1 0; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] figure { margin: 0; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; line-height: 1.2; margin-bottom: .15em; }
+.qb-demo[data-demo="${NAME}"] canvas.img { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
+.qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 220px; max-width: none; }
+.reveal .qb-demo.qb-demo[data-demo="${NAME}"] .qb-panel { max-width: 270px; }
+.qb-demo[data-demo="${NAME}"] .db-btns { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
+.qb-demo[data-demo="${NAME}"] .qb-btn.on { background: var(--qb-accent); color: #fff; border-color: var(--qb-accent); }
+.qb-demo[data-demo="${NAME}"] .db-credit { font-size: 13px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] svg.grid text { font-family: ui-monospace, monospace; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .12em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 14px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; }
 `;
 
 function injectStyle(): void {
@@ -58,8 +61,10 @@ function injectStyle(): void {
 }
 
 const grey = (v: number) => { const g = Math.max(0, Math.min(255, Math.round(v))); return `rgb(${g},${g},${g})`; };
+/** |v| with round-off (below 1e-9) treated as 0, so exact zeros tie and keep their index order. */
+const mag = (v: number) => (Math.abs(v) < 1e-9 ? 0 : Math.abs(v));
 const fmt1 = (v: number) => (Math.abs(v) < 0.05 ? "0.0" : v.toFixed(1));
-const fmtC = (v: number) => (Math.abs(v) >= 99.5 ? v.toFixed(0) : Math.abs(v) >= 9.95 ? v.toFixed(0) : v.toFixed(1));
+const fmtC = (v: number) => (Math.abs(v) < 0.05 ? "0" : Math.abs(v) >= 9.95 ? v.toFixed(0) : v.toFixed(1));
 
 /** An 8 × 8 grid of cells with numbers in an SVG (viewBox 240 × 240). */
 function drawGrid(svg: SVGSVGElement, fill: (i: number) => string, text: (i: number) => string, textCol: (i: number) => string,
@@ -213,7 +218,7 @@ function mount2d(host: HTMLElement): void {
     const m = new Uint8Array(64);
     if (!bases) return m;
     const c = applyMatrix(bases.A[st.basis], centred(), 64);
-    const ord = st.keep === "first" ? Array.from(bases.order[st.basis]) : Array.from({ length: 64 }, (_, i) => i).sort((a, b) => Math.abs(c[b]) - Math.abs(c[a]) || a - b);
+    const ord = st.keep === "first" ? Array.from(bases.order[st.basis]) : Array.from({ length: 64 }, (_, i) => i).sort((a, b) => mag(c[b]) - mag(c[a]) || a - b);
     for (let j = 0; j < Math.min(64, st.k); j++) m[ord[j]] = 1;
     return m;
   }

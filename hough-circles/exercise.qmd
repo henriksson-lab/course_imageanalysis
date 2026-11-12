@@ -1,0 +1,128 @@
+---
+title: "Exercise: Hough transform for circles"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- find the **candidate centres** of an edge point, with and without its gradient,
+- **vote by hand** for the centre of a circle from a few edge points,
+- count the **bins and votes** of a circle accumulator, and what gradient voting saves,
+- predict what **touching** discs, **ellipses**, a **wrong radius** and the **polarity** do,
+- *(math)* show that the known-radius transform is a **convolution with a ring**, and why ellipses need five parameters.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Circle | $(x - a)^2 + (y - b)^2 = r^2$: centre $(a, b)$, radius $r$, pixel coordinates |
+| Full voting | an edge point votes for every centre at distance $r$: a ring of about $2\pi r$ votes per radius |
+| Accumulator | one $(a, b)$ slice per radius; values shown as votes / $2\pi r$ (the fraction of a circumference) |
+| Gradient voting | centre at $\mathbf p + r\mathbf u$ (bright object) or $\mathbf p - r\mathbf u$ (dark object), $\mathbf u$ = unit gradient |
+| Polarity | bright on dark, dark on bright, or either (two votes per radius) |
+| Peaks | 3D local maxima above a threshold (NMS in $a$, $b$ and $r$) |
+
+## By hand
+
+**B1.** Gradient votes.
+(a) Radius 5. An edge point at $(3, 4)$ has unit gradient $\mathbf u = (0.6, 0.8)$. Give both candidate centres.
+(b) Three edge points of an unknown bright disc, with their unit gradients: $(15, 10)$, $\mathbf u = (-1, 0)$; $(10, 15)$, $\mathbf u = (0, -1)$; $(13, 14)$, $\mathbf u = (-0.6, -0.8)$. Vote with $r = 5$, both polarities. Which position gets three votes?
+(c) Repeat (b) knowing the disc is brighter than the background. How many votes are cast now?
+
+**B2.** Cost. A 300 × 300 image, radii 5 to 40 in steps of 1, 5000 edge points.
+(a) How many accumulator bins?
+(b) How many votes with full voting? (Use $\sum_{r=5}^{40} r = 810$.)
+(c) How many with gradient voting, polarity unknown? And known?
+
+**B3.** A full circle of radius 10 gives a peak of about how many votes? What does the demo's normalised value (votes / $2\pi r$) become if a quarter of the circle is hidden behind another object?
+
+**B4.** Two touching discs of radius 10, centres $(0, 0)$ and $(20, 0)$, touching at $(10, 0)$.
+(a) Searching at $r = 10$: how many edge points lie at distance 10 from the contact point $(10, 0)$? Is the contact point a dangerous false centre?
+(b) In the image the discs merge into one blob, so the boundary is missing over 60° of each circle next to the contact point. What fraction of its votes does each true centre keep?
+
+**B5.** A plate of 6 × 7 wells, all of radius 8, dark on a bright plate. Which setting choices make this a cheap problem? How many votes does each edge point cast with your choices?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $(3, 4) + 5\,(0.6, 0.8) = (6, 8)$ and $(3, 4) - 5\,(0.6, 0.8) = (0, 0)$.
+(b) $(15, 10) \pm 5(-1, 0)$: $(10, 10)$, $(20, 10)$. $(10, 15) \pm 5(0, -1)$: $(10, 10)$, $(10, 20)$. $(13, 14) \pm 5(-0.6, -0.8)$: $(10, 10)$, $(16, 18)$. The centre $(10, 10)$ gets 3 votes, every other position 1.
+(c) For a bright disc the gradient points inward: only $\mathbf p + r\mathbf u$, i.e. $(10, 10)$ three times. 3 votes in total instead of 6.
+
+**B2.** (a) 36 radii × 90 000 = 3.24 million bins. (b) Per point $\sum 2\pi r = 2\pi \cdot 810 = 5089$ votes; for 5000 points about 25.4 million. (c) Polarity unknown: 2 votes per radius, 72 per point, 360 000 in total. Known: 36 per point, 180 000. A factor 70 to 140 less.
+
+**B3.** About $2\pi \cdot 10 = 63$ votes (one per edge pixel on the circle; a digital ring of radius 10 has a few fewer pixels, 56). With a quarter hidden, three quarters of the votes remain: about 0.75 of the full value (in the demo a complete disc gives about 0.85 to 0.99).
+
+**B4.** (a) The circle of radius 10 around $(10, 0)$ meets each disc's boundary in two points: $x^2 + y^2 = 100$ and $(x - 10)^2 + y^2 = 100$ give $x = 5$, $y = \pm 8.66$, and symmetrically on the other disc. So about 4 votes, against about 63 at each true centre: no dangerous false centre at the contact point for clean circles. (b) $300°/360° = 0.83$ of the votes: both centres are still found, with lower peaks. Touching objects become a problem when large parts of their boundaries disappear, or when partial arcs of several objects happen to fit one circle.
+
+**B5.** A known radius (one slice, $r = 8$), gradient voting and known polarity (dark on bright: centre at $\mathbf p - 8\mathbf u$): **1 vote per edge point**, one 2D accumulator. The regular grid could even be used afterwards to check or complete the detections.
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that for a known radius the accumulator is $H_r = E \star K_r$, the correlation of the binary edge map $E$ with a ring kernel $K_r$. Why is the correlation here the same as a convolution? How could the transform for one radius be computed with the FFT?
+
+**B7.** *(math)* (a) Show that a conic $Ax^2 + Bxy + Cy^2 + Dx + Ey + F = 0$ has 5 degrees of freedom, and that a circle is the special case with 3. (b) The radius of curvature of an ellipse with semi-axes $a > b$ is $b^2/a$ at the ends of the long axis and $a^2/b$ at the ends of the short axis. For $a = 17$, $b = 10$: which circles fit the ellipse best locally? Use this to explain why an ellipse gives no single sharp peak in a circle accumulator.
+
+**B8.** *(math)* With $n$ steps per parameter, how do the number of bins and the number of votes per edge point grow for lines ($d = 2$), circles ($d = 3$) and ellipses ($d = 5$), with full voting? What does gradient voting change for circles?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** The centre $\mathbf c$ collects one vote per edge pixel at distance $\approx r$: $H_r(\mathbf c) = \sum_{\mathbf p} E(\mathbf p)\,K_r(\mathbf p - \mathbf c)$ with $K_r(\mathbf d) = [\,|\|\mathbf d\| - r| < \tfrac12\,]$. That is a correlation; a convolution would use $K_r(\mathbf c - \mathbf p)$, which is the same because $K_r(-\mathbf d) = K_r(\mathbf d)$. With the FFT: pad $E$ and the ring to the same size, multiply their transforms, transform back (circular, so pad by at least $r$). That costs the same for every edge density, while voting costs grow with the number of edge points.
+
+**B7.** (a) Multiplying all six coefficients by $\lambda \ne 0$ gives the same curve, so only their ratios matter: $6 - 1 = 5$. A circle $(x - a)^2 + (y - b)^2 = r^2$ expands to $x^2 + y^2 - 2ax - 2by + (a^2 + b^2 - r^2) = 0$: $B = 0$ and $A = C$ (two constraints), leaving 3. (b) At the ends of the long axis the best local circle has radius $100/17 = 5.9$, its centre $17 - 5.9 = 11.1$ from the ellipse's centre along the long axis; at the ends of the short axis radius $289/10 = 28.9$, centre $28.9 - 10 = 18.9$ beyond the centre. Different parts of the boundary therefore vote for different centres and radii, from about 6 to 29: no bin collects the whole boundary. The demo shows the votes at the ellipse's centre spread over $r = 9$ to 17, and two weak false circles near the ends.
+
+**B8.** Bins: $n^2$, $n^3$, $n^5$. Votes per point with full voting: $n$ (a curve), $\sim n^2$ (a cone: a ring of $\sim n$ per radius, $n$ radii), $\sim n^4$. For circles, the gradient fixes the direction to the centre, so only $r$ remains free: $\sim n$ votes per point (1 or 2 per radius), the same order as a line.
+:::
+
+## Explore {#explore}
+
+Left: the image with its edge points (orange) and the detected circles (cyan). Middle: the accumulator **slice** at the radius on the *slice r* slider. Right: the **maximum over all radii**. Values are votes divided by $2\pi r$. Click an edge point: its votes at the current radius appear in the slice (a dashed ring, or one or two dots with gradient voting). Click the slice or the right panel: the plot below shows the votes at that centre against $r$. The readout lists the strongest detections as (centre) radius: value.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="houghcircle" data-preset="one"></div>
+<script src="../demos/dist/houghcircle.js"></script>
+```
+
+**E1.** Preset **one radius: a sharp peak** ($r = 12$, full voting). Which discs are found, with which values? Click edge points on other discs: why do their rings not meet in one point at this radius?
+
+**E2.** Preset **wrong radius: no peak** ($r = 15$). What is the highest value in the accumulator, and what is detected? Describe the slice around the disc at $(35, 35)$ (radius 12) and explain it.
+
+**E3.** Preset **scan the radius** (5 to 24). How many circles are found, with which radii? How many bins and votes? Move the *slice r* slider through 12, 13, 18: watch the peaks appear and fade.
+
+**E4.** Preset **gradient voting** (bright on dark). Compare votes and peak values with E3. Then switch the polarity to **dark on bright**, and to **either**. What happens each time?
+
+**E5.** Preset **low threshold: false circles** (full voting, threshold 0.3). How many detections, and where are the extra ones? Switch gradient voting on (bright on dark) at the same threshold.
+
+**E6.** Preset **ellipse: smeared peak**: the profile shows the votes at the ellipse's centre $(108, 82)$ against $r$, with gradient voting. Read the largest value. Switch gradient voting off: what does the profile look like now? Relate it to B7.
+
+**E7.** Preset **plate wells**. How many wells are found? Set the polarity to **bright on dark**. Explain the result.
+
+**E8.** Preset **diffraction rings**: the profile at the known centre $(80, 80)$ is a radius histogram. At which radii are its peaks? The rings were drawn at radii 16, 29, 43 and 58: why does each ring give **two** peaks?
+
+**E9.** Preset **synthetic nuclei** (radii 6 to 16, gradient voting, threshold 0.25). How many of the 12 nuclei are found, and what is the highest value? Switch gradient voting off and raise the threshold to 0.5. Why does full voting work better here?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Two discs have radius 12: $(35, 35)$ with 0.85 and $(53, 96)$ with 0.80. The rings of radius 12 drawn around points of a disc with another radius (say 18) do not pass through one common point: they meet in pairs over a smaller ring around its centre, so the slice shows a ring-shaped blur there, not a peak.
+
+**E2.** Highest value 0.25, nothing detected. Around the disc of radius 12 the slice shows a small bright ring of radius about $15 - 12 = 3$ around its centre (and a faint large one of radius 27): rings of radius 15 around the edge points overlap most there, never in one point.
+
+**E3.** 7 circles: $(28, 96)$ $r = 13$, $(140, 30)$ $r = 8$, $(96, 32)$ $r = 18$, $(62, 140)$ $r = 7$, $(35, 35)$ $r = 12$, $(53, 96)$ $r = 12$, $(118, 128)$ $r = 20$ (the partly occluded disc, 0.68). 512,000 bins (160 × 160 × 20), 1,370,005 votes. Each peak is strongest in the slice of its own radius and fades within one or two slices.
+
+**E4.** Gradient voting: 15,437 votes instead of 1,370,005 (89 times fewer), the same 7 circles, with lower values (0.40 to 0.74 instead of 0.68 to 0.99): the gradient direction is not exact, so the votes of one circle scatter over neighbouring pixels, and more so for large radii. Dark on bright: nothing is found (highest value 0.06): every vote goes outward, away from the centres. Either: 30,203 votes (twice as many), the same 7 detections.
+
+**E5.** 18 detections: the 7 discs, two circles of radius 9 at $(102, 79)$ and $(114, 85)$ with 0.50 (the two pointed ends of the ellipse, on either side of its centre $(108, 82)$), and 9 weak ones (0.32 to 0.41): 7 around the occluding band over the lower-right disc, where the straight edges of the band and the arcs of the disc combine, and 2 small circles at $(41, 85)$ and $(41, 109)$, in the two notches where the touching discs meet. With gradient voting at the same threshold only the 7 true discs remain: false circles from pieces of boundary need the gradients to agree too.
+
+**E6.** With gradient voting the profile at $(108, 82)$ stays below about 0.05 at every radius: hardly any votes reach the centre of the ellipse. Without gradient voting it is spread from $r = 9$ to $r = 17$ (between $b = 10$ and $a = 17$), with a maximum of only 0.29 at $r = 10$. Different parts of the boundary fit circles of different radius and centre (B7), so no single bin collects them.
+
+**E7.** All 42 wells (values around 0.7). With bright on dark nothing is found (maximum 0.03): the wells are darker than the plate, so their gradients point outward, and every vote is cast on the wrong side.
+
+**E8.** Peaks at $r = 14$ and 18, 27 and 31, 41 and 45, 56 and 60. Each ring is a thin bright line: it has an **inner** edge (dark to bright, going outward) and an **outer** edge (bright to dark), about 2 px on either side of the drawn radius. Polarity "either" lets both vote. The outer rings give lower values: they are fainter, and small errors in the gradient direction move the votes more at large radii.
+
+**E9.** 8 of 12, highest value only 0.38. Full voting with threshold 0.5: 11 found, highest 0.81. The nuclei are blurred, textured and slightly elongated, so their gradient directions deviate from the radial direction by a few degrees; with gradient voting each edge point casts one vote per radius and a small direction error moves it off the centre. Full voting spreads its votes over whole rings and does not depend on the direction, so it is more tolerant here, at about 70 times the cost.
+:::
+
+## Where this leads
+
+The gradient told each edge point where the centre is, given the radius: the R-table of the next unit generalises exactly this to **any shape**, with a list of vectors per gradient direction. And for shapes with many parameters, guessing a few points and checking (**RANSAC**, the last unit) beats filling an accumulator.

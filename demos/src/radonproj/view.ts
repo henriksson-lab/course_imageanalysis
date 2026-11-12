@@ -21,7 +21,7 @@ export function injectStyle(name: string, css: string): void {
 
 /** Common CSS for the Radon demos (prefix = the demo's data-demo selector). */
 export function baseCss(name: string): string {
-  const d = `[data-demo="${name}"]`;
+  const d = `.qb-demo[data-demo="${name}"]`;
   return `
 ${d} { flex-direction: column; gap: .5em; align-items: stretch; }
 ${d} .rd-figs { display: flex; flex-wrap: wrap; gap: .8em; align-items: flex-start; width: 100%; }
@@ -36,6 +36,9 @@ ${d} .rd-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 ${d} .rd-credit { font-size: 12px; color: var(--qb-muted); }
 ${d} .rd-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
 ${d} .rd-click { cursor: crosshair; touch-action: none; }
+${d} .qb-slider { grid-template-columns: auto minmax(3em, 1fr) auto; gap: .35em; }
+${d} .qb-slider input[type=range] { min-width: 3em; }
+${d} .qb-slider output { min-width: 2.6em; }
 .reveal ${d} { font-size: 17px; gap: .2em; }
 .reveal ${d} .rd-figs { flex-wrap: nowrap; }
 .reveal ${d} .rd-fig { max-width: 300px; }
@@ -117,6 +120,22 @@ export function shiftImage(img: ArrayLike<number>, n: number, tx: number, ty: nu
 // ---------------------------------------------------------------------------------------
 // Panels
 
+let clipSerial = 0;
+/**
+ * Give a Plot's clip path a page-unique id. lib/plot.ts numbers its clip paths per bundle
+ * ("qb-clip-1", ...), so two different demos on one page reuse the same ids and clip each
+ * other's plots. Call once after creating a Plot.
+ */
+export function uniqueClip<T extends Plot>(plot: T): T {
+  const cp = plot.svg.querySelector("clipPath");
+  if (cp) {
+    const id = `rd-clip-${Math.random().toString(36).slice(2, 8)}-${++clipSerial}`;
+    cp.id = id;
+    plot.layer.setAttribute("clip-path", `url(#${id})`);
+  }
+  return plot;
+}
+
 export interface ImagePanel {
   fig: HTMLElement;
   cap: HTMLElement;
@@ -131,7 +150,7 @@ export function imagePanel(parent: Element, caption: string, n: number, pad = 0,
   const fig = plotFigure(parent, caption, cls);
   const cap = fig.querySelector("figcaption") as HTMLElement;
   const h = n / 2 + pad;
-  const plot = new Plot(fig, { width: 320, height: 320, x: [-h, h], y: [-h, h], equal: true, grid: false, xticks: [], yticks: [], margin: { l: 4, r: 4, t: 4, b: 4 } });
+  const plot = uniqueClip(new Plot(fig, { width: 320, height: 320, x: [-h, h], y: [-h, h], equal: true, grid: false, xticks: [], yticks: [], margin: { l: 4, r: 4, t: 4, b: 4 } }));
   plot.svg.querySelector(".qb-axes")?.setAttribute("display", "none");
   let cur = { lo: 0 as number | undefined, hi: 1 as number | undefined, map: grey as ColorMap };
   const img = plot.mark((g, V) => {
@@ -193,7 +212,7 @@ export interface SinoPanel {
 /** A sinogram panel: theta (degrees) across, rho up. */
 export function sinoPanel(parent: Element, caption: string, rhoMax: number, thetaRange: [number, number] = [0, 180], cls = "rd-fig wide", height = 290): SinoPanel {
   const fig = plotFigure(parent, caption, cls);
-  const plot = new Plot(fig, { width: 420, height, x: thetaRange, y: [-rhoMax, rhoMax], grid: false, xlabel: "θ (degrees)", ylabel: "ρ", xticks: tick45(thetaRange) });
+  const plot = uniqueClip(new Plot(fig, { font: 22, width: 420, height, x: thetaRange, y: [-rhoMax, rhoMax], grid: false, xlabel: "θ (degrees)", ylabel: "ρ", xticks: tick45(thetaRange) }));
   let args: [ArrayLike<number>, number, number, number, number, number | undefined, number | undefined, number | undefined, ColorMap] = [new Float64Array(1), 1, 1, 0, 180, 0, 0, 1, grey];
   const m = plot.mark(g => {
     const [s, na, nb, t0, t1, shown, lo, hi, map] = args;

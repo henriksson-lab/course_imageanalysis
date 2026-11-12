@@ -1,0 +1,128 @@
+---
+title: "Exercise: the generalised Hough transform"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- build the **R-table** of a small shape by hand and **vote** with it,
+- predict what **rotation**, **symmetry**, **occlusion** and **similar shapes** do,
+- count the work and memory of a **rotation and scale search**,
+- *(math)* write the R-table under a similarity transform and show that the GHT with one bin is a **correlation**.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Reference point | any fixed point of the template (here: its centre) |
+| R-table | for each gradient-direction bin: the vectors from the template's edge points in that bin to the reference point |
+| Voting | an edge point $\mathbf p$ with direction $\theta$ votes at $\mathbf p + \mathbf v$ for every $\mathbf v$ in bin $\theta$ |
+| Pose search | for each rotation $\phi$ and scale $s$: look up bin $\theta - \phi$, vote at $\mathbf p + sR(\phi)\mathbf v$; one accumulator slice per pose |
+| Score (demo) | edge points voting within 1 px of a cell, divided by the number of template edge points |
+
+Coordinates are pixel coordinates $(x, y)$ with $y$ **down**. For a bright shape on a dark background the gradient points **into** the shape.
+
+## By hand
+
+**B1.** A bright square with corners $(0, 0)$, $(4, 0)$, $(4, 4)$, $(0, 4)$, reference point $(2, 2)$. Its edge points are the integer points on the sides, without the corners: three per side. Use 4 direction bins: gradient pointing **down**, **up**, **right**, **left**.
+(a) Which side has its gradient pointing down? Write the R-table: for each bin, the three vectors.
+(b) A copy of the square has corners $(10, 5)$ and $(14, 9)$. Its top side has edge points $(11, 5)$, $(12, 5)$, $(13, 5)$. Where do these three points vote?
+(c) Without writing all votes: how many votes do the 12 edge points of the copy cast in total? Which position gets the most, and how many? How many does its best competitor get?
+
+**B2.** Rotations of the square.
+(a) The copy is rotated by 90°. Which table entries does a rotated table need? Does the unrotated table still find it? Why is the square special?
+(b) The copy is rotated by 45° (a diamond). What are its gradient directions, and does the unrotated 4-bin table find it?
+
+**B3.** Cost of a pose search. A scene of 160 × 160 pixels has 721 edge points. The template's R-table has 182 entries in 36 bins.
+(a) Translation only: how many table lookups? About how many votes?
+(b) With 36 rotations and 5 scales: how many lookups, how many accumulator slices and cells?
+(c) The demo reports 649,388 votes for (b). Is that consistent with your estimate?
+
+**B4.** A key is detected with score 0.90 when fully visible. A disc hides about a third of its boundary. What score do you expect? What is the largest threshold that still finds it?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) The **top** side ($y = 0$): the square is below it, so the gradient (towards bright) points down. Vectors = reference − point:
+
+| bin (gradient) | side | vectors |
+|---|---|---|
+| down | top, $(1, 0)$, $(2, 0)$, $(3, 0)$ | $(1, 2)$, $(0, 2)$, $(-1, 2)$ |
+| up | bottom, $(1, 4)$, $(2, 4)$, $(3, 4)$ | $(1, -2)$, $(0, -2)$, $(-1, -2)$ |
+| right | left, $(0, 1)$, $(0, 2)$, $(0, 3)$ | $(2, 1)$, $(2, 0)$, $(2, -1)$ |
+| left | right, $(4, 1)$, $(4, 2)$, $(4, 3)$ | $(-2, 1)$, $(-2, 0)$, $(-2, -1)$ |
+
+(b) Each looks up "down" and adds the three vectors: $(11, 5)$ votes at $(12, 7)$, $(11, 7)$, $(10, 7)$; $(12, 5)$ at $(13, 7)$, $(12, 7)$, $(11, 7)$; $(13, 5)$ at $(14, 7)$, $(13, 7)$, $(12, 7)$. So $(12, 7)$ gets 3, $(11, 7)$ and $(13, 7)$ 2 each, $(10, 7)$ and $(14, 7)$ 1 each.
+(c) $12 \times 3 = 36$ votes. The centre $(12, 7)$ gets 3 from each side: **12**. The best competitors, $(11, 7)$, $(13, 7)$, $(12, 6)$, $(12, 8)$, get 4 each (2 from each of two sides). The votes form a cross through the centre, as in the demo's "square, 4 bins" preset.
+
+**B2.** (a) Rotating by 90° turns each gradient direction into the next one (down → right → up → left, counter-clockwise on the screen) and rotates each vector by 90°: the rotated table holds for "right" what the original table holds for "right", and so on. A square rotated by 90° is the same square, so the unrotated table finds it without any rotation search: shapes with a rotational symmetry need only part of the angle range. (b) The diamond's sides have gradients at 45°, 135°, 225°, 315°: exactly between the 4 bins. Each lands in some neighbouring bin, whose vectors belong to a side at a different angle, so the votes scatter: not found. A rotation search (in steps of a few degrees) and finer bins are needed.
+
+**B3.** (a) 721 lookups; on average $182/36 = 5.1$ vectors per bin, so about $721 \times 5.1 \approx 3600$ votes (the demo: 4,682; bins are not equally full, and the key's long straight sides fill a few bins heavily). (b) $721 \times 180 = 129{,}780$ lookups; 180 slices of $160 \times 160$ = 4.6 million cells. (c) $129{,}780 \times 5.06 \approx 656{,}000$: close to 649,388 (votes that land outside the image are not counted).
+
+**B4.** About two thirds of 0.90: roughly 0.6. Any threshold below about 0.6 still finds it (the demo, preset "occluded copy still found": 0.58, found at threshold 0.5).
+:::
+
+### Math questions
+
+**B5.** *(math)* The template is rotated by $\phi$ (counter-clockwise on the screen) and scaled by $s$ about its reference point. Show that the rotated copy's R-table is: bin $\theta + \phi$ holds the vectors $sR(\phi)\mathbf v$ for $\mathbf v$ in the original bin $\theta$. Write the vote of a scene point for the pose $(\phi, s)$ using only the original table.
+
+**B6.** *(math)* Show that with a single direction bin the GHT computes $H(\mathbf c) = \sum_{\mathbf q} E(\mathbf c + \mathbf q)\,E_T(\mathbf q)$: the correlation of the scene's edge map $E$ with the template's edge map $E_T$ (relative to the reference point). Why do more direction bins reduce false peaks?
+
+**B7.** *(math)* Does the choice of reference point change which copies are found (translation only)? With a rotation search in steps of $\Delta\phi$, a copy is rotated by up to $\Delta\phi/2$ from the nearest tried angle. How far do the votes of an edge point at distance $d$ from the reference point miss? What does that say about where to put the reference point?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B5.** A template edge point $\mathbf x_T$ with gradient direction $\theta$ and vector $\mathbf v = \mathbf c_T - \mathbf x_T$ moves to $\mathbf x = \mathbf c + sR(\phi)(\mathbf x_T - \mathbf c_T)$, and its gradient direction becomes $\theta + \phi$ (a rotation turns all directions; scaling does not change them). Its vector to the new reference point $\mathbf c$ is $sR(\phi)\mathbf v$. So the rotated table has $sR(\phi)\mathbf v$ in bin $\theta + \phi$. A scene point $\mathbf p$ with direction $\theta'$ looks up the rotated bin $\theta'$, i.e. the original bin $\theta' - \phi$, and votes at $\mathbf p + sR(\phi)\mathbf v$ for each $\mathbf v$ there; no rotated table needs to be stored.
+
+**B6.** With one bin every point votes with every vector: $H(\mathbf c) = \sum_{\mathbf x} E(\mathbf x)\sum_{\mathbf v \in T}[\mathbf x + \mathbf v = \mathbf c] = \sum_{\mathbf v \in T} E(\mathbf c - \mathbf v)$. The template edge points relative to the reference point are $\mathbf q = \mathbf x_T - \mathbf c_T = -\mathbf v$, so $H(\mathbf c) = \sum_{\mathbf q} E(\mathbf c + \mathbf q) E_T(\mathbf q)$. With direction bins, the sum only pairs scene and template points of the same direction: an edge in the scene supports a template point only if it has the same orientation, so random edges and other shapes match far less often.
+
+**B7.** For translation only, no: moving the reference point by $\mathbf d$ adds $\mathbf d$ to every vector, so every vote and every peak moves by $\mathbf d$; the same copies are found. Under a rotation error $\delta \le \Delta\phi/2$, a vote along a vector of length $d$ misses by about $d\,\delta$ (an arc). Points far from the reference point miss most, so the reference point should be central (for example the centroid), which keeps the largest $d$ small; equivalently, the angle step must satisfy $d_\text{max}\,\Delta\phi/2 \lesssim 1$ px.
+:::
+
+## Explore {#explore}
+
+Left: the **template** with its edge points (found with the same edge detector as the scene) and the R-table drawn as arrows to the reference point (+), coloured by direction bin; drag a vertex or the reference point. Below it the table itself. Middle: the **scene** with its edge points and the detections (cyan outlines at the found position, angle and scale). Right: the **accumulator**, the maximum over all searched poses. Click a scene edge point to see its votes (magenta) for the pose of the strongest detection. The readout gives lookups, votes and the detections as (reference point) angle, scale: score.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="ght" data-preset="square"></div>
+<script src="../demos/dist/ght.js"></script>
+```
+
+**G1.** Preset **square, 4 bins**. How many entries has the table, and how many per bin? What do the scores of the two squares come out as? Describe the accumulator around each square and compare with B1(c).
+
+**G2.** Preset **translation only** (the key, 36 bins). Scores of the two keys? Drag the reference point (+) to a corner of the template: what happens to the detections, the peaks, the scores?
+
+**G3.** Still on **translation only**, set the direction bins to 4, then 8, then 72. Note the scores of the two keys, the number of votes, and the strongest false peak (lower the threshold to see it). Explain the trade-off.
+
+**G4.** Preset **occluded copy still found**. What is the score of the occluded key? Increase the occlusion until it is lost: at roughly which setting?
+
+**G5.** Presets **rotated: missed** and **rotation search: found**. Compare lookups, votes and detections. At which angle is the second key found, with which score? What are the weaker peaks in the accumulator?
+
+**G6.** Preset **scale search** (copies at 0.8 and 1.2). Which scores? Why is the small copy's score lower, even though it is a perfect copy?
+
+**G7.** Preset **similar shape: false positive**. What is detected, and with which scores? What threshold would remove the false positive, and what would that cost?
+
+**G8.** Preset **circle template = circle Hough**. How many vectors per bin, and how long are they? Explain why this is circle detection with gradient voting.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**G1.** 120 entries: 29, 30, 31 and 30 in the four bins (about 30 edge points per side of a 30-px square). Scores 1.00 and 0.99. Around each square the accumulator shows a bright cross: each side's 30 vectors spread its points' votes along a line through the centre, and the four sides' lines cross at the centre, which gets all of them. B1(c) is the same picture with 3 points per side.
+
+**G2.** 0.90 and 0.74. The copies are identical; the difference comes from the clutter and the noise: a clutter blob overlaps part of the second key's boundary, and noise breaks a few edges (with clutter and noise set to 0 both score 1.00). Moving the reference point moves the peaks and the yellow dots with it; the cyan outlines stay on the keys and the scores stay nearly the same: the reference point is arbitrary for translation.
+
+**G3.** 4 bins: 0.99 and 0.96, 30,495 votes, strongest false peak 0.29. 8 bins: 0.99 and 0.95, 16,739 votes, false 0.34. 36 bins: 0.90 and 0.74, 5,826 votes. 72 bins: 0.85 and 0.66, 4,116 votes. Few bins put many vectors in each bin: more votes and more accidental agreement (higher false peaks), but tolerant of small errors in the edge direction. Many bins are selective and cheap, but a direction error of a few degrees moves a point into the neighbouring bin, which has other vectors, so the true peak drops.
+
+**G4.** 0.58 (instead of 0.90 unoccluded). Its score falls to 0.54 at occlusion 0.6, 0.50 at 0.7 and 0.47 at 0.75: with the threshold at 0.5 it is lost between 0.7 and 0.75, when its score has dropped to about half of the unoccluded 0.90.
+
+**G5.** Without rotation search: 721 lookups, 4,682 votes, only the upright key (0.90). With 36 rotations: 25,956 lookups (36 times), 129,925 votes, both keys found; the rotated one at 60° with 0.91. The weaker peaks (0.31 to 0.40) are other poses of the same keys: rotated by 90°, 180°, 270° the key's long straight sides still line up with part of the template.
+
+**G6.** 0.93 at scale 1.2 and 0.54 at scale 0.8. The score divides by the number of template edge points; a copy at 0.8 has only about 0.8 times as many edge points, and its small teeth (3 px) are smoothed away by the edge detector. A score relative to the expected number of points at that scale would correct for the first effect.
+
+**G7.** The true key at 0.90 and the stretched key at $(108, 112)$ with 0.31: a false positive (the shaft and the bow partly coincide with the template). A threshold above 0.31, e.g. 0.4, removes it; the cost is that a key with more than about half its boundary hidden would also be missed.
+
+**G8.** 2 to 5 vectors per bin (136 in total over 36 bins), all of length 18, pointing along the bin's direction. A disc's edge point with gradient direction $\theta$ looks up vectors of length 18 along $\theta$: one vote at $\mathbf p + 18\mathbf u$, exactly circle voting with $r = 18$, bright on dark. Scores 0.93 and 0.92.
+:::
+
+## Where this leads
+
+Voting needs one accumulator dimension per parameter: two for a line, three for a circle, four for a shape with rotation and scale. The last unit of the day, **RANSAC**, avoids the accumulator altogether: guess a model from a few points and count how many others agree.

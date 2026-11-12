@@ -36,14 +36,13 @@ const CSS = COMMON_CSS + `
 .reveal [data-demo="${NAME}"] .ss-mid { flex: 0 0 330px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 0 0 340px; max-width: 340px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .08em .35em; }
-.reveal [data-demo="${NAME}"] .um-readout { font-size: 15px; }
+.reveal [data-demo="${NAME}"] .um-readout { font-size: 14px; }
+.qb-demo[data-demo="${NAME}"] .ss-pre { white-space: pre; font-size: 13px; }
+.reveal [data-demo="${NAME}"] .qb-check, .reveal [data-demo="${NAME}"] .qb-slider { font-size: 17px; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
 `;
 
-type V3 = [number, number, number];
-const N = 160, P = N * N, I0_TRUE: V3 = [242, 238, 246];
-// the stains of THIS (synthetic) slide: close to, but not exactly, the published vectors
-const TRUE_V: V3[] = [U.unit3([0.60, 0.74, 0.30]), U.unit3([0.12, 0.93, 0.34]), U.unit3([0.30, 0.55, 0.78])];
-const RUIF: V3[] = [U.unit3(U.STAINS.H), U.unit3(U.STAINS.E), U.unit3(U.STAINS.DAB)];
+import { V3, N, P, I0_TRUE, TRUE_V, RUIF, WRONG_E, WRONG_DAB, PARALLEL_E, PARALLEL_DAB } from "./model";
 const SCOL = ["#3b2f8f", "#d6337f", "#8a5a1e", "#777777"];
 const NAMES = ["H", "E", "DAB"];
 const mapH = mapFromAnchors(["#ffffff", "#a99fd9", "#3b2f8f", "#120a40"]);
@@ -66,7 +65,7 @@ function mount(host: HTMLElement): void {
   const left = htmlEl("div", "ss-left", "", host);
   const top = htmlEl("div", "ss-top", "", left);
   const rgbF = canvasFigure(top, hdab ? "H-DAB slide (synthetic)" : "H&E slide (synthetic)", N, N);
-  const tNote = htmlEl("div", "qb-readout um-readout", "", top);
+  const tNote = htmlEl("div", "qb-readout um-readout ss-pre", "", top);
   const mapsRow = htmlEl("div", "ss-maps", "", left);
   const maps = [0, 1, 2].map(k => canvasFigure(mapsRow, "", N, N));
   const mid = htmlEl("div", "ss-mid", "", host);
@@ -95,9 +94,9 @@ function mount(host: HTMLElement): void {
   const presetDefs: { id: string; label: string; s: Partial<St>; macenko?: boolean }[] = [
     { id: "ruifrok", label: "Ruifrok defaults", s: { V: RUIF } },
     { id: "true", label: "the true vectors: perfect separation", s: { V: TRUE_V } },
-    { id: "wrongE", label: hdab ? "wrong DAB vector: crosstalk" : "wrong eosin vector: crosstalk", s: { V: hdab ? [TRUE_V[0], TRUE_V[1], U.unit3([0.45, 0.62, 0.64])] : [TRUE_V[0], U.unit3([0.30, 0.88, 0.37]), TRUE_V[2]] } },
+    { id: "wrongE", label: hdab ? "wrong DAB vector: crosstalk" : "wrong eosin vector: crosstalk", s: { V: hdab ? [TRUE_V[0], TRUE_V[1], WRONG_DAB] : [TRUE_V[0], WRONG_E, TRUE_V[2]] } },
     ...(hdab ? [] : [{ id: "residual", label: "two stains, residual from the cross product", s: { V: TRUE_V, third: "cross" as const } }]),
-    { id: "parallel", label: "nearly parallel stains: noise explodes", s: { V: hdab ? [TRUE_V[0], TRUE_V[1], U.unit3([0.52, 0.68, 0.52])] : [TRUE_V[0], U.unit3([0.45, 0.80, 0.40]), TRUE_V[2]] } },
+    { id: "parallel", label: "nearly parallel stains: noise explodes", s: { V: hdab ? [TRUE_V[0], TRUE_V[1], PARALLEL_DAB] : [TRUE_V[0], PARALLEL_E, TRUE_V[2]] } },
     { id: "io", label: "wrong I₀ / saturated pixels", s: { V: TRUE_V, i0: 205, density: 2.6 } },
     { id: "macenko", label: "estimate from the image (Macenko)", s: { V: RUIF }, macenko: true },
     ...(hdab ? [{ id: "dab", label: "count positive nuclei: threshold the DAB map", s: { V: TRUE_V, otsu: true } }] : []),
@@ -108,7 +107,7 @@ function mount(host: HTMLElement): void {
   const dS = slider(panel, "stain density", 0.5, 3, 0.1, st.density, v => { st.density = v; manual(true); });
   const nS = slider(panel, "noise (grey levels)", 0, 8, 0.5, st.noise, v => { st.noise = v; manual(true); });
   const truthC = checkbox(panel, "show true concentrations", st.truth, v => { st.truth = v; draw(); });
-  const read = htmlEl("div", "qb-readout um-readout", "", panel);
+  const read = htmlEl("div", "qb-readout um-readout", "", mid);
   const note = htmlEl("div", "qb-note", "Drag the stain vectors (circles) in the triangle. The triangle shows each pixel's optical densities divided by their sum.", panel);
   void note;
   function manual(rerender = false): void { pbtn.forEach(b => b.classList.remove("active")); if (rerender) render(); draw(); }
@@ -181,10 +180,10 @@ function mount(host: HTMLElement): void {
     const lines: string[] = [];
     if (Si) {
       const T = matMul(Si, Strue, 3, 3, 3);
-      const rows = hdab ? [0, 2, 1] : [0, 1, 2];
-      const Tshow = new Float64Array(9);
-      rows.forEach((r, i) => rows.forEach((c, j) => { Tshow[i * 3 + j] = T[r * 3 + c]; }));
-      const g = heatmapGrid(tBox, Tshow, 3, 3, { map: mapR, lo: -1, hi: 1, numbers: true, fmt: v => fmt(v, 2), rowLabels: rows.map(r => "est. " + labels[r]), colLabels: rows.map(c => "true " + ["H", "E", "DAB"][c]), font: 15, cell: 50, title: "each map contains" });
+      const rows = hdab ? [0, 2, 1] : [0, 1, 2], cols = hdab ? [0, 2, 1] : [0, 1];   // H&E: no DAB on the slide
+      const Tshow = new Float64Array(rows.length * cols.length);
+      rows.forEach((r, i) => cols.forEach((c, j) => { Tshow[i * cols.length + j] = T[r * 3 + c]; }));
+      const g = heatmapGrid(tBox, Tshow, rows.length, cols.length, { map: mapR, lo: -1, hi: 1, numbers: true, fmt: v => fmt(v, 2), rowLabels: rows.map(r => "est. " + labels[r]), colLabels: cols.map(c => ["H", "E", "DAB"][c]), font: 15, cell: 52, title: "map contains (true →)" });
       uniqueClip(g.svg, NAME);
       lines.push(`κ(S) = ${fmt(U.condition(S, 3, 3), 1)}`);
     } else lines.push("S is singular: no inverse");
@@ -194,10 +193,10 @@ function mount(host: HTMLElement): void {
       for (let p = 0; p < P; p++) if (scaled.conc[0][p] + scaled.conc[1][p] + scaled.conc[2][p] < 0.02) { n++; m += res.c[0][p]; m2 += res.c[0][p] ** 2; }
       for (let p = 0; p < P; p++) if (res.c[0][p] < -0.05 || res.c[1][p] < -0.05) neg++;
       if (n) lines.push(`H map in unstained areas: mean ${fmt(m / n, 3)}, sd ${fmt(Math.sqrt(Math.max(0, m2 / n - (m / n) ** 2)), 3)}`);
-      lines.push(`pixels with a concentration < −0.05: ${fmt(100 * neg / P, 1)} %`);
+      if (neg) lines.push(`pixels with a concentration < −0.05: ${fmt(100 * neg / P, 1)} %`);
       let sat = 0;
       for (let p = 0; p < P; p++) if (img.R[p] <= 1 || img.G[p] <= 1 || img.B[p] <= 1) sat++;
-      lines.push(`saturated (I ≤ 1) pixels: ${sat}`);
+      if (sat) lines.push(`saturated (I ≤ 1) pixels: ${sat}`);
       if (hdab && st.otsu) {
         const dab = res.c[2], h = histogram(dab, { bins: 128 }), t = otsu(h.counts);
         const thr = h.lo + (t.t + 1) * h.binWidth;
