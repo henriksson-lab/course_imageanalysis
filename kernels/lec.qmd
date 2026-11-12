@@ -28,32 +28,19 @@ Last time we **moved** pixels. Today we **change their values**, using the pixel
 - Derivatives of an image are differences of neighbours: **Taylor** tells us which.
 - What the **sum of the weights** tells you, and what to do at the **border**.
 
+Slides titled **The math** give the formulas and proofs; the ideas are complete without them.
+
 ## A kernel slides over the image
 
-For a $3\times3$ kernel $w$, the output at pixel $(i, j)$ is
-
-$$I'[i, j] = \sum_{k=-1}^{1}\sum_{l=-1}^{1} w[k, l]\; I[i + k,\, j + l].$$
-
-- Centre the kernel on a pixel, multiply each pixel by the weight on top of it, **add the nine products**.
+- Centre the $3 \times 3$ kernel on a pixel, multiply each of the nine pixels by the weight on top of it, and **add the nine products**. That sum is the output pixel.
 - Move one pixel on and repeat. The window always reads the **input**, never earlier outputs.
 - The **same** nine weights are used everywhere.
 
-::: notes
-Strictly, the formula above is cross-correlation. Convolution flips the kernel: I[i − k, j − l]. For symmetric kernels (all the blurs) there is no difference; for Sobel the flip changes the sign. Image libraries differ in which one they call "filter"; worth checking once and then remembering.
-:::
+Two properties make this special:
 
-## Convolution: linear and shift-invariant
-
-With the kernel flipped, this is the discrete version of the integral you know from calculus:
-
-$$(f * g)(x) = \int f(s)\, g(x - s)\, ds \qquad\longleftrightarrow\qquad (I * w)[i,j] = \sum_{k,l} I[k,l]\, w[i-k,\, j-l].$$
-
-Two properties make it special:
-
-- **Linear:** $(aI_1 + bI_2) * w = a(I_1 * w) + b(I_2 * w)$. On an image with $n$ pixels, filtering is a (huge, sparse) $n \times n$ matrix.
+- **Linear:** double the input, and the output doubles; filter the sum of two images, and you get the sum of the two filtered images.
 - **Shift-invariant:** shift the input, and the output shifts the same way.
-
-Every operator with both properties is a convolution with some kernel. And: $(I * w_1) * w_2 = I * (w_1 * w_2)$, so filters can be combined into one.
+- So filtering twice is again a filter: two kernels can be **combined into one**.
 
 ## One output pixel, by hand {.smaller}
 
@@ -66,24 +53,64 @@ $$\begin{bmatrix} 1 & 5 & 9\\ 5 & 9 & 9\\ 9 & 9 & 9 \end{bmatrix} \qquad
 - Gaussian: $(1 + 10 + 9 + 10 + 36 + 18 + 9 + 18 + 9)/16 = 120/16 = 7.5$.
 - Laplacian: $5 + 5 + 9 + 9 - 4\cdot 9 = -8$. Negative! Edge filters need a display with **0 as mid-grey**.
 
-**Sum of the weights:** on a flat region of value $c$, the output is $c \cdot \sum w$.
+**Sum of the weights:** on a flat region of value $c$, the output is $c$ times the sum of the weights.
 
-- $\sum w = 1$: brightness is kept (blurs, sharpen).
-- $\sum w = 0$: flat regions give 0; the filter only sees **change** (edges).
+- Sum $= 1$: brightness is kept (blurs, sharpen).
+- Sum $= 0$: flat regions give 0; the filter only sees **change** (edges).
+
+## The math: correlation and convolution {.math}
+
+For a $3\times3$ kernel $w$, the output at pixel $(i, j)$ is
+
+$$I'[i, j] = \sum_{k=-1}^{1}\sum_{l=-1}^{1} w[k, l]\; I[i + k,\, j + l].$$
+
+Strictly, this is **cross-correlation**. **Convolution** flips the kernel, and is the discrete version of the integral you know from calculus:
+
+$$(f * g)(x) = \int f(s)\, g(x - s)\, ds \qquad\longleftrightarrow\qquad (I * w)[i,j] = \sum_{k,l} I[k,l]\, w[i-k,\, j-l].$$
+
+- **Linear:** $(aI_1 + bI_2) * w = a(I_1 * w) + b(I_2 * w)$. On an image with $n$ pixels, filtering is a (huge, sparse) $n \times n$ matrix.
+- **Shift-invariant:** if $J[i, j] = I[i - a, j - b]$, then $(J * w)[i, j] = (I * w)[i - a, j - b]$.
+- Every operator with both properties is a convolution with some kernel. And $(I * w_1) * w_2 = I * (w_1 * w_2)$: filters combine into one.
+- On a flat region, $I \equiv c$: $\;(I * w)[i, j] = c \sum_{k,l} w[k,l]$.
+
+::: notes
+For symmetric kernels (all the blurs) there is no difference between correlation and convolution; for Sobel the flip changes the sign. Image libraries differ in which one they call "filter"; worth checking once and then remembering.
+:::
 
 ## Derivatives are differences of neighbours
 
-Taylor: $f(x \pm h) = f(x) \pm h f'(x) + \tfrac{h^2}{2} f''(x) \pm \dots$ With pixel spacing $h = 1$:
+The **slope** of the brightness at a pixel: right neighbour minus left neighbour, divided by 2. The **curvature**: right + left − 2 × centre.
+
+| | | | | | |
+|---|---|---|---|---|---|
+| pixel values | 0 | 0 | 3 | 6 | 6 |
+| slope, kernel $\tfrac12\,[-1\;\;0\;\;1]$ | | 1.5 | **3** | 1.5 | |
+| curvature, kernel $[1\;\;-2\;\;1]$ | | 3 | **0** | −3 | |
+
+The slope peaks in the middle of the edge; the curvature changes sign there (a **zero crossing**).
+
+- **Sobel x** $= \begin{bmatrix}1\\2\\1\end{bmatrix}[-1\;\;0\;\;1]$: a slope in $x$, smoothed over three rows. Sobel y likewise.
+- Together they give the **gradient**: it points across the edge, and its length is the **edge strength**.
+- **Laplacian**: the curvature $[1\;-2\;1]$ in $x$ plus the same in $y$ gives $\begin{bmatrix} 0 & 1 & 0\\ 1 & -4 & 1\\ 0 & 1 & 0 \end{bmatrix}$.
+
+::: notes
+Sobel is an outer product of a smoothing column and a derivative row: a separable kernel. The Gaussian is separable too, 1 2 1 times 1 2 1. Separable kernels can be applied as two 1D passes, which is much faster for large kernels.
+:::
+
+## The math: derivatives from Taylor {.math}
+
+Taylor: $f(x \pm h) = f(x) \pm h f'(x) + \tfrac{h^2}{2} f''(x) \pm \tfrac{h^3}{6} f'''(x) + \dots$ With pixel spacing $h = 1$:
 
 $$f'(x) \approx \tfrac12\big[f(x+1) - f(x-1)\big] \quad \to \quad \tfrac12\,[-1\;\;0\;\;1]$$
 $$f''(x) \approx f(x+1) - 2f(x) + f(x-1) \quad \to \quad [1\;\;-2\;\;1]$$
 
-- **Sobel x** $= \begin{bmatrix}1\\2\\1\end{bmatrix}[-1\;\;0\;\;1]$: a derivative in $x$, smoothed in $y$. Sobel y likewise.
-- The **gradient** $\nabla I \approx (\text{Sobel x}, \text{Sobel y})$; its length $\|\nabla I\|$ is the **edge strength**.
-- The **Laplacian** $\nabla^2 I = I_{xx} + I_{yy}$: add $[1\;-2\;1]$ in both directions to get $\begin{bmatrix} 0 & 1 & 0\\ 1 & -4 & 1\\ 0 & 1 & 0 \end{bmatrix}$.
+- Subtracting the two expansions cancels the even terms: the central difference is accurate to $\mathcal{O}(h^2)$; the one-sided $f(x+1) - f(x)$ only to $\mathcal{O}(h)$.
+- Adding them cancels the odd terms: the second difference is accurate to $\mathcal{O}(h^2)$.
+- The **gradient** $\nabla I = (I_x, I_y) \approx (\text{Sobel x}, \text{Sobel y})$; the edge strength is $\|\nabla I\|$.
+- The **Laplacian** $\nabla^2 I = I_{xx} + I_{yy}$: the sum of the two second differences.
 
 ::: notes
-The central difference is accurate to order h², the one-sided difference only to order h: that is why the kernel skips the centre pixel. Sobel is an outer product of a smoothing column and a derivative row: a separable kernel. The Gaussian is separable too, 1 2 1 times 1 2 1. Separable kernels can be applied as two 1D passes, which is much faster for large kernels.
+The central difference is accurate to order h², the one-sided difference only to order h: that is why the kernel skips the centre pixel.
 :::
 
 ## Try it: 3 × 3 kernels
@@ -102,8 +129,8 @@ Left: the input; middle: the nine weights, which can be typed (press Enter to gi
 
 Derivatives amplify **noise**: noise is exactly "a pixel that differs from its neighbours".
 
-- So **smooth first, then differentiate**. Because convolution is associative, $(I * G) * D = I * (G * D)$: one combined kernel.
-- **Laplacian of Gaussian** $\nabla^2 G$: a blob and edge detector at a chosen scale $\sigma$.
+- So **smooth first, then differentiate**. Blur-then-derivative is again a single filter: one combined kernel.
+- **Laplacian of Gaussian** (Gaussian blur, then Laplacian): a blob and edge detector at a chosen scale $\sigma$, the width of the Gaussian.
 - The scale of the Gaussian decides the scale of the structures you find.
 
 ## What happens at the border?
@@ -121,6 +148,6 @@ There is no correct answer; just be aware that the outer pixels are less trustwo
 
 - Filtering = weighted sum of a neighbourhood = **convolution**: linear and shift-invariant.
 - **Sum of weights** 1 keeps brightness; 0 responds only to change.
-- Finite differences from Taylor give **derivative** kernels: Sobel (gradient), Laplacian (second derivative).
+- **Derivative** kernels are differences of neighbours: Sobel (slope, gradient), Laplacian (curvature). Taylor tells us which differences are accurate.
 - Smooth before differentiating; mind the border.
 - Next: the **Fourier** view, where convolution becomes multiplication.

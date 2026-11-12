@@ -27,7 +27,7 @@ function injectStyle(): void {
   document.head.appendChild(s);
 }
 
-const W = 780, H = 470, X0 = 70, X1 = 765, Y0 = 14, Y1 = 290, LY0 = 340, LY1 = 440;
+const W = 780, H = 500, X0 = 70, X1 = 765, Y0 = 14, Y1 = 290, LY0 = 380, LY1 = 470;
 const MAXSTEP = 3000;
 
 function mount(host: HTMLElement): void {
@@ -55,7 +55,8 @@ function mount(host: HTMLElement): void {
     svgEl("line", { x1: X0, x2: X1, y1: sy(v), y2: sy(v), class: "grid" }, svg);
     svgEl("text", { x: X0 - 8, y: sy(v) + 6, "text-anchor": "end" }, svg).textContent = String(v);
   }
-  svgEl("text", { x: (X0 + X1) / 2, y: Y1 + 30, "text-anchor": "middle" }, svg).textContent = "position x along the line scan";
+  svgEl("text", { x: (X0 + X1) / 2, y: Y1 + 44, "text-anchor": "middle" }, svg).textContent = "position x along the line scan";
+  for (const v of [0, 0.5, 1]) svgEl("text", { x: sx(v), y: Y1 + 20, "text-anchor": "middle", style: "font-size:15px" }, svg).textContent = String(v);
   svgEl("text", { x: 18, y: (Y0 + Y1) / 2, transform: `rotate(-90 18 ${(Y0 + Y1) / 2})`, "text-anchor": "middle" }, svg).textContent = "intensity";
   const gHinge = svgEl("g", {}, svg);
   const gData = svgEl("g", {}, svg);
@@ -65,7 +66,7 @@ function mount(host: HTMLElement): void {
   const lsx = scale(0, MAXSTEP, X0, X1), lsy = scale(-4, 0, LY1, LY0);
   svgEl("rect", { x: X0, y: LY0, width: X1 - X0, height: LY1 - LY0, fill: "none", class: "grid" }, svg);
   for (const e of [-4, -3, -2, -1, 0]) svgEl("text", { x: X0 - 8, y: lsy(e) + 6, "text-anchor": "end", style: "font-size:15px" }, svg).textContent = e === 0 ? "1" : `1e${e}`;
-  svgEl("text", { x: X0 + 6, y: LY0 - 6 }, svg).textContent = "loss (mean squared error, log scale) vs training step";
+  svgEl("text", { x: X0 + 6, y: LY0 - 8 }, svg).textContent = "loss (mean squared error, log scale) vs training step";
   const lossPath = svgEl("path", { fill: "none", stroke: "#1f77b4", "stroke-width": 2.5 }, svg);
   svgEl("text", { x: X1, y: LY1 + 22, "text-anchor": "end", style: "font-size:15px" }, svg).textContent = String(MAXSTEP);
 
@@ -113,7 +114,7 @@ function mount(host: HTMLElement): void {
         fill: "none", stroke: "#ff7f0e", "stroke-width": 2, "stroke-opacity": 0.45 }, gHinge);
       const w = net.W[0][k], b = net.b[0][k];
       const xh = w !== 0 ? -b / w : NaN;
-      if (st.bend && xh > 0 && xh < 1) svgEl("path", { d: `M${sx(xh).toFixed(1)},${Y1}l-7,12h14z`, fill: "#ff7f0e" }, gHinge);
+      if (st.bend && xh > 0 && xh < 1) svgEl("path", { d: `M${sx(xh).toFixed(1)},${Y1 - 12}l-7,12h14z`, fill: "#ff7f0e" }, gHinge);
     }
     lossPath.setAttribute("d", losses.map((l, i) => `${i ? "L" : "M"}${lsx(i).toFixed(1)},${lsy(Math.max(-4, Math.min(0, Math.log10(l)))).toFixed(1)}`).join(""));
     const nW = 1 * st.h + st.h + st.h * 1 + 1;

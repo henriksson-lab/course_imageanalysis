@@ -15,12 +15,16 @@ const NAME = "linae";
 const STYLE = `
 [data-demo="${NAME}"] { gap: 1em; }
 [data-demo="${NAME}"] .la-plot { flex: 0 1 470px; min-width: 0; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 520px; gap: .45em; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 360px; max-width: 520px; gap: .45em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre; }
 [data-demo="${NAME}"] svg text { font-size: 18px; }
 [data-demo="${NAME}"] .la-sw { display: flex; gap: 14px; align-items: flex-end; }
 [data-demo="${NAME}"] .la-sw figure { margin: 0; text-align: center; font-size: 15px; color: var(--qb-muted); }
-.reveal [data-demo="${NAME}"] { font-size: 19px; }
+.reveal [data-demo="${NAME}"] { font-size: 18px; flex-wrap: nowrap; }
+.reveal [data-demo="${NAME}"] .la-plot { flex: 0 0 440px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 560px; max-width: 620px; gap: .3em; }
+.reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
+.reveal [data-demo="${NAME}"] .qb-panel > svg { max-height: 120px; }
 .reveal [data-demo="${NAME}"] .qb-note { font-size: 16px; }
 `;
 function injectStyle(): void {
@@ -63,15 +67,15 @@ function mount(host: HTMLElement): void {
 
   const panel = htmlEl("div", "qb-panel", "", host);
   // error vs angle plot
-  const EW = 500, EH = 150;
+  const EW = 400, EH = 170;
   const esvg = svgEl("svg", { viewBox: `0 0 ${EW} ${EH}`, width: "100%" }, panel);
-  const ex = scale(-90, 90, 50, EW - 10);
+  const ex = scale(-90, 90, 30, EW - 24);
   let ey = scale(0, 1, EH - 30, 10);
   const ePath = svgEl("path", { fill: "none", stroke: "#1f77b4", "stroke-width": 2.5 }, esvg);
   const eMark = svgEl("circle", { r: 6, fill: "#d62728" }, esvg);
   const eAE = svgEl("line", { stroke: "#2ca02c", "stroke-width": 2.5, "stroke-dasharray": "6 4", x1: ex(-90), x2: ex(90) }, esvg);
-  for (const a of [-90, -45, 0, 45, 90]) svgEl("text", { x: ex(a), y: EH - 8, "text-anchor": "middle", style: "font-size:15px" }, esvg).textContent = `${a}°`;
-  svgEl("text", { x: 54, y: 18, style: "font-size:15px" }, esvg).textContent = "mean squared error vs angle of u";
+  for (const a of [-90, -45, 0, 45, 90]) svgEl("text", { x: ex(a), y: EH - 6, "text-anchor": "middle", style: "font-size:19px" }, esvg).textContent = `${a}°`;
+  svgEl("text", { x: 4, y: 20, style: "font-size:19px" }, esvg).textContent = "error vs angle of u";
   const eMax = svgEl("text", { x: 46, y: 18 + 0, "text-anchor": "end", style: "font-size:14px" }, esvg);
 
   const sw = htmlEl("div", "la-sw", "", panel);
@@ -110,7 +114,7 @@ function mount(host: HTMLElement): void {
     const angs = Array.from({ length: 181 }, (_, i) => i - 90);
     const errs = angs.map(a => linError(P, a * Math.PI / 180));
     const top = Math.max(...errs) * 1.1;
-    ey = scale(0, top, EH - 30, 26);
+    ey = scale(0, top, EH - 32, 30);
     ePath.setAttribute("d", angs.map((a, i) => `${i ? "L" : "M"}${ex(a).toFixed(1)},${ey(errs[i]).toFixed(1)}`).join(""));
     eMax.textContent = "";
     draw();
@@ -165,10 +169,12 @@ function mount(host: HTMLElement): void {
     const L = linError(P, th), tot = pc.l1 + pc.l2;
     out.textContent =
       `u = (${u[0].toFixed(3)}, ${u[1].toFixed(3)}), angle ${deg.toFixed(1)}°\n` +
-      `selected image x = (${p[0].toFixed(3)}, ${p[1].toFixed(3)})\n` +
-      `  score s = ${s.toFixed(3)} → x̂ = (${q[0].toFixed(3)}, ${q[1].toFixed(3)})\n` +
-      `linear error ${L.toFixed(4)}  (PCA best ${pc.l2.toFixed(4)}; keep nothing ${tot.toFixed(4)})\n` +
-      (ae ? `autoencoder error ${eA.toFixed(4)} after ${aeSteps} steps` : `autoencoder: not trained`);
+      `image x = (${p[0].toFixed(3)}, ${p[1].toFixed(3)})\n` +
+      `score ${s.toFixed(3)} → x̂ = (${q[0].toFixed(3)}, ${q[1].toFixed(3)})\n` +
+      `linear error   ${L.toFixed(4)}\n` +
+      `PCA best       ${pc.l2.toFixed(4)}\n` +
+      `keep nothing   ${tot.toFixed(4)}\n` +
+      (ae ? `autoencoder    ${eA.toFixed(4)} (${aeSteps} steps)` : `autoencoder    not trained`);
     aeBtn.disabled = timer !== 0;
   }
   const aeDecodeOf = (p: V2): V2 => aeDecode(ae!.net, aeCode(ae!.net, p));

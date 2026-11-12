@@ -26,7 +26,7 @@ function injectStyle(): void {
   document.head.appendChild(s);
 }
 
-const W = 760, H = 500, X0 = 40, X1 = 740;
+const W = 760, H = 530, X0 = 40, X1 = 740;
 const ORANGE = "#e07b1a";
 const npdf = (z: number, m: number, s: number) => Math.exp(-0.5 * ((z - m) / s) ** 2) / (s * Math.sqrt(2 * Math.PI));
 
@@ -41,24 +41,24 @@ function mount(host: HTMLElement): void {
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "Prior, encoder cloud and loss terms" }, plotDiv);
   const sz = scale(-3.2, 3.2, X0, X1);
   // panel 1: densities over z (y 20..190)
-  const D0 = 30, D1 = 190, sd = scale(0, 1.3, D1, D0);
+  const D0 = 30, D1 = 190, sd = scale(0, 1.0, D1, D0);
   svgEl("line", { x1: X0, x2: X1, y1: D1, y2: D1, class: "axis" }, svg);
   for (const t of [-3, -2, -1, 0, 1, 2, 3]) svgEl("text", { x: sz(t), y: D1 + 22, "text-anchor": "middle", style: "font-size:15px" }, svg).textContent = String(t);
   svgEl("text", { x: X1, y: D0 - 8, "text-anchor": "end" }, svg).textContent = "latent z";
-  const prior = svgEl("path", { fill: "none", stroke: "#555", "stroke-width": 2.5, "stroke-dasharray": "7 5" }, svg);
   const qArea = svgEl("path", { fill: ORANGE, "fill-opacity": 0.25, stroke: ORANGE, "stroke-width": 3 }, svg);
+  const prior = svgEl("path", { fill: "none", stroke: "#333", "stroke-width": 2.5, "stroke-dasharray": "7 5" }, svg);
   const gDraws = svgEl("g", {}, svg);
   const lab1 = svgEl("text", { x: X0 + 4, y: D0 - 8 }, svg);
   lab1.innerHTML = `<tspan fill="#555">prior N(0, 1)</tspan>   <tspan fill="${ORANGE}">encoder cloud q = N(μ, s²)</tspan>`;
   // panel 2: decoded values on the x axis (y 240..290)
-  const sxv = scale(-3.2, 3.2, X0, X1), R0 = 250;
+  const sxv = scale(-3.2, 3.2, X0, X1), R0 = 300;
   svgEl("line", { x1: X0, x2: X1, y1: R0, y2: R0, class: "axis" }, svg);
   for (const t of [-3, -2, -1, 0, 1, 2, 3]) svgEl("text", { x: sxv(t), y: R0 + 40, "text-anchor": "middle", style: "font-size:15px" }, svg).textContent = String(t);
-  svgEl("text", { x: X0 + 4, y: R0 - 24 }, svg).textContent = "grey value: draws decoded (w z) and the image x";
+  svgEl("text", { x: X0 + 4, y: R0 - 40 }, svg).textContent = "grey value: draws decoded (w z) and the image x";
   const gDec = svgEl("g", {}, svg);
   const xMark = svgEl("path", { fill: "#d62728" }, svg);
   // panel 3: bars (y 320..490)
-  const B0 = 330, BH = 34, bx = scale(0, 8, 200, X1);
+  const B0 = 370, BH = 32, bx = scale(0, 8, 200, X1);
   const barNames = ["reconstruction", "β × KL", "total loss"], barCols = ["#1f77b4", ORANGE, "#444"];
   const bars = barNames.map((n, i) => {
     svgEl("text", { x: 190, y: B0 + i * (BH + 14) + BH / 2 + 6, "text-anchor": "end" }, svg).textContent = n;

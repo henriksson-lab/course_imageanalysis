@@ -1,0 +1,121 @@
+---
+title: "Exercise: floating point"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- read a float16 bit pattern as sign, exponent and fraction, and give its value,
+- predict which values a format stores exactly, and the gap between neighbouring floats at a given value,
+- recognise **cancellation** and **summation** errors in image computations, and choose a remedy.
+
+Do the pen-and-paper part first, then the interactive part. Questions marked *(math)* give the derivations; the concept questions do not depend on them.
+
+## By hand
+
+A float16 has 1 sign bit, 5 exponent bits (bias 15) and 10 fraction bits: value $= \pm 2^{E - 15} \times 1.f$ (binary), except that $E = 0$ means zero or subnormal and $E = 31$ means infinity or NaN.
+
+**B1.** Decode the float16 bit patterns 0x3C00, 0xC000, 0x7BFF and 0x7C00. (Write each in binary first: 1 + 5 + 10 bits.)
+
+**B2.** Which of 2049, 2050, 4095, 4097 and 4100 are exactly representable in float16? What does each of the others become?
+
+**B3.** A 16-bit microscopy image is stored in half floats. What do the pixel values 1000, 3001, 40 001 and 65 535 become? Which part of the image suffers most?
+
+**B4.** Predict: starting from 0, you add 1 ten thousand times, rounding to float16 after every addition. Where does the sum end up? And in float32, how far can such a count go before it stops?
+
+**B5.** Three pixels have the values 10 000, 10 001 and 10 002. In float32 the sum of their squares, 300 060 005, is stored as 300 060 000 (the gap between floats there is 32).
+(a) Compute the variance as $\overline{x^2} - \bar x^2$ with that stored sum (the mean, 10 001, and its square, 100 020 001, are exact).
+(b) Compute it from the deviations from the mean. Which is right?
+
+**B6.** One pixel is NaN. You apply a 3 × 3 mean filter twice. How many pixels are NaN afterwards?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** 0x3C00 = 0 01111 0000000000: $E = 15$, $2^0 \times 1.0 = 1$. 0xC000 = 1 10000 0000000000: sign −, $E = 16$: $-2^1 = -2$. 0x7BFF = 0 11110 1111111111: $E = 30$, $2^{15} \times (2 - 2^{-10}) = 65\,504$, the largest half float. 0x7C00 = 0 11111 0000000000: $E = 31$, fraction 0: $+\infty$.
+
+**B2.** In $[2048, 4096)$ the gap is 2, in $[4096, 8192)$ it is 4. Exact: 2050 and 4100. 2049 lies halfway between 2048 and 2050 and rounds to the "even" one, 2048. 4095 lies halfway between 4094 and 4096 and rounds to 4096. 4097 rounds to 4096.
+
+**B3.** 1000 stays 1000 (gap 0.5). 3001 → 3000 (gap 2, tie to even). 40 001 → 40 000 (gap 32 in $[32\,768, 65\,536)$). 65 535 → $+\infty$ (largest half float 65 504). The bright parts suffer most: they lose up to 4–5 low bits, and the brightest pixels overflow.
+
+**B4.** The count reaches 2048. Then $2048 + 1 = 2049$ is exactly halfway between the floats 2048 and 2050 and rounds back to 2048: every further addition is lost. In float32 the count stops at $2^{24} = 16\,777\,216$.
+
+**B5.** (a) $300\,060\,000/3 = 100\,020\,000$; minus $100\,020\,001$: $-1$, a negative variance. (In float32 the division by 3 is rounded too, and the result is 0; either way it is nonsense.) (b) Deviations $-1, 0, 1$; squares $1, 0, 1$; variance $2/3 \approx 0.667$. Correct: the deviations are small numbers, computed exactly.
+
+**B6.** After one filter, the NaN has spread to its 3 × 3 neighbourhood: 9 pixels. After the second, to the 5 × 5 neighbourhood: 25 pixels.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that in $[2^k, 2^{k+1})$ a format with $m$ fraction bits has evenly spaced numbers with gap $2^{k-m}$, and that the relative gap $\text{gap}/x$ lies between $2^{-m-1}$ and $2^{-m}$. Use this to show that every integer up to $2^{m+1}$ is exact.
+
+**B8.** *(math)* A naive sum adds a constant value $x$ again and again. Show that it stops growing at the first $s$ where $x < \tfrac12\,\text{gap}(s)$ (or $x = \tfrac12\,\text{gap}(s)$ and $s$ is the "even" neighbour). Where does it stop in float16 for $x = 1$, and for $x = 1000/65\,535 \approx 0.0153$ (a pixel value normalised to $[0, 1]$)?
+
+**B9.** *(math)* Kahan summation keeps a correction $c$: for each term $x$: $y = x - c$, $t = s + y$, $c = (t - s) - y$, $s = t$ (every operation rounded). In float16, start from $s = 2048$, $c = 0$ and add 1 four times. Write down $y$, $t$, $c$ after each step, and compare with the naive sum.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Numbers in $[2^k, 2^{k+1})$ are $2^k(1 + F/2^m)$ with $F = 0, \dots, 2^m - 1$: consecutive values differ by $2^k \cdot 2^{-m}$. Dividing by $x \in [2^k, 2^{k+1})$ gives a relative gap in $(2^{-m-1}, 2^{-m}]$. The gap is at most 1 while $k \le m$, i.e. for all $x < 2^{m+1}$, so every integer there is a float (and $2^{m+1}$ is a power of two).
+
+**B8.** The exact sum $s + x$ lies between $s$ and the next float $s + \text{gap}(s)$; it rounds back to $s$ if it is closer to $s$, i.e. $x < \text{gap}/2$, or at a tie if $s$ has the even last bit. For $x = 1$ in float16: the gap reaches 2 at $s = 2048$ (an "even" float), so $2048 + 1$ ties and rounds back: the sum stops at 2048. For $x \approx 0.0153$: we need $\text{gap}(s) > 0.0306$; the gap is $2^{-5} = 0.03125$ in $[32, 64)$, so the sum stops at $s = 32$, after about 2050 additions instead of growing on to the true value.
+
+**B9.** Step 1: $y = 1$, $t = \operatorname{fl}(2049) = 2048$, $c = (2048 - 2048) - 1 = -1$: the lost 1 is remembered. Step 2: $y = 1 - (-1) = 2$, $t = 2050$, $c = (2050 - 2048) - 2 = 0$. Step 3: $y = 1$, $t = \operatorname{fl}(2051) = 2052$ (tie, to even), $c = (2052 - 2050) - 1 = 1$: it added 1 too much and remembers that. Step 4: $y = 1 - 1 = 0$, $t = 2052$, $c = 0$. Result 2052, exactly $2048 + 4$. The naive sum stays at 2048.
+:::
+
+## Explore {#explore}
+
+### The bits of a float
+
+Click a bit to flip it, type a value (it is rounded to the nearest float), step by one ulp (one gap), or use the presets. The plot shows the gap between neighbouring floats against the value, for all three formats.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="floatbits" data-format="float16" data-value="0.1"></div>
+<script src="../demos/dist/floatbits.js"></script>
+```
+
+**E1.** The demo starts at 0.1 in float16. What is stored exactly? Switch to float32 and to bfloat16: which stores 0.1 most accurately?
+
+**E2.** Set the value 1 and click **+1 ulp** in each of the three formats. What is the gap above 1? Compare with the "machine ε" line of the readout.
+
+**E3.** Try the presets **2049**, **4095** and **65535** in float16, bfloat16 and float32. Which values survive in which format? Where in the plot does each format's staircase cross the line "spacing 1"?
+
+**E4.** Click **smallest subnormal** in float16, then **÷ 2**. What happens? Then **smallest normal** and **−1 ulp** a few times: how does the gap behave below the smallest normal number?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** float16: 0x2E66, exactly 0.0999755859375. float32: 0.100000001490116… bfloat16: 0.10009765625. float32 is closest (relative error about $1.5 \times 10^{-8}$, against $2.4 \times 10^{-4}$ and $9.8 \times 10^{-4}$).
+
+**E2.** The gap above 1 is $2^{-10} \approx 0.000977$ in float16, $2^{-7} = 0.0078125$ in bfloat16, $2^{-23} \approx 1.19 \times 10^{-7}$ in float32: exactly the machine ε of each format.
+
+**E3.** float32 keeps all three exactly. float16: 2049 → 2048, 4095 → 4096, 65 535 → ∞. bfloat16: 2049 → 2048, 4095 → 4096, 65 535 → 65 536 (it has the range but only 8 significant bits). The staircases cross "spacing 1" at $2^{24}$ (float32), $2^{11}$ (float16) and $2^{8}$ (bfloat16): above those, not every integer is a float.
+
+**E4.** The smallest subnormal is $2^{-24} \approx 6 \times 10^{-8}$ (bit pattern 0x0001); halving it gives exactly half the gap, a tie between 0 and $2^{-24}$, which rounds to the even one: 0. Below the smallest normal ($2^{-14}$) the gap stays $2^{-24}$: the subnormals are evenly spaced down to 0 (the flat start of the red staircase).
+:::
+
+### Summing many pixels {#explore-sum}
+
+The demo adds up to $2^{22}$ (about 4 million, a 2048 × 2048 image) simulated 16-bit pixel values with a fixed seed, by five methods, and plots the relative error of the sum against the number of pixels. The readout also computes the variance three ways.
+
+```{=html}
+<div data-demo="floatbits" data-view="sum" data-mean="1000" data-sd="50" data-n="22"></div>
+```
+
+**E5.** Preset **2048² image, mean 1000**. Up to which number of pixels is the naive float32 sum exact? What is its mean for the whole image, and its relative error? How do pairwise and Kahan do?
+
+**E6.** Look at the two float16 methods (values divided by 65 535, as a GPU would store them). What mean does the naive one report, and why? Then click **bright and flat**: what happens to the float16 pairwise sum?
+
+**E7.** Compare the three variances in the readout for **2048² image, mean 1000** and for **bright and flat**. Explain each failure.
+
+**E8.** Preset **small image** ($2^{12}$ pixels): every float32 method is exact. Why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E5.** Exact up to $2^{14}$ pixels; at $2^{15}$ the sum (about $3.3 \times 10^7$) passes $2^{24}$ and additions start to round. For the whole image: mean 1010.0164 instead of 1000.0367, a relative error of $1.0 \times 10^{-2}$. Pairwise and Kahan both give 1000.0367, with a relative error of $9.5 \times 10^{-10}$.
+
+**E6.** Naive float16 reports a mean of about 1.0 instead of 1000: the running sum of normalised values gets stuck at 64, where each new value (about 0.015) is less than half the gap (0.0625), so 64 × 65 535 / 4 194 304 ≈ 1. Pairwise float16 gives 999.98 (relative error $5.2 \times 10^{-5}$): fine for a half float. With **bright and flat** (mean 30 000) the normalised values are about 0.46 each, and the true sum, about 1.9 million, exceeds 65 504: pairwise float16 overflows to infinity.
+
+**E7.** Mean 1000: exact 2496.88; one pass $-15\,014.75$ (negative: the sum of squares, about $4 \times 10^{12}$, has drifted by more than the variance times $n$); two pass 2589.93 (the deviations are taken from the drifted mean 1010 instead of 1000, which adds about $10^2$); two pass with pairwise sums 2496.88, correct. Bright and flat: exact 399.57; one pass $-88\,030\,784$; two pass 844 771.56 (the naive mean is off by 930); two pass with pairwise sums 399.57. Both remedies are needed: deviations from the mean, and an accurate mean.
+
+**E8.** $4096$ values of about 1000 sum to about $4 \times 10^6 < 2^{24}$: every partial sum is an integer that float32 represents exactly, so no addition rounds.
+:::
+
+## Where this leads
+
+Every later method computes in floating point: filters, Fourier transforms, optimisation, neural networks (which often train in bfloat16 or half precision, with sums accumulated in float32 for exactly the reasons above). When a result looks impossible (a negative variance, a NaN that spreads, a mean that depends on the image size), check the number format first.

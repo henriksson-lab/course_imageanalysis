@@ -62,7 +62,7 @@ const PRESETS: Record<ImgId, Preset[]> = {
     { id: "soft", label: "soft tissue W400 L40", apply: win(40, 400) },
     { id: "lung", label: "lung W1500 L−600", apply: win(-600, 1500) },
     { id: "bone", label: "bone W1800 L400", apply: win(400, 1800) },
-    { id: "narrow", label: "liver W150 L70", apply: win(70, 150) },
+    { id: "narrow", label: "narrow W150 L70", apply: win(70, 150) },
   ],
 };
 

@@ -240,7 +240,7 @@ function mountSum(host: HTMLElement): void {
   const st = { ...d0 };
   const main = htmlEl("div", "fb-main", "", host);
   const plotBox = htmlEl("div", "fb-plot", "", main);
-  const W = 560, H = 360, PL = 70, PR = 12, PT = 10, PB = 44;
+  const W = 560, H = 420, PL = 70, PR = 12, PT = 74, PB = 44;
   const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%" }, plotBox);
   const panel = htmlEl("div", "qb-panel", "", main);
   const meanS = slider(panel, "mean", 0, 60000, 100, st.mean, v => { st.mean = v; later(); });
@@ -298,9 +298,10 @@ function mountSum(host: HTMLElement): void {
       const pts = t.ks.map((k, i) => `${X(k)},${Y(relErr(mi, i))}`).join(" ");
       svgEl("polyline", { points: pts, fill: "none", stroke: m.colour, "stroke-width": 3, "stroke-dasharray": m.dash }, svg);
       t.ks.forEach((k, i) => svgEl("circle", { cx: X(k), cy: Y(relErr(mi, i)), r: 3.5, fill: m.colour }, svg));
-      const ly = PT + 18 + 19 * mi;
-      svgEl("line", { x1: PL + 10, x2: PL + 34, y1: ly - 5, y2: ly - 5, stroke: m.colour, "stroke-width": 3, "stroke-dasharray": m.dash }, svg);
-      svgEl("text", { x: PL + 40, y: ly }, svg).textContent = m.label;
+      // legend above the plot, in two columns
+      const lx = mi < 3 ? 10 : 290, ly = 18 + 21 * (mi < 3 ? mi : mi - 3);
+      svgEl("line", { x1: lx, x2: lx + 24, y1: ly - 5, y2: ly - 5, stroke: m.colour, "stroke-width": 3, "stroke-dasharray": m.dash }, svg);
+      svgEl("text", { x: lx + 30, y: ly }, svg).textContent = m.label;
     });
     svgEl("text", { x: W - PR - 4, y: H - PB - 6, "text-anchor": "end", fill: "var(--qb-muted)" }, svg).textContent = "bottom row: exact";
 

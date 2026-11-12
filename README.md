@@ -21,6 +21,28 @@ One folder per unit, each with
 The order of units is set by the sidebar in `_quarto.yml`, not by folder names.
 Every demo also goes on `demos.qmd`, the gallery page.
 
+### Marking the math layer
+
+Every unit has a concept layer and a math layer (design principle 0). Mark the math
+layer the same way everywhere:
+
+- **Slides:** the math goes on its own slide(s), right after the concept slide it
+  formalises, titled `## The math: <topic> {.math}`. The `.math` class (styled in
+  `theme.scss`) adds a tinted bar on the left and a "math layer" badge after the
+  title. The "About this lecture" slide ends with the line *Slides titled **The
+  math** give the formulas and proofs; the ideas are complete without them.* Concept
+  slides must make sense without any math slide (the summary slide too).
+- **Pages** (exercise background, longer explanations): a collapsed callout
+  `::: {.callout-note collapse="true" title="The math: <topic>"}`.
+- **Exercises:** concept questions (predict, explain, small calculations with
+  numbers) come first, with their own `Solutions` callout. Math questions (derive,
+  prove, generalise) follow under `### Math questions`, each tagged
+  `**B7.** *(math)*`, with a separate `Solutions (math)` callout. Every exercise has
+  concept questions; if a topic is mostly proofs, add concept versions with numbers.
+  Learning goals that need the math are tagged *(math)* too.
+- **Quizzes:** mostly concept questions; tag a purely mathematical one
+  `**Q5.** *(math)*`.
+
 ## Building this site
 
 ```bash

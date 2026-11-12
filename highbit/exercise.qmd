@@ -1,0 +1,103 @@
+---
+title: "Exercise: 12- and 16-bit images in practice"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- predict how a 12-bit image in a 16-bit container looks under a given display range,
+- compute the result of integer arithmetic with **wrap-around**, **saturation** and in float, and say which is right,
+- map raw values (and **Hounsfield units**) to display levels with a **window**.
+
+Do the pen-and-paper part first, then the interactive part. Questions marked *(math)* give the derivations; the concept questions do not depend on them.
+
+## By hand
+
+**B1.** A 12-bit image is stored LSB-aligned in uint16. Which display level (0–255) does the pixel value 4095 get with the window 0…65 535? With the window 0…4095? The same image MSB-aligned (values × 16) shows 4095 as 65 520: which level with the window 0…65 535?
+
+**B2.** Compute in uint16 with wrap-around, in uint16 with saturation, and in float:
+(a) $1200 - 1500$, (b) $90 - 100$, (c) $100 - 90$.
+(d) The mean of 40 000 and 30 000, computed as $(a + b)/2$ in uint16 with wrap-around.
+
+**B3.** A camera packs two 12-bit pixels into 3 bytes: byte 1 holds the top 8 bits of pixel 1, byte 2 holds the low 4 bits of pixel 1 followed by the top 4 bits of pixel 2, byte 3 holds the low 8 bits of pixel 2. Pack the pixels 0xABC and 0x123. How many MiB does a 2048 × 2048 image take packed, and in uint16?
+
+**B4.** CT window "soft tissue" ($W = 400$, $L = 40$, so −160…240). Which display level do air (−1000 HU), fat (−100), water (0), muscle (40) and bone (700) get? In the lung window ($W = 1500$, $L = -600$), which levels do lung tissue (−850) and muscle (40) get? What can you see in each window?
+
+**B5.** Predict, without computing: a fluorescence image has a background of about 160 with noise. You subtract 160 in uint16 with wrap-around and show the result with the window 0…4095. What does the background look like? And with saturation instead?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** $255 \cdot 4095/65\,535 \approx 15.9$, so level 16: a dark grey, the image looks black. With 0…4095: level 255, white. MSB-aligned: $255 \cdot 65\,520/65\,535 \approx 254.9$, level 255: an MSB-aligned image looks right even with the full 16-bit range.
+
+**B2.** (a) wrap: $-300 + 65\,536 = 65\,236$; saturate: 0; float: −300. (b) wrap: 65 526; saturate: 0; float: −10. (c) 10 in all three: no problem when the result fits. (d) $40\,000 + 30\,000 = 70\,000$ wraps to $70\,000 - 65\,536 = 4464$, halved: 2232 instead of 35 000. Divide first, or add in a wider type.
+
+**B3.** Byte 1 = 0xAB, byte 2 = 0xC1 (low nibble C of pixel 1, high nibble 1 of pixel 2), byte 3 = 0x23. Packed: $2048^2 \cdot 1.5$ bytes $= 6$ MiB; in uint16: $2048^2 \cdot 2$ bytes $= 8$ MiB.
+
+**B4.** Soft tissue: $d = 255\,(v + 160)/400$, clipped: air 0, fat 38, water 102, muscle 128, bone 255. Organs and fat are separated; lungs are black and bone is white, without detail. Lung: $d = 255\,(v + 1350)/1500$: lung tissue 85, muscle 236. The lung tissue and vessels in the lung are visible; all soft tissue is nearly white.
+
+**B5.** With wrap-around, every background pixel below 160 becomes a huge number (65 376 or more), far above 4095, so it shows white: the background turns into white speckle where it should be darkest. With saturation those pixels become 0 (black) and the others stay small: the background looks right, but it is biased (the negative half of its noise is gone).
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that in 16-bit wrap-around arithmetic, adding 65 506 to any $x$ gives the same result as subtracting 30. Write 65 506 in hexadecimal. What is it as an int16?
+
+**B7.** *(math)* Derive the window formula $d(v) = 255\,(v - \ell)/(h - \ell)$ (before clipping and rounding) from the requirements $d(\ell) = 0$, $d(h) = 255$, $d$ linear. Invert it: which raw values are shown as display level $d$? Show that each level covers $W/256$ raw values when $W = h - \ell$ is large.
+
+**B8.** *(math)* After subtracting the right background, a background pixel is $X \sim \mathcal N(0, \sigma^2)$. Saturation stores $\max(X, 0)$. Show that $\mathbb E[\max(X, 0)] = \sigma/\sqrt{2\pi} \approx 0.40\,\sigma$. What does that mean for the mean intensity of a dim object measured after a saturating subtraction?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** $x + 65\,506 = x - 30 + 65\,536 \equiv x - 30 \pmod{2^{16}}$. $65\,506 = \text{0xFFE2}$; as int16 it is $65\,506 - 65\,536 = -30$. This is two's complement: $-30$ *is* stored as 0xFFE2, which is why one adder serves signed and unsigned numbers.
+
+**B7.** A line $d = a(v - \ell)$ satisfies $d(\ell) = 0$; $d(h) = 255$ gives $a = 255/(h - \ell)$. Inverse: $v = \ell + d\,W/255$. Display level $d$ (after rounding) collects the raw values with $d - \tfrac12 \le 255(v - \ell)/W < d + \tfrac12$, an interval of length $W/255 \approx W/256$ raw values.
+
+**B8.** $\mathbb E[\max(X, 0)] = \int_0^\infty x\,\frac{1}{\sqrt{2\pi}\sigma}e^{-x^2/2\sigma^2}\,dx = \frac{\sigma}{\sqrt{2\pi}}\left[-e^{-x^2/2\sigma^2}\right]_0^\infty = \frac{\sigma}{\sqrt{2\pi}}$. So a region with true mean 0 reads $0.40\,\sigma$ on average: every dim object is measured too bright, by an amount that depends on the noise, not on the object.
+:::
+
+## Explore {#explore}
+
+The demo shows a synthetic 12-bit fluorescence image (4 cells, two saturated spots) or a synthetic CT slice. The histogram (log counts) shows where the values are; the shaded band is the window. Click the image for the numbers of one pixel.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="window16" data-image="fluo" data-preset="full"></div>
+<script src="../demos/dist/window16.js"></script>
+```
+
+**E1.** Window **0–65535**. Where in the histogram are the data? Which display level does the brightest pixel get? Switch the histogram axis to **data range**.
+
+**E2.** Compare the presets **0–4095**, **min–max** and **0.5–99.5 %**. What are the window limits, how many raw values share one display level, and how much is clipped? Why is min–max almost the same as 0–4095 here? Use the **hi-lo** colour map to see what is clipped.
+
+**E3.** Switch to **MSB-aligned (× 16)** with the histogram on the data range. What does the histogram look like, and why? Does the image now look fine with 0–65535? Is there more information than before?
+
+**E4.** Click **− bg: wrap**, then click a dark background pixel, e.g. at the top right (row 5, column 235). What are its stored value and the result? What fraction of the image is clipped high, and why? Then try **− bg: saturate** and **float**.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** All the data sit in the leftmost 1/16 of the axis (0…4095 of 0…65 535). The brightest pixel (4095) is display level 16: almost black. On the data range axis (105…4095) the histogram is spread out: a big peak (the background) and a long tail (the cells).
+
+**E2.** 0–4095: 16 raw values per display level, 0.1 % clipped high (the 43 saturated pixels). min–max: 105…4095, about the same, because the two saturated spots reach 4095 and so set the maximum. 0.5–99.5 %: 130…3176, about 11.9 raw values per level, 0.5 % clipped at each end: the cells get much more contrast, at the price of a few white (red in hi-lo) pixels in the spots and nuclei.
+
+**E3.** A comb: only every 16th value occurs (the low 4 bits are always 0). 0–65535 now shows the image normally (4095 × 16 = 65 520 is white). There is no extra information: the image uses exactly the same 3076 different values, just multiplied by 16.
+
+**E4.** The pixel stores 151; $151 - 160$ wraps to 65 527, shown white. 26.1 % of the image is clipped high: all background pixels below 160 wrapped to values near 65 535. Saturate: that pixel becomes 0, and 27.6 % of the image is now clipped low (black) — every pixel at or below 160. Float: −9, a correct negative value, also shown black by this window, but the number is kept for later analysis (a mean over the background is now close to zero instead of biased upwards).
+:::
+
+### CT windows {#explore-ct}
+
+```{=html}
+<div data-demo="window16" data-image="ct" data-preset="soft"></div>
+```
+
+**E5.** Go through the windows **soft tissue**, **lung**, **bone** and **narrow W150 L70**. What becomes visible in each? Find the faint lesion in the organ between the lungs: in which window is it easiest to see, and why?
+
+**E6.** Switch to **uint16 HU+1024** and click **soft tissue W400 L40** again. What goes wrong, and what is the fix?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E5.** Soft tissue: the organs, fat (dark grey) and muscle are separated; lungs black, vertebra white. Lung: lung tissue and the vessels inside the lungs; soft tissue is almost white. Bone: the cortical rim and the spongy interior of the vertebra; soft tissue is a uniform grey. Narrow W150 L70: the lesion (80 HU in a 60 HU organ) is display level 145 against 111, a clear difference; in the soft-tissue window it is 153 against 140, much fainter. A narrower window spreads the small HU difference over more display levels.
+
+**E6.** The stored values are HU + 1024, but the window is in HU: air (−1000 HU, stored 24) shows as level 117 and all soft tissue is above 240, so white. Apply the rescale (subtract 1024, from the file header) before windowing, or shift the window by 1024.
+:::
+
+## Where this leads
+
+Every later method works on these numbers: thresholds, filters and measurements should be applied to the raw (or float-converted) values, never to a display rendering. How a graphics card stores and filters pixel values, and how floating point (the type we convert to) behaves, are the topics of the other two units of this day.

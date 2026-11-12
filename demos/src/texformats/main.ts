@@ -54,7 +54,7 @@ const STYLE = `
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; }
 .reveal .qb-demo[data-demo="${NAME}"] .tf-head .qb-btn { font-size: 15px; }
 .reveal .qb-demo[data-demo="${NAME}"] .tf-cap { font-size: 17px; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; line-height: 1.25; }
 `;
 
 function injectStyle(): void {
@@ -309,11 +309,8 @@ function mount(host: HTMLElement): void {
       const dec = s.decoded.map(v => v.toFixed(6)).join(" / ");
       lines.push(`${f.label}: ${s.stored}`, `  → ${dec}  (error ${(s.decoded[0] - x).toExponential(1).replace("-", "−")})`);
     });
-    lines.push("memory, 2048 × 2048:");
-    fmts.forEach(f => {
-      const mb = textureBytes(f.id, 2048, 2048, false) / 2 ** 20, mm = textureBytes(f.id, 2048, 2048, true) / 2 ** 20;
-      lines.push(`  ${f.label}: ${mb.toFixed(0)} MiB (${mm.toFixed(1)} with mipmaps)`);
-    });
+    const mem = fmts.map(f => `${(textureBytes(f.id, 2048, 2048, false) / 2 ** 20).toFixed(0)}`);
+    lines.push(`memory 2048²: ${mem[0]} | ${mem[1]} MiB`, `  (× 4/3 with mipmaps)`);
     ro.textContent = lines.join("\n");
     note.textContent = `Left: ${fmts[0].label}, right: ${fmts[1].label}. Values from ${st.lo.toFixed(4)} to ${st.hi.toFixed(4)} are stretched to black…white on screen, so each stored step shows as a band. ` +
       (typeof glr !== "string" ? `This GPU ${glr.floatLinear ? "can" : "cannot"} filter float32 textures. ` : "") + "Click a picture to inspect a texel.";

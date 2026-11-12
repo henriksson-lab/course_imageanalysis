@@ -1,0 +1,124 @@
+---
+title: "Exercise: generating and exploring images with a VAE"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- **generate** images by decoding draws from the prior, and say which draws are likely,
+- **interpolate** between two images in latent space and explain why the latent midpoint is not the pixel average,
+- read a 2D **latent space**: neighbours, overlaps, and what the axes do (not) mean,
+- use the reconstruction error for **anomaly detection**, and decoding for **denoising**, and name their limits.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Generate | draw $z \sim \mathcal N(0, I)$, decode |
+| Latent walk | decode $z(t) = (1 - t)\,z_A + t\,z_B$ for $t$ from 0 to 1 |
+| Pixel fade | $(1 - t)\,x_A + t\,x_B$, the images themselves averaged |
+| Reconstruction error | mean squared pixel error between an image and the decoded centre of its cloud |
+| Anomaly score | the reconstruction error; above a threshold set on normal images → "unusual" |
+| Denoising | encode a noisy image, decode the centre of its cloud |
+
+The two models of the demo: a 2D VAE trained on MNIST handwritten digits, and a 2D VAE trained on **synthetic** cell masks (round, elongated, dividing, with a protrusion). Both: $28\times28$ images, encoder $784 \to 192 \to 2$, decoder $2 \to 192 \to 784$.
+
+## By hand
+
+### Part A — walks and midpoints
+
+A decoder draws a bright bar on a 3-pixel image: pixel $i$ ($i = 0, 1, 2$) gets $\max(0,\ 1 - |z - i|)$.
+
+**B1.** Let $z_A = 0$ and $z_B = 2$. Write $z(t)$ for $t = 0, 0.25, 0.5, 0.75, 1$, and decode each.
+
+**B2.** Compute the pixel fade at $t = 0.5$. Compare with the decoded latent midpoint. Which one is an image of "a bar"?
+
+**B3.** A **linear** decoder (PCA) maps $z(t)$ to the pixel fade exactly. Explain why, using $\text{decode}(z) = \bar{\mathbf x} + z\,\mathbf u$.
+
+### Part B — generating
+
+**B4.** New images are made by drawing $z$ from the 2D prior $\mathcal N(0, I)$. The probability that a draw lands within radius $r$ of 0 is $1 - e^{-r^2/2}$. What fraction of draws lands within radius 1, 2 and 3?
+
+**B5.** The demo's "far outside" point is $z = (3.3,\ -3.3)$. How much less probable is a draw near this point than a draw near 0 (ratio of the prior densities)? What does the decoder output there, and should we trust it?
+
+### Part C — applications
+
+**B6.** On 2000 normal test masks of the cell-shape VAE, 95% have reconstruction error below 0.0295 and 99% below 0.0447. You set the threshold at 0.0447. About how many of 2000 normal cells are flagged (false alarms)? Which of these is flagged: a ring (error 0.172), two separate cells in one crop (0.253), a square cell (0.030)?
+
+**B7.** Explain why the square is not flagged, although no training cell was square. What kind of anomaly can a reconstruction-error detector **not** see?
+
+**B8.** Explain in two sentences why decoding a noisy image removes the noise, and what it may remove besides the noise.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** $z(t) = 2t$: $z = 0, 0.5, 1, 1.5, 2$, decoded $(1, 0, 0)$, $(0.5, 0.5, 0)$, $(0, 1, 0)$, $(0, 0.5, 0.5)$, $(0, 0, 1)$. The bar moves from left to right (smeared over two pixels when it is between them).
+
+**B2.** Pixel fade at $t = 0.5$: $\tfrac12(1, 0, 0) + \tfrac12(0, 0, 1) = (0.5,\ 0,\ 0.5)$: two half-bright bars, a double exposure. The latent midpoint decodes to $(0, 1, 0)$: one bar in the middle. Only the latent midpoint is an image of a bar.
+
+**B3.** $\text{decode}\big((1-t)z_A + tz_B\big) = \bar{\mathbf x} + \big((1-t)z_A + tz_B\big)\mathbf u = (1-t)(\bar{\mathbf x} + z_A\mathbf u) + t(\bar{\mathbf x} + z_B\mathbf u)$, which is the pixel fade of the two decoded images. A linear map preserves straight lines and averages; only a curved decoder can turn a straight latent line into a moving bar.
+
+**B4.** Radius 1: $1 - e^{-0.5} = 0.393$. Radius 2: $1 - e^{-2} = 0.865$. Radius 3: $1 - e^{-4.5} = 0.989$. About 1 draw in 90 lands outside radius 3.
+
+**B5.** The density ratio is $e^{-(3.3^2 + 3.3^2)/2} = e^{-10.89} \approx 0.00002$: about 50,000 times less probable per unit area than near 0. The decoder still outputs an image (for the digits a thin slanted stroke), because it always answers; but almost no training images were encoded there, so nothing says the image is a realistic digit.
+
+**B6.** 1% of 2000, about 20 false alarms. The ring (0.172) and the two cells (0.253) are flagged; the square (0.030) is not.
+
+**B7.** A square is close enough to a large round cell that the decoder rebuilds it as one with only a small error (mostly at the corners). The detector only sees anomalies that the decoder **cannot draw**; an unusual image that happens to look like a normal one in the squared-error sense passes. Anomalies in a small detail (a tiny dark spot) are also hard to see, because they change few pixels.
+
+**B8.** The decoder can only draw images like those it was trained on, and pixel noise is not among them, so the decoded image is a clean cell. But it is the **model's** version of the cell: details it never learned or cannot store in two numbers (a thin protrusion, an exact outline) are replaced by typical ones, and if the noise moves the code to the wrong region, the output is the wrong shape.
+:::
+
+### Math questions
+
+**B9.** *(math)* Several different images $x$ share (almost) the same code $z$. Show that the single output $c$ minimising $\mathbb E\big[\|x - c\|^2\big]$ is $c = \mathbb E[x]$, and use this to explain why VAE images are blurry.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B9.** *(math)* $\mathbb E\|x - c\|^2 = \mathbb E\|(x - \mathbb E x) + (\mathbb E x - c)\|^2 = \mathbb E\|x - \mathbb E x\|^2 + \|\mathbb E x - c\|^2$ (the cross term has mean zero). Only the second term depends on $c$, and it is zero at $c = \mathbb E x$. So the decoder's best output for a $z$ shared by several images is their **average**, and the average of differently placed sharp strokes or outlines is a blurred one. Wider clouds (larger $\beta$) make more images share each $z$: more blur.
+:::
+
+## Explore {#explore}
+
+The demo has two tabs with **fixed, pre-trained** weights. Left: the latent space with the cloud centres of 1000 test images coloured by class (labels at the class centres) and the prior's radius-2 circle (dashed). Drag **z** or click in the map: the large image is decoded from **z**. Draw an image in the dashed box (or press **example ▸**) and the encoder places it: the cross is the cloud centre, the orange ellipse its ±2 sd; the error under the encoder input is its reconstruction error. The strip below shows a **walk** z → z′, draws from the encoder's **cloud**, or draws from the **prior**. **noise on input** adds noise (fixed seed) to the encoder input.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="vaeimages" data-tabs="digits shapes"></div>
+<script src="../demos/dist/vaeimages.js"></script>
+```
+
+*Data: MNIST handwritten digits (Y. LeCun, C. Cortes, C. J. C. Burges; CC BY-SA 3.0 as stated in the Keras documentation); the 20 example digits are MNIST test images. The cell masks are synthetic, generated by the training script.*
+
+**E1.** Digits. Press **example ▸** a few times. Where do the 0s and 1s land, and how big are the clouds? Then draw your own 4 and encode it. Is its reconstruction a 4?
+
+**E2.** Preset **walk 1 → 7**, then **walk 0 → 1**. Describe the strips. Which digits does the 0 → 1 walk pass through, and why?
+
+**E3.** Press **sample from the prior** a few times. Are all generated images digits? Then tick **decoded grid**: where in the map do the images stop looking like digits?
+
+**E4.** Switch to **Cell shapes**. Tick **decoded grid** and describe how the shapes change across the map. Press **walk round → dividing**.
+
+**E5.** Cell shapes: step **example ▸** through all 15 examples and note the errors. Which kind of normal cell has the largest errors, and what does the reconstruction lose? Which of the three anomalies (examples 13–15) would a threshold of 0.045 flag?
+
+**E6.** Cell shapes: load example 2 (a round cell), then set **noise on input** to 0.3. Compare the encoder input, the decoded image and the error. Repeat with example 4 (an elongated cell). Then try the same in the digits tab.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** The first two examples are 0s, landing at the lower left (centres $(-2.48, -1.56)$ and $(-2.19, -2.03)$); the 1s land on the right ($(2.15, 0.37)$, $(2.00, -0.78)$). The clouds are tiny: spreads 0.07–0.13 per axis for these four (the mean over all test digits is 0.067): one image says a lot about its $z$. Your own 4 depends on your drawing: 4s land in the crowded region around $(0.6, 0.35)$, next to the 9s, and often come back looking like a 9.
+
+**E2.** 1 → 7: a 1, then a 1 that grows a hook, a 9-like shape, and a 7: every step is digit-like. 0 → 1 passes 0, 6, 2, 5, 9, a faint smudge and 1: the straight line from the 0s (lower left) to the 1s (right) crosses the regions of 6, 2, 5 and 9 on its way. The second-to-last step is faint because it lies in the sparse region below the crowded middle, where few digits are encoded.
+
+**E3.** Most samples are digits (the first press gives 2, 6, 9, 9, an unclear 7/5-like stroke, 1, 5), but some are blends or blurred, from points between classes. In the grid, the bottom middle (around $z_2 < -2$, $|z_1| < 1$) decodes to smudges: almost no test digits are encoded there (1 of the 1000 shown).
+
+**E4.** Large round cells on the left, smaller and more elongated cells to the right, with the orientation of the long axis changing around the map; dividing cells (dumbbells) along the bottom. Protrusions do not appear as a separate region. The walk round → dividing goes through slightly elongated cells to a waisted dumbbell: a smooth change of shape.
+
+**E5.** Normal cells: 0.004–0.023. The cells with a protrusion have the largest errors (0.023, 0.016, 0.021): the reconstruction is a round or oval cell without the thin protrusion. Anomalies: ring 0.172 and two cells 0.253 are flagged (their codes, $(-6.30, 3.49)$ and $(-4.18, -0.36)$, lie outside the map; the cross is not visible); the square (0.030) is not.
+
+**E6.** Example 2 with noise 0.3: the encoder input is speckled, the decoded image is a clean round cell, and the error (against the clean mask) is 0.009, against 0.045 for the noisy input itself. Example 4: the noisy code lands elsewhere and the decoded cell has the wrong orientation: error 0.110, worse than the noisy input (0.047). In the digits tab the decoded image is also free of speckle, but often a different or blurrier digit; in squared error it is usually worse than the noisy input, because the digit reconstructions are blurry even without noise (mean error 0.041 over the test set).
+:::
+
+## Where this leads
+
+- **Bigger latent spaces** (10–100 dimensions) rebuild far more detail; the 2D maps here are for looking, not for best quality.
+- **Conditional VAEs** also give the decoder a label (a digit class, a treatment), so it can generate "a 7" or "a treated cell" on demand.
+- **GANs** and **diffusion models** generate much sharper images; diffusion models learn to remove noise step by step and are behind most current image generators.
+- **Morphology spaces**: autoencoder latent spaces of cell and nucleus images are used to compare treatments and find unusual cells in large screens.

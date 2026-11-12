@@ -1,11 +1,11 @@
-# Offline training of the MNIST digit VAE for the "Digits" tab of the vaegen demo.
+# Offline training of the MNIST digit VAE for the "Digits" tab of the vaeimages demo (copied from the vaegen demo of the 3MB00A course).
 # NOT part of the browser bundle, and the MNIST data is NOT stored in this repository.
 #
 # Re-run (Python 3 with torch and numpy; a GPU is used if present, a CPU takes a few minutes):
 #   1. download the four MNIST files into some folder DATA (outside the repo), e.g.
 #        for f in train-images-idx3-ubyte train-labels-idx1-ubyte t10k-images-idx3-ubyte t10k-labels-idx1-ubyte; do
 #          curl -sSfLO https://ossci-datasets.s3.amazonaws.com/mnist/$f.gz; done
-#   2. python3 demos/src/vaegen/train_mnist.py DATA demos/src/vaegen/mnist_weights.ts
+#   2. python3 demos/src/vaeimages/train_mnist.py DATA demos/src/vaeimages/mnist_weights.ts
 #
 # Data: MNIST handwritten digits (Y. LeCun, C. Cortes, C. J. C. Burges), 60000 training and
 # 10000 test images of 28×28 grey pixels. The Keras documentation states that LeCun and

@@ -1,6 +1,6 @@
 # Plan: a day on variational autoencoders (VAEs) for images
 
-Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
+Internal working doc (plan/ is not rendered). Status: built 2026-11-12 (units `neuralnet/`, `autoencoder/`, `vae/`, `vae-gen/`; demos `nnfit`, `linae`, `elbo1d`, `vaeimages`); sidebar and gallery entries still to be integrated.
 
 ## Goal of the day
 
@@ -102,7 +102,7 @@ Four units, about 1.5 h each including the exercise.
 
 ## Open questions
 
-- If the course has an earlier machine-learning day, unit 1 shrinks to a recap or is dropped.
+- If the course has an earlier machine-learning day, unit 1 shrinks to a recap or is dropped. `plan/neuralnets-day.md` (draft) proposes exactly that: its unit 1 absorbs `neuralnet/` (by-hand pass, hinges figure, `nnfit`), and `neuralnet/` here becomes a short recall.
 - Order relative to the snakes day: whoever comes first owns the PCA introduction (see Prerequisite gap).
 - Real microscopy: a VAE on real nucleus crops (e.g. from a public dataset with a clear licence) would be closer to practice than synthetic masks; needs a dataset decision and a retrain.
 - Should the β-VAE be shown with a second set of trained weights (same architecture, β = 4) instead of only described? Cheap to add to `train_shapes.py`.

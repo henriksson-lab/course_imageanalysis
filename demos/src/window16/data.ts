@@ -3,8 +3,8 @@
 //    offset 100 ADU, background, cells with bright nuclei, two saturated spots,
 //    shot noise (seeded) and read noise.
 //  - ctPhantom(): a CT slice in Hounsfield units (-1024..3071, stored as int16):
-//    air, a body of soft tissue with a fat layer, two lungs with vessels, a liver
-//    with a faint lesion (+20 HU), a vertebra with a cortical rim.
+//    air, a body of soft tissue with a fat layer, two lungs with vessels, an organ
+//    (60 HU) with a faint lesion (+20 HU), a vertebra with a cortical rim at the back.
 // Arithmetic: wrap-around (modular, what uint16 does in C or NumPy), saturating
 // (clip to the type's range), and float (exact here).
 import { rng } from "../lib/ui";
@@ -42,19 +42,19 @@ export function ctPhantom(seed = 4): Int16Array {
   const out = new Int16Array(N * N);
   const inEll = (x: number, y: number, cx: number, cy: number, rx: number, ry: number) =>
     ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
-  const vessels = [[80, 110, 3], [92, 140, 2.5], [70, 150, 2], [176, 112, 3], [166, 138, 2.5], [186, 152, 2]];
+  const vessels = [[72, 110, 3], [84, 140, 2.5], [62, 150, 2], [184, 112, 3], [174, 138, 2.5], [194, 152, 2]];
   for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
     const x = j + 0.5, y = i + 0.5;
     let hu = -1000;                                   // air
     if (inEll(x, y, 128, 132, 118, 92)) hu = -100;    // fat layer
     if (inEll(x, y, 128, 132, 110, 84)) hu = 40;      // soft tissue (muscle)
-    if (inEll(x, y, 82, 125, 36, 50)) hu = -850;      // lungs
-    if (inEll(x, y, 174, 125, 36, 50)) hu = -850;
+    if (inEll(x, y, 74, 125, 32, 50)) hu = -850;      // lungs
+    if (inEll(x, y, 182, 125, 32, 50)) hu = -850;
     for (const [vx, vy, vr] of vessels) if (inEll(x, y, vx, vy, vr, vr)) hu = 40;
-    if (inEll(x, y, 128, 186, 34, 22)) hu = 60;       // liver
-    if (inEll(x, y, 140, 184, 7, 6)) hu = 80;         // faint lesion
-    if (inEll(x, y, 128, 82, 17, 15)) hu = 1400;      // vertebra: cortical rim
-    if (inEll(x, y, 128, 82, 12, 10)) hu = 300;       // and spongy interior
+    if (inEll(x, y, 128, 122, 20, 30)) hu = 60;       // an organ between the lungs
+    if (inEll(x, y, 133, 114, 6, 6)) hu = 80;         // with a faint lesion
+    if (inEll(x, y, 128, 192, 17, 15)) hu = 1400;     // vertebra (at the back): cortical rim
+    if (inEll(x, y, 128, 192, 12, 10)) hu = 300;      // and spongy interior
     const noisy = hu + (hu > -900 ? 12 : 5) * r.norm();
     out[i * N + j] = Math.max(-1024, Math.min(3071, Math.round(noisy)));
   }

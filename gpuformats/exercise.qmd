@@ -1,0 +1,103 @@
+---
+title: "Exercise: how graphics cards store colour"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- find a pixel in memory from the width, the layout and the **row stride**, and predict what a wrong stride or byte order does,
+- encode a colour in a normalised and a **packed** format and decode it again,
+- choose a texture format for a task, and explain why filtering needs **linear**, **premultiplied** values.
+
+Do the pen-and-paper part first, then the interactive part. Questions marked *(math)* give the derivations; the concept questions do not depend on them.
+
+## By hand
+
+**B1.** An RGB image, 8 bits per channel, is 1001 pixels wide and 600 rows high, stored interleaved with every row padded to a multiple of 4 bytes.
+(a) What is the stride, and the total size in bytes?
+(b) At which byte offset is the green value of the pixel at $x = 10$, $y = 2$ (counting from 0)?
+(c) Predict what you see if a program reads the image with stride 3003.
+
+**B2.** A 16-bit pixel has the value 1000. Write it in hexadecimal and give the two bytes in little-endian order. What value does a program read if it assumes big-endian? What would a smooth 16-bit image look like after this mistake?
+
+**B3.** Encode the colour orange, $(R, G, B) = (1, 0.5, 0)$:
+(a) in 5-6-5 (red and blue 5 bits, green 6 bits, red in the top bits): the three codes and the 16-bit word in hex. Which value does green decode to?
+(b) in 10-10-10-2 with alpha = 3 (opaque), red in the lowest 10 bits and alpha in the top 2: the codes and the 32-bit word in hex.
+
+**B4.** An opaque red texel $(1, 0, 0, \alpha = 1)$ sits next to a fully transparent green one $(0, 1, 0, \alpha = 0)$. Linear filtering takes the average of the two.
+(a) With straight alpha, what is the average, and what colour does it show over a white background?
+(b) With premultiplied alpha, what is stored, what is the average, and what does it show over white?
+
+**B5.** Choose a format from {8 bit, 8 bit sRGB, 5-6-5, 10 bit, half float, float32, 16-bit integer} for each case, and say why:
+(a) a label image with 40 000 objects, drawn with nearest-neighbour sampling;
+(b) a 12-bit microscopy image (raw counts 0…4095) that will be zoomed with smooth interpolation and contrast-stretched on the GPU;
+(c) a photo with transparency for a user interface.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) A row has $3 \cdot 1001 = 3003$ bytes, padded to **3004**. Total $600 \cdot 3004 = 1\,802\,400$ bytes. (b) $2 \cdot 3004 + 10 \cdot 3 + 1 = 6039$. (c) Row $y$ is read starting $y$ bytes too early, so each row slides a third of a pixel further: the image is sheared. The channels also shift by one byte per row, so the colours cycle with period 3 rows (red read as green, …) on top of the shear.
+
+**B2.** $1000 = \text{0x03E8}$, stored as the bytes **E8 03**. Read as big-endian: 0xE803 = 59 395. In a smooth image the low byte changes fastest, so after swapping it becomes the high byte: the image turns into a pattern of large jumps, looking like noise or contours, with no resemblance to the brightness.
+
+**B3.** (a) Red $1 \cdot 31 = 31$, green $0.5 \cdot 63 = 31.5 \to 32$, blue 0. Word: $31 \cdot 2^{11} + 32 \cdot 2^5 + 0$ = **0xFC00**. Green decodes to $32/63 \approx 0.508$. (b) Red 1023, green $0.5 \cdot 1023 = 511.5 \to 512$, blue 0, alpha 3: word $3 \cdot 2^{30} + 0 \cdot 2^{20} + 512 \cdot 2^{10} + 1023$ = **0xC00803FF**. Green decodes to $512/1023 \approx 0.5005$, four times closer to 0.5.
+
+**B4.** (a) $(0.5, 0.5, 0, 0.5)$: half-transparent olive. Over white: $0.5 \cdot (0.5, 0.5, 0) + 0.5 \cdot (1, 1, 1) = (0.75, 0.75, 0.5)$, a dull yellowish grey: the invisible green leaked in. (b) Stored: $(1, 0, 0, 1)$ and $(0, 0, 0, 0)$; average $(0.5, 0, 0, 0.5)$, i.e. half-transparent red. Over white (premultiplied "over"): $(0.5, 0, 0) + (1 - 0.5)(1, 1, 1) = (1, 0.5, 0.5)$, pink: red at half opacity, as it should be.
+
+**B5.** (a) 16-bit integer: exact up to 65 535 labels, and labels must not be interpolated (nearest sampling is the only option for integer textures anyway). 8 bit would hold only 256 labels; half float holds exact integers only up to 2048. (b) float32 (or a 16-bit normalised format where available): it keeps every 12-bit value exactly and can be filtered (on most GPUs). Half float would round raw counts above 2048 to even numbers, and normalised to $[0, 1]$ its step near 1 is $2^{-11}$, coarser than $1/4095$ (see the floating-point unit). 8 bit would throw away 4 bits. (c) 8 bit sRGB with premultiplied alpha: photos are sRGB-encoded already, the GPU decodes before filtering, and premultiplied alpha avoids fringes.
+:::
+
+### Math questions
+
+**B6.** *(math)* Write the byte offset of pixel $(x, y)$, channel $c$, for an interleaved and for a planar image (planes one after another, each with its own row stride $s_1$). For the image of B1 stored planar, with every plane's rows padded to a multiple of 4 bytes, where is the green value of $(10, 2)$?
+
+**B7.** *(math)* A $2^n \times 2^n$ texture has mipmap levels of $4^n, 4^{n-1}, \dots, 1$ texels. Show that the total is $(4^{n+1} - 1)/3$ and that the extra memory approaches one third. Check for a $4 \times 4$ texture.
+
+**B8.** *(math)* A linear filter with weights $w_i \ge 0$ is applied to premultiplied texels $(\alpha_i \mathbf C_i, \alpha_i)$. Show that dividing the filtered colour by the filtered alpha gives the average of the $\mathbf C_i$ weighted by $w_i\alpha_i$. Check it on B4.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** Interleaved: $y\,s + x\,C B + c\,B$. Planar: $c\,h\,s_1 + y\,s_1 + x\,B$. For B1 planar: $s_1 = 1001 \to 1004$ bytes; green is plane $c = 1$: $1 \cdot 600 \cdot 1004 + 2 \cdot 1004 + 10 = 604\,418$.
+
+**B7.** Geometric series: $\sum_{k=0}^{n} 4^k = (4^{n+1} - 1)/(4 - 1)$. Divided by $4^n$ this is $\tfrac43 - \tfrac{1}{3 \cdot 4^n} \to \tfrac43$. For $4 \times 4$ ($n = 2$): $16 + 4 + 1 = 21 = (64 - 1)/3$.
+
+**B8.** Filtered colour $\sum_i w_i \alpha_i \mathbf C_i$, filtered alpha $\sum_i w_i \alpha_i$; the ratio is $\sum_i (w_i\alpha_i)\,\mathbf C_i / \sum_i (w_i \alpha_i)$, a weighted average with weights $w_i \alpha_i$. In B4: weights $\tfrac12 \cdot 1$ for red and $\tfrac12 \cdot 0$ for green, so the colour is pure red, with alpha $\tfrac12$.
+:::
+
+## Explore {#explore}
+
+The same image, given as numbers in $[0, 1]$, is uploaded to the GPU in two formats (left and right). The shader stretches the range lo…hi to black…white, so that each stored step becomes a visible band. Click a picture to see the stored bits of one texel.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="texformats" data-a="RGBA8" data-b="RGB10_A2" data-image="dark"></div>
+<script src="../demos/dist/texformats.js"></script>
+```
+
+**E1.** Preset **8 vs 10 bit** (ramp 0.20–0.24). Count the bands in each half, or predict them: which codes do 0.20 and 0.24 get in 8 and 10 bits? Click the centre of the picture: what is stored, and how large is the error?
+
+**E2.** Preset **565 tint**. Why are the bands coloured? Click the centre and read the three codes.
+
+**E3.** Preset **darks: sRGB** (very dark ramp, 0–0.005). How many bands does each half show? Click the centre: what are the stored codes and the decoded values?
+
+**E4.** Preset **half vs float** on the same dark ramp. Do you see any bands? The readout shows the stored half float of the centre texel: how close is it?
+
+**E5.** Preset **filter an int**: the left half is black. Read the message. Switch the filter to **nearest**: what changes? Compare the right half (half float, 4 × 4 texels) with nearest and linear filtering.
+
+**E6.** Use the readout to compare the memory of a 2048 × 2048 texture in the formats you have seen. Which formats cost the same memory, and which is the best use of 4 bytes per texel for a grey image?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 8 bit: $0.20 \cdot 255 = 51$ and $0.24 \cdot 255 = 61.2 \to 61$, so codes 51…61: 11 bands. 10 bit: codes 205…246: 42 bands, four times as many. The centre texel (value 0.220078) is stored as 56 in 8 bit (decoded 0.219608, error $-4.7 \times 10^{-4}$) and as 225 in 10 bit (0.219941, an error about 3.5 times smaller here; on average 4 times).
+
+**E2.** Red and blue have 5 bits (codes 6…7 over this ramp), green 6 bits (codes 13…15). The channels step at different places, so between steps the grey has unequal channels: greenish or magenta bands. The centre texel is 0x39C7: R = 7, G = 14, B = 7, decoded $(0.226, 0.222, 0.226)$.
+
+**E3.** Plain 8 bit: codes 0 and 1 only, two bands. sRGB 8 bit: codes 0…16, 17 bands. The centre (0.002510) is code 1 in 8 bit, decoded 0.003922: 56 % too bright. In sRGB it is code 8, decoded 0.002428: 3 % too dark. sRGB spends many more codes on the dark end.
+
+**E4.** No bands in either half. Half float stores the centre as 0x1924 = 0.002510071, against the true 0.002509804: a relative error of about $10^{-4}$. Floats keep relative precision, so small values are as precise as large ones (next unit).
+
+**E5.** The integer texture cannot be filtered, so with linear filtering it is "incomplete" and reads as 0 (black). With nearest it shows the 16 texels as sharp squares. The half float texture with nearest shows the same squares; with linear it shows smooth bilinear ramps between texel centres.
+
+**E6.** 8 bit (RGBA), 8 bit sRGB, 10 bit and float32 (one channel) all take 4 bytes per texel: 16 MiB, 21.3 MiB with mipmaps; 5-6-5, half float and 16-bit integer take 2 bytes: 8 MiB. For one grey channel, float32 gives by far the most precision per 4 bytes; RGBA 8 bit stores the grey value three times and an unused alpha.
+:::
+
+## Where this leads
+
+The same questions (layout, stride, format, what a filter may average) come back whenever images are moved between a camera, a file, a program and a screen. The **colour day** explains why sRGB values must be decoded before averaging; the **floating-point** unit explains the precision of the half float and float32 formats seen here.
