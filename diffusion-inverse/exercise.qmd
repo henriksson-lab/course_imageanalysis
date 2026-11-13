@@ -1,0 +1,160 @@
+---
+title: "Exercise: diffusion priors for inverse problems"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compare the **regularised estimate**, the **posterior mean** and **posterior samples** under a learned prior,
+- split a restoration into the part the measurement **sees** and the **null space**, and say where generated detail comes from,
+- explain why **data consistency** is necessary but not sufficient, and what **disagreement** and **coverage** add,
+- decide which readouts of a restored or virtually stained image may be reported.
+
+Do the pen-and-paper part first, then the demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Regularised estimate | minimise data term + λ·penalty: MAP under a hand-made prior ([regularisation](../regularise/lec.qmd)) |
+| Learned prior | "images like the training images", e.g. a diffusion model |
+| Posterior mean / sample | the average of all images that fit the data and the prior / one of them, drawn at random |
+| Null space | everything the measurement cannot see: beyond the cut-off, inside a hole, an unmeasured channel |
+| Data consistency | re-apply the forward model; the residual should be noise of the right size |
+| Disagreement | spread between posterior samples: where the prior decides |
+| Coverage | how often the truth lies inside a 90 % band, on images with known truth |
+
+![A signal with two spots 4 samples apart, measured through an ideal low-pass that keeps 6 cosines (grey). Middle: five posterior samples and the 90 % band. Bottom: the part of each sample the measurement cannot see; it differs between samples exactly where the spots are.](fig-nullspace.svg){width=60%}
+
+## By hand
+
+**B1.** A two-pixel camera measures only the **mean** of its two pixels: $y = (x_1 + x_2)/2 = 0.5$ (with small noise). The prior is three training images, $(1, 0)$, $(0, 1)$ and $(0.5, 0.5)$, with weights 0.4, 0.4 and 0.2.
+(a) How well does each training image explain $y$? What are the posterior weights?
+(b) Compute the posterior mean.
+(c) What is the probability that a posterior sample shows a "resolved pair" (one bright, one dark pixel)?
+(d) The regularised estimate minimises $(y - \frac{x_1 + x_2}{2})^2 + \lambda(x_1 - x_2)^2$. What does it return?
+(e) Which of (b), a sample, and (d) pass the data-consistency check? What is the null space of this camera?
+
+**B2.** A microscope with NA 1.4 at 520 nm passes no periods shorter than $\lambda/(2\,\text{NA})$.
+(a) Compute this cut-off period.
+(b) A diffusion-restored image shows two filaments 120 nm apart. Where does that spacing come from? What would you need to believe it?
+
+**B3.** On 200 test images with known truth, a restoration method's 90 % band contains the truth 120 times. What does that say about the method's prior, and about its error bars?
+
+**B4.** A virtual-staining model predicts a fluorescence channel from transmitted-light images. Decide for each readout whether it may be reported, and what validation it needs:
+(a) nucleus area; (b) the number of marker spots per cell, for a marker whose position is not visible in transmitted light; (c) the change in marker intensity after a drug treatment, with a model trained on untreated cells; (d) the length of the cell outline.
+
+**B5.** For a restored image you have a residual map (measurement minus re-blurred restoration, in units of the noise) and a disagreement map (sd over 16 posterior samples). In region R1 both are small; in R2 the residual is small but the disagreement large; in R3 the residual is large. What do you conclude for each region?
+
+**B6.** Why can a posterior sample pass the data-consistency check perfectly and still be wrong? Give an example from microscopy.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) All three have mean 0.5: each explains $y$ equally well, so the posterior weights equal the prior weights: 0.4, 0.4, 0.2. (b) $0.4\,(1, 0) + 0.4\,(0, 1) + 0.2\,(0.5, 0.5) = (0.5, 0.5)$. (c) $0.4 + 0.4 = 0.8$. (d) Any $x_1 \ne x_2$ costs penalty without improving the data term, so $(0.5, 0.5)$, the same as the posterior mean. (e) All of them: every candidate has mean 0.5. The null space is the difference $x_1 - x_2$: the camera cannot see it, so whether a sample shows a pair is decided entirely by the prior (80 % here).
+
+**B2.** (a) $520/(2 \cdot 1.4) = 186$ nm. (b) 120 nm is below the cut-off: that spacing lies in the null space of the microscope; it comes from the prior (the training images), not from this measurement. To believe it you would need independent evidence: a measurement that resolves it (e.g. a super-resolution method validated on the same structures), or a validation on similar samples with known truth.
+
+**B3.** 60 % coverage instead of 90 %: the bands are too narrow, so the method is over-confident; its prior does not match these images (or its posterior sampler is approximate). Its error bars cannot be trusted as stated.
+
+**B4.** (a) Probably, if validated: the nucleus outline is visible in the input, so the prediction is constrained by the measurement; compare predicted and real areas on held-out pairs. (b) No: the input does not show the spots; the prediction paints spots where they usually are in the training data, and samples disagree. (c) No: the model has never seen treated cells; it predicts untreated intensities and the effect disappears. Any measured change is a property of the model, not of the cells. (d) Probably: the outline is visible in the input; validate on held-out pairs.
+
+**B5.** R1: consistent with the data and the samples agree: trustworthy (as far as the prior is right). R2: consistent, but the samples disagree: the detail there is decided by the prior (null space or below the noise); do not measure it. R3: the restoration does not explain the data: the prior or the forward model is wrong there (an unexpected structure?); look at the raw data.
+
+**B6.** The check only sees the measured part; any change in the null space leaves the residual unchanged. Example: two filaments closer than the resolution limit restored as one, or one restored as two: both blur to the same measured image (within the noise), and both pass.
+:::
+
+### Math questions
+
+**B7.** *(math)* Scalar Gaussian prior $x \sim \mathcal N(0, s^2)$, measurement $y = x + n$, $n \sim \mathcal N(0, \sigma_n^2)$. Show that the MAP, the posterior mean, the Wiener estimate and the Tikhonov estimate $\arg\min_x (y - x)^2 + \lambda x^2$ coincide when $\lambda = \sigma_n^2/s^2$.
+
+**B8.** *(math)* Let $A$ keep some coordinates (in some orthonormal basis) and let $\mathbf z$ lie in its null space. Show $\|A(\mathbf x + \mathbf z) - \mathbf y\| = \|A\mathbf x - \mathbf y\|$. Then show that, for a prior that factorises into a measured part $\mathbf u$ and a null-space part $\mathbf v$, the posterior of $\mathbf v$ equals its prior.
+
+**B9.** *(math)* For a Gaussian prior, write $p_t(\mathbf y\mid\mathbf x_t)$ exactly in terms of $\hat{\mathbf x}_0 = \mathbb E[\mathbf x_0\mid\mathbf x_t]$ and $C_t = \operatorname{Cov}[\mathbf x_0\mid\mathbf x_t]$, and identify what the common approximation drops. Why is that worst at high noise?
+
+**B10.** *(math)* Show that replacement is exact for the measured coordinates: if $\mathbf y$ equals the measured coordinates of $\mathbf x_0$ (no noise), the measured coordinates of $\mathbf x_t$ are distributed as $\sqrt{\bar\alpha}\,\mathbf y + \sqrt{1 - \bar\alpha}\,\boldsymbol\varepsilon$. Where is the approximation?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\log p(x\mid y) = -\frac{(y - x)^2}{2\sigma_n^2} - \frac{x^2}{2s^2} + c$: a Gaussian, so MAP = mean; setting the derivative to zero, $\frac{y - x}{\sigma_n^2} = \frac{x}{s^2}$, $x = \frac{s^2}{s^2 + \sigma_n^2}y$: the Wiener gain. Tikhonov: $\frac{d}{dx}[(y - x)^2 + \lambda x^2] = 0$ gives $x = \frac{y}{1 + \lambda}$; equal to the above iff $1 + \lambda = \frac{s^2 + \sigma_n^2}{s^2}$, i.e. $\lambda = \sigma_n^2/s^2$.
+
+**B8.** $A\mathbf z = 0$, so $A(\mathbf x + \mathbf z) - \mathbf y = A\mathbf x - \mathbf y$. With $\mathbf x = (\mathbf u, \mathbf v)$: $p(\mathbf y\mid\mathbf x) = p(\mathbf y\mid\mathbf u)$ and $p(\mathbf x) = p(\mathbf u)p(\mathbf v)$, so $p(\mathbf u, \mathbf v\mid\mathbf y) \propto p(\mathbf y\mid\mathbf u)p(\mathbf u)\cdot p(\mathbf v)$: it factorises, and the $\mathbf v$ factor is the prior. (Without factorisation: $p(\mathbf v\mid\mathbf u, \mathbf y) = p(\mathbf v\mid\mathbf u)$, the prior's conditional.)
+
+**B9.** $\mathbf y = A\mathbf x_0 + \mathbf n$ with $\mathbf x_0\mid\mathbf x_t \sim \mathcal N(\hat{\mathbf x}_0, C_t)$ and independent noise: $\mathbf y\mid\mathbf x_t \sim \mathcal N(A\hat{\mathbf x}_0, \sigma_n^2I + AC_tA^\top)$. The approximation keeps $\mathcal N(A\hat{\mathbf x}_0, \sigma_n^2I)$, dropping $AC_tA^\top$. At high noise $\mathbf x_t$ says little about $\mathbf x_0$, so $C_t$ is close to the prior covariance (large): the approximate likelihood is far too narrow and the push towards the data far too strong.
+
+**B10.** $\mathbf x_t = \sqrt{\bar\alpha}\,\mathbf x_0 + \sqrt{1-\bar\alpha}\,\boldsymbol\varepsilon$ coordinate by coordinate, so its measured coordinates are $\sqrt{\bar\alpha}\,\mathbf y + \sqrt{1-\bar\alpha}\,\boldsymbol\varepsilon_{\text{meas}}$ exactly. The approximation: the unmeasured coordinates are produced by the denoiser from a state whose measured part was overwritten independently of them, instead of jointly with them; with a noisy $\mathbf y$, also treating the measurement as exact.
+:::
+
+## Explore: measured and imagined, in 1D {#explore-posterior1d}
+
+A signal of 64 samples with one or two spots (**truth**, dashed) is measured through an ideal **low-pass** (a cut-off: the null space is explicit), a **blur**, **noise only**, or with a **gap**. The prior is 400 training signals (narrow Gaussians around each), so the posterior is exact. Top: measurement, **Tikhonov** (gradient penalty, λ by the discrepancy principle), **posterior mean**. Middle: five posterior samples and the 90 % band (from 32 samples). Bottom: the part of each sample that the measurement cannot see. *Sampler*: exact, or **approximate** reverse diffusion with the exact prior denoiser and a push from the clean estimate (replacement for a gap). *Prior*: matched, never two close spots, or wider spots. **Coverage**: 200 truths from the matched prior, the fraction of positions inside the 90 % band.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="posterior1d" data-preset="resolved"></div>
+<script src="../demos/dist/posterior1d.js"></script>
+```
+
+**R1.** Preset **two spots resolved: all agree**. Count the spots in Tikhonov, the mean and the samples. What does the bottom panel show?
+
+**R2.** Preset **below the cut-off: samples split** (separation 4, 6 cosines kept). Read the counts for Tikhonov, mean and samples, and the residuals. Where do the samples differ, and in which panel?
+
+**R3.** Preset **prior without close pairs**. How many spots do the samples show, and where? How many positions are inside the band? Compare the residual with R2.
+
+**R4.** Preset **consistent and wrong** (prior with wider spots). What do the samples show? Does the residual check pass? Relate to B6.
+
+**R5.** Preset **approximate sampler**. Compare the residual of the samples, the split of counts, and the band with the exact sampler (switch). Why is the residual so small?
+
+**R6.** Preset **coverage: right vs wrong prior**. Read the coverage of the matched prior and of the wider-spot prior (switch the prior and press **coverage**). Relate to B3.
+
+**R7.** Preset **gap: the prior fills it**. What do the samples put in the gap? Switch to the approximate sampler (replacement) and read how many positions are inside the band. Why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**R1.** All 2: Tikhonov, mean and all 32 samples. The cut-off (24 cosines) passes the spots' detail; the unseen part is small, smooth and almost identical in all samples (the truth's own high frequencies).
+
+**R2.** Truth 2 spots; Tikhonov 1 (a single blob), mean 2, samples: 8 show one spot, 24 two. Residual/expected: Tikhonov 1.00 (by the discrepancy principle), mean 0.24, samples 0.80 (median): all consistent. The samples differ in the bottom panel (the unseen part) at the spots: whether there is a dip between them is decided by the prior.
+
+**R3.** All 32 samples show 2 spots, but farther apart than the truth (the prior knows no closer pairs); truth inside the band at 50 of 64 positions. Residual 1.41 for the samples, 1.20 for the mean: worse than with the matched prior, but not dramatically (with 6 cosines kept, a residual check with this noise level would hardly flag it).
+
+**R4.** 30 of 32 samples show a single (wide) spot. Residual/expected: 1.02 for a sample, 0.63 for the mean: the check passes. One wide spot and two close narrow spots have the same low frequencies (B6): the difference is in the null space.
+
+**R5.** Approximate: residual 0.00 (the push makes the clean estimate fit the measured coefficients exactly, noise included), counts 16 / 16, band 0.188 wide on average; exact: residual 0.80, counts 8 / 24, band 0.202. The approximation treats the clean estimate as certain and over-fits the data; its samples are not samples of the true posterior.
+
+**R6.** Matched prior: 88.4 %; wider spots: 74.5 % (no close pairs: 82.4 %). With the right prior the band holds what it promises (about 90 %, here 88 % with 100 samples per band); with a wrong prior it is over-confident, as in B3.
+
+**R7.** One spot, in 29 of 32 samples (truth: two spots inside the gap); the gap is all null space, filled from the prior. Approximate (replacement): 23 one, 9 two, and the truth is inside the band at only 12 of 64 positions: replacement copies the **noisy** measurement into every sample, so the band has zero width at the measured positions and misses the noise-free truth there.
+:::
+
+## Explore: what virtual staining can know {#explore}
+
+$32 \times 32$ synthetic cells, two channels: an **input** like a transmitted-light image (cell outline, nuclear envelope, texture), measured with noise, and a **target** like a fluorescence stain, not measured at all. 300 training pairs (75 cell geometries, each with 4 independent draws of the marker); the posterior over the target is exact. Panels: input, truth, posterior mean, disagreement (pixel sd over 32 samples), four samples. Readouts: stained area, spot count and intensity, with the largest posterior weights of training pairs.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="virtualstain" data-preset="nucleus"></div>
+<script src="../demos/dist/virtualstain.js"></script>
+```
+
+**V1.** Preset **nucleus: virtual staining works**. Compare area and intensity of truth, mean and samples. What does the disagreement map show? How many training pairs share the weight, and why exactly that many?
+
+**V2.** Preset **spots: it paints the average**. Compare the spots of the truth, the samples and the mean. Where is the disagreement large?
+
+**V3.** Preset **a treatment effect disappears**. Compare the intensity of truth and prediction. Does the disagreement map warn you?
+
+**V4.** Preset **noisier input: the nucleus too**. What happens to the number of training pairs that share the weight, to the samples and to the mean?
+
+**V5.** Press **another cell** a few times on the spots preset. Is the spot count of the mean ever right? Of a sample?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**V1.** Truth: area 88, intensity 0.40; mean and every sample: area 82, intensity 0.40. Disagreement close to 0 everywhere (max 0.03). Four training pairs share the weight (0.25 each): the four draws of the marker on the best-matching cell geometry, which look identical in the input. The nucleus is visible in the input, so the prediction is constrained (slightly off in area, because the nearest training geometry is not this cell).
+
+**V2.** Truth: 2 spots. Samples: 2, 3, 2 and 2 spots, at the positions of the training cells' spots, not the truth's. Mean: 0 spots: a faint haze over the cell (area 62, intensity 0.28), the average of four unrelated spot patterns. Disagreement is large (up to 0.34) on all the samples' spots, inside the cell: the prior decides everything there.
+
+**V3.** Truth intensity 0.80; prediction 0.40 (mean and samples), the untreated level. The disagreement map is near 0: all samples agree on the wrong answer. Nothing in the output warns that the effect was lost.
+
+**V4.** About 44 training pairs now share the weight (the noise hides the nuclear envelope, so several geometries fit). Samples show nuclei of different sizes and positions (area 57 or 82); the mean is a blurred nucleus (area 56, intensity 0.35), and the disagreement grows around the nucleus (mean 0.12 inside it).
+
+**V5.** For the next nine cells the mean shows 0 to 2 spots (a haze with a few bumps above the threshold), never the true count (2 to 4). A sample shows 2 to 5 spots, sometimes as many as the truth, but at the wrong places: the count of a sample is a draw from the training cells, not a measurement of this cell.
+:::
+
+## Where this leads
+
+This day ends here. Diffusion models reappear wherever images are restored or generated: the five rules of [the introduction](../diffusion/lec.qmd) and the checks of this unit (consistency, disagreement, coverage, validated readouts) apply to all of them. The deconvolution day's [regularisation](../regularise/lec.qmd) is the classical baseline to compare against.

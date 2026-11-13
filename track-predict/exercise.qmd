@@ -1,0 +1,153 @@
+---
+title: "Exercise: motion models and the Kalman filter"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- run the 1D **Kalman filter** by hand: predict (the uncertainty grows) and update (gain, estimate, variance),
+- explain how a **constant-velocity** filter estimates a velocity it never measures,
+- handle a **missed detection** and decide whether a candidate is inside a **gate** of k standard deviations,
+- predict what Q and R do to the filter,
+- *(math)* derive the update from the product of two Gaussians, the matrix form and the steady-state gain.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Random walk model | predict: $\hat x^- = \hat x$, $P^- = P + Q$ |
+| Constant velocity model | state (position, velocity); predict: position + velocity × Δt |
+| Update | gain $K = P^-/(P^- + R)$; $\hat x = \hat x^- + K(z - \hat x^-)$; $P = (1 - K)P^-$ |
+| Missed detection | no update; predict again |
+| Gate | accept if $|z - \hat x^-| \le k\sqrt S$ with $S = P^- + R$ (1D); in 2D the Mahalanobis distance $d^2 = \mathbf y^\top S^{-1}\mathbf y \le k^2$ |
+| Q and R | R: measurement (localisation) variance; Q: how much the real motion deviates from the model per frame |
+
+## By hand
+
+**B1.** A prediction of 10 with $P^- = 4$; a measurement of 13.
+(a) Compute $K$, the estimate and its variance for $R = 1$, $R = 4$ and $R = 16$.
+(b) Which estimate is closest to the measurement, and why? Which has the smallest variance?
+
+**B2.** Continue from the estimate 12.4 with $P = 0.8$, random-walk model with $Q = 1$, $R = 1$.
+(a) Predict one frame: $\hat x^-$ and $P^-$.
+(b) The next frame has no detection. Predict again.
+(c) Then a measurement 15 arrives. Compute $K$, the estimate and $P$. Compare $K$ with the gain without the missed frame.
+
+**B3.** **Velocity from positions.** Constant velocity, $\Delta t = 1$, state (position, velocity) with $P = I$ (both variances 1, uncorrelated), process noise only on the velocity, $Q = \operatorname{diag}(0, 0.1)$; $R = 1$.
+(a) After predicting, the position variance is 2, the velocity variance 1.1 and their covariance 1. Explain in words why the covariance is no longer 0.
+(b) The gain for the position is $P^-_{xx}/(P^-_{xx} + R)$ and for the velocity $P^-_{xv}/(P^-_{xx} + R)$. Compute both.
+(c) The measurement is 3 units ahead of the predicted position. How much do the position and the velocity estimates change? Why does the velocity change at all?
+
+**B4.** **Gates.** An innovation (measurement − prediction) of 2.5 px in 1D.
+(a) With $S = 4$ px², how many standard deviations is that? Inside a 3σ gate?
+(b) With $S = 0.5$ px²?
+(c) Which of the two tracks was better predicted, and which situation is more suspicious?
+
+**B5.** **Predict.** A vesicle waits for 10 frames, then runs at 5 px per frame.
+(a) What does a constant-velocity filter with small Q do at the start of the run? What happens to its gate and to the track?
+(b) A random-walk filter with large Q?
+(c) Which would you choose, or what else could you do?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $R = 1$: $K = 4/5 = 0.8$, estimate $10 + 0.8 \cdot 3 = 12.4$, variance $0.2 \cdot 4 = 0.8$. $R = 4$: $K = 0.5$, estimate 11.5, variance 2. $R = 16$: $K = 0.2$, estimate 10.6, variance 3.2.
+(b) With $R = 1$ the estimate is closest to the measurement: the measurement is then more certain than the prediction and gets the larger weight. The variance is smallest for $R = 1$ too (0.8): two good pieces of information give a better estimate than either alone.
+
+**B2.** (a) $\hat x^- = 12.4$, $P^- = 0.8 + 1 = 1.8$. (b) No update: $\hat x^- = 12.4$, $P^- = 1.8 + 1 = 2.8$. (c) $K = 2.8/3.8 = 0.737$; estimate $12.4 + 0.737 \cdot 2.6 = 14.32$; $P = 0.263 \cdot 2.8 = 0.737$. Without the missed frame the gain would have been $1.8/2.8 = 0.64$: after a gap the filter trusts the new measurement more, because its own prediction has become more uncertain.
+
+**B3.** (a) The predicted position is position + velocity: if the velocity estimate is too large, the predicted position is too large as well. Errors in the two now go together: a positive covariance.
+(b) Position gain $2/3$; velocity gain $1/3$.
+(c) The position moves by $2/3 \cdot 3 = 2$, the velocity by $1/3 \cdot 3 = 1$ unit per frame. The object is further ahead than predicted; the most likely explanation is partly measurement noise and partly a velocity that was too low, so the velocity estimate goes up. Only the covariance (from the prediction) links the measured position to the unmeasured velocity.
+
+**B4.** (a) $\sqrt S = 2$, so $2.5/2 = 1.25$σ: inside. (b) $\sqrt S = 0.71$, so $2.5/0.71 = 3.54$σ: outside a 3σ gate. (c) The second track was predicted much more precisely, so the same 2.5 px is surprising for it: either a wrong candidate, or the object did something the model does not expect (a turn, a sudden start).
+
+**B5.** (a) During the wait the filter learns velocity ≈ 0 with small uncertainty, and its gate shrinks to the localisation error. At the start of the run the vesicle jumps 5 px: far outside the gate. The track breaks (or links to a wrong detection), and a new track starts with velocity 0 again; only after a few frames does the velocity lock on. (b) A random-walk filter with large Q has a large gate all the time: it keeps the vesicle, but it never predicts the motion, so during the run it trails behind and, in a crowd, its large gate admits wrong candidates. (c) Neither model fits both phases: run both models in parallel and weight them by how well each predicts (interacting multiple models), or increase Q of the constant-velocity filter and accept wider gates; or segment the track into phases afterwards (the analysis unit).
+:::
+
+### Math questions
+
+**B6.** *(math)* Derive the 1D update from the product $\mathcal N(x; \hat x^-, P^-)\,\mathcal N(z; x, R)$: complete the square in $x$ and show that $1/P = 1/P^- + 1/R$ and $\hat x = \hat x^- + K(z - \hat x^-)$ with $K = P^-/(P^- + R)$.
+
+**B7.** *(math)* Show that the matrix form ($S = HP^-H^\top + R$, $K = P^-H^\top S^{-1}$, $P = (I - KH)P^-$) reduces to the 1D formulas for $F = H = 1$. Then compute $P^-$, $K$ and $P$ for B3 with matrices and check B3.
+
+**B8.** *(math)* For the 1D random-walk filter, derive the steady-state $P^-_\infty = \tfrac12(Q + \sqrt{Q^2 + 4QR})$, show $K_\infty = (\sqrt5 - 1)/2$ for $Q = R$, and show that the filter is then exponential smoothing: $\hat x_t = (1 - K_\infty)\hat x_{t-1} + K_\infty z_t$.
+
+**B9.** *(math)* Show that $d^2 = \mathbf y^\top S^{-1}\mathbf y$ has expected value 2 when $\mathbf y \sim \mathcal N(0, S)$ in 2D. How can you use the average $d^2$ over a movie to check Q and R?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** The exponent of the product is $-\frac{(x - \hat x^-)^2}{2P^-} - \frac{(z - x)^2}{2R}$. The coefficient of $-\frac12x^2$ is $\frac{1}{P^-} + \frac1R$, so the result is a Gaussian with $\frac1P = \frac{1}{P^-} + \frac1R$; the coefficient of $x$ is $\frac{\hat x^-}{P^-} + \frac{z}{R}$, which equals $\hat x/P$. Hence $\hat x = P\big(\frac{\hat x^-}{P^-} + \frac zR\big) = \frac{R\hat x^- + P^-z}{P^- + R} = \hat x^- + \frac{P^-}{P^- + R}(z - \hat x^-)$. And $P = \frac{P^-R}{P^- + R} = (1 - K)P^-$.
+
+**B7.** With $F = H = 1$: $S = P^- + R$, $K = P^-/(P^- + R)$, $\hat x = \hat x^- + K(z - \hat x^-)$, $P = (1 - K)P^-$: the 1D formulas. For B3: $F = \begin{pmatrix}1&1\\0&1\end{pmatrix}$, $FPF^\top = \begin{pmatrix}2&1\\1&1\end{pmatrix}$, $P^- = \begin{pmatrix}2&1\\1&1.1\end{pmatrix}$; $H = (1\;0)$: $S = 2 + 1 = 3$, $K = P^-H^\top/S = (2/3,\,1/3)^\top$; $P = (I - KH)P^- = \begin{pmatrix}2 - 4/3 & 1 - 2/3\\ 1 - 2/3 & 1.1 - 1/3\end{pmatrix} = \begin{pmatrix}2/3 & 1/3\\ 1/3 & 23/30\end{pmatrix}$.
+
+**B8.** At the fixed point $P^-_\infty = \frac{P^-_\infty R}{P^-_\infty + R} + Q$. Multiply by $P^-_\infty + R$: $(P^-_\infty)^2 + RP^-_\infty = RP^-_\infty + QP^-_\infty + QR$, so $(P^-_\infty)^2 - QP^-_\infty - QR = 0$ and (positive root) $P^-_\infty = \frac12(Q + \sqrt{Q^2 + 4QR})$. For $Q = R$: $P^-_\infty = R\,\frac{1 + \sqrt5}{2}$, $K_\infty = \frac{(1 + \sqrt5)/2}{(1 + \sqrt5)/2 + 1} = \frac{1 + \sqrt5}{3 + \sqrt5} = \frac{\sqrt5 - 1}{2} \approx 0.618$. With constant gain and $\hat x^-_t = \hat x_{t-1}$: $\hat x_t = \hat x_{t-1} + K_\infty(z_t - \hat x_{t-1}) = (1 - K_\infty)\hat x_{t-1} + K_\infty z_t$: exponential smoothing with weight $K_\infty$.
+
+**B9.** Write $S = LL^\top$ (Cholesky) and $\mathbf u = L^{-1}\mathbf y$. Then $\mathbf u \sim \mathcal N(0, I)$ and $d^2 = \mathbf u^\top\mathbf u = u_1^2 + u_2^2$, a sum of two squared standard normals: χ² with 2 degrees of freedom, mean 2 (and $P(d^2 > g^2) = e^{-g^2/2}$). Over a movie, average $d^2$ for the accepted links: much more than 2 means the filter is overconfident (Q or R too small); much less than 2 means it is too cautious (Q or R too large). (The gate cuts off the tail, so the average of accepted links is slightly below 2.)
+:::
+
+## Explore: the filter step by step {#explore-kalman1d}
+
+An object moves along a line at 1 unit per frame and, if **turn at frame 20** is ticked, turns back at velocity −0.8. Each frame gives a measurement with variance R (the same seeded noise pattern, scaled). Top: the current step as Gaussians (blue prediction, orange measurement, dark estimate; the dot on the bar shows where the gain puts the estimate). Bottom: truth (dashed), measurements, the estimate with a ±2σ band. Right: the gain K over time and its steady state (dashed). **Predict**, **update** and **step** walk through the frames; **skip measurement** turns the current frame into a missed detection.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="kalman1d" data-preset="cv"></div>
+<script src="../demos/dist/kalman1d.js"></script>
+```
+
+**D1.** Press **reset**, then **predict** and **update** a few times. In the top panel, which curve is widest and which narrowest after an update? Check B1(a) with the readout: set R = 1 and find a frame where $P^-$ is close to 4.
+
+**D2.** Preset **trust the measurements (R small)**, then **trust the model (Q small): lag at the turn**. Read the steady-state K for each. How far behind the truth is the estimate at frame 29 in the second case?
+
+**D3.** Preset **random walk on a moving object: always behind**. Read K and the error at frame 15. For a random-walk filter tracking an object at constant speed v, the steady lag is $v(1 - K)/K$. Compare.
+
+**D4.** Preset **three missed frames: the band widens**. How large is $P$ after the three missed frames, and how large is it normally? What is the gain at the first measurement after the gap?
+
+**D5.** Preset **golden ratio (random walk, Q = R)**. Read K. Change Q and R together (keep them equal): does K change? Now make Q ten times R.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** The prediction (blue) is widest; after the update the estimate (dark) is narrower than both the prediction and the measurement. With R = 1 the readout of an update shows $K = P^-/(P^- + 1)$; at any frame you can check estimate = prediction + K × (measurement − prediction).
+
+**D2.** Trust the measurements (R = 0.1): $K \approx 0.71$; the estimate follows the dots closely and turns at once. Trust the model (Q = 0.001, R = 4): $K \approx 0.16$; the estimate keeps going after the turn and is about 6 units off at frame 29 (6.13 is the largest error after the turn); the velocity estimate is still +0.22 at frame 30 although the object moves at −0.8.
+
+**D3.** $K = 0.146$; at frame 15 the estimate is 11.65 against the truth 17: 5.35 behind. The formula gives $1 \cdot 0.854/0.146 = 5.85$ for the steady lag; the filter is close to it. A random-walk model always predicts "no motion", so with a moving object it is always behind.
+
+**D4.** Normally $P = 0.87$ (band ±1.9); after three missed frames $P = 4.18$ (band ±4.1). At frame 15, the first measurement after the gap, $K = 0.76$ instead of 0.43: the filter trusts the new measurement much more.
+
+**D5.** $K = 0.618$. With Q = R at any common value, K stays 0.618: only the ratio Q/R matters. With Q = 10 R, $P^-_\infty = \frac12(10 + \sqrt{100 + 40})R = 10.92R$ and $K = 10.92/11.92 = 0.92$: the filter nearly copies the measurements.
+:::
+
+## Explore: linking with prediction {#explore}
+
+Particles move at nearly constant velocity in a 256 × 256 px field, with localisation noise σ and missed detections. Three trackers run on the same detections: **nearest** (each track takes the nearest detection to its last position), **global (last)** (global assignment on the last positions, gate = a fixed radius) and **global + Kalman** (global assignment on the positions predicted by a constant-velocity filter per track, gate = the predicted ellipse at g standard deviations, cost = $d^2 + \log\det S$). Tracks survive two missed frames. The table gives the fraction of true links missed and the identity switches (how often the track label changes along a true particle) for all three; the field shows the selected tracker with its gates.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="kalmanlink" data-preset="cross"></div>
+<script src="../demos/dist/kalmanlink.js"></script>
+```
+
+**E1.** Preset **particles cross**. Compare the three trackers. Press play with each tracker selected and watch a crossing. Why is a new track's ellipse so large, and how fast does it shrink?
+
+**E2.** Preset **missed frames: the ellipse grows**. Find a track that misses a frame: what happens to its ellipse? Compare the error rates with E1.
+
+**E3.** Preset **a sudden turn: the gate misses**. Which tracker does best, and why? Raise Q to 0.2, or the gate to 5σ: what happens?
+
+**E4.** Preset **mixed: waiting + running**. Why is the Kalman tracker worse than global on the last position here? Try Q = 1.
+
+**E5.** Preset **a dense stream**. Compare the trackers. Then set the noise σ to 4 px. Which tracker suffers least, and why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Missed true links: nearest 11.0 %, global (last) 3.9 %, global + Kalman 1.1 %; identity switches 51, 18 and 5. At a crossing the two particles' last positions are close to both next detections; the predictions are not. A new track starts with velocity 0 and a large velocity uncertainty, so its predicted ellipse is large; after one or two updates the velocity is known and the ellipse shrinks to a few pixels.
+
+**E2.** In a missed frame the track is only predicted: its ellipse grows (it moves on with the estimated velocity), so the particle is found again further on. Errors: 15.3 %, 12.0 %, 8.7 %: everyone suffers from the 25 % misses, the Kalman tracker least.
+
+**E3.** Global on the last position (20 px gate) does best: 2.3 %, against 4.7 % for the Kalman tracker with Q = 0.002 and 9.3 % for nearest. After the turn the Kalman prediction overshoots in the old direction, and with a small Q the ellipse is too small to contain the new position: tracks break. With Q = 0.2 the Kalman error falls to 2.8 %; with a 5σ gate also to 2.8 %.
+
+**E4.** Kalman 7.4 % against 1.8 % for global on the last position: a waiting particle that starts running jumps out of its small ellipse, and a running one that stops overshoots. One constant-velocity model fits neither phase. With Q = 1 the filter allows sudden velocity changes and reaches 3.6 %.
+
+**E5.** Nearest 18.3 %, global (last) 7.2 %, Kalman 5.3 % (60 particles at 6 px per frame; the preset uses a 12 px fixed gate). With σ = 4 px: 42.3 %, 37.9 % and 17.8 %. All suffer, the fixed-gate trackers most: noise pushes detections out of the 12 px gate and into neighbours' gates, while the Kalman gates include R and adapt, and the velocity estimate averages the noise over several frames.
+:::
+
+## Where this leads
+
+Prediction bridges single missed frames. Longer gaps, objects that **divide** or **touch**, and objects that **enter or leave** need a second stage that joins track pieces: the next unit, with **lineage trees** and how to **evaluate** tracks.

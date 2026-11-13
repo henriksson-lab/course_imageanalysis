@@ -1,0 +1,101 @@
+---
+title: "Quiz: throughput, warps and divergence"
+---
+
+Short questions to test your understanding. Try each on paper first, then open the answer. A warp is 32 threads that execute one instruction at a time together; a branch whose lanes disagree is run on both sides.
+
+---
+
+**Q1.** A CPU core and a GPU lane both add two numbers. Which one finishes **one** addition sooner, and which processor finishes a million of them sooner? Why both answers?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Latency is the time for one task; throughput is tasks per second.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+The CPU core finishes one addition sooner: it runs at a higher clock rate and is built for short latency (caches, out-of-order execution, branch prediction). The GPU finishes a million sooner: it has thousands of lanes working at once, so its throughput is far higher, even though each lane is slower.
+:::
+
+---
+
+**Q2.** Why does a GPU group its threads in warps of 32 that share one instruction, instead of letting every lane run its own program?
+
+::: {.callout-tip collapse="true" title="Hint"}
+What does it cost to fetch and decode an instruction?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+Fetching, decoding and scheduling instructions takes chip area and energy. One instruction stream for 32 lanes pays that cost once for 32 arithmetic units, so more of the chip can be arithmetic. The price is that the 32 lanes must do the same thing at the same time.
+:::
+
+---
+
+**Q3.** A kernel does `if pixel > t: 100 cycles of work else 10 cycles`. A warp of 32 pixels has 31 pixels below $t$ and one above. How long does the warp take?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Masked lanes still wait.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+110 cycles: the warp runs the expensive path for the one lane (the other 31 masked), then the cheap path for the 31 (the one masked). Without the single bright pixel it would take 10 cycles.
+:::
+
+---
+
+**Q4.** Which image causes more divergence for a thresholding branch: pure noise thresholded at its median, or a micrograph with a few large cells? Why?
+
+::: {.callout-tip collapse="true" title="Hint"}
+A warp covers 32 neighbouring pixels.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+The noise: every pixel decides independently with probability 1/2, so practically every warp contains both kinds of pixel. In the micrograph neighbouring pixels agree; only warps crossed by a cell boundary are mixed, a fraction that scales like perimeter / area.
+:::
+
+---
+
+**Q5.** A ray-marching kernel stops a ray when it becomes opaque. Rays in one warp stop after 5, 6, 8 and 120 steps (and the rest after about 6). How long does the warp march, and what does this say about early termination on a GPU?
+
+::: {.callout-tip collapse="true" title="Hint"}
+A loop runs until its slowest lane is done.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+120 steps: the warp continues until the last lane stops; the lanes that are done sit masked. Early termination saves time on a GPU only when whole warps stop early together, which is why volume renderers group rays in compact tiles and skip empty space in blocks.
+:::
+
+---
+
+**Q6.** What does a GPU multiprocessor do while a warp waits 500 cycles for a value from memory?
+
+::: {.callout-tip collapse="true" title="Hint"}
+It keeps many warps resident at once.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+It issues instructions from another resident warp that is ready. With enough warps in flight the waiting is hidden and the arithmetic units stay busy. If all resident warps are waiting (too few threads, or too few warps fit because each needs many registers), the multiprocessor idles.
+:::
+
+---
+
+**Q7.** Why is a 64 × 64 image a bad job for a large GPU, even for a perfectly parallel filter?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Count the threads, and remember the fixed costs.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+4096 threads (128 warps) are far too few to fill thousands of lanes and to hide memory latency, and the fixed costs of moving the image to the GPU and starting the program are larger than the work itself. A CPU finishes it in microseconds.
+:::
+
+---
+
+**Q8.** *(math)* Each lane of a warp independently takes a branch with probability $p = 0.05$. What is the probability that the warp diverges?
+
+::: {.callout-tip collapse="true" title="Hint"}
+The warp is uniform only if all 32 lanes take the branch, or none does.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+$1 - 0.05^{32} - 0.95^{32} = 1 - 0.194 = 0.806$ (the $0.05^{32}$ term is negligible). Even a rare branch splits most warps when the lanes decide independently.
+:::

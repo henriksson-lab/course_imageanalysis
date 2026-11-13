@@ -1,0 +1,101 @@
+---
+title: "Quiz: what GPUs are good and bad at"
+---
+
+Short questions to test your understanding. Try each on paper first, then open the answer. The four questions: many independent outputs? the same work in neighbouring threads? regular memory access? no global order? (And: is the transfer worth it?)
+
+---
+
+**Q1.** Why is a Gaussian blur of a large image a good GPU job? Answer with the four questions.
+
+::: {.callout-tip collapse="true" title="Hint"}
+It is a stencil.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+Millions of independent output pixels; every thread runs the same loop over the kernel (no divergence); neighbouring threads read neighbouring pixels (coalesced, with reuse through tiles, and separable); no output depends on another output. It is memory-bound but fully parallel.
+:::
+
+---
+
+**Q2.** What makes priority-queue watershed flooding hard to parallelise, and what is the usual workaround?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Which pixel is processed next?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+The queue always processes the lowest unlabelled pixel next, and its label depends on the pixels labelled before it: a global order, one pixel at a time. The workaround floods level by level: all pixels of one grey level that touch a basin are labelled together, in a few parallel rounds per level. The result can differ from the sequential one on plateaus.
+:::
+
+---
+
+**Q3.** Label propagation labels the blobs of an image in 12 passes, but a spiral of the same number of pixels needs 262. Why?
+
+::: {.callout-tip collapse="true" title="Hint"}
+How far does the smallest label travel in one pass?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+In each pass the smallest label moves one pixel further. The number of passes is the longest path inside an object from the pixel with the smallest label: about a radius for a blob, the whole length of the spiral for a spiral.
+:::
+
+---
+
+**Q4.** Why do neural networks run so much better on GPUs than most other image methods?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Where do they sit on the roofline?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+Their layers are large matrix products, which reuse every number many times: high arithmetic intensity, right of the ridge, so they use the full arithmetic rate (and the low-precision matrix units). Most other image operations are memory-bound and use a few per cent of it.
+:::
+
+---
+
+**Q5.** A pipeline spends 30 % of its time reading files and in a sequential labelling step. What is the largest possible speed-up from moving the rest to a GPU?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Amdahl's law.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+$1/0.3 = 3.3$ times, even with an infinitely fast GPU for the other 70 %. To do better, the serial 30 % itself must change.
+:::
+
+---
+
+**Q6.** Why should a 16-bit microscope image not be stored in float16 on the GPU?
+
+::: {.callout-tip collapse="true" title="Hint"}
+float16 has 11 significant bits and a largest value of 65 504.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+float16 represents integers exactly only up to 2048; above that the spacing grows to 2, 4, … 32, so the low bits of the counts are lost. And 65 535 is larger than the largest float16 (65 504), so it overflows to infinity. Keep raw data in uint16 or float32; float16 is fine for normalised values in [0, 1].
+:::
+
+---
+
+**Q7.** What does "mixed precision" mean in a matrix unit, and why accumulate in float32?
+
+::: {.callout-tip collapse="true" title="Hint"}
+What happens to a float16 sum of many small terms?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+The inputs (weights, activations) are float16 or bfloat16 and the products are formed from them, but the running sums are kept in float32. A float16 sum of many small terms stalls once the terms are smaller than half the spacing of the sum (10 000 terms of 0.01 stall at 32); a float32 accumulator has 13 more bits and gives 100.02.
+:::
+
+---
+
+**Q8.** *(math)* A DP table of $n\times n$ cells is filled by anti-diagonals. How many parallel steps are there, and what is the average number of cells per step for $n = 1000$?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Cells with the same $i + j$ are independent.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+$2n - 1 = 1999$ steps; $n^2/(2n - 1) = 10^6/1999 = 500.3$ cells per step on average, at most 1000. A GPU with thousands of lanes is mostly idle.
+:::

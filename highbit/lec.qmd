@@ -45,11 +45,18 @@ A memory **container** comes in 8, 16 or 32 bits. A 12-bit value sits in a 16-bi
 
 ## The black image
 
+:::: {.columns}
+::: {.column width="56%"}
 A 12-bit camera writes values 0…4095 into a 16-bit file. A viewer that assumes the full 16-bit range maps 0 → black and 65 535 → white:
 
 $$4095 \;\mapsto\; 255 \cdot \tfrac{4095}{65\,535} \approx 16 \text{ of } 255.$$
 
 The brightest pixel is shown as a dark grey: the image **looks black**, but nothing is wrong with the data. Only the display range is wrong.
+:::
+::: {.column width="44%"}
+![](fig-black.png){fig-alt="The same synthetic 12-bit fluorescence image twice. Left, displayed as 0 to 65 535: almost black, the cells barely visible. Right, displayed as 0 to 4095: four cells with bright nuclei." width="100%"}
+:::
+::::
 
 - **LSB-aligned**: the 12 bits are the low bits; values 0…4095. The usual case.
 - **MSB-aligned**: the 12 bits are shifted to the top (value × 16); values 0…65 520, every 16th value used. Displays fine, but the histogram is a comb.
@@ -69,6 +76,8 @@ Starts with the window 0–65535: black. Switch histogram axis between type rang
 
 ## Integer types
 
+:::: {.columns}
+::: {.column width="48%"}
 | type | bits | range |
 |---|---|---|
 | unsigned 8-bit (uint8) | 8 | 0 … 255 |
@@ -76,6 +85,11 @@ Starts with the window 0–65535: black. Switch histogram axis between type rang
 | unsigned 16-bit (uint16) | 16 | 0 … 65 535 |
 | signed 16-bit (int16) | 16 | −32 768 … 32 767 |
 | signed 32-bit (int32) | 32 | about ±2.1 × 10⁹ |
+:::
+::: {.column width="52%"}
+![](fig-twos.svg){fig-alt="Three aligned bars. The 16-bit patterns 0x0000 to 0xFFFF; read as uint16 they mean 0 to 65 535; read as int16 the bottom half 0x0000 to 0x7FFF means 0 to 32 767 in both, and the top half 0x8000 to 0xFFFF means minus 32 768 to minus 1." width="100%"}
+:::
+::::
 
 - Signed integers use **two's complement**: −1 is stored as all ones (0xFFFF in 16 bits), −30 as 65 506.
 - The same 16 bits mean 65 506 as uint16 and −30 as int16. **The bits do not know their type**; the file header or your program decides.
@@ -91,6 +105,8 @@ Subtract a background of 160 from a pixel of 150, in uint16:
 | **float** (or a wider signed type) | −10 | correct; decide later what to do with negatives |
 
 Same trap when averaging: in uint16, $(40\,000 + 30\,000)/2$ gives 2232 instead of 35 000, because the sum wraps before the division.
+
+![](fig-subtract.png){fig-alt="The fluorescence image after subtracting 160, all shown with the same window from minus 60 to 600. Wrap-around: the background is full of white speckles, patch mean 49 226. Saturate: the background is a flat dark grey, patch mean 1.4. Float: the background noise is intact, patch mean minus 7.9. The top part of the image is shown, with the background patch outlined." width="76%" fig-align="center"}
 
 ## The math: wrap-around is arithmetic modulo $2^n$ {.math}
 An $n$-bit unsigned integer stores every result **modulo** $2^n$:
@@ -110,6 +126,8 @@ Saturation is $\min(\max(a - b, 0), 2^n - 1)$: not modular, and not linear eithe
 
 ## Showing 12–16 bits on an 8-bit screen: windows
 
+:::: {.columns}
+::: {.column width="52%"}
 A **window** $[\ell, h]$ maps raw values linearly to the 256 display levels and clips the rest:
 
 - $v \le \ell$ → black, $v \ge h$ → white, in between a linear ramp.
@@ -118,6 +136,11 @@ A **window** $[\ell, h]$ maps raw values linearly to the 256 display levels and 
 - **Auto-contrast**: set $\ell$ and $h$ to percentiles (say 0.5 % and 99.5 %), so a few saturated or dead pixels do not set the scale.
 
 The window changes only the **display**. Measure on the raw values.
+:::
+::: {.column width="48%"}
+![](fig-window.svg){fig-alt="Histogram of the 12-bit fluorescence image on a log scale, with the display mapping drawn on top: black below the 0.5 percent percentile 130, a straight ramp up to the 99.5 percent percentile 3176, white above. The clipped ranges are shaded blue and red." width="100%"}
+:::
+::::
 
 ## The math: the window formula {.math}
 The display level of a raw value $v$ is the straight line through $(\ell, 0)$ and $(h, 255)$, clipped and rounded:
@@ -128,6 +151,8 @@ With width $W = h - \ell$, one display level covers $W/256$ raw values: for $W =
 
 ## CT: Hounsfield units and windows
 
+:::: {.columns}
+::: {.column width="62%"}
 CT measures X-ray attenuation $\mu$ and reports it relative to water, in **Hounsfield units** (HU): air −1000, fat ≈ −100, water 0, soft tissue 20–80, bone several hundred to 2000+.
 
 Soft tissue differs by tens of HU, but the image spans 4000 HU: no single window shows everything. Radiologists switch between standard windows:
@@ -139,6 +164,11 @@ Soft tissue differs by tens of HU, but the image spans 4000 HU: no single window
 | bone | 1800 | 400 | −500 … 1300 |
 
 Files often store HU + 1024 as unsigned numbers, with the offset in the header; forget it and every window is 1024 HU off.
+:::
+::: {.column width="38%"}
+![](fig-hu.svg){fig-alt="A vertical Hounsfield scale from minus 1000 to 2000 with air, fat, water, soft tissue, bone and dense bone marked, and three coloured bars beside it for the soft-tissue window (minus 160 to 240), the lung window (minus 1350 to 150) and the bone window (minus 500 to 1300)." width="100%"}
+:::
+::::
 
 ## The math: Hounsfield units {.math}
 $$\text{HU} = 1000 \cdot \frac{\mu - \mu_\text{water}}{\mu_\text{water} - \mu_\text{air}}.$$
@@ -157,9 +187,16 @@ Synthetic slice: body, fat layer, lungs with vessels, a vertebra at the back, an
 
 ## Colour maps, HDR and tone mapping
 
+:::: {.columns}
+::: {.column width="55%"}
 - A **LUT** can map grey values to colours. A "hi-lo" LUT marks clipped pixels (blue below, red above): use it to set a window honestly. Perceptual colour maps are on the colour day.
 - **High dynamic range** (HDR) scenes span $10^5 : 1$ or more. A linear window either loses the shadows or the highlights.
 - **Tone mapping** compresses the range with a non-linear curve (e.g. logarithmic, or $x/(1 + x)$), globally or adapted to the neighbourhood. Good for looking, bad for measuring: it changes the ratios between pixels.
+:::
+::: {.column width="45%"}
+![](fig-tone.svg){fig-alt="Display value against scene brightness on a log axis spanning a million to one. A linear window over 0 to 1 is white for everything brighter than 1; a linear window over 0 to 100 is black for everything below about 1; the curves x over 1 plus x and logarithmic rise gradually over the whole range." width="100%"}
+:::
+::::
 
 ## Summary
 

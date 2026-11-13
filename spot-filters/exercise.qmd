@@ -1,0 +1,174 @@
+---
+title: "Exercise: finding spots"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain why the best filter for a spot of known size is the spot shape itself, and compute the gain in SNR,
+- explain why a zero-mean (centre–surround) filter ignores a smooth background,
+- compute one level of the **à trous** decomposition by hand,
+- find **local maxima** by hand and choose the window radius,
+- predict how filter width and window size change the candidates,
+- *(math)* derive the matched filter with and without an unknown background, and the noise after a Gaussian filter.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Spot model | $A\,p(\mathbf x - \mathbf x_0) + B$: a Gaussian $p$ of known width σ (the PSF), amplitude $A$, background $B$ |
+| Matched filter | correlate with the spot shape; SNR $= A\sqrt{\pi\sigma^2}/\sigma_n$ instead of $A/\sigma_n$ for one pixel |
+| Noise after a filter $\mathbf w$ | sd $\sigma_n\sqrt{\sum_k w_k^2}$; for a normalised Gaussian of width $\sigma_f$: $\approx \sigma_n/(2\sqrt\pi\,\sigma_f)$ |
+| Zero-mean filter | template minus its mean: a constant background gives 0; ≈ LoG/DoG at σ ≈ spot σ |
+| À trous | $a_j = h_j * a_{j-1}$ with $h_j$ = $(1, 4, 6, 4, 1)/16$ with $2^{j-1} - 1$ zeros between taps; $w_j = a_{j-1} - a_j$; $I = a_J + \sum_j w_j$ |
+| Multiscale product | keep $w_j$ where $w_j > k\hat\sigma_j$, multiply the kept levels |
+| Local maximum | pixel ≥ all pixels in its $(2r+1)^2$ window; one pixel per plateau (the first in raster order, and only if the plateau is not a step on a slope) |
+
+## By hand
+
+**B1.** **Local maxima.** A 5 × 5 patch of a filtered image (rows r0–r4, columns c0–c4):
+
+| | c0 | c1 | c2 | c3 | c4 |
+|---|---|---|---|---|---|
+| r0 | 1 | 2 | 2 | 1 | 0 |
+| r1 | 2 | 7 | 3 | 1 | 1 |
+| r2 | 1 | 3 | 2 | 4 | 2 |
+| r3 | 0 | 2 | 5 | 6 | 3 |
+| r4 | 1 | 1 | 2 | 3 | 2 |
+
+(a) List the local maxima with $r = 1$ (3 × 3 window; pixels outside the patch are ignored).
+(b) And with $r = 2$ (5 × 5)?
+(c) A row of integer values reads $\dots, 3, 5, 5, 2, \dots$. Which pixel is the candidate? And in $\dots, 3, 5, 5, 6, \dots$?
+
+**B2.** A spot of peak amplitude 30 sits in noise of standard deviation 12; the PSF has σ = 1 pixel.
+(a) What is the SNR of the brightest pixel?
+(b) What is the SNR after the matched filter?
+(c) How many times more photons would the single-pixel SNR need to reach the same value? (The SNR of shot-noise-limited light grows as the square root of the photon count.)
+
+**B3.** **À trous by hand.** The 9-sample spike $(0, 0, 0, 0, 16, 0, 0, 0, 0)$; treat values outside as 0.
+(a) Compute $a_1 = h_1 * a_0$ with $h_1 = (1, 4, 6, 4, 1)/16$, and $w_1 = a_0 - a_1$.
+(b) Check that $a_1 + w_1$ is the input.
+(c) Compute $a_2$ at the centre with the kernel with holes $h_2 = (1, 0, 4, 0, 6, 0, 4, 0, 1)/16$.
+(d) Where does a single bright pixel (noise) put most of its energy: in $w_1$ or in $w_2$?
+
+**B4.** Two equal spots of σ = 1.5 px lie 4 px apart (pixels 10 and 14 of a row); no noise.
+(a) Without filtering, is each spot a local maximum? For which window radii $r$ are both candidates?
+(b) After the matched filter (a Gaussian of σ = 1.5), the effective width is $\sqrt{1.5^2 + 1.5^2} = 2.12$. Two equal Gaussians show two maxima only if their distance exceeds twice their width. How many candidates are there now, whatever $r$?
+
+**B5.** **Predict.** A constant background of 100 is added to an image.
+(a) What happens to the response of a normalised Gaussian filter (weights sum to 1)? To a threshold set in raw response values?
+(b) What happens to the response of a LoG filter, or of a zero-mean template?
+(c) Now the background is not constant but a smooth ramp of 0.5 grey levels per pixel. Does the LoG still ignore it?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) r1 c1 (7) and r3 c3 (6): each is larger than all eight neighbours. Every other pixel has a larger neighbour; for example r2 c3 (4) is next to the 6, and r0 c2 (2) has an equal neighbour to its left (r0 c1), which comes first. (b) Only r1 c1 (7): the 5 × 5 window of r3 c3 reaches r1 c1, which is larger. (c) In $3, 5, 5, 2$ the plateau of two 5s is a maximum; the first 5 is kept, the second is not (its equal neighbour comes first). In $3, 5, 5, 6$ the plateau is a step on the way up to 6: neither 5 is a candidate.
+
+**B2.** (a) $30/12 = 2.5$. (b) $2.5\sqrt{\pi \cdot 1^2} = 2.5 \cdot 1.77 = 4.43$. (c) The SNR has to grow by $4.43/2.5 = 1.77$, so the photons by $1.77^2 = \pi \approx 3.1$: the filter is worth about three times the exposure.
+
+**B3.** (a) $a_1 = (0, 0, 1, 4, 6, 4, 1, 0, 0)$ (the spike times the kernel: $16 \cdot (1, 4, 6, 4, 1)/16$); $w_1 = (0, 0, -1, -4, 10, -4, -1, 0, 0)$. (b) $a_1 + w_1 = (0, 0, 0, 0, 16, 0, 0, 0, 0)$. (c) The taps of $h_2$ fall on $a_1$ at offsets $-4, -2, 0, 2, 4$: $(1 \cdot 0 + 4 \cdot 1 + 6 \cdot 6 + 4 \cdot 1 + 1 \cdot 0)/16 = 44/16 = 2.75$. (d) In $w_1$: its sum of squares is $1 + 16 + 100 + 16 + 1 = 134$, against about 21 in $w_2$ (computed the same way, with $w_2 = a_1 - a_2$). A one-pixel feature is mostly finest-scale detail; a spot of width 1–2 px lives in $w_2$ and $w_3$.
+
+**B4.** (a) Yes. The value at pixel 10 is $1 + e^{-16/4.5} = 1.029$, at pixel 11 it is $e^{-1/4.5} + e^{-9/4.5} = 0.936$, so 10 and 14 are local maxima with a dip between them. Both are candidates for $r \le 3$; for $r \ge 4$ the window of one contains the other (equal values: the tie rule keeps only the first). (b) $2 \cdot 2.12 = 4.24 > 4$: after filtering, the sum has a single maximum at pixel 12 (value $2e^{-4/9} = 1.28$ against $1 + e^{-16/9} = 1.17$ at 10, in units of the filtered peak). One candidate for every $r$: the matched filter merged them (unit 4 returns to this).
+
+**B5.** (a) A normalised Gaussian adds exactly 100 to every response: the spots stand out just as before, but a threshold on raw response values now passes everything (or, set for the new image, fails on the old one). (b) LoG and zero-mean templates have weights that sum to 0: the constant gives 0, nothing changes. (c) Yes: the LoG is a second derivative, and a ramp (linear) has second derivative 0. A symmetric zero-mean template also gives 0 on a ramp (the left and right halves cancel). Curvature of the background (a bright patch) does leak through, much weaker than with the plain Gaussian.
+:::
+
+### Math questions
+
+**B6.** *(math)* **The matched filter.** The response of a filter $\mathbf w$ at a spot is $r = \sum_k w_k(A p_k + n_k)$, with independent noise of variance $\sigma_n^2$.
+(a) Write the mean and the standard deviation of $r$.
+(b) Use Cauchy–Schwarz to show that $\mathrm{SNR} \le A\|\mathbf p\|/\sigma_n$, with equality for $\mathbf w \propto \mathbf p$.
+(c) For a Gaussian spot of peak 1 and width σ, show that $\|\mathbf p\|^2 \approx \pi\sigma^2$.
+
+**B7.** *(math)* **Unknown background.** Now $I_k = A p_k + B + n_k$ with an unknown constant $B$.
+(a) Why must a filter that ignores $B$ satisfy $\sum_k w_k = 0$?
+(b) Show that the best such filter is $\mathbf w \propto \mathbf p - \bar p\,\mathbf 1$, with $\bar p$ the mean of $\mathbf p$ over the window.
+(c) Show that the best SNR is now $A\sqrt{\|\mathbf p\|^2 - n\bar p^2}/\sigma_n$ ($n$ pixels in the window). Why is it smaller than before?
+
+**B8.** *(math)* **Noise after a Gaussian filter.** Show that a normalised 2D Gaussian kernel of width $\sigma_f$ has $\sum_k w_k^2 \approx 1/(4\pi\sigma_f^2)$ (replace the sum by an integral). Evaluate the noise sd after filtering for $\sigma_n = 10$ and $\sigma_f = 1.5$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** (a) Mean $A\sum_k w_k p_k = A\,\mathbf w^\top\mathbf p$; variance $\sum_k w_k^2\sigma_n^2$ (independent terms), so sd $\sigma_n\|\mathbf w\|$. (b) $\mathbf w^\top\mathbf p \le \|\mathbf w\|\|\mathbf p\|$, so $\mathrm{SNR} = A\,\mathbf w^\top\mathbf p/(\sigma_n\|\mathbf w\|) \le A\|\mathbf p\|/\sigma_n$; equality in Cauchy–Schwarz holds iff $\mathbf w = c\,\mathbf p$ with $c > 0$. (c) $\|\mathbf p\|^2 = \sum_k e^{-|\mathbf x_k|^2/\sigma^2} \approx \int_{\mathbb R^2} e^{-|\mathbf x|^2/\sigma^2}d\mathbf x = \pi\sigma^2$ (a Gaussian integral with variance $\sigma^2/2$ per axis: $\sqrt{\pi}\sigma$ per axis). The pixel sum is very close to the integral for σ ≥ 1.
+
+**B7.** (a) The response to the background is $B\sum_k w_k$; it vanishes for every $B$ only if $\sum_k w_k = 0$. (b) For $\mathbf w$ with $\mathbf 1^\top\mathbf w = 0$, $\mathbf w^\top\mathbf p = \mathbf w^\top(\mathbf p - \bar p\mathbf 1)$, and the noise sd is still $\sigma_n\|\mathbf w\|$. Cauchy–Schwarz on $\mathbf w$ and $\mathbf q = \mathbf p - \bar p\mathbf 1$ gives the maximum at $\mathbf w \propto \mathbf q$, which itself sums to zero, so it is allowed. (c) $\mathrm{SNR} = A\|\mathbf q\|/\sigma_n$ and $\|\mathbf q\|^2 = \|\mathbf p\|^2 - 2\bar p\,\mathbf 1^\top\mathbf p + n\bar p^2 = \|\mathbf p\|^2 - n\bar p^2$. Smaller because part of the spot (its mean over the window) looks exactly like background and cannot be used. For σ = 1.5 in an 11 × 11 window: 2.33 instead of 2.66 per unit of $A/\sigma_n$ (12 % less).
+
+**B8.** $w(\mathbf x) = \frac{1}{2\pi\sigma_f^2}e^{-|\mathbf x|^2/2\sigma_f^2}$, so $w^2 = \frac{1}{4\pi^2\sigma_f^4}e^{-|\mathbf x|^2/\sigma_f^2}$ and $\int w^2 = \frac{\pi\sigma_f^2}{4\pi^2\sigma_f^4} = \frac{1}{4\pi\sigma_f^2}$. At $\sigma_f = 1.5$: $1/(4\pi \cdot 2.25) = 0.0354$, $\sqrt{\cdot} = 0.188$, so the noise sd drops from 10 to 1.88.
+:::
+
+## Explore: spots in 1D {#explore-peaks1d}
+
+A 256-sample profile with eight Gaussian spots of σ = 1.5 (green ticks): a pair 7 px apart (27, 34), a spot at a half-pixel position (70.5), a bright spot at 105 with a dim neighbour at 112, a dim isolated spot (140), and two spots on a ramp (190, 230); seeded noise. The second row is the filtered profile with its candidates (red dots); the third row is the filter kernel. Click a spot to select it: its single-pixel and filtered SNR are read out.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="peaks1d" data-preset="raw"></div>
+<script src="../demos/dist/peaks1d.js"></script>
+```
+
+**D1.** Preset **raw maxima**. How many candidates are there for 8 spots? Then **matched filter**: how many now? Where are the extra candidates of the matched filter?
+
+**D2.** Preset **filter too wide** (σ = 4). What happens to the pair at 27/34? Lower σ slowly: at which σ do they separate again? Compare with B4.
+
+**D3.** Presets **window too small** and **window too large**. Describe each failure. Which spots are lost with $r = 8$, and why?
+
+**D4.** Preset **ramp: zero-mean filter**, then switch the filter to Gaussian. What happens on the ramp (x > 160)?
+
+**D5.** Preset **plateau** (no noise, values rounded to integers, no filter). Which spot has a flat top, and why? How many pixels of it are kept? Then preset **h-maxima instead of a window**: what does the bar at each peak show, and which peaks survive with $h = 4$?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** Raw: 47 candidates, about one per noise wiggle above the median. Matched filter (σ = 1.5, $r = 3$): 13. The extras are noise bumps, mostly on the ramp, where the plain Gaussian keeps the background level (everything there is "above zero"); there is no threshold yet (next unit).
+
+**D2.** At σ = 4 the pair becomes a single bump: 6 candidates in total. They separate again below σ ≈ 2.5–3: the effective width $\sqrt{1.5^2 + \sigma^2}$ must stay below half their distance, 3.5 px, i.e. σ < 3.2, and with noise the shallow dip just below that is not reliable (at σ = 2.5 both are candidates, at σ = 3 only one).
+
+**D3.** Window too small (σ = 0.6, $r = 1$, noise 8): 38 candidates; the narrow filter leaves noise ripples, and on top of a spot two neighbouring ripples can both be maxima of their 3-pixel window. Window too large ($r = 8$): 7 candidates for 8 spots. The dim spot at 112 is lost because the bright spot at 105 lies inside its window and is higher, and the left spot of the pair (27) is lost because its partner 7 px away came out slightly higher; the high end of the ramp at 255 is a candidate instead.
+
+**D4.** With the zero-mean filter the ramp gives no response (the kernel sums to zero and is symmetric): the filtered profile stays around zero on the ramp and only the two spots stand out. With the plain Gaussian the filtered profile climbs with the ramp: a threshold in response values would pass every noise bump on the upper part of the ramp and none on the flat part. (The candidate counts are not comparable yet: there is no threshold, so every small noise maximum above zero counts.)
+
+**D5.** The spot at 70.5 sits exactly between two pixels, so pixels 70 and 71 receive the same light: after rounding they are equal. The readout counts one flat-topped maximum, and only its first pixel is kept. With h-maxima the bar shows each peak's height above its saddle (the lowest point on the way to a higher peak). With $h = 3$ (the preset) the noise bumps (bars below 2) go and the dim neighbour at 112 survives (its height above the saddle towards 105 is 4.1): 9 candidates, the 8 spots plus the high end of the ramp at 255, which the plain Gaussian keeps as a "peak" (switch to the zero-mean filter: the ramp end goes, but the noisier response then needs a larger $h$). No distance had to be chosen.
+:::
+
+## Explore: spot detection {#explore}
+
+A seeded synthetic 256 × 256 image: 80 spots (σ = 1.5 px, amplitudes 20–100) on a background with a slope and a broad bright patch, noise 10. Detections: green = matched to a true spot within 2 px, red = false, yellow ring = missed. The threshold $k$ is in units of the noise of the filtered image (noise estimated from the image). With the à trous filter the strip shows $w_1 \dots w_4$, the last smooth level and the product. Click a spot for its 9 × 9 neighbourhood and the window.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="spotdetect" data-preset="flat"></div>
+<script src="../demos/dist/spotdetect.js"></script>
+```
+
+**E1.** Preset **Gaussian, flat background**. Read TP, FP, FN and F1. What is the estimated noise, and what is the noise of the filtered image? Check the latter with the Background table.
+
+**E2.** Preset **uneven background: Gaussian fails**. Where are the false spots? Then **… LoG does not**. Compare the F1 values. Try the zero-mean Gaussian, DoG and top-hat + Gaussian.
+
+**E3.** Preset **à trous product**. How many detections, and how many are false? Now preset **à trous: only w1 = noise**: what does level 1 contain? Try levels 2–4 and 3–4.
+
+**E4.** Presets **filter σ = 0.5** and **filter σ = 4**. Describe each failure in terms of the matched filter.
+
+**E5.** Preset **no filter: window too small** ($r = 1$, threshold 4). How many detections, and how many are false? Raise $r$ to 2 and 3. Then keep $r = 1$ and choose the zero-mean Gaussian instead.
+
+**E6.** Preset **dense spots** (300 spots). How many are missed? Click a yellow ring: what is next to it?
+
+**E7.** Preset **LoG at one σ is enough**. Compare with the blob demo of the [scale-space unit](../scale-space/exercise.qmd#explore): why does spot detection not need the search over scales?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 76 kept: TP 76, FP 0, FN 4, F1 0.97. The noise estimate is 10.1 (true 10); the filtered noise is 1.89, i.e. $10.1 \times 0.188$ as in the table; the threshold is $4 \times 1.89 = 7.6$. The 4 missed spots are the dimmest ones.
+
+**E2.** The Gaussian keeps the background, so on the bright patch every noise maximum is above the threshold: 257 detections, 197 false (all on the bright part), F1 0.36; on the dark side dim spots are missed. With the LoG: TP 74, FP 1, FN 6, F1 0.95. The zero-mean Gaussian, DoG and top-hat + Gaussian also ignore the background (all subtract a local level); they differ a little in which dim spots they catch.
+
+**E3.** Product of levels 2–3 at $k = 3$ per level: 74 detections, all true (F1 0.96). Level 1 alone is mostly noise: 115 detections, 77 false and 42 spots missed (F1 0.39). Levels 2–4 stay free of false spots but miss more (59 found, 21 missed, F1 0.85), and levels 3–4 miss 24 (F1 0.82): level 4 is too coarse for spots of σ = 1.5, and dim spots no longer pass every level.
+
+**E4.** σ = 0.5 is much narrower than the spot: the filtered noise is large (6.7, against 2.7 at σ = 1.5) and the spot's response small, so only 7 spots pass the threshold. σ = 4 averages in noise and background around the spot and merges spots closer than about 2√(1.5² + 4²) ≈ 8.5 px (the preset uses 200 spots): 127 found, 73 missed.
+
+**E5.** 1730 detections, 1668 false (F1 0.07): without a filter, the noise sd of a pixel is 10 and a threshold of 40 above the median is passed by many noisy pixels, and a bright spot has several noisy maxima. A larger window removes most of them ($r = 3$: 389 detections), because now only the largest pixel in a 7 × 7 neighbourhood can be a candidate. The zero-mean Gaussian with $r = 1$ is much better still (F1 0.97): filtering, not the window, is what removes noise; the window only sets the smallest spacing between candidates.
+
+**E6.** 253 of 300 found, 47 missed (F1 0.92, no false spots). The missed spots are next to another spot, closer than the filter can separate: two spots, one candidate. Unit 4 is about this.
+
+**E7.** The spot size is fixed by the PSF, so the scale is known in advance: one LoG at σ = 1.5 already gives F1 0.95. Blobs of the edges day have unknown sizes; the scale search is there to find the size, which here is not needed.
+:::
+
+## Where this leads
+
+Every candidate above has a score in units of noise, and the threshold $k = 4$ was a choice. The next unit asks how many **false spots per image** a threshold lets through, and why the answer is larger than the normal tail suggests.

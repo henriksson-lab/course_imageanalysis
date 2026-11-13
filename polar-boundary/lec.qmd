@@ -42,6 +42,8 @@ A fluorescent nucleus, blurred, noisy, with a **weak** part of its boundary and 
 - **Snakes and level sets** (the previous two days) need a starting curve and descend **locally**: they can stop at the wrong edge.
 - We know something about the shape: it is a **blob around a centre**. Can we use that to get the **best** boundary, not just a nearby one?
 
+![](fig-threshold.png){fig-alt="A synthetic nucleus with a faint, blurred lower-left edge and a brighter round neighbour touching it on the right. Threshold 50: the outline bulges into the faint halo and includes the neighbour. Threshold 125: the outline cuts off the faint part and still includes the neighbour." width="70%" fig-align="center"}
+
 ## Star-shaped objects
 
 An object is **star-shaped** around a centre $c$ if every ray from $c$ leaves the object exactly once.
@@ -52,9 +54,11 @@ An object is **star-shaped** around a centre $c$ if every ray from $c$ leaves th
 
 Not star-shaped: a bean seen from a point in one of its lobes, a dumbbell, a cell with long protrusions. We come back to them.
 
+![](fig-starshaped.svg){fig-alt="Left: an ellipse with rays from its centre, each ray crossing the boundary once. Right: a bean shape seen from a point in its left lobe; one highlighted ray crosses the boundary three times." width="58%" fig-align="center"}
+
 ## Unwrapping: the image in polar coordinates
 
-![](fig-unwrap.png){width="88%" fig-align="center"}
+![](fig-unwrap.png){fig-alt="Left: the synthetic nucleus with rays from its centre and the boundary in orange. Right: the unwrapped image, angle 0 to 360 degrees across and radius 0 to 110 pixels down; the boundary is a left-to-right path at radii of about 40 to 50 pixels." width="88%" fig-align="center"}
 
 Sample the image along $K$ rays at radii $0, 1, 2, \dots$ The rays become **columns**: angle across, radius down. The circle-like boundary becomes a **path from left to right**, one radius per column.
 
@@ -72,21 +76,35 @@ The $y$-axis points down, so $\theta$ increases **clockwise** on the screen. Map
 
 ## A cost along each ray
 
+:::: {.columns}
+::: {.column width="58%"}
 Along a ray, a bright nucleus on a dark background goes **bright → dark** at the boundary: the intensity drops. Use the **radial derivative** $\partial P / \partial r$:
 
 - **bright → dark** (bright inside): cost $= +\partial P/\partial r$, very negative at the boundary;
 - **dark → bright**: cost $= -\partial P/\partial r$;
 - **either**: cost $= -|\partial P/\partial r|$.
 - A thin **dark line** (a nuclear envelope in an electron micrograph): the second derivative, low in the middle of the line.
+:::
+::: {.column width="42%"}
+![](fig-rayprofile.svg){fig-alt="Top: the intensity along the ray pointing straight down from the centre of the synthetic nucleus, about 165 inside and 40 outside, dropping at radius 41. Bottom: the cost (the radial derivative, scaled), near zero except for a sharp minimum at radius 41, marked as the boundary." width="100%"}
+:::
+::::
 
 The **sign** selects the edge we want. A plain gradient magnitude cannot tell the outer edge of the nucleus from the inner edge of a brighter neighbour; the radial derivative can. Smooth the image a little first (a Gaussian, as in the Filtering unit), or the noise dominates the derivative.
 
 ## Smoothness: how far may the radius jump?
 
+:::: {.columns}
+::: {.column width="54%"}
 Without a limit, the path picks the best edge on every ray independently, and jumps between edges (and noise).
 
 - **Hard limit**: $|r_{k+1} - r_k| \le \delta$ pixels between neighbouring angles.
 - **Soft penalty**: add $\alpha\,|r_{k+1} - r_k|$ for every pixel of change.
+:::
+::: {.column width="46%"}
+![](fig-smoothness.png){fig-alt="The synthetic nucleus with two boundaries from the demo. With delta 1 and alpha 0.1 (cost -58.67) the contour follows the nucleus. With delta 8 and alpha 0 (cost -69.99) it runs out around the brighter neighbour and wiggles along the faint lower-left edge." width="100%"}
+:::
+::::
 
 This is the previous unit **turned sideways**: the angles are the stages (rows of the table), the radii are the states (columns), the steps go up to $\delta$ columns sideways, with a penalty.
 
@@ -108,7 +126,14 @@ a data term plus a smoothness term, as on the graph-cut day, but over a chain.
 
 ## Closing the curve
 
+:::: {.columns}
+::: {.column width="56%"}
 Angle $0°$ and angle $360°$ are the same ray, so the path must satisfy $|r_0 - r_{K-1}| \le \delta$ too. The table of the previous slide does not know that.
+:::
+::: {.column width="44%"}
+![](fig-closure.png){fig-alt="The unwrapped nucleus (angle across, radius down) with two paths for delta 2, alpha 0. The open path starts at radius 52 and ends at radius 37, a gap of 15 pixels (red arrows at both ends); the exact closed path (dashed) has a gap of 1 pixel. In between the two paths coincide." width="100%"}
+:::
+::::
 
 - **Open** (ignore it): the result often has a visible **jump** at $0°$.
 - **Exact**: fix the start radius $r_0$, run DP, and accept only end radii within $\delta$ of $r_0$. Do this for **every** start radius and keep the best closed path. $R$ times the work, still a few milliseconds.
@@ -138,9 +163,18 @@ Left: the image, the centre (drag it), every few rays (red: angle 0), the annulu
 
 ## Where it fails
 
+:::: {.columns}
+::: {.column width="60%"}
 - **Not star-shaped**: a ray that crosses the boundary twice can only report one crossing. The bean seen from one lobe loses the other lobe.
 - **Wrong centre**: even a convex nucleus looks distorted from a centre near its edge: the angles are spread unevenly, and $\delta$ limits the slope.
 - **A brighter edge on the same ray**: the neighbour's outer edge, a parallel membrane. If it is cheaper and reachable within the smoothness limit, the optimum **is** that edge: the energy is wrong, not the optimisation.
+:::
+::: {.column width="40%"}
+![](fig-fails.png){fig-alt="Two stills of the polar demo. Left: the bean seen from a centre in its left lobe; the contour closes around the left lobe only. Right: the micrograph nucleus with the dark-line cost; the contour follows the nuclear envelope on most sides but runs along a parallel structure in places." width="100%"}
+
+[Micrograph: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.]{style="font-size: 0.6em; color: #666;"}
+:::
+::::
 
 Remedies: a **centre** from a seed click or from the peak of the distance transform (morphology day) of a rough mask; an **annulus** $r_{\min} \le r \le r_{\max}$; **iterate** (new centre = centroid of the result, then run again); the right **polarity**.
 
@@ -158,9 +192,16 @@ Polar DP needs no starting curve, only a centre, and is never trapped by a nearb
 
 ## DP for snakes
 
+:::: {.columns}
+::: {.column width="64%"}
 Recall from the snakes day: a snake is a closed curve of $n$ points $v_i$ with an energy of an **internal** part (elasticity, rigidity) and an **image** part. Gradient descent moves it to a nearby local minimum.
 
 DP version (Amini, Weymouth & Jain 1990): let each point move only within a small **window** of $m$ candidate positions around its current place.
+:::
+::: {.column width="36%"}
+![](fig-amini.svg){fig-alt="Eight snake points on a closed polygon around a grey ring (the edge); each point has a 3 by 3 window of nine candidate positions; neighbouring points are linked, forming a closed chain." width="100%"}
+:::
+::::
 
 - With only the **elastic** term $\sum_i |v_{i} - v_{i-1}|^2$, the energy links each point to the next one only: a closed **chain**, so DP finds the best move of **all points at once**. Repeat until nothing moves.
 - Polar DP is the special case "each point moves along its ray".

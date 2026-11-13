@@ -1,0 +1,101 @@
+---
+title: "Quiz: data-parallel patterns"
+---
+
+Short questions to test your understanding. Try each on paper first, then open the answer. **Work** = total number of operations; **depth** = the longest chain of operations that each need the previous one.
+
+---
+
+**Q1.** Which pattern is each of these: (a) gamma correction, (b) a 5 × 5 median filter, (c) the maximum intensity of an image, (d) the cumulative histogram?
+
+::: {.callout-tip collapse="true" title="Hint"}
+How many inputs does one output need, and which ones?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+(a) Map: each output pixel from the same input pixel. (b) Stencil: each output from a fixed 5 × 5 neighbourhood. (c) Reduction: all inputs to one number, with the associative operation max. (d) Scan: every running total of the histogram counts.
+:::
+
+---
+
+**Q2.** A tree reduction of $n$ numbers does $n - 1$ additions, exactly as many as a loop. Why is it faster on a GPU?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Compare the depths.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+The loop's additions form one chain: each needs the previous sum, depth $n - 1$. The tree's additions in one level are independent and run at the same time: depth $\lceil\log_2 n\rceil$. With enough lanes the time follows the depth: 20 steps for a million numbers instead of a million.
+:::
+
+---
+
+**Q3.** The same GPU program computes the mean of the same image twice and gets results that differ in the 7th digit. Is the program wrong?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Is floating-point addition associative?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+Not necessarily. The order in which blocks finish and their partial sums are combined can vary between runs, and floating-point addition is associative only up to rounding, so the last digits can differ. For reproducible results the program must combine partial sums in a fixed order (or use integer or compensated sums).
+:::
+
+---
+
+**Q4.** Why does the Hillis–Steele scan do more additions than a sequential loop, and why is it used anyway?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Count additions per step.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+In step $d$ every element from position $2^d$ on adds one value: $n - 2^d$ additions per step, $n\log_2 n - (n-1)$ in total, against $n - 1$ for the loop. But it has depth $\log_2 n$, and for one block of a few hundred elements with as many lanes, fewer steps matter more than total work. For long arrays the work-efficient Blelloch scan is preferred.
+:::
+
+---
+
+**Q5.** How does an exclusive scan of a 0/1 mask tell each foreground pixel where to write itself in a compact list?
+
+::: {.callout-tip collapse="true" title="Hint"}
+What does the exclusive scan count at position $i$?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+The exclusive scan at $i$ is the number of ones before $i$: exactly the number of kept elements that come earlier, i.e. the index of element $i$ in the compact list. Every kept element knows its slot, and no two write to the same slot.
+:::
+
+---
+
+**Q6.** Why is computing the histogram of a nearly black image slow on a GPU, and what fixes it?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Where do the atomic additions go?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+Almost all pixels add to the same bin; atomic updates to one address are serialised, so the threads wait in one queue (contention), and the histogram takes as long as there are dark pixels. Privatisation fixes it: each block counts into its own histogram in fast memory, so the queue is split over the blocks, and the block histograms are added at the end.
+:::
+
+---
+
+**Q7.** Back-projection in tomography can loop over rays (smear each ray into the image) or over output pixels (collect from every projection). Which is better on a GPU, and why?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Gather or scatter?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+Over output pixels: each thread **gathers** from the projections and writes only its own pixel, with no conflicts. Looping over rays is a **scatter**: many rays write to the same pixel and need atomic additions, which collide.
+:::
+
+---
+
+**Q8.** *(math)* With $p$ lanes, Brent's bound says $t_p \le W/p + D$. Give $W$, $D$ and the bound for a tree reduction of $n = 2^{16}$ numbers on $p = 256$ lanes.
+
+::: {.callout-tip collapse="true" title="Hint"}
+$W = n - 1$, $D = \log_2 n$.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+$W = 65\,535$, $D = 16$: $t_p \le 65\,535/256 + 16 = 256.0 + 16 = 272$ steps, against 65 535 for the loop.
+:::

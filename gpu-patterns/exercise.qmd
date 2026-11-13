@@ -1,0 +1,150 @@
+---
+title: "Exercise: data-parallel patterns"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- run a **tree reduction**, a **Hillis–Steele** and a **Blelloch** scan by hand, and count their steps and additions,
+- use a scan for **stream compaction** and for the **integral image**,
+- find the **contention** of an atomic histogram, with and without privatisation,
+- classify image operations by **pattern**,
+- *(math)* compute **work**, **depth** and **Brent's bound**, and explain why trees need associativity.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Map / stencil | one output per pixel, from the same pixel / a fixed neighbourhood |
+| Reduction | many inputs to one, with an associative operation; tree: $\lceil\log_2 n\rceil$ steps, $n-1$ operations |
+| Inclusive / exclusive scan | output $i$ = sum of inputs $0..i$ / $0..i-1$ |
+| Hillis–Steele | step $d$: every element adds the one $2^d$ to its left (from the previous row); $\log_2 n$ steps, $n\log_2 n - (n-1)$ additions |
+| Blelloch | up-sweep (reduction tree, partial sums in place), last element set to 0, down-sweep; exclusive; $2\log_2 n$ steps, $2(n-1)$ additions |
+| Compaction | exclusive scan of a 0/1 mask = output position of each kept element |
+| Atomic histogram | updates to one bin are serialised (one per cycle); different bins in parallel |
+| Privatisation | each block has its own histogram; then the block histograms are added |
+| Brent's bound | $t_p \le W/p + D$ for work $W$, depth $D$, $p$ lanes |
+
+## By hand
+
+**B1.** Tree reduction of $5, 2, 7, 1, 3, 8, 4, 6$: write the values after each step (step 1 adds neighbours, step 2 pairs of pairs, …). How many steps and additions? How many steps does a loop need?
+
+**B2.** For $x = 3, 1, 7, 0, 4, 1, 6, 3$:
+(a) the inclusive Hillis–Steele scan: a table with one row per step; count the additions;
+(b) the Blelloch scan: the up-sweep rows, the row after clearing the last element, and the down-sweep rows; count the additions. Check the result against the running totals.
+
+**B3.** **Compaction.** Values $a, b, c, \dots, l$ (12 elements) with the mask $1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1$. Write the exclusive scan of the mask, and the compact output list.
+
+**B4.** **Integral image as two scans.** For the $4\times4$ image
+$$\begin{bmatrix} 1 & 2 & 0 & 3\\ 2 & 1 & 1 & 0\\ 0 & 3 & 2 & 1\\ 1 & 0 & 2 & 2\end{bmatrix}$$
+scan every row (inclusive), then every column of the result. Check the bottom-right value. How many independent scans run in each of the two passes?
+
+**B5.** **Atomic histogram.** 32 threads read the values
+$$0,1,1,2,0,0,0,7,\ \ 3,0,0,1,0,5,0,0,\ \ 2,0,0,0,6,0,1,0,\ \ 0,0,4,0,0,2,0,0$$
+and add 1 to the bin of their value (8 bins, 0–7).
+(a) Give the histogram. With global atomics (one update per cycle per bin, bins in parallel), how many cycles does it take?
+(b) With 4 private histograms, one per block of 8 consecutive threads, plus 4 cycles to add the 4 block histograms into the global one?
+
+**B6.** Classify each operation as map, stencil, reduction, scan or histogram/scatter (one may be a combination): (a) gain and offset; (b) a 3 × 3 median; (c) the mean of an image; (d) the integral image; (e) Otsu's threshold from a histogram; (f) Hough voting; (g) one diffusion step; (h) maximum intensity projection of a stack along $z$; (i) giving every foreground pixel its index in a list of foreground pixels; (j) back-projection (per output pixel).
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** Step 1: $7, 8, 11, 10$ (pairs $5+2$, $7+1$, $3+8$, $4+6$). Step 2: $15, 21$. Step 3: $36$. 3 steps, 7 additions; the loop needs 7 steps (and 7 additions).
+
+**B2.** (a)
+
+| step | values | additions |
+|---|---|---|
+| input | 3 1 7 0 4 1 6 3 | |
+| 1 (add 1 to the left) | 3 4 8 7 4 5 7 9 | 7 |
+| 2 (add 2 to the left) | 3 4 11 11 12 12 11 14 | 6 |
+| 3 (add 4 to the left) | 3 4 11 11 15 16 22 25 | 4 |
+
+17 additions $= 8\cdot3 - 7$; the running totals are 3, 4, 11, 11, 15, 16, 22, 25.
+
+(b)
+
+| row | values | additions |
+|---|---|---|
+| input | 3 1 7 0 4 1 6 3 | |
+| up 1 | 3 **4** 7 **7** 4 **5** 6 **9** | 4 |
+| up 2 | 3 4 7 **11** 4 5 6 **14** | 2 |
+| up 3 | 3 4 7 11 4 5 6 **25** | 1 |
+| clear | 3 4 7 11 4 5 6 **0** | |
+| down 1 | 3 4 7 **0** 4 5 6 **11** | 1 |
+| down 2 | 3 **0** 7 **4** 4 **11** 6 **16** | 2 |
+| down 3 | 0 3 4 11 11 15 16 22 | 4 |
+
+14 additions $= 2(8 - 1)$, 6 steps; the result is the exclusive scan (the inclusive one shifted right by one, starting with 0).
+
+**B3.** Exclusive scan of the mask: $0, 1, 1, 2, 3, 3, 3, 4, 4, 5, 6, 6$. Kept: $a \to 0$, $c \to 1$, $d \to 2$, $g \to 3$, $i \to 4$, $j \to 5$, $l \to 6$: output $a, c, d, g, i, j, l$ (7 elements, the scan's last value 6 plus the last mask bit 1).
+
+**B4.** Row scans: $(1, 3, 3, 6)$, $(2, 3, 4, 4)$, $(0, 3, 5, 6)$, $(1, 1, 3, 5)$. Column scans of that:
+$$\begin{bmatrix} 1 & 3 & 3 & 6\\ 3 & 6 & 7 & 10\\ 3 & 9 & 12 & 16\\ 4 & 10 & 15 & 21\end{bmatrix}.$$
+Bottom right: 21 = the sum of all 16 pixels. Each pass runs 4 independent scans (for an $H\times W$ image: $H$, then $W$ scans, each itself parallel).
+
+**B5.** (a) Bin counts: 20, 4, 3, 1, 1, 1, 1, 1. The busiest bin (0) receives 20 updates: 20 cycles. (b) Per block, bin 0 receives 4, 5, 5 and 6 updates; the blocks run in parallel, so 6 cycles, then 4 cycles to add the block histograms: 10 cycles, twice as fast.
+
+**B6.** (a) Map. (b) Stencil. (c) Reduction. (d) Scan (rows, then columns). (e) Scan (cumulative sums of counts and of value × count) and a reduction (the arg-max of the between-class variance), on 256 bins: tiny. (f) Scatter with atomics (votes collide in the accumulator). (g) Stencil. (h) Reduction (max) along $z$, a separate one for every $(x, y)$: a map of reductions. (i) Compaction: exclusive scan of the mask. (j) Gather: a map over output pixels, each reading from all projections.
+:::
+
+### Math questions
+
+**B7.** *(math)* (a) For $n = 2^{20}$ (a 1024 × 1024 image) compute the work and depth of the tree reduction, the Hillis–Steele scan and the Blelloch scan, and Brent's bound $W/p + D$ for $p = 10^4$ lanes. Compare with the sequential loop. (b) Show that the Hillis–Steele work is $n\log_2 n - (n - 1)$.
+
+**B8.** *(math)* (a) Show that $\max$ is associative. Is the mean of two numbers, $m(a, b) = (a+b)/2$, associative? How do you reduce a mean? (b) In float32 (24 significant bits), compute $(10^8 + 1) - 10^8$ and $(10^8 - 10^8) + 1$. Why do they differ?
+
+**B9.** *(math)* (a) With $S_k$ the shift by $k$ (zero-filled), write the matrices $I + S_1$ and $I + S_2$ for $n = 4$ and multiply them. Compare with the lower-triangular matrix of ones. (b) Why does the product of $\log_2 n$ such factors give every shift $0, \dots, n-1$ exactly once?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** (a) $n = 1\,048\,576$, $\log_2 n = 20$, $p = 10^4$:
+
+| | work $W$ | depth $D$ | $W/p + D$ |
+|---|---|---|---|
+| loop (sum or scan) | 1 048 575 | 1 048 575 | 1 048 575 |
+| tree reduction | 1 048 575 | 20 | 125 |
+| Hillis–Steele | 19 922 945 | 20 | 2012 |
+| Blelloch | 2 097 150 | 40 | 250 |
+
+Blelloch is 8 times faster than Hillis–Steele here: with $n \gg p$ the work term dominates. (b) Step $d$ ($d = 0, \dots, \log_2 n - 1$) updates the $n - 2^d$ elements with index $\ge 2^d$: $\sum_d (n - 2^d) = n\log_2 n - (2^{\log_2 n} - 1) = n\log_2 n - (n - 1)$.
+
+**B8.** (a) $\max(\max(a, b), c)$ and $\max(a, \max(b, c))$ both equal the largest of $a, b, c$. The mean of two is not associative: $m(m(a, b), c) = a/4 + b/4 + c/2 \ne m(a, m(b, c)) = a/2 + b/4 + c/4$. Reduce the pair (sum, count), which is associative under componentwise addition, and divide at the end. (b) Near $10^8$ float32 numbers are 8 apart ($2^{26} \le 10^8 < 2^{27}$, spacing $2^{26-23} = 8$), so $10^8 + 1$ rounds to $10^8$, and $(10^8 + 1) - 10^8 = 0$. In the other order $10^8 - 10^8 = 0$ exactly and $0 + 1 = 1$. Rounding after each step makes the grouping matter.
+
+**B9.** (a) $I + S_1$ has ones on the diagonal and the first subdiagonal; $I + S_2$ on the diagonal and the second subdiagonal. Their product is $I + S_1 + S_2 + S_2S_1 = I + S_1 + S_2 + S_3$ (shifts add, $S_2S_1 = S_3$): ones on and below the diagonal, i.e. $L$. (b) The product of $(I + S_{2^d})$ for $d = 0, \dots, m-1$ expands into the sum of $S_k$ over all $k$ that are sums of distinct powers of two $2^d$: every $k$ from 0 to $2^m - 1$ has exactly one binary representation, so each shift appears once. Shifts beyond $n - 1$ are zero.
+:::
+
+## Explore: patterns step by step {#explore}
+
+A simulation: every row is one parallel step, the red arrows are the additions done in that step, and the counters give steps (depth) and additions (work) against the sequential loop. Use **first**, **step**, **back** and **all** to go through it. Click a value on the input row to change it (upper half +1, lower half −1). Patterns: **reduction** (optionally in **float16**, every addition rounded; **shuffle the split** gives the lanes the numbers in a different order), **Hillis–Steele** and **Blelloch** scans, **compaction** (click the mask row), and **histogram** (64 pixels with values 0–7, one thread each; one column per bin, one cell per cycle that the bin is busy; **privatised**: 8 blocks of 8 threads, each with its own histogram, then a merge shown in purple).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="parscan" data-mode="reduce" data-preset="reduce"></div>
+<script src="../demos/dist/parscan.js"></script>
+```
+
+**P1.** Preset **16 numbers in 4 steps**. Read the steps, additions and the sum. Step through it: which elements are still "alive" after each step?
+
+**P2.** Preset **the sum changes with the order** (float16). Compare the tree sum, the sequential sum and the exact sum. Press **shuffle the split** several times and record the tree sums. Why can a GPU's sum differ between runs?
+
+**P3.** Presets **Hillis–Steele does more work** and **Blelloch: twice the steps, less work**. Read the steps and additions of both for 16 values and compare with the formulas. Where in the Blelloch up-sweep is the total of all 16 values?
+
+**P4.** Preset **keep the foreground**. How many elements are kept? Step through the three rows. Change the mask (click) so that every element is kept: what is the scan now?
+
+**P5.** Presets **dark image: one bin, all wait** and **private histograms fix it**. Read the cycles of both. Then choose **uniform** and **bimodal**, with and without privatisation. When does privatisation pay, and when not?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**P1.** 4 steps, 15 additions, sum 53, against 15 steps for the loop. After step 1 the elements at even positions hold pair sums; after step 2 every 4th; after step 3 every 8th; after step 4 only the first holds the total.
+
+**P2.** Exact 2025.5; sequential float16 sum 2025; tree 2027. Shuffling gives 2026, 2026, 2026, 2026, 2025, 2026, … (float16 has spacing 1 between 1024 and 2048, so 2025.5 cannot be stored). The rounding errors depend on which numbers are added together; when a GPU splits the work over blocks in a different way (or combines the block results in the order they finish), the last digit changes.
+
+**P3.** Hillis–Steele: 4 steps, 49 additions ($16\cdot4 - 15$). Blelloch: 8 steps, 30 additions ($2\cdot15$). The loop: 15 and 15. After the last up-sweep step the last element holds the total, 53; it is then set to 0 and the down-sweep distributes the partial sums.
+
+**P4.** 8 of 16 kept (positions 0, 2, 3, 6, 8, 9, 13, 15 with values 3, 7, 0, 6, 5, 2, 4, 6). With every element kept, the exclusive scan is $0, 1, 2, \dots, 15$: every element keeps its own position.
+
+**P5.** Dark: 58 of 64 pixels in bin 0: 58 cycles with global atomics; privatised: the busiest private bin has 8 updates, plus 8 merge cycles: 16. Uniform: global 11, privatised 4 + 8 = 12: no gain, the merge costs more than the contention it removes. Bimodal: global 20 (bin 1), privatised 6 + 8 = 14. Privatisation pays when one bin is much busier than $n/b$, and with real images (millions of pixels, hundreds of blocks) the merge is small compared with the counting.
+:::
+
+## Where this leads
+
+Map, stencil, reduction, scan and histogram cover the operations that suit a GPU. The last unit, [what GPUs are good and bad at](../gpu-fit/lec.qmd), looks at the methods of the course that do **not** fit these patterns, such as watershed flooding, union–find labelling and dynamic programming, and at precision on GPUs.

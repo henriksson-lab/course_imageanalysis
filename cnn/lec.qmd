@@ -35,19 +35,41 @@ Suggested demo tour: convlayer (hand-made vs learned bank, shift, pooling), rece
 
 ## From hand-made features to learned ones
 
+:::: {.columns}
+::: {.column width="54%"}
 Day 14 (random forests) gave every pixel a **feature stack**: Gaussian, derivative, LoG, Hessian filters at chosen scales (the edges day), then a classifier on top.
 
 - The filters were **designed** by us: interpretable, no training data needed.
 - A convolutional network **learns** the filters, and further layers that combine them, from labelled examples.
 - The trade-off: learned features adapt to the task, but they need examples (and checking).
+:::
+::: {.column width="46%"}
+![](fig-featurestack.png){fig-alt="A piece of the electron micrograph around the nucleus and four hand-made features of it: Gaussian blur (σ = 2), gradient size at σ = 2 (bright on edges), Laplacian of Gaussian (σ = 3) and the largest Hessian eigenvalue at σ = 3 (red ridges along the nuclear envelope)." width="100%"}
+:::
+::::
+
+::: notes
+Micrograph: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.
+:::
 
 ## Dense layers do not suit images
 
+:::: {.columns}
+::: {.column width="60%"}
 A $64 \times 64$ grey image into a dense layer of 100 units: $4096 \times 100 + 100 = 409{,}700$ weights.
 
 - **Too many weights**: each unit has a separate weight for every pixel.
-- **No neighbourhood**: the pixel order could be shuffled and the layer would not notice.
+- **No neighbourhood**: the pixel order could be shuffled and the layer would not notice (right: for a dense layer both are equally easy to learn from).
 - **No shift**: a nucleus in the top-left corner and the same nucleus in the bottom-right use completely different weights. Every position has to be learned separately.
+:::
+::: {.column width="40%"}
+![](fig-shuffle.png){fig-alt="Left: an 80 by 80 piece of the micrograph showing the nucleus. Right: the same pixels in a fixed random order, which looks like noise." width="100%"}
+:::
+::::
+
+::: notes
+Shuffle every training image with the same fixed permutation and a dense network learns exactly as well: it never used the neighbourhood. A convolutional layer would be lost. Micrograph: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.
+:::
 
 ## A convolutional layer: a bank of kernels {.smaller}
 
@@ -58,7 +80,10 @@ Recall (the kernels unit, day 1): a $3 \times 3$ kernel slides over the image; e
 - The **kernel values are weights**, learned by backpropagation like any others.
 - Networks actually compute the correlation (no flip); with learned kernels the flip does not matter.
 
+![](fig-convbank.png){fig-alt="An 80 by 80 piece of the micrograph and four 3 by 3 kernels with their numbers (Sobel x, Sobel y, Laplacian, Gaussian), each above its feature map after ReLU: the Sobel maps light up one side of the nuclear envelope each, the Laplacian map thin lines and specks, the Gaussian map (with a negative bias) the bright regions outside the cell." width="66%" fig-align="center"}
+
 ::: notes
+The figure is a hand-made bank of four kernels on a smoothed, half-size piece of the micrograph; the Gaussian map has a bias of −128, so only bright regions survive the ReLU. Micrograph: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.
 Show the convlayer demo next. The hand-made bank has Sobel x and y, two diagonals, the Laplacian, a Gaussian, and two line detectors. The learned bank is layer 1 of the small digit network of cnnviewer: several of its kernels look like edge or stroke detectors in some direction.
 :::
 
@@ -76,11 +101,22 @@ Start with the learned bank on a digit; switch to the hand-made bank and compare
 
 ## Weight sharing
 
+:::: {.columns}
+::: {.column width="62%"}
 **The same 9 weights at every position.**
 
 - Weights per layer: $3 \cdot 3 \cdot C_\text{in} \cdot C_\text{out} + C_\text{out}$, **independent of the image size**. One grey input, 8 kernels: 80 weights, for a $28 \times 28$ or a $1000 \times 1000$ image alike.
 - **Translation equivariance**: shift the input, and every feature map shifts the same way. A detector learned at one position works at all of them.
 - Compare: the dense layer of the last slide has 409,700 weights and no equivariance.
+:::
+::: {.column width="38%"}
+![](fig-shift.png){fig-alt="Top: a piece of the micrograph and the same piece shifted 24 pixels right and 16 down. Bottom: their edge feature maps (Sobel x after slight smoothing, then ReLU); the map of the shifted input is the first map shifted by the same amount. An orange circle marks the same spot of the nuclear envelope in all four." width="100%"}
+:::
+::::
+
+::: notes
+Away from the borders the two maps agree exactly after shifting (checked in the figure script). Micrograph: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.
+:::
 
 ## The math: a convolutional layer {.math .smaller}
 
@@ -101,8 +137,16 @@ $$y_{c'}[i, j] = b_{c'} + \sum_{c}\sum_{u,v} w_{c',c}[u, v]\; x_c[i + u,\ j + v]
 
 ## Pooling and stride
 
+:::: {.columns}
+::: {.column width="64%"}
 - **2×2 max pooling**: keep the largest value of each $2 \times 2$ block. The map shrinks to half width and height and keeps "the feature is somewhere here", with a little tolerance to small shifts.
 - **Stride 2**: evaluate the kernel only at every second position: also halves the size.
+:::
+::: {.column width="36%"}
+![](fig-maxpool.svg){fig-alt="A 4 by 4 grid of numbers split into four coloured 2 by 2 blocks; max pooling keeps the largest of each block: 4, 2, 2 and 6, a 2 by 2 result." width="100%"}
+:::
+::::
+
 - Output size of a layer with kernel $k$, padding $p$, stride $s$ on $n$ pixels:
 
 $$n_\text{out} = \left\lfloor\frac{n + 2p - k}{s}\right\rfloor + 1$$
@@ -111,12 +155,19 @@ $$n_\text{out} = \left\lfloor\frac{n + 2p - k}{s}\right\rfloor + 1$$
 
 ## The receptive field
 
+:::: {.columns}
+::: {.column width="55%"}
 The part of the **input** that one unit can see.
 
 - One $3 \times 3$ layer: 3 pixels wide. Two: 5. Three: **7**.
 - Three $3 \times 3$ layers see as much as one $7 \times 7$ layer, with $27$ instead of $49$ weights per channel pair, and two more nonlinearities.
 - **Pooling multiplies the growth**: after a $2 \times 2$ pool, each further $3 \times 3$ layer adds 4 input pixels instead of 2.
 - Deep layers see whole objects: that is where "nucleus" or "digit 6" can be decided.
+:::
+::: {.column width="45%"}
+![](fig-receptive.svg){fig-alt="Four rows of units, input at the bottom and layer 3 at the top, drawn in one dimension. One unit of layer 3 is connected to 3 units of layer 2, which together see 5 units of layer 1 and 7 input pixels; the units involved are orange." width="100%"}
+:::
+::::
 
 ## Try it: receptive fields
 
@@ -174,6 +225,8 @@ Draw a digit or pick one; look at the layer-1 maps (strokes in different directi
 ## Data augmentation
 
 Train on **modified copies**: shifted, rotated, flipped, brighter, darker, slightly deformed. The label stays the same.
+
+![](fig-augment.png){fig-alt="A handwritten 6 and five modified copies: rotated by 30 degrees, by minus 30 degrees, shifted, fainter, and rotated by 180 degrees, where it looks like a 9 (framed in red)." width="62%" fig-align="center"}
 
 - The network learns the **invariances we can name**: "a rotated 2 is still a 2".
 - Our digit network: on test digits rotated by 45°, **46.9 %** correct without augmentation, **92.9 %** with random rotations up to ±45° during training (and 97.2 % instead of 98.7 % on upright digits).

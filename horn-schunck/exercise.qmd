@@ -1,0 +1,119 @@
+---
+title: "Exercise: Horn–Schunck and evaluating flow"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute a Horn–Schunck update by hand and predict the effect of λ,
+- explain filling-in and predict how the flow in a flat region evolves over the iterations,
+- choose between Lucas–Kanade and Horn–Schunck for a given experiment,
+- evaluate a flow field with the endpoint and angular errors, and judge what a warping residual can and cannot show,
+- *(math)* derive the update from the energy and show that the energy is convex.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Energy | $E = \sum_p (I_xu_p + I_yv_p + I_t)^2 + \lambda\sum_{(p,q)}\big[(u_p - u_q)^2 + (v_p - v_q)^2\big]$ (4-neighbour pairs) |
+| Update | average the neighbours, $(\bar u, \bar v)$, then $u = \bar u - I_x\,r$, $v = \bar v - I_y\,r$ with $r = \dfrac{I_x\bar u + I_y\bar v + I_t}{4\lambda + I_x^2 + I_y^2}$ |
+| Filling-in | flat regions get their flow from the surroundings, about a pixel further per iteration |
+| Robust smoothness | pay for the size of a jump, not its square: sharper motion boundaries |
+| EPE | $\sqrt{(u - u_{gt})^2 + (v - v_{gt})^2}$ |
+| AE | angle between $(u, v, 1)$ and $(u_{gt}, v_{gt}, 1)$ |
+| Warping residual | frame 2 warped back by the flow, minus frame 1 |
+
+## By hand
+
+**B1.** **One update.** A pixel has $(I_x, I_y, I_t) = (2, 0, -4)$.
+(a) Its constraint line? Its neighbour average is $(0, 0)$; compute the update for λ = 0, 0.25, 1 and 3.
+(b) Now the neighbour average is $(2, 1)$, λ = 1. Compute the update and explain the result.
+
+**B2.** A pixel on a diagonal edge, $(I_x, I_y, I_t) = (1, 1, -2)$, λ = 1.
+(a) Update from the neighbour average $(0, 0)$.
+(b) Update from the neighbour average $(1, 0)$. In which direction did the vector move, and why only in that direction?
+
+**B3.** **Filling-in.** A uniform grey disc of radius 30 px with a textured rim moves 1.5 px to the right over a still textured background. Horn–Schunck starts from zero flow. Predict the flow at the centre of the disc after 1, 10 and 1000 iterations. What happens near the rim, where the moving disc meets the still background?
+
+**B4.** **Error measures.** Compute the EPE and the AE for (a) estimate $(2, 1)$, truth $(2.5, 1)$; (b) estimate $(0.1, 0)$, truth $(0.6, 0)$; (c) estimate $(5, 0)$, truth $(5.5, 0)$. Which pixel looks worst by each measure?
+
+**B5.** **Lucas–Kanade or Horn–Schunck?** For each experiment choose one and say why: (a) dense tissue flow in a fluorescently labelled embryo; (b) sparse bright particles on a black background; (c) a cell crawling over a textured, still substrate, where you need a sharp outline of the moving region; (d) a quick estimate of where in the image the flow can be trusted.
+
+**B6.** **Residual.** The flow of a moving uniform disc is wrongly estimated as 0 in its interior, but correctly at its rim. Sketch the warping residual. Where would the residual expose the error, and where not?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) The line $2u - 4 = 0$, i.e. $u = 2$ ($v$ free). $r = (0 + 0 - 4)/(4\lambda + 4)$: λ = 0: $r = -1$, $u = 2$; λ = 0.25: $r = -0.8$, $u = 1.6$; λ = 1: $r = -0.5$, $u = 1$; λ = 3: $r = -0.25$, $u = 0.5$. Always $v = 0$ (the gradient has no $y$ component). The larger λ, the more the pixel stays with its neighbours.
+(b) $r = (2 \cdot 2 + 0 - 4)/(4 + 4) = 0$: the average already lies on the line, so the pixel takes it unchanged, $(2, 1)$. The data have nothing against the $v$ component (along the edge), so smoothness decides it.
+
+**B2.** (a) $r = (0 + 0 - 2)/(4 + 2) = -1/3$, so $(u, v) = (1/3, 1/3)$: a third of the way towards the line $u + v = 2$, along the gradient.
+(b) $r = (1 + 0 - 2)/6 = -1/6$, $(u, v) = (1 + 1/6, 0 + 1/6) = (1.17, 0.17)$. The step is always along the gradient $(1, 1)$, perpendicular to the line: the data term can only correct the component across the edge; the component along it comes from the neighbours.
+
+**B3.** After 1 iteration: 0 at the centre (the flow has moved only a pixel or two in from the textured rim). After 10: still about 0 at the centre, the flow has crept 10 to 20 pixels in. After 1000: close to $(1.5, 0)$; the demo's ring (radius about 30) reaches 80 % of the true speed after 1000 sweeps. At the rim the smoothness term also pulls the still background's zero flow into the disc and the disc's flow into the background: the motion boundary is smeared over a few pixels (more for larger λ).
+
+**B4.** (a) EPE 0.5, AE 5.8°. (b) EPE 0.5, AE 25.3°. (c) EPE 0.5, AE 1.0°. The EPE rates all three the same; the AE makes the slow pixel (b) look 25 times worse than (c).
+
+**B5.** (a) Horn–Schunck: tissue moves smoothly and a dense field is wanted, including in weakly textured regions. (b) Lucas–Kanade at the particles (or block matching/PIV for large motion): there is texture only at the particles, and filling in the black space between them would invent motion. (c) Horn–Schunck with a robust smoothness penalty (or LK with a small window): quadratic smoothness and large windows both blur the boundary. (d) Lucas–Kanade: $\mu_2$ is a ready-made confidence map.
+
+**B6.** The residual is near zero in the flat interior (flat moved onto flat looks the same, whatever the flow), and near zero at the rim, where the flow is right. It would expose the error only where the wrong vectors meet texture: if the interior had any texture, or at the transition between the correct rim and the wrong interior. The residual cannot see errors in flat regions.
+:::
+
+### Math questions
+
+**B7.** *(math)* Starting from the discrete energy, show that $\partial E/\partial u_p = 0$ gives $(I_x^2 + 4\lambda)u_p + I_xI_yv_p = 4\lambda\bar u_p - I_xI_t$ for an interior pixel, write the $v$ twin, and solve the $2\times2$ system to obtain the update formula. (Hint: $\det = 4\lambda(4\lambda + I_x^2 + I_y^2)$.)
+
+**B8.** *(math)* Show that a field is left unchanged by the update at every pixel iff it is a stationary point of $E$.
+
+**B9.** *(math)* Show that $E$ is convex. When is the minimum unique? (Consider an image with no gradient at all.)
+
+**B10.** *(math)* Show that the continuous energy $\int (I_xu + I_yv + I_t)^2 + \lambda(|\nabla u|^2 + |\nabla v|^2)\,dx\,dy$ has the Euler–Lagrange equations $I_x(I_xu + I_yv + I_t) = \lambda\nabla^2u$ and $I_y(I_xu + I_yv + I_t) = \lambda\nabla^2v$. Relate $\nabla^2u$ to $4(\bar u - u)$ on the pixel grid.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $u_p$ appears in its own data term and in the 4 pairs with its neighbours: $\partial E/\partial u_p = 2I_x(I_xu_p + I_yv_p + I_t) + 2\lambda\sum_{q}(u_p - u_q) = 2I_x(\dots) + 8\lambda(u_p - \bar u_p)$. Setting it to 0: $(I_x^2 + 4\lambda)u_p + I_xI_yv_p = 4\lambda\bar u_p - I_xI_t$; likewise $I_xI_yu_p + (I_y^2 + 4\lambda)v_p = 4\lambda\bar v_p - I_yI_t$. Write $u_p = \bar u_p + a$, $v_p = \bar v_p + b$: the system becomes $(I_x^2 + 4\lambda)a + I_xI_yb = -I_xc$ and $I_xI_ya + (I_y^2 + 4\lambda)b = -I_yc$ with $c = I_x\bar u + I_y\bar v + I_t$. Try $(a, b) = -k(I_x, I_y)$: the first equation gives $k(I_x^3 + 4\lambda I_x + I_xI_y^2) = I_xc$, i.e. $k = c/(4\lambda + I_x^2 + I_y^2)$, and the second gives the same $k$. Since $\det = 4\lambda(4\lambda + I_x^2 + I_y^2) > 0$ for λ > 0, this is the unique solution: the update formula.
+
+**B8.** The update sets $(u_p, v_p)$ to the unique solution of $\partial E/\partial u_p = \partial E/\partial v_p = 0$ with the neighbours held fixed. If no pixel changes, every pixel already satisfies these equations: all partial derivatives vanish, a stationary point. Conversely, at a stationary point every pixel already solves its equations, so the update returns the same values.
+
+**B9.** Each term is the square of a linear (affine) function of the unknowns, and a square of an affine function is convex; a sum of convex functions is convex. The minimum is unique iff the quadratic form is positive definite. The smoothness term alone is zero for any constant field, so uniqueness needs the data term to pin down both components of a constant field: at least two pixels with non-parallel gradients (or some texture). For an image with no gradient at all, every constant field has $E = 0$: no unique minimum.
+
+**B10.** For $L = (I_xu + I_yv + I_t)^2 + \lambda(u_x^2 + u_y^2 + v_x^2 + v_y^2)$ the Euler–Lagrange equation for $u$ is $\partial L/\partial u - \partial_x(\partial L/\partial u_x) - \partial_y(\partial L/\partial u_y) = 0$: $2I_x(I_xu + I_yv + I_t) - 2\lambda(u_{xx} + u_{yy}) = 0$; likewise for $v$. On the grid, $\nabla^2u \approx u_{x+1} + u_{x-1} + u_{y+1} + u_{y-1} - 4u = 4(\bar u - u)$, which turns the equation into the per-pixel equation of B7 (up to the factor convention of λ: the discrete energy counts each pair once).
+:::
+
+## Explore {#explore}
+
+The same kind of frame pairs as the Lucas–Kanade demo: the micrograph moved by a known flow, a textured ring around a flat disc, or a textured cell moving 1.5 px over a still substrate. The sweeps are animated (**play**, **+1 sweep**, **+100**, **restart**). Tabs: the flow, arrows with the truth, the endpoint error, Lucas–Kanade for comparison, the warping residual, and frame 1. **Compute EPE for 11 values of λ** runs Horn–Schunck for λ from 0.1 to 10⁵ (as many sweeps as the preset's run) and plots the mean EPE, with Lucas–Kanade as a dashed line. **Robust smoothness** switches to a Charbonnier penalty; **pyramid** solves on 3 levels first.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="hsflow" data-preset="fill"></div>
+<script src="../demos/dist/hsflow.js"></script>
+```
+
+**E1.** Preset **filling-in: watch it spread** (λ = 100). Watch the flow tab. Stop at about 100, 300 and 1000 sweeps (use **+100**) and compare with your prediction in B3. Then open the Lucas–Kanade tab.
+
+**E2.** Preset **λ small: noisy, holes** (micrograph, λ = 1). Read the mean EPE after 300 sweeps. Then press **compute EPE for 11 values of λ**. Where is the minimum? How does the best Horn–Schunck compare with Lucas–Kanade? What happens at the largest λ?
+
+**E3.** Preset **λ large: boundaries smeared** (cell on substrate, λ = 10 000). Look at the arrows and the EPE map. Where are the errors?
+
+**E4.** Preset **boundary: quadratic vs robust** (λ = 300, robust). Read the mean EPE after 500 sweeps, untick **robust smoothness** (the run restarts) and compare.
+
+**E5.** Preset **residual without truth: the flat trap**: the ring scene stopped after 60 sweeps. Compare the residual tab with the EPE tab. Is the residual small where the flow is wrong? Then let it run to 2000 sweeps.
+
+**E6.** Preset **4 px rotation: pyramid**. Compare the mean EPE with and without **pyramid**. Why does the pyramid help Horn–Schunck as well?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** At 100 sweeps the centre of the disc is still white (flow about 0); at 300 the colour has crept in (centre $u \approx 0.42$ of the true 1.30); at 1000, $u \approx 1.06$; the mean EPE falls from 0.98 px (10 sweeps) through 0.63 (100), 0.42 (300) and 0.22 (1000) to 0.18 (2000). Lucas–Kanade has holes in the flat disc and background: mean EPE 0.52 px.
+
+**E2.** Mean EPE 0.48 px at λ = 1 (300 sweeps). The curve: 0.59 at λ = 0.1, 0.22 at λ = 100, 0.19 at λ = 400, a minimum of 0.11 near λ = 1600, then rising again to 0.41 (6300) and 0.97 (25 000). The best Horn–Schunck beats Lucas–Kanade (0.19 px). At very large λ the field barely moves from zero within 300 sweeps (smoothness dominates and convergence is slow) and is over-smoothed.
+
+**E3.** Mean EPE 0.47 px after 1500 sweeps. The arrows inside the cell are too short and those in the substrate around it point along the cell's motion: the motion is smeared across the boundary, a ring of errors in the EPE map.
+
+**E4.** Robust: 0.19 px; quadratic: 0.22 px (λ = 300, 500 sweeps). The improvement is concentrated at the cell's border, where the robust penalty allows a sharper jump. (With λ = 1, where the data term dominates, the robust version is slightly worse: 0.45 against 0.41.)
+
+**E5.** After 60 sweeps the flat centre still has flow near 0 while the truth is 1.5 px: an EPE of about 1.5 px there. Yet the mean absolute residual in the centre is 2.3, below the image average of 3.0: flat moved onto flat looks fine. The residual is large only where the wrong flow meets texture (the inner edge of the ring). At 2000 sweeps the centre is filled in, but the image-average residual hardly changes (3.0): it is dominated by noise.
+
+**E6.** Without the pyramid: 0.92 px after 300 sweeps; with it: 0.08 px. A 4 px motion is too large for the linearised data term at full resolution (as for Lucas–Kanade); on the coarse levels it is 1 to 2 px, and each finer level only adds a small correction.
+:::
+
+## Where this leads
+
+Optical flow assumes small motion between similar frames. The next unit, **non-rigid registration**, aligns images that may differ a lot, in shape and even in contrast: a smooth deformation found by optimisation, and **mutual information** as a measure of "aligned".

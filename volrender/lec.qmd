@@ -38,11 +38,18 @@ Last unit of the 3D graphics day. It uses the camera matrices of unit 1 (backwar
 
 From **3D images** (`volumes3d`, the marching-cubes day):
 
+:::: {.columns}
+::: {.column width="60%"}
 - A volume stores values $I[k, j, i]$ on a grid of voxels with **spacing** $(\Delta x, \Delta y, \Delta z)$, often anisotropic ($\Delta z > \Delta x$).
 - A $4\times4$ **voxel → world** matrix $A$ places it in physical space (the spacing on its diagonal, plus an origin and possibly a rotation); world → voxel is $A^{-1}$.
 - Values between voxels: **trilinear** interpolation. An oblique slice = inverse mapping + trilinear, and a first **MIP** was shown there.
 
 Today the same inverse mapping is used at every sample of every ray. Our phantom: a synthetic head of $64\times64\times40$ voxels of $1\times1\times1.6$ mm (skull, brain, ventricles, a thin vessel tree, an air cavity).
+:::
+::: {.column width="40%"}
+![](fig-slices.png){fig-alt="A side slice through the synthetic head phantom (x = 32). Left, as stored: 40 by 64 voxels, the head looks squashed. Right, the same voxels placed with their 1.6 mm spacing along z: the head has its true round shape, with the skull ring, the vessel trunk and the dark air cavity." width="100%"}
+:::
+::::
 
 ## One ray per pixel
 
@@ -59,6 +66,8 @@ Today the same inverse mapping is used at every sample of every ray. Our phantom
 - **Average** (or sum): like an **X-ray** image. A radiograph measures the attenuation summed along the ray (the Beer–Lambert law, owned by the *Radon* elective); CT reconstructs the volume from many such projections.
 
 All three **lose depth**: a vessel in front and one behind look the same. One reads them by **rotating** (a "spinning MIP") or by combining with slices.
+
+![](fig-projections.png){.nostretch width="900px" fig-align="center" fig-alt="The head phantom seen from the front, rendered three ways. MIP: the bright vessel tree and the skull stand out. MinIP: everything dark grey except the black air cavity near the bottom. Average: a soft, transparent X-ray-like image."}
 
 ## Try it: MIP, MinIP and average
 
@@ -81,8 +90,12 @@ Instead of picking one sample, let every sample **contribute**: a semi-transpare
 - It is a **classification** by value only: structures with the same values (contrast-filled vessels and bone in CT) cannot be separated by it.
 - The editor in the demos: opacity as a piecewise linear function over the histogram of the volume, colours from a colour map (the colour day).
 
+![](fig-tf.png){.nostretch width="820px" fig-align="center" fig-alt="Left: the histogram of the phantom's values (log scale, grey) with peaks for air, soft tissue, brain and bone, and the opacity curve in red: zero for air, 0.03 for soft tissue and brain, 0.12 for bone, rising to 0.95 for the vessels. Right: the volume rendered with it: a translucent brown head with bright vessels."}
+
 ## Light along a ray: emission and absorption
 
+:::: {.columns}
+::: {.column width="52%"}
 Picture each sample as a thin slab of glowing fog:
 
 - it **emits** light of its colour, in proportion to its opacity;
@@ -91,6 +104,11 @@ Picture each sample as a thin slab of glowing fog:
 What reaches the eye is the light of each slab, **dimmed by everything in front of it**. The fraction of light from depth $t$ that survives to the eye is the **transmittance** $\mathcal T(t)$: 1 at the eye, falling with every absorbing slab. An opaque wall makes $\mathcal T = 0$ behind it: nothing there is seen.
 
 The absorption alone is the X-ray picture (Beer–Lambert); emission added makes it a rendering.
+:::
+::: {.column width="48%"}
+![](fig-transmittance.svg){fig-alt="Top: a ray from the eye through thin fog, a dense blob and an opaque wall, shaded by how strongly each part absorbs. Bottom: the transmittance along the ray, falling slowly in the fog, steeply in the blob (to about 0.3) and to almost zero in the wall; everything behind the wall is hidden." width="100%"}
+:::
+::::
 
 ## The math: the emission–absorption model {.math}
 
@@ -106,6 +124,8 @@ Each point contributes its emission $\tau c$, attenuated by everything between i
 
 ## From the integral to compositing
 
+:::: {.columns}
+::: {.column width="57%"}
 Cut the ray into steps of length $\Delta s$; sample $i$ has colour $c_i$ and opacity $\alpha_i = 1 - e^{-\tau_i\Delta s}$. Walk **front to back**, starting with $C = 0$ and $\mathcal T = 1$:
 
 $$C \leftarrow C + \mathcal T\,\alpha_i\,c_i, \qquad \mathcal T \leftarrow \mathcal T\,(1 - \alpha_i).$$
@@ -113,6 +133,11 @@ $$C \leftarrow C + \mathcal T\,\alpha_i\,c_i, \qquad \mathcal T \leftarrow \math
 - Example, 5 samples with values 30, 80, 180, 230, 90 and opacities 0, 0.2, 0.5, 0.9, 0.2: $\mathcal T$ goes $1 \to 1 \to 0.8 \to 0.4 \to 0.04 \to 0.032$.
 - This is the **"over" operator** with premultiplied colours from the texture unit (*How graphics cards store colour*): each sample is drawn **under** what is in front.
 - **Back to front** (the painter's order), $C \leftarrow \alpha_i c_i + (1 - \alpha_i)\,C$ from the far end, gives the **same** final colour, but its partial sums differ, and it cannot stop early.
+:::
+::: {.column width="43%"}
+![](fig-composite.svg){fig-alt="The five samples of the example. Red bars: opacities 0, 0.2, 0.5, 0.9, 0.2. Blue step line: the transmittance in front of each sample, 1, 1, 0.8, 0.4, 0.04. Green bars: each sample's share of the pixel, transmittance times opacity: 0, 0.2, 0.4, 0.36, 0.008." width="100%"}
+:::
+::::
 
 ## The math: compositing is the discretised integral {.math}
 
@@ -136,10 +161,17 @@ A sagittal slice of the phantom (x = 32 mm) with one ray (E = the eye side; drag
 
 ## Faster and correct: early termination, opacity correction, step size
 
+:::: {.columns}
+::: {.column width="64%"}
 - **Early ray termination**: front to back, stop when $\mathcal T < \varepsilon$ (say 0.05): what is behind can change the pixel by less than $\varepsilon$. Rays that hit bone stop at the skull. (In the demo, 345 of 1489 rays stop early and save 45 % of their samples; rays through empty space need **empty-space skipping**, not covered.)
 - **Opacity correction**: a transfer-function opacity is defined for a reference step. Halve the step and you take twice as many samples: with the same $\alpha$ the image gets **too opaque**. Correct with $\alpha' = 1 - (1 - \alpha)^{\Delta s/\Delta s_0}$.
 - **Step size**: too large a step undersamples thin layers and gives **wood-grain** rings (aliasing: the *Fourier* unit). Rule: $\Delta s \le$ half a voxel.
 - **Pre- vs post-classification**: interpolate the values and then apply the transfer function (post, sharper), or classify each voxel and interpolate colours (pre, blurrier).
+:::
+::: {.column width="36%"}
+![](fig-woodgrain.png){fig-alt="The skull rendered with the demo's skull transfer function. Step 3 voxels: concentric rings across the skull, wood grain. Step 0.5 voxel: an even surface." width="52%"}
+:::
+::::
 
 ## The math: opacity correction {.math}
 
@@ -167,8 +199,15 @@ With the correction, a homogeneous slab of thickness $D$ has opacity $1 - e^{-\t
 
 The surface where the volume crosses a value $c$ (the marching-cubes day):
 
+:::: {.columns}
+::: {.column width="60%"}
 - **Ray casting**: march until a sample crosses $c$, refine the crossing by linear interpolation between the two samples (the same formula as marching squares), shade with the **gradient** as the normal (marching-cubes day). Done per pixel, per frame, on the GPU; gives a picture, no geometry.
 - **Extract a mesh** with marching cubes, then draw it with units 1–2. Done once per $c$; gives triangles to **measure** (area, volume), smooth, export or print.
+:::
+::: {.column width="40%"}
+![](fig-isocross.svg){fig-alt="Values of nine samples along a ray rising from 20 to 170. The isovalue 135 is a dashed line; between sample 4 (value 100) and sample 5 (value 150) the ray crosses it, at 4.70 by linear interpolation, marked with a star." width="100%"}
+:::
+::::
 
 | | ray casting | extracted mesh |
 |---|---|---|

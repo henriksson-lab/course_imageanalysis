@@ -1,0 +1,141 @@
+---
+title: "Exercise: Lucas–Kanade"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- solve the Lucas–Kanade least-squares problem of a small window by hand,
+- read the reliability of a window from the eigenvalues of its matrix (the structure tensor),
+- choose a window size and explain what goes wrong at motion boundaries,
+- explain why large motion fails and how warping and a pyramid fix it,
+- *(math)* derive the normal equations and show when one step is exact.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Lucas–Kanade | one velocity per window: the point closest (least squares) to the window's constraint lines |
+| Normal equations | $J\mathbf u = -\mathbf b$, $J = \begin{pmatrix}\sum I_x^2 & \sum I_xI_y\\ \sum I_xI_y & \sum I_y^2\end{pmatrix}$, $\mathbf b = \begin{pmatrix}\sum I_xI_t\\ \sum I_yI_t\end{pmatrix}$ |
+| $J$ | the structure tensor of the window ([edges day](../structure-tensor/lec.qmd)); eigenvalues $\mu_1 \ge \mu_2$ |
+| Confidence | $\mu_2$: both small = flat, one small = edge (normal flow only), both large = corner/texture |
+| Warping | estimate, warp frame 2 back by the estimate, estimate the remaining motion, add |
+| Pyramid | blur and halve; the motion halves per level; double the flow when going one level finer |
+| Endpoint error (EPE) | length of (estimate − truth), in pixels |
+
+## By hand
+
+**B1.** A window of four pixels with $(I_x, I_y, I_t)$ = $(1, 0, -2)$, $(1, 0, -2)$, $(0, 1, -1)$, $(0, 1, -1)$.
+(a) Compute $J$ and $\mathbf b$, and solve for $(u, v)$.
+(b) Sketch the constraint lines and the solution.
+
+**B2.** All four pixels are $(1, 0, -2)$.
+(a) Compute $J$ and its eigenvalues. Can you solve for $(u, v)$?
+(b) What do you know about the motion? Which image structure gives such a window?
+
+**B3.** All four pixels are $(1, 1, -3)$.
+(a) $J$ and its eigenvalues, and the eigenvector of the nonzero eigenvalue.
+(b) Which structure is this, and which way does it run in the image?
+(c) Give the normal flow.
+
+**B4.** Three pixels: $(2, 0, -2)$, $(0, 1, -1)$, $(1, 1, -2.5)$. Compute $J$, $\mathbf b$ and the least-squares $(u, v)$. Do the three lines meet in one point?
+
+**B5.** **Noise amplification.** A window has $J = \mathrm{diag}(10, 0.1)$. Noise changes $\mathbf b$ by $(0.1, 0.1)$. How much does the estimate change in $u$ and in $v$? What does this say about trusting a window by its smaller eigenvalue?
+
+**B6.** **Pyramid.** A cell moves 10 px between frames. You use a pyramid with levels 0 to 3 and Lucas–Kanade works up to a motion of about 1.5 px.
+(a) What is the motion at each level?
+(b) At which level can the estimation start? What is passed to the next finer level, and how?
+(c) What could go wrong for a small vesicle that moves 10 px in a different direction from the cell around it?
+
+**B7.** **Which windows to trust?** In a micrograph you mark five spots: the inside of a nucleus with fine texture, a straight stretch of membrane, a corner where two membranes meet, the flat background, and a bright spot (a vesicle). For each, predict $\mu_1$ and $\mu_2$ (small or large) and whether the flow is reliable.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $J = \begin{pmatrix}1+1 & 0\\0 & 1+1\end{pmatrix} = \begin{pmatrix}2 & 0\\0 & 2\end{pmatrix}$, $\mathbf b = (1 \cdot (-2) \cdot 2,\; 1 \cdot (-1) \cdot 2) = (-4, -2)$, so $J\mathbf u = (4, 2)$ and $(u, v) = (2, 1)$.
+(b) Two copies of the vertical line $u = 2$ and two of the horizontal line $v = 1$; they cross at $(2, 1)$.
+
+**B2.** (a) $J = \begin{pmatrix}4 & 0\\0 & 0\end{pmatrix}$, eigenvalues 4 and 0: singular, no unique solution.
+(b) $4u = 8$, so $u = 2$; $v$ is unknown (the minimum-norm choice is $v = 0$). Every pixel has a horizontal gradient: a vertical edge, which hides vertical motion.
+
+**B3.** (a) $J = \begin{pmatrix}4 & 4\\4 & 4\end{pmatrix}$, eigenvalues 8 and 0; the eigenvector of 8 is $(1, 1)/\sqrt2$.
+(b) An edge whose gradient points along $(1, 1)$ (right and down): the edge itself runs along $(1, -1)$, from lower left to upper right on screen.
+(c) Every pixel says $u + v = 3$. The normal flow is the point of this line closest to the origin: $(1.5, 1.5)$.
+
+**B4.** $J = \begin{pmatrix}4 + 0 + 1 & 0 + 0 + 1\\ 1 & 0 + 1 + 1\end{pmatrix} = \begin{pmatrix}5 & 1\\1 & 2\end{pmatrix}$, $\mathbf b = (2 \cdot (-2) + 1 \cdot (-2.5),\; 1 \cdot (-1) + 1 \cdot (-2.5)) = (-6.5, -3.5)$. Solve $J\mathbf u = (6.5, 3.5)$: $\det J = 9$, $u = (2 \cdot 6.5 - 1 \cdot 3.5)/9 = 1.06$, $v = (5 \cdot 3.5 - 1 \cdot 6.5)/9 = 1.22$. The first two lines meet at $(1, 1)$, and the third ($u + v = 2.5$) misses that point: least squares picks a compromise. (Eigenvalues 5.30 and 1.70: a well-conditioned window.)
+
+**B5.** $\Delta\mathbf u = -J^{-1}\Delta\mathbf b = -(0.1/10, 0.1/0.1) = (-0.01, -1)$: $u$ changes by 0.01 px, $v$ by a whole pixel. Noise is amplified by $1/\mu$ along each eigenvector, so a small $\mu_2$ means a large error in that direction even when the window "has a solution". Hence mask the flow where $\mu_2$ is small.
+
+**B6.** (a) 10, 5, 2.5 and 1.25 px at levels 0, 1, 2, 3.
+(b) At level 3 (1.25 px). Its flow is upsampled to the level-2 grid and doubled (to about 2.5 px), frame 2 of level 2 is warped back by it, and LK estimates the small remainder; and so on down to level 0.
+(c) At levels 2 and 3 the vesicle is blurred away or merged with the cell, so the coarse levels follow the cell; at the fine levels the vesicle's remaining motion (relative to the cell's flow) is still about 10 px, far too large: its motion is lost. Coarse to fine assumes that small things move like their surroundings.
+
+**B7.** Textured nucleus: both large, reliable. Straight membrane: $\mu_1$ large, $\mu_2$ small: only the motion across the membrane. Corner of two membranes: both large, reliable. Flat background: both small, nothing. Bright vesicle (a blob): gradients in all directions, both large: reliable (if it is not too small for the window and does not move too far).
+:::
+
+### Math questions
+
+**B8.** *(math)* Derive the normal equations by setting the derivatives of $E(u, v) = \sum w\,(I_xu + I_yv + I_t)^2$ to zero. Show that $E$ is convex, and strictly convex iff $\mu_2 > 0$.
+
+**B9.** *(math)* Rotating the image by a rotation matrix $R$ rotates the gradients: $\nabla I' = R\nabla I$. Show that $J' = RJR^\top$ and $\mathbf b' = R\mathbf b$, so that the flow rotates with the image: $\mathbf u' = R\mathbf u$. What happens to the eigenvalues?
+
+**B10.** *(math)* Let $I_1(\mathbf x) = \tfrac12\mathbf x^\top A\mathbf x + \mathbf g^\top\mathbf x$ ($A$ symmetric) and $I_2(\mathbf x) = I_1(\mathbf x - \mathbf d)$. With the gradient taken from the mean of the two frames, $\mathbf m(\mathbf x) = \tfrac12(\nabla I_1 + \nabla I_2)$, show that $I_t = I_2 - I_1 = -\mathbf m \cdot \mathbf d$ exactly at every pixel. Conclude that one Lucas–Kanade step recovers $\mathbf d$ exactly (when $J$ is invertible), however large $\mathbf d$ is.
+
+**B11.** *(math)* Count the work per pixel of Lucas–Kanade with Gaussian windows: two derivative images, one time difference, five products, five separable Gaussian blurs with $k$ taps, and a $2\times2$ solve. How does the cost grow with ρ?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** $\partial E/\partial u = 2\sum wI_x(I_xu + I_yv + I_t) = 0$ and $\partial E/\partial v = 2\sum wI_y(I_xu + I_yv + I_t) = 0$ give $J\mathbf u = -\mathbf b$. The Hessian of $E$ is $2J$, which is positive semi-definite ($\mathbf z^\top J\mathbf z = \sum w(\nabla I \cdot \mathbf z)^2 \ge 0$): $E$ is convex. It is positive definite, i.e. $E$ strictly convex with a unique minimum, iff $\mu_2 > 0$.
+
+**B9.** $J' = \sum w\,\nabla I'\nabla I'^\top = R\left(\sum w\,\nabla I\nabla I^\top\right)R^\top = RJR^\top$; $I_t$ is unchanged (the rotation is applied to both frames), so $\mathbf b' = \sum w\,\nabla I' I_t = R\mathbf b$. Then $\mathbf u' = -J'^{-1}\mathbf b' = -RJ^{-1}R^\top R\mathbf b = R\mathbf u$. The eigenvalues are unchanged (similar matrices); the eigenvectors rotate with the image. The confidence does not depend on the orientation of the structure.
+
+**B10.** $\nabla I_1(\mathbf x) = A\mathbf x + \mathbf g$, $\nabla I_2(\mathbf x) = A(\mathbf x - \mathbf d) + \mathbf g$, so $\mathbf m = A(\mathbf x - \tfrac12\mathbf d) + \mathbf g$. And $I_2 - I_1 = \tfrac12(\mathbf x - \mathbf d)^\top A(\mathbf x - \mathbf d) - \tfrac12\mathbf x^\top A\mathbf x - \mathbf g^\top\mathbf d = -\mathbf d^\top A\mathbf x + \tfrac12\mathbf d^\top A\mathbf d - \mathbf g^\top\mathbf d = -\mathbf d \cdot \big(A(\mathbf x - \tfrac12\mathbf d) + \mathbf g\big) = -\mathbf m \cdot \mathbf d$. So every pixel's constraint $\mathbf m \cdot \mathbf u + I_t = 0$ holds exactly for $\mathbf u = \mathbf d$: all lines pass through $\mathbf d$, and the least-squares solution is $\mathbf d$ whenever $J$ is invertible. (For a real image the quadratic model only holds locally, which is why large motion fails.)
+
+**B11.** Derivatives: two separable filters (and one blur or difference for $I_t$); products: 5 multiplications; blurs: 5 × $2k$ multiply-adds (separable); solve: a few dozen operations (eigenvalues or Cramer's rule). With $k \approx 8\rho + 1$ taps the cost grows linearly with ρ (about $80\rho$ operations per pixel for the blurs), independently of the image content; recursive or box approximations of the Gaussian make it independent of ρ.
+:::
+
+## Explore {#explore}
+
+Frame 1 is a 128² crop of the micrograph (or a synthetic scene), frame 2 is frame 1 moved by a known flow (shift, rotation, zoom, shear, swirl, or a disc moving over a still background) plus noise, so every estimate can be scored by its endpoint error. Tabs: the frames (and a flicker between them), the estimated flow, the confidence $\mu_2$, the endpoint error and the pyramid levels. Click a pixel: the middle panel shows the constraint lines of its window, the estimate (red), the truth (green) and the uncertainty ellipse (∝ $J^{-1}$). The readout gives the mean EPE over the image (8 px border excluded).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="lkflow" data-preset="small" data-tab="flow"></div>
+<script src="../demos/dist/lkflow.js"></script>
+```
+
+**E1.** Preset **small shift: works** (1 px, noise 2, σ = 1, ρ = 3). Read the mean EPE. Click a pixel in the textured nucleus and one in the bright background at the top right: compare their constraint lines and $\mu_2$.
+
+**E2.** Raise **largest motion** from 1 to 2, 4 and 8 px (one level, one iteration). How does the mean EPE grow? Then set **warping iterations** to 3. Which motions does that rescue, and which not?
+
+**E3.** Preset **the pyramid rescues it** (8 px, 4 levels, 3 iterations). Read the mean EPE, and look at the pyramid tab: roughly how large is the motion at each level?
+
+**E4.** Preset **a membrane: aperture problem**. Read $\mu_1$ and $\mu_2$ of the clicked pixel. What do the constraint lines and the ellipse look like? Where is $\mu_2$ small in the confidence tab?
+
+**E5.** Preset **flat: nothing to see** (a textured ring around a flat disc). Read the overall mean EPE and the EPE of the confident pixels (threshold 20). What fraction of the image is confident? Where is the flow wrong?
+
+**E6.** Preset **noise: enlarge the window** (noise 12, ρ = 1.5). Read the mean EPE, then try ρ = 3, 4 and 6. Why does the error fall?
+
+**E7.** Preset **a motion boundary**: a textured cell moves over a still substrate. The clicked pixel (98, 64) lies just outside the cell. Read its estimate for ρ = 1.5, 4 and 8. Explain.
+
+**E8.** Preset **rotation** (3 px at the image edge; 2 levels, 2 iterations). Compare the mean EPE with 1 level and 1 iteration. Look at the arrows tab.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Mean EPE 0.08 px. In the nucleus the lines run in many directions and cross near the truth ($\mu_2$ about 11 at pixel (80, 40)); in the bright background there are few, weak lines and the estimate is less certain.
+
+**E2.** One solve: 0.08 px (1 px), 0.36 (2 px), 2.42 (4 px), 7.45 (8 px): beyond about 2 px the estimate is useless. With 3 warping iterations: 0.06, 0.08, 1.26, 7.14. Warping rescues motions up to about 3 px (the first estimate points the right way and each iteration corrects the rest), but not 8 px: there the first linearisation is meaningless.
+
+**E3.** Mean EPE 0.60 px instead of 7.45. The motion is about 8, 4, 2 and 1 px at levels 0 to 3 (the pyramid tab labels each level's largest speed, in that level's own pixels).
+
+**E4.** $\mu_1 = 226$, $\mu_2 = 5.2$: the smaller eigenvalue is 2 % of the larger, an edge. The constraint lines nearly all run in one direction (parallel to the membrane in velocity space), and the uncertainty ellipse is long along the membrane: the motion along it is poorly determined. With the low noise of this preset the estimate (1.38, −0.82) is still close to the truth (1.30, −0.75). In the confidence tab, $\mu_2$ is dark along the nuclear envelope and other membranes, and in the flat background.
+
+**E5.** Overall 0.52 px; confident pixels ($\mu_2 \ge 20$) 0.14 px, on 45 % of the image. The flow is wrong in the flat disc and the flat background: there are no gradients ($\mu_1 \approx 0.06$ at the centre), only noise, so the window has nothing to measure. LK leaves holes; the next unit fills them.
+
+**E6.** 0.35 px at ρ = 1.5, 0.18 at ρ = 3, 0.14 at ρ = 4 and 0.09 at ρ = 6. More pixels per window average the noise of the constraints away. (The motion is a uniform shift, so a larger window costs nothing here.)
+
+**E7.** The truth is $(0, 0)$ (the substrate is still), but the estimates are $(1.60, -0.50)$ at ρ = 1.5, $(1.36, -0.38)$ at ρ = 4 and $(1.26, -0.61)$ at ρ = 8. The pixel itself sees little texture (the substrate has low contrast), while its window reaches into the strongly textured moving cell, whose constraint lines dominate the least squares. The cell's motion leaks out across the boundary, more so for larger windows (the mean EPE rises from 0.26 at ρ = 4 to 0.43 at ρ = 8).
+
+**E8.** 0.07 px with the pyramid against 0.29 px for a single solve. The arrows follow the rotation: short near the centre, longest at the edges (3 px), where the motion is too large for a single linearised solve.
+:::
+
+## Where this leads
+
+Lucas–Kanade leaves holes wherever a window has no texture. The next unit, **Horn–Schunck**, asks instead that the whole flow field be smooth, which fills the holes, and shows how to **evaluate** a flow field with and without ground truth.

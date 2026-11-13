@@ -180,6 +180,8 @@ Image analysis
 </section>
 <section id="recall-a-u-net-gives-a-class-per-pixel" class="slide level2">
 <h2>Recall: a U-Net gives a class per pixel</h2>
+<div class="columns">
+<div class="column" style="width:56%;">
 <p>The U-Net unit of the neural networks day: a probability “nucleus” per pixel, thresholded to a mask. Its “touching nuclei merge” preset: two touching nuclei become <strong>one</strong> connected blob.</p>
 <ul>
 <li><strong>Semantic</strong> segmentation: a class per pixel (“nucleus”, “background”).</li>
@@ -187,6 +189,9 @@ Image analysis
 <li><strong>Panoptic</strong> segmentation: both at once. Every pixel gets a class; countable <strong>things</strong> (nuclei, cells) also get an identity, uncountable <strong>stuff</strong> (background, stroma) does not.</li>
 </ul>
 <p>Counting, measuring, tracking: all need instances.</p>
+</div><div class="column" style="width:44%;">
+<p><img data-src="fig-semantic.png" style="width:100.0%" alt="The four-route demo with the semantic route: 14 synthetic cells, and the connected pieces of the thresholded mask: 11 objects; three pairs of touching cells are merged (marked M)."></p>
+</div></div>
 </section>
 <section id="why-post-processing-is-unavoidable" class="slide level2">
 <h2>Why post-processing is unavoidable</h2>
@@ -196,24 +201,35 @@ Image analysis
 <li>So the network cannot output “object 1, object 2, …” directly. It outputs a <strong>map that makes separation easy</strong>, and a classical step turns the map into objects: labelling, watershed, suppression, following arrows.</li>
 </ul>
 <p>The question for every method: <em>which map, and which classical step?</em></p>
-</section>
+
+<img data-src="fig-maps.png" class="quarto-figure quarto-figure-center r-stretch" style="width:76.0%" alt="The same 14 cells as four predicted maps, each with its classical step: a boundary class (green interior, magenta boundary) then labelling of the interiors; a distance map then watershed; objectness with the 32 rays of one pixel then suppression; a flow field (colour = direction) then following the arrows."></section>
 <section id="route-1-a-boundary-class" class="slide level2">
 <h2>Route 1: a boundary class</h2>
+<div class="columns">
+<div class="column" style="width:52%;">
 <p>Train with <strong>three</strong> classes: background, cell interior, cell <strong>boundary</strong> (a thin ring around every cell, also between touching cells).</p>
 <ul>
 <li>Label the connected <strong>interiors</strong> (the labelling day), then grow each one back over its boundary pixels.</li>
 <li>Touching cells are separated by the boundary class between them.</li>
 <li>Fails when the boundary is <strong>missed in one place</strong>: a one-pixel bridge connects two interiors and they merge. Thin structures are hard to predict, especially exactly where two cells touch.</li>
 </ul>
+</div><div class="column" style="width:48%;">
+<p><img data-src="fig-boundary.png" style="width:100.0%" alt="Boundary route with contact bias 0.5: the predicted boundary class (magenta) fades where cells touch, so the green interiors of three touching pairs connect; labelling gives 11 objects with three merges (M)."></p>
+</div></div>
 </section>
 <section id="route-2-a-predicted-distance-map" class="slide level2">
 <h2>Route 2: a predicted distance map</h2>
+<div class="columns">
+<div class="column" style="width:52%;">
 <p>Train the network to predict, for every cell pixel, its <strong>distance to the cell’s border</strong> (scaled to 1 at the centre of each cell).</p>
 <ul>
 <li>Then exactly the watershed day’s pipeline: threshold for the mask, <strong>h-maxima</strong> as markers, flood <span class="math inline">-D</span> inside the mask.</li>
 <li>Better than the distance transform of a mask: the network has seen the <strong>image</strong>, so it can put a deep neck between two cells even where the mask has none.</li>
 <li>Fails on <strong>elongated</strong> cells: the distance has a long flat ridge, and small errors make several peaks on it: one cell is <strong>split</strong>.</li>
 </ul>
+</div><div class="column" style="width:48%;">
+<p><img data-src="fig-distance.png" style="width:100.0%" alt="Distance route with noise 0.2 and h = 0.1: the noisy distance map has several peaks along the rod and the C-shaped cell; watershed splits them (marked S): 20 objects for 14 cells."></p>
+</div></div>
 </section>
 <section id="try-it-four-maps-on-one-image" class="slide level2">
 <h2>Try it: four maps on one image</h2>
@@ -236,12 +252,17 @@ Image analysis
 </section>
 <section id="route-3-star-convex-polygons" class="slide level2">
 <h2>Route 3: star-convex polygons</h2>
+<div class="columns">
+<div class="column" style="width:52%;">
 <p>For <strong>every</strong> pixel, the network predicts an <strong>objectness</strong> (how central the pixel is in its cell) and the distances to the border along <span class="math inline">n</span> fixed rays (e.g.&nbsp;32 directions).</p>
 <ul>
 <li>Each pixel thus proposes a <strong>polygon</strong> for “its” cell; pixels near the centre propose good ones.</li>
 <li>Overlapping proposals are pruned by <strong>non-maximum suppression</strong>: keep the best, delete those that overlap it by more than <span class="math inline">t</span>, repeat (next unit).</li>
 <li>Works well for round and oval nuclei. Fails <strong>by construction</strong> on shapes that are not star-convex: a C-shaped or kidney-shaped cell has no point from which all of its border is visible along straight rays.</li>
 </ul>
+</div><div class="column" style="width:48%;">
+<p><img data-src="fig-star.png" style="width:100.0%" alt="Star-convex route: the objectness map with the 32 rays and polygon (red) of a pixel in the C-shaped cell; the polygon covers only part of the C, and the C ends up split into two objects (S)."></p>
+</div></div>
 </section>
 <section id="the-math-the-four-targets" class="slide level2 math smaller">
 <h2>The math: the four targets</h2>
@@ -256,12 +277,17 @@ Image analysis
 </section>
 <section id="route-4-flow-fields" class="slide level2">
 <h2>Route 4: flow fields</h2>
+<div class="columns">
+<div class="column" style="width:60%;">
 <p>For every cell pixel, the network predicts a small <strong>arrow</strong> pointing along a path <strong>inside</strong> the cell towards its centre.</p>
 <ul>
 <li>Training targets: put a heat source at the cell’s centre and let heat <strong>diffuse inside the cell only</strong>; the arrows point uphill in temperature. The paths bend around corners, so they follow a C-shape or a bent cell.</li>
 <li>To segment: every pixel follows the arrows for a number of steps. Pixels that end in the same <strong>sink</strong> form one object.</li>
 <li>Handles long, bent, irregular cells. Fails when the predicted arrows are <strong>noisy</strong> (spurious sinks: splits) or when two touching cells share one smooth field (merge).</li>
 </ul>
+</div><div class="column" style="width:40%;">
+<p><img data-src="fig-cflow.svg" style="width:100.0%" alt="A C-shaped cell with its flow target: blue arrows along the gradient of heat diffused from a source in the cell (red star). Five particle paths (orange) start at the two ends and the middle of the C, follow the arrows around the bend inside the cell, and all end at the star."></p>
+</div></div>
 </section>
 <section id="the-math-following-the-flow" class="slide level2 math">
 <h2>The math: following the flow</h2>
@@ -331,18 +357,24 @@ Image analysis
 </section>
 <section id="detection-objects-as-a-list" class="slide level2">
 <h2>Detection: objects as a list</h2>
+<div class="columns">
+<div class="column" style="width:56%;">
 <p>The other big family predicts a <strong>list</strong> of objects instead of a map: a <strong>box</strong> and a score per object, optionally a small mask inside each box (“detect, then segment inside the box”).</p>
 <ul>
 <li>A box is 4 numbers; good for counting, tracking and cropping; poor for long diagonal objects.</li>
 <li>The detector proposes many overlapping boxes, removed by non-maximum suppression: the <strong>next unit</strong>.</li>
 <li>Star-convex polygons are the same idea with a polygon instead of a box.</li>
 </ul>
+</div><div class="column" style="width:44%;">
+<p><img data-src="fig-boxes.png" style="width:100.0%" alt="Detection on a sparse synthetic image: 12 green boxes kept with their scores (0.39 to 0.94) for nine cells, three of them false; grey dashed: overlapping candidate boxes removed by suppression."></p>
+</div></div>
 </section>
 <section id="panoptic-segmentation" class="slide level2">
 <h2>Panoptic segmentation</h2>
 <p>A <strong>semantic</strong> head (stuff and thing classes for every pixel) and an <strong>instance</strong> head (identities of the things), merged by a rule: on “thing” pixels the instance label wins.</p>
 <p>Tissue example: nuclei are things (counted, measured one by one); stroma, lumen and background are stuff (area only).</p>
-</section>
+
+<img data-src="fig-panoptic.png" class="quarto-figure quarto-figure-center r-stretch" style="width:78.0%" alt="Synthetic tissue: a gland with a ring of nuclei around a lumen, in stroma with scattered elongated nuclei. Semantic: every pixel coloured by class (stroma, epithelium, lumen, nucleus), all nuclei the same colour. Panoptic: the same stuff classes, and every nucleus in its own colour."></section>
 <section id="the-math-panoptic-quality" class="slide level2 math">
 <h2>The math: panoptic quality</h2>
 <p>Match predicted and true segments one to one at IoU <span class="math inline">&gt; 0.5</span> (the evaluation day’s matching: above 0.5 the matching is unique). With TP matched pairs, FP unmatched predictions, FN unmatched truths:</p>

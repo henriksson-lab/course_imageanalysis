@@ -1,0 +1,172 @@
+---
+title: "Exercise: path tracing"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- estimate an integral by **Monte Carlo** by hand, with a uniform and with a non-uniform pdf,
+- predict how the noise and the PSNR change with the number of **samples per pixel**,
+- explain **importance sampling**, **fireflies** and **bias** from a bad pdf,
+- say what a path tracer shows that Whitted ray tracing cannot,
+- judge what a **denoiser** keeps and what it loses,
+- *(math)* prove that the estimator is unbiased with variance $\sigma^2/N$, derive the Lambertian BRDF and cosine sampling, Russian roulette, and the change of variables for lamp sampling.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Rendering equation | outgoing = emitted + ∫ incoming × BRDF × cosine over the hemisphere of directions |
+| Lambertian BRDF | $f_r = \rho/\pi$ (albedo $\rho$) |
+| Monte Carlo | $\hat I = \frac1N\sum_k f(X_k)/p(X_k)$, $X_k$ drawn from the pdf $p$; unbiased if $p > 0$ wherever $f \ne 0$ |
+| Noise | RMS error $\sigma/\sqrt N$ ($\sigma$: standard deviation of one $f/p$); 4× samples → half the noise; +3 dB PSNR per doubling |
+| Importance sampling | $p$ similar in shape to $f$: cosine-weighted for matte surfaces; sample small lamps directly |
+| Path tracing | per sample one random path; throughput × BRDF × cos ÷ pdf at every bounce; Russian roulette ends paths |
+| Denoising | trades variance for bias; renderers use normal, albedo and depth as guides |
+
+## By hand
+
+**B1.** **Monte Carlo by hand.** Estimate $I = \int_0^1 x^2\,dx$ (true value $1/3$).
+(a) With the uniform pdf $p(x) = 1$ and the samples $x = 0.1, 0.4, 0.6, 0.9$.
+(b) With the pdf $p(x) = 2x$: samples from it are $x = \sqrt u$ for uniform $u$; use $u = 0.1, 0.4, 0.6, 0.9$. Compute each $f(x)/p(x)$ and the estimate.
+(c) Which estimator has the smaller variance, and why? (Its standard deviations per sample are 0.298 and 0.118.)
+
+**B2.** **How many samples?** A render at 16 spp has a noise standard deviation of 0.06.
+(a) What noise do you expect at 64 and at 1024 spp?
+(b) How many samples to reach 0.006?
+(c) If 16 spp take 1 s, how long does 1024 spp take?
+
+**B3.** **PSNR.** A 16-spp render has a PSNR of 22 dB against the reference. Predict the PSNR at 64 and at 256 spp. What does +3 dB per doubling mean for the RMS error?
+
+**B4.** **A tiny lamp.** As seen from a floor point, a lamp covers $10^{-4}$ of the hemisphere's solid angle (weighted by the sampling pdf).
+(a) With 64 random directions per pixel, how many of them hit the lamp on average? What fraction of the pixels get no lamp sample at all?
+(b) What do the pixels that do hit the lamp look like? What is this artefact called?
+(c) Which change to the sampling fixes it?
+
+**B5.** **Whitted or path tracing?** A photograph shows: (i) a sharp reflection of a window in a polished table; (ii) a soft shadow under a chair, lit by a large window; (iii) a red glow on the white wall next to a red sofa; (iv) a bright spot of light focused by a glass of water onto the table; (v) the black silhouette of the chair against the window. Which can a Whitted ray tracer reproduce, which need path tracing?
+
+**B6.** **Denoising.** A 16-spp render is denoised with a joint bilateral filter guided by the first-hit normals and albedos.
+(a) Why does it keep the edge between the floor and the wall sharp?
+(b) What happens to the soft edge of a shadow on the floor, and why?
+(c) What happens to the caustic under a glass ball?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $f$ = 0.01, 0.16, 0.36, 0.81; mean $1.34/4 = 0.335$. (b) $x = \sqrt u$ = 0.316, 0.632, 0.775, 0.949; $f/p = x^2/(2x) = x/2$ = 0.158, 0.316, 0.387, 0.474; mean $0.334$. (c) The second: $p(x) = 2x$ is large where $x^2$ is large, so $f/p = x/2$ varies much less (from 0 to 0.5) than $f = x^2$ (from 0 to 1): standard deviation per sample 0.118 against 0.298, a variance 6.4 times smaller, worth 6.4 times as many uniform samples.
+
+**B2.** (a) 64 spp: $0.06/2 = 0.03$; 1024 spp: $0.06/8 = 0.0075$. (b) A factor 10 less noise needs 100× the samples: 1600 spp. (c) 64 s: the cost grows linearly in $N$, the noise falls only with $\sqrt N$.
+
+**B3.** 64 spp: +6 dB → 28 dB; 256 spp: +12 dB → 34 dB. +3 dB is a factor 2 in MSE, so the RMS error falls by $\sqrt2$ per doubling.
+
+**B4.** (a) $64\cdot10^{-4} = 0.0064$ hits per pixel; $(1 - 10^{-4})^{64} = 0.994$: 99.4 % of the pixels never see the lamp. (b) The 0.6 % that do get one sample weighted by $1/p$, enormous compared with the others: isolated, very bright pixels. Fireflies. (c) Sample the lamp directly (pick a point on it and send a shadow ray), at every matte hit; or combine that with the cosine pdf.
+
+**B5.** Whitted: (i) the sharp mirror reflection, (v) the silhouette (primary visibility). Path tracing: (ii) soft shadows need an area light, (iii) colour bleeding needs matte-to-matte bounces, (iv) the caustic needs light through glass onto a matte surface.
+
+**B6.** (a) The normals (and albedos) differ across that edge, so pixels on the other side get almost no weight. (b) A shadow edge lies within one surface: the guides are the same on both sides, so the filter averages across it and blurs it (bias). (c) The caustic is noisy and has no edge in the guides: it is smeared out or flattened.
+:::
+
+### Math questions
+
+**B7.** *(math)* **Unbiased, variance $\sigma^2/N$.** For independent $X_1, \dots, X_N$ with density $p$, and $\hat I = \frac1N\sum f(X_k)/p(X_k)$: (a) show $\mathbb E[\hat I] = \int f$, assuming $p > 0$ wherever $f \ne 0$; what goes wrong otherwise? (b) Show $\operatorname{Var}[\hat I] = \sigma^2/N$ with $\sigma^2 = \operatorname{Var}[f(X)/p(X)]$. (c) Compute $\sigma$ for $f = x^2$ on $[0, 1]$ with $p = 1$ and with $p = 2x$.
+
+**B8.** *(math)* **The Lambertian BRDF.** (a) Compute $\int_\Omega\cos\theta\,d\omega$ over the hemisphere in spherical coordinates ($d\omega = \sin\theta\,d\theta\,d\phi$). (b) A matte surface with a constant BRDF $f_r$ is lit by a uniform sky of radiance $L$; its outgoing radiance is $\int_\Omega f_r L\cos\theta\,d\omega$. Which $f_r$ makes it reflect the fraction $\rho$, i.e. $L_o = \rho L$? (c) Show that sampling with $p = \cos\theta/\pi$ gives every sample the value $\rho L$.
+
+**B9.** *(math)* **Russian roulette.** A path's remaining contribution is a random variable $X$. With probability $q$ we continue and use $X/q$; otherwise we use 0. (a) Show the result is unbiased. (b) Show its variance is $\frac{\mathbb E[X^2]}{q} - \mathbb E[X]^2 \ge \operatorname{Var}[X]$. When is the extra variance worth it?
+
+**B10.** *(math)* **Lamp sampling.** A point $\mathbf y$ is chosen uniformly on a lamp of area $A$. (a) Using $d\omega = \cos\theta_\ell\,dA/r^2$ (with $r = \lVert\mathbf x - \mathbf y\rVert$ and $\theta_\ell$ the angle at the lamp), derive the estimator of the direct light at $\mathbf x$. (b) Numbers: a matte point ($\rho = 0.7$) lies 1.5 below the centre of a square lamp of side 0.5 facing down, with $L_e = 12$; one sample at the lamp's centre, no blocker. Compute the estimate (the lamp's normal and the surface normal both point along the line between them).
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** (a) $\mathbb E[f(X)/p(X)] = \int \frac{f(x)}{p(x)}p(x)\,dx = \int f(x)\,dx$ over the region where $p > 0$; by linearity $\mathbb E[\hat I]$ is the same. If $p = 0$ where $f \ne 0$, that part of the integral is missing from the result: biased. (b) Independent terms: $\operatorname{Var}[\frac1N\sum Y_k] = \frac{1}{N^2}\sum\operatorname{Var}[Y_k] = \frac{\sigma^2}{N}$. (c) $p = 1$: $\sigma^2 = \int_0^1 x^4\,dx - (1/3)^2 = 1/5 - 1/9 = 0.0889$, $\sigma = 0.298$. $p = 2x$: $f/p = x/2$, $\mathbb E[(x/2)^2] = \int_0^1 \frac{x^2}{4}2x\,dx = 1/8$, $\sigma^2 = 1/8 - 1/9 = 0.0139$, $\sigma = 0.118$.
+
+**B8.** (a) $\int_0^{2\pi}\!\!\int_0^{\pi/2}\cos\theta\sin\theta\,d\theta\,d\phi = 2\pi\cdot\frac12 = \pi$. (b) $L_o = f_r L\pi = \rho L$ gives $f_r = \rho/\pi$. (c) $\frac{f_r L\cos\theta}{p} = \frac{(\rho/\pi)L\cos\theta}{\cos\theta/\pi} = \rho L$ for every direction: zero variance.
+
+**B9.** (a) $\mathbb E = q\,\mathbb E[X/q] + (1 - q)\cdot0 = \mathbb E[X]$. (b) $\mathbb E[\text{result}^2] = q\,\mathbb E[X^2]/q^2 = \mathbb E[X^2]/q$, so the variance is $\mathbb E[X^2]/q - \mathbb E[X]^2 \ge \mathbb E[X^2] - \mathbb E[X]^2$, with equality only for $q = 1$. Worth it when $X$ is small anyway (a dim path after several bounces): the saved time buys more paths elsewhere; choosing $q$ proportional to the path's throughput keeps the boosted contributions bounded.
+
+**B10.** (a) Direct light $= \int_\Omega f_r L_e\cos\theta_x\,d\omega$ over the lamp's directions $= \int_A f_r L_e\cos\theta_x\frac{\cos\theta_\ell}{r^2}V\,dA$. With one uniform point, density $1/A$: estimate $f_r L_e \frac{\cos\theta_x\cos\theta_\ell}{r^2}V\cdot A$. (b) $f_r = 0.7/\pi = 0.223$, $\cos\theta_x = \cos\theta_\ell = 1$, $r^2 = 2.25$, $A = 0.25$: $0.223\cdot12\cdot\frac{1}{2.25}\cdot0.25 = 0.297$.
+:::
+
+## Explore: one pixel's integral {#explore-mcpixel}
+
+A surface point (in 2D) and the half-circle of directions light can arrive from. The integrand is the incoming light times $\cos\theta$: **overcast sky**, **a window**, **a tiny bright lamp** (0.5° wide) or **two lamps**. Samples are drawn from a pdf (uniform, cosine, **towards the lamp**: half the samples aimed at the lamps, or **a pdf that misses** the lamp) and drawn as rays whose length is the weight $f/p$ (red when cut off). The estimate is their mean. Below, the demo repeats the estimate 500 times: the histogram of the 500 estimates at the current $N$, and the RMS error against $N$ on log–log axes with the line $\sigma/\sqrt N$. All numbers are exact for this model.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="mcpixel" data-preset="uniform16"></div>
+<script src="../demos/dist/mcpixel.js"></script>
+```
+
+**D1.** Preset **uniform, 16 samples**: read the true value, the RMS error of 500 draws and $\sigma/\sqrt N$. Press **new draw** a few times. Then preset **4× samples halves the error**: compare the RMS errors.
+
+**D2.** Preset **cosine sampling**. By what factor does $\sigma$ drop compared with uniform sampling? Why does the cosine pdf suit this integrand?
+
+**D3.** Preset **tiny lamp: fireflies**. Describe the histogram of the 500 estimates. What fraction of the estimates contain no lamp sample? By how much does the estimate jump when one sample hits the lamp?
+
+**D4.** Preset **sample the lamp**. Compare $\sigma$ with the previous preset. Is the estimate still unbiased, although half the samples go to a 0.5° window?
+
+**D5.** Preset **a pdf that misses the lamp** (256 samples). Compare the mean of 500 estimates with the true value. What happens to the RMS curve as $N$ grows, and why?
+
+**D6.** Choose **two lamps** and compare the four pdfs at $N = 64$. Which one would you use in a renderer?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** True value 1.714; at $N = 16$ the RMS error of 500 draws is 0.244 ($\sigma/\sqrt N = 1.057/4 = 0.264$). At $N = 64$: 0.142 ($\sigma/\sqrt N = 0.132$), close to half. (The measured RMS differs from the prediction by a few percent because 500 repeats are themselves a random sample.)
+
+**D2.** From 1.057 to 0.298, a factor 3.5 (a variance 12.6 times smaller: as good as 12.6 times as many uniform samples). The sky is brightest overhead and the integrand has a $\cos\theta$ factor; a pdf $\propto\cos\theta$ follows its shape, so $f/p$ varies little.
+
+**D3.** Two (sometimes three) separate humps: most estimates near 0.10 (no lamp sample: the sky alone), a smaller hump near 9.5 (one lamp sample), a few near 19 (two). With cosine sampling the lamp gets probability 0.0033 per sample, so $(1 - 0.0033)^{64} = 81\,\%$ of the estimates miss it; one hit adds $f/p/64 = 600/64 = 9.4$. The mean is still right (2.1), but the RMS error is 4.2, twice the value itself.
+
+**D4.** $\sigma$ falls from 34.6 to 1.90, about 18 times smaller (a variance 330 times smaller). Still unbiased: the samples aimed at the lamp are weighted by $1/p$, and $p$ is large there, so each lamp sample gets a small weight; the mean of 500 estimates (2.10) matches the true value.
+
+**D5.** The mean is 0.097 against the true 2.105: the lamp is never sampled, so its contribution (2.0) is missing. The RMS error stays at 2.01 for every $N$: the error is bias, not noise, and more samples do not reduce it.
+
+**D6.** Uniform: $\sigma$ 7.07; cosine 6.40; towards the lamps 0.95; the bad pdf is biased (mean 0.092 against 1.153). Towards the lamps, combined with cosine sampling for the rest of the sky (which is what "towards the lamp" does here: half and half), is the renderer's choice: it is unbiased and has the least noise.
+:::
+
+## Explore: a path tracer {#explore}
+
+A closed box (white floor, ceiling and back wall, a red and a green wall, a square ceiling lamp) with a diffuse, a mirror and a glass ball, path traced in the browser (on the GPU; without it, a slower CPU version at 128 × 96). Every pass adds one path per pixel to the running mean, up to the **target spp**. Controls: **max bounces** (1 = direct light only), Russian **roulette**, the sampling (**uniform**, **cosine**, **cosine + light**: the lamp sampled directly), the **light size** (the lamp's power stays the same), a **Whitted** mode for comparison, and which balls are present. Views: the image, the per-pixel **std dev** of the mean, the **error** against a reference, the first-hit **normal** and **albedo**, and the **denoised** image. **Compute reference** renders 4096 samples per pixel with a different seed (seconds on a fast graphics card, minutes on a slow one); then the plot shows the RMS error against spp on log–log axes with a $1/\sqrt N$ line, and the denoise panel reports RMSE and PSNR. Drag the image to turn the camera a little.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="pathtracer" data-preset="one"></div>
+<script src="../demos/dist/pathtracer.js"></script>
+```
+
+**E1.** Preset **1 sample per pixel**. Describe the noise. Which parts of the image are noise-free already, and why?
+
+**E2.** Preset **16 → 64 → 256: noise halves** (it computes the reference first). Watch the std dev view and the plot. Read the RMS error at 16, 64 and 256 spp: does it follow $1/\sqrt N$?
+
+**E3.** Preset **direct light only**. What changes against the full image (5 bounces)? Look at the ceiling, the walls next to the coloured walls, and the shadows. Increase the bounces to 2, 3, 8: when does the image stop changing visibly?
+
+**E4.** Preset **Whitted vs path traced**. List the differences.
+
+**E5.** Preset **uniform vs cosine**: compare uniform and cosine sampling at 16 spp, and cosine + light. Which is least noisy, and why?
+
+**E6.** Presets **tiny light: fireflies** and **light sampling removes them**. Explain the speckles and why light sampling removes them. Is the image without light sampling wrong, or just noisy?
+
+**E7.** Preset **glass ball caustic** (only the glass ball). Where is the caustic, and why does it stay noisy long after the rest of the image has converged, even with light sampling?
+
+**E8.** Preset **denoised 16 vs 1024 spp** (joint bilateral). Compare the RMSE and PSNR of the noisy and the denoised 16-spp image against the reference. Then switch the denoiser to Gaussian, bilateral and non-local means at the same strength. Which keeps the edges between walls sharpest? What does each do to the shadows and the caustic? Finally set the target to 1024 spp without denoising and compare.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Strong salt-and-pepper noise in colour; neighbouring pixels differ wildly, because each pixel is one random path. The lamp itself is noise-free (every path that sees it gets exactly its radiance), and so is the black outside of the box (no light at all). With light sampling, directly lit areas are much less noisy than areas lit only indirectly.
+
+**E2.** The std dev view gets darker by about half for every 4× more samples; the measured RMS errors (about halving from 16 to 64 and again to 256) follow the dashed $1/\sqrt N$ line. Deviations come from the reference's own noise (4096 spp) and from rare bright paths (caustics), which make the error fall a little unevenly.
+
+**E3.** With one bounce, only light that travels lamp → surface → eye counts: the ceiling (which the lamp cannot see) is black, the shadows are pitch black, and there is no pink or green tint on the white walls. Two bounces bring back most of it (the ceiling lit by the floor, colour bleeding, lighter shadows); beyond about 3–4 bounces the changes are hard to see, because every bounce loses most of the light (albedo 0.73 for white, much less for red and green).
+
+**E4.** Whitted: hard shadows with sharp edges (one point on the lamp); black shadows (no indirect light); no colour bleeding; the ceiling is black; the shadow under the glass ball is black with no caustic. Mirror and glass reflections and refractions look the same in both.
+
+**E5.** Cosine + light is least noisy, then cosine, then uniform. Uniform sampling wastes samples on grazing directions where $\cos\theta$ is small; cosine sampling cancels the cosine; sampling the lamp directly sends a shadow ray to the brightest thing in the scene at every bounce instead of hoping to hit it.
+
+**E6.** With a lamp of 0.1 × 0.1 and the same power, its radiance is 25 times higher, and random directions hit it 25 times less often: rare, huge samples. Light sampling picks a point on the lamp at every matte hit, so every path gets a modest, reliable contribution. The image without light sampling is not wrong (unbiased): it converges to the same image, only much more slowly.
+
+**E7.** On the floor under and beside the glass ball, a bright, focused spot. Its light reaches the floor only through the glass: floor → (random direction) → glass → (refraction) → lamp. Light sampling cannot help (a shadow ray from the floor to the lamp is blocked by the glass), so the floor point must find the lamp through the glass by chance: fireflies again, which converge slowly.
+
+**E8.** The denoised 16-spp image has a much lower RMSE and a higher PSNR than the noisy one, often comparable to or better than a several times longer render. The joint bilateral keeps the edges between walls, floor and balls sharpest (the guides change there); the Gaussian blurs everything, including the edges; the bilateral and non-local means keep strong edges but also keep some noise blotches. All of them blur the soft shadow edges and smear the caustic: these have no edge in the guides, and the noise there looks like detail. At 1024 spp without denoising the image is clean and unbiased; the denoised 16-spp image is smoother but differs in exactly those places: lower variance, some bias.
+:::
+
+## Where this leads
+
+The same Monte Carlo estimate, with light that scatters inside a medium instead of at surfaces, simulates photons in tissue; with absorption and emission only, it becomes the volume rendering of the 3D graphics day. Denoising a render is the deconvolution day's problem with extra guides, and learned denoisers come with the modern deep learning day. The refraction of [unit 2](../whitted/lec.qmd) leads on into lenses and microscopes, where diffraction takes over from rays ([Image formation](../psf/lec.qmd)).

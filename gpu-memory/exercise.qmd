@@ -1,0 +1,150 @@
+---
+title: "Exercise: memory, coalescing and the roofline"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- count the **bytes moved** and the **arithmetic intensity** of an image operation,
+- decide with the **roofline** whether it is memory- or compute-bound, and estimate its time,
+- count **memory transactions** of a warp for rows, columns and interleaved channels,
+- compute the global reads of a **tiled** stencil,
+- include **transfers** and launches in an end-to-end time.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Desktop GPU (lecture preset) | peak $\pi = 3\cdot10^{13}$ op/s, memory $\beta = 10^{12}$ B/s (1 TB/s), link 25 GB/s, 10 µs per launch |
+| Line, sector | memory delivers 128-byte lines in 32-byte sectors; bytes moved = sectors touched × 32 |
+| Coalesced | the 32 lanes of a warp read consecutive addresses: one line |
+| Tile with a halo | a $T\times T$ output tile of a $k\times k$ stencil loads $(T+k-1)^2$ inputs once |
+| Intensity $I$ | operations per byte moved to and from global memory |
+| Roofline | attainable rate $\min(\pi, \beta I)$; kernel time $\max(W/\pi, Q/\beta)$; ridge $I^* = \pi/\beta = 30$ |
+| End to end | upload + launches + kernels + download |
+
+Images are float32 (4 bytes per pixel) unless stated otherwise. A "4096² image" has $4096^2 = 16\,777\,216$ pixels.
+
+## By hand
+
+**B1.** Bytes moved per pixel and arithmetic intensity of:
+(a) adding two images into a third;
+(b) multiplying an image by a constant, in place;
+(c) a 3 × 3 filter that reads all 9 inputs from global memory;
+(d) the same filter with perfect reuse (every input read once).
+
+**B2.** For the desktop preset, which of the four operations in B1 are memory-bound? Estimate the time of each on a 4096² image.
+
+**B3.** **Coalescing.** (a) A warp reads 32 floats down a column of a 1024-pixel-wide row-major image. How many 128-byte lines and 32-byte sectors does it touch, and what fraction of the moved bytes is used? (b) The same after transposing the image. (c) A warp reads the red value of 32 consecutive pixels of an interleaved float RGB image, and (d) of a planar one.
+
+**B4.** **Tiles.** A 5 × 5 filter with 16 × 16 output tiles. How many input pixels does one tile load? How many global reads per output pixel is that, compared with reading every tap from global memory?
+
+**B5.** **Transfers.** A 4096² float32 image, link 25 GB/s.
+(a) How long do the upload and the download take together?
+(b) One element-wise kernel on the GPU (read and write 4 bytes per pixel) plus its 10 µs launch: how long?
+(c) How many such kernels must the image go through on the GPU before the computation takes as long as the two transfers?
+
+**B6.** **Fusing.** A pipeline of four element-wise steps (scale, subtract a constant, clip, threshold) runs (a) as four separate kernels, each reading and writing the image, or (b) as one fused kernel. Compare the bytes moved per pixel and the times on a 4096² image (ignore launches).
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) 12 bytes, 1 operation: $I = 0.083$. (b) 8 bytes, 1 operation: $I = 0.125$. (c) 9 reads + 1 write = 40 bytes, 18 operations (9 multiplications, 9 additions): $I = 0.45$. (d) 8 bytes, 18 operations: $I = 2.25$.
+
+**B2.** All four are below the ridge (30): memory-bound, time $= Q/\beta$. (a) $12 \cdot 16.8\cdot10^6 = 201$ MB: 201 µs. (b) 134 MB: 134 µs. (c) 671 MB: 671 µs. (d) 134 µs (the arithmetic, $3.0\cdot10^8$ operations, would take only 10 µs). Reuse makes the 3 × 3 filter 5 times faster, and as fast as a pure copy.
+
+**B3.** (a) The floats are $4 \cdot 1024 = 4096$ bytes apart: 32 lines, 32 sectors, 1024 bytes moved for 128 used: 12.5 %. (b) Transposed, the column is a row: 1 line, 4 sectors, 128 bytes, 100 %. (c) Red values every 12 bytes: 384 bytes = 3 lines, 12 sectors: 33 %. (d) 1 line: 100 %.
+
+**B4.** $(16 + 4)^2 = 400$ input pixels for 256 outputs: $400/256 = 1.5625$ reads per output, against 25: 16 times fewer.
+
+**B5.** (a) $4 \cdot 4096^2 = 67.1$ MB; each way 2.68 ms, together 5.37 ms. (b) 134 MB at 1 TB/s = 0.134 ms, plus 0.01 ms: 0.144 ms. (c) $5.37/0.144 = 37$ kernels.
+
+**B6.** (a) Each pass moves 8 bytes per pixel: 32 bytes per pixel, $4 \cdot 134 = 537$ µs. (b) 8 bytes per pixel, 134 µs: 4 times faster, with the same arithmetic.
+:::
+
+### Math questions
+
+**B7.** *(math)* (a) Derive the intensity $I = k^2/4$ of a $k\times k$ filter with perfect reuse, and the kernel size at which it reaches the ridge of the desktop preset ($I^* = 30$) and of the data-centre preset (60·10¹² op/s, 3 TB/s). (b) Show that the separable filter has $I = k/4$, and explain why it is still faster although its intensity is lower. (c) For which $N$ is an $N\times N$ matrix product compute-bound on the desktop preset?
+
+**B8.** *(math)* Break-even with transfers. A CPU needs $c = 1$ ns per pixel for a filter. On the GPU the image (4 bytes per pixel) is uploaded and downloaded at 25 GB/s, the kernel takes $g = 0.01$ ns per pixel, and the launch 20 µs. (a) Find the image size $n^*$ (pixels) above which the GPU is faster. (b) What if the CPU needs only $c = 0.3$ ns per pixel? (c) Ten such filters in a row, data kept on the GPU, CPU $c = 1$ ns per filter: $n^*$?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** (a) Work per output pixel $2k^2$; with perfect reuse each pixel is read once and written once: 8 bytes. $I = 2k^2/8 = k^2/4$. Ridge: $k = 2\sqrt{I^*}$: desktop $2\sqrt{30} = 10.95$ (from $k = 11$); data-centre $I^* = 60/3 = 20$, $k = 2\sqrt{20} = 8.9$ (from $k = 9$). (b) Two 1D passes with $2k$ operations each, each pass reading and writing 8 bytes: $I = 4k/16 = k/4$. While both are memory-bound, the time is $Q/\beta$: 16 bytes against 8, so the separable filter is twice as slow as a perfectly reused 2D filter **as long as the 2D filter is memory-bound** ($k \le 11$). For large $k$ the 2D filter becomes compute-bound with time $2k^2/\pi$ per pixel, growing as $k^2$, while the separable one stays at $16/\beta$: separable wins from about $k^2/4 > 2\cdot 30$, $k > 15$. (c) $I = N/6 > 30$: $N > 180$.
+
+**B8.** (a) $c\,n = t_\ell + n(8/\beta_\text{link} + g)$ with $8/\beta_\text{link} = 8/(25\cdot10^9) = 0.32$ ns: $n^* = 20\ \mu\text{s}/(1 - 0.32 - 0.01)\ \text{ns} = 29\,851$ pixels, about $173 \times 173$. (b) $0.3 < 0.32 + 0.01$: the transfer alone is slower than the CPU's whole filter, so the GPU never wins. (c) Ten launches (200 µs), one upload and one download, ten kernels: $10\,c\,n = 200\ \mu\text{s} + n(0.32 + 0.1)$ ns, $n^* = 200\ \mu\text{s}/(10 - 0.42)\ \text{ns} = 20\,877$ pixels, about $144 \times 144$.
+:::
+
+## Explore: coalescing and tiles {#explore-coalesce}
+
+A simulation of memory traffic. Tab **warp access**: the 32 lanes of a warp (top) each read one float; below, the 128-byte lines that are touched, each split into four 32-byte sectors (thick separators). Dark blue: the floats asked for; light blue: moved but not used. Tab **stencil tiles**: a $k\times k$ filter on 32 × 32 output pixels; the heat map shows how often each input pixel is read from global memory, with no tiles (direct) or with $T\times T$ tiles and their halo.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="coalesce" data-tab="access" data-preset="rows" data-layout="full"></div>
+<script src="../demos/dist/coalesce.js"></script>
+```
+
+**C1.** Presets **rows**, **columns** and **interleaved RGB**: read the lines, sectors, bytes moved and efficiency. Compare with B3.
+
+**C2.** Choose **stride s** and step $s$ from 1 to 32. At which stride does the efficiency stop falling, and why there?
+
+**C3.** Choose **column of a W-wide image** and vary $W$ from 32 to 4096. Does the width matter? Then choose **random**. What do columns and random addresses have in common?
+
+**C4.** Tab **stencil tiles**, preset **tile 16 with a 3×3 halo**. Where are the pixels that are read twice and four times? Read the reads per output pixel and compare with **none (direct)**.
+
+**C5.** Preset **31×31 kernel**. Read the reads per output for tiles of 8, 16 and 32. Which tile size would you choose, and what limits making tiles even bigger on a real GPU?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**C1.** Rows: 1 line, 4 sectors, 128 bytes moved, 128 used, 100 %. Columns ($W = 1024$): 32 lines, 32 sectors, 1024 bytes moved, 128 used, 12.5 %. Interleaved RGB (R only): 3 lines, 12 sectors, 384 bytes, 33.3 %. As in B3.
+
+**C2.** $s = 1$: 100 %; 2: 50 %; 4: 25 %; from $s = 8$ on: 12.5 %. With $s = 8$ the lanes are 32 bytes apart, exactly one sector each; larger strides still touch one sector per lane (32 sectors), so the efficiency cannot fall further, only the number of lines grows (up to 32).
+
+**C3.** For every $W$ from 32 up, the column touches 32 lines and 32 sectors: 12.5 %. Random addresses: also 32 sectors, 12.5 %. In both, every lane needs its own sector: the worst case for a warp.
+
+**C4.** The seams between the 16 × 16 tiles are read twice (once by each tile whose halo covers them), the four pixels where four tiles meet four times, and the outer halo (outside the dashed square) once. 1.266 reads per output, against 9 direct: 7.1 times fewer.
+
+**C5.** Tiles of 8: 22.56 reads per output; 16: 8.27; 32: 3.75 (against 961 direct). Choose 32 (or larger). A real tile must fit in the multiprocessor's shared memory, $(T + 30)^2 \cdot 4$ bytes ($62^2 \cdot 4 = 15$ kB for $T = 32$), and a block has a limited number of threads; for such large kernels a separable filter or the FFT is the better answer.
+:::
+
+## Explore: the roofline and the end-to-end time {#explore}
+
+A calculator for generic devices with order-of-magnitude numbers (no real product). Tab **roofline**: operations as points (a 4096² float32 image; the matrix product $N\times N$; a network layer with $C$ channels on 256²). The readout gives the work, the bytes, the intensity, the attainable rate and the time of the selected operation. Tab **end to end**: one operation chained $m$ times on an $n\times n$ image, on the GPU (with upload, launches and download, data kept on the GPU or not) and on a laptop CPU; the green dot marks where the GPU starts to win.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="roofline" data-tab="roofline" data-preset="add"></div>
+<script src="../demos/dist/roofline.js"></script>
+```
+
+**R1.** Preset **adding images: far left**. Read the intensity, the attainable rate (as % of peak) and the time. Check against B2.
+
+**R2.** Click **4 passes** and **fused**. Compare their times with B6.
+
+**R3.** Click **k×k** and move $k$ from 1 to 31. At which $k$ does the point reach the roof? Switch the device to **data-centre GPU**: where is the ridge now, and at which $k$? Compare with B7.
+
+**R4.** Click **matmul** and vary $N$. From which $N$ is it compute-bound (compare B7c)? What is its time at $N = 1024$?
+
+**R5.** Preset **float16 moves the point right**: the 5 × 5 filter in float16. Untick float16. By how much do the intensity and the time change, and why?
+
+**R6.** Tab **end to end**, preset **one filter on a small image**. Where does the GPU time go? Move $n$ up to 8192: does the GPU ever win? Now choose $k = 11$.
+
+**R7.** Preset **a 10-step pipeline that stays on the GPU**. Read the GPU and CPU totals and the crossover. Untick **data stays on the GPU**. What changes?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**R1.** $I = 0.0833$, attainable $8.3\cdot10^{10}$ op/s (0.28 % of peak), 201 µs, as in B2(a).
+
+**R2.** 4 passes: $I = 0.125$, 537 µs; fused: $I = 0.5$, 134 µs. As in B6.
+
+**R3.** Desktop: the ridge is at 30; the point reaches it at $k = 11$ ($I = 30.25$). Data-centre: ridge at 20, reached at $k = 9$ ($I = 20.25$). As in B7(a).
+
+**R4.** $I = N/6$ exceeds 30 from $N = 180$; with the slider's powers of two, at $N = 256$ ($I = 42.7$). At $N = 1024$: $I = 171$, compute-bound, 71.6 µs.
+
+**R5.** float16: $I = 12.5$, 67 µs; float32: $I = 6.25$, 134 µs. Half the bytes doubles the intensity; since the filter is memory-bound, the time halves.
+
+**R6.** At 128² with a 3 × 3 filter: upload 2.6 µs, launch 10 µs, kernel 0.13 µs, download 2.6 µs: 15.4 µs against 2.6 µs on the CPU. The GPU never wins with $k = 3$: the CPU filters (memory-bound at 50 GB/s, 8 bytes per pixel) faster than the link can move the image (2 × 4 bytes per pixel at 25 GB/s). With $k = 11$ the CPU becomes compute-bound and slow; the GPU wins from $n \approx 191$.
+
+**R7.** GPU 1.78 ms (upload 0.67, launches 0.10, kernels 0.34, download 0.67) against 17.0 ms on the CPU; crossover $n \approx 167$. Without keeping the data, every step uploads and downloads: 13.9 ms, crossover $n \approx 362$; the GPU still wins at 2048², but by 1.2 times instead of 10.
+:::
+
+## Where this leads
+
+The roofline tells how fast a map or a stencil can run. The next unit, [data-parallel patterns](../gpu-patterns/lec.qmd), looks at operations where outputs depend on many inputs (reductions, prefix sums, histograms) and shows how they are made parallel.

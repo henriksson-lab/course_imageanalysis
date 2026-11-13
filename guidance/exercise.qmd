@@ -1,0 +1,152 @@
+---
+title: "Exercise: conditioning, guidance and latent diffusion"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute a **classifier-free guidance** combination, and explain why one network can provide both terms,
+- predict what the guidance weight $w$ does: more typical, less diverse, and beyond the real data for large $w$,
+- explain **latent diffusion**: what is compressed, what the diffusion model learns, and who draws the finest detail.
+
+Do the pen-and-paper part first, then the demos. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Conditional denoiser | the label $y$ (class, treatment, text, image) is an extra input |
+| Label dropout | during training the label is replaced by "none" at random, so the same network also learns the unconditional denoiser |
+| Classifier-free guidance | $\hat\varepsilon = (1+w)\,\hat\varepsilon(\mathbf x, y) - w\,\hat\varepsilon(\mathbf x, \varnothing)$ |
+| Sharpened density | $p(\mathbf x\mid y)\,p(y\mid\mathbf x)^w$: the class weighted by the classifier's confidence |
+| Latent diffusion | diffusion on the latent codes of an autoencoder, then decode |
+| Aggregate posterior | the cloud of all training codes, $\frac1N\sum_i\mathcal N(\boldsymbol\mu_i, \operatorname{diag}\boldsymbol\sigma_i^2)$ |
+
+![Two classes A and B (Gaussians at ∓1). Blue histogram: 2 000 samples of guided diffusion towards A with $w = 3$; black dashed: the sharpened density $p(x\mid A)\,p(A\mid x)^3$. Guidance pushes the samples away from B, and further than the sharpened density.](fig-guidance.svg){width=70%}
+
+## By hand
+
+**B1.** At one step, the network predicts $\hat\varepsilon_\text{uncond} = 0.2$ without the label and $\hat\varepsilon_\text{cond} = 0.5$ with it.
+(a) Compute the guided prediction for $w = 0$, 1 and 3.
+(b) For which $w$ does the guided prediction equal the conditional one? What does $w = -1$ give?
+
+**B2.** Two classes, $\mathcal N(+1, 1)$ (class A) and $\mathcal N(-1, 1)$ (class B), equally likely. Then $p(A\mid x) = 1/(1 + e^{-2x})$.
+(a) Compute $p(A\mid 1)$ and $p(A\mid 2)$.
+(b) The sharpened density of class A is $p(x\mid A)\,p(A\mid x)^w$. Compute its ratio between $x = 2$ and $x = 1$ for $w = 0$, 4 and 8. ($p(2\mid A)/p(1\mid A) = e^{-0.5} = 0.607$.)
+(c) From which $w$ is a point beyond the class mean (at $x = 2$) more likely than the class mean itself?
+
+**B3.** A latent diffusion model works on latents of $32 \times 32 \times 4$ numbers for colour images of $256 \times 256$.
+(a) By which factor are there fewer numbers per image?
+(b) Roughly how does that change the cost of one denoising step, if the cost grows linearly with the number of values? Why is this not the only advantage?
+
+**B4.** A latent diffusion model generates a fluorescence image of a cell with a crisp, one-pixel-wide membrane. The latent has one value per $8 \times 8$ pixel block.
+(a) Could the latent encode exactly where the membrane runs, pixel by pixel?
+(b) Who drew the crisp membrane, and from what information?
+(c) Would you measure membrane thickness on such images?
+
+**B5.** You train a guided model on "control" and "treated" cells and generate with $w = 5$. Predict how the generated "treated" cells compare with real treated cells in (a) diversity, (b) the size of the treatment effect, (c) how well they cover treated cells that look like controls.
+
+**B6.** Predict the shape of precision and recall of generated class members against $w$ from 0 to 8, for a class whose real members include some that look like the other class.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $w = 0$: 0.5; $w = 1$: $2 \cdot 0.5 - 0.2 = 0.8$; $w = 3$: $4 \cdot 0.5 - 3 \cdot 0.2 = 1.4$. (b) $w = 0$ gives the conditional prediction; $w = -1$ gives $0 \cdot 0.5 + 1 \cdot 0.2 = 0.2$, the unconditional one. Larger $w$ extrapolates beyond the conditional, away from the unconditional.
+
+**B2.** (a) $p(A\mid 1) = 1/(1 + e^{-2}) = 0.881$; $p(A\mid 2) = 1/(1 + e^{-4}) = 0.982$. (b) Ratio $= 0.607 \cdot (0.982/0.881)^w$: $w = 0$: 0.61; $w = 4$: 0.94; $w = 8$: 1.45. (c) Ratio 1 when $(0.982/0.881)^w = e^{0.5}$: $w = 0.5/\ln(1.115) = 4.6$. Beyond that, the sharpened density prefers points beyond the class mean: more "A-like" than the typical A.
+
+**B3.** (a) $196\,608/4\,096 = 48$. (b) About 48 times cheaper per step (more with networks whose cost grows faster than linearly, e.g. attention). Also: the diffusion model no longer spends capacity on pixel-level detail that the autoencoder handles; it models layout and content.
+
+**B4.** (a) No: one latent value covers an $8 \times 8$ block; it can say "a membrane passes through here, roughly in this direction", not its exact pixels. (b) The **decoder**, from its training images: it renders membranes the way membranes looked there. (c) No: membrane thickness at the pixel scale is the decoder's habit, not a measurement of this cell (and not even a sample of the diffusion model).
+
+**B5.** (a) Less diverse: guided samples crowd into the most "treated-looking" region. (b) Exaggerated: guidance pushes away from the controls, beyond the typical treated cell, so the generated effect is larger than the real one. (c) Badly: treated cells that look like controls are exactly where the classifier is unsure; guidance removes them (recall drops).
+
+**B6.** Recall falls steadily with $w$ (the borderline members disappear first). Precision stays high, or rises a little at first (samples become cleanly typical), and may fall at large $w$ once samples leave the region of real data (caricatures beyond any real example). In the demo (narrow blobs), precision stays near 0.95 while recall drops from 0.97 to about 0.3.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that $(1+w)\nabla\log p(\mathbf x\mid y) - w\nabla\log p(\mathbf x)$ is the score of $p(\mathbf x\mid y)\,p(y\mid\mathbf x)^w$ (up to normalisation), and that it equals $\nabla\log p(\mathbf x\mid y) + w\nabla\log p(y\mid\mathbf x)$.
+
+**B8.** *(math)* Let $p(x\mid y) = \mathcal N(m, s^2)$ and $p(x) = \mathcal N(0, 1)$. Show that $p(x\mid y)^{1+w}p(x)^{-w}$ is Gaussian with precision $\frac{1+w}{s^2} - w$ and mean $\frac{(1+w)m/s^2}{(1+w)/s^2 - w}$. Compute it for $m = 1$, $s^2 = 0.5$, $w = 1$. When is it not normalisable?
+
+**B9.** *(math)* Write the score of the aggregate posterior $q(\mathbf z) = \frac1N\sum_i\mathcal N(\boldsymbol\mu_i, \operatorname{diag}\boldsymbol\sigma_i^2)$ after adding noise of level σ. What happens as all $\boldsymbol\sigma_i \to 0$?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\nabla\log[p(\mathbf x\mid y)^{1+w}p(\mathbf x)^{-w}] = (1+w)\nabla\log p(\mathbf x\mid y) - w\nabla\log p(\mathbf x)$. Bayes: $p(\mathbf x\mid y) = p(y\mid\mathbf x)p(\mathbf x)/p(y)$, so $p(\mathbf x\mid y)^{1+w}p(\mathbf x)^{-w} = p(\mathbf x\mid y)\cdot\big(p(y\mid\mathbf x)p(\mathbf x)/p(y)\big)^w p(\mathbf x)^{-w} \propto p(\mathbf x\mid y)\,p(y\mid\mathbf x)^w$. Its score: $\nabla\log p(\mathbf x\mid y) + w\nabla\log p(y\mid\mathbf x)$ ($p(y)$ does not depend on $\mathbf x$).
+
+**B8.** $\log[\cdot] = -\frac{(1+w)(x - m)^2}{2s^2} + \frac{wx^2}{2} + c = -\frac12\big(\frac{1+w}{s^2} - w\big)x^2 + \frac{(1+w)m}{s^2}x + c'$: a Gaussian with precision $\lambda = \frac{1+w}{s^2} - w$ and mean $\frac{(1+w)m/s^2}{\lambda}$. Example: $\lambda = 4 - 1 = 3$, variance $1/3$, mean $4/3$. Not normalisable when $\lambda \le 0$, i.e. $s^2 \ge (1+w)/w$: a class at least about as wide as the whole data cannot be sharpened this way (the $p(\mathbf x)^{-w}$ factor grows faster than the class density falls).
+
+**B9.** Noised: $q_\sigma(\mathbf z) = \frac1N\sum_i\mathcal N(\boldsymbol\mu_i, \operatorname{diag}(\boldsymbol\sigma_i^2 + \sigma^2))$. Score: $\nabla\log q_\sigma = \sum_i r_i(\mathbf z)\,\frac{\boldsymbol\mu_i - \mathbf z}{\boldsymbol\sigma_i^2 + \sigma^2}$ (elementwise division), with $r_i(\mathbf z) = \frac{\mathcal N(\mathbf z; \boldsymbol\mu_i, \cdot)}{\sum_j\mathcal N(\mathbf z; \boldsymbol\mu_j, \cdot)}$. As $\boldsymbol\sigma_i \to 0$, the data distribution becomes the set of $N$ codes; at the end of sampling every sample lands on a training code: the exact model of a finite set copies it.
+:::
+
+## Explore: guidance in 1D {#explore-guidance1d}
+
+Two classes A and B, each a 1D mixture. Top: the class densities and the unconditional density (what the network learns with the label dropped). Bottom: 2 000 samples of guided diffusion (exact conditional and unconditional denoisers, 100 steps), the class density, and the sharpened density $p(x\mid A)\,p(A\mid x)^w$. The orange line marks the most extreme 1 % of real class members.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="guidance1d" data-preset="w0"></div>
+<script src="../demos/dist/guidance1d.js"></script>
+```
+
+**G1.** Preset **w = 0: the class as it is**. Compare the samples' mean and sd with class A, and the fraction beyond the 1 % line.
+
+**G2.** Preset **w = 3: narrower, pushed away**. Read mean, sd and both fractions. Compare the samples with the sharpened density. Which way are the samples pushed, and why?
+
+**G3.** Preset **w = 8: beyond the real data** (deterministic sampler). What fraction of the samples is more extreme than the most extreme 1 % of real class members? Switch to stochastic.
+
+**G4.** Preset **guided sampling ≠ sharpened density** ($w = 3$, deterministic). Compare the means of the samples and of the sharpened density. What does this say about guided sampling?
+
+**G5.** Preset **the sub-mode near B disappears** (class A has modes at −2 and 0.6, B at 1.5). Read the fraction of samples above −0.5 for $w = 0$, 1, 3 (it is not in the readout; estimate it from the histogram, then check the solution). What happened to the sub-mode?
+
+**G6.** Choose **rare class A (10 %)**. Does guidance towards a rare class behave differently? Condition on B instead.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**G1.** Samples: mean −0.99, sd 0.97 (class: −1, 1); 0.7 % beyond the 1 % line (expected 1 %; 2 000 samples).
+
+**G2.** Mean −1.92, sd 0.71; 91.6 % beyond the class mean, 3.6 % beyond the 1 % line. The sharpened density has mean −1.54 and sd 0.77: the samples are pushed further. They move away from B (to the left), where $p(A\mid x)$ is closest to 1.
+
+**G3.** Deterministic: 53.6 % of the samples lie beyond the most extreme 1 % of real class members (mean −3.43, sd 0.49). Stochastic: 9.8 % (mean −2.41). Strong guidance generates "A" samples unlike any real A.
+
+**G4.** Samples: mean −2.35 (sd 0.59); sharpened density: mean −1.54 (sd 0.77). Guided sampling applies the combination at every noise level, which is not the same as sampling the sharpened density: it overshoots. (Stochastic sampling is closer, mean −1.92.)
+
+**G5.** $w = 0$: 38 % of the samples above −0.5 (the sub-mode at 0.6 holds 40 % of class A); $w = 1$: 14 %; $w = 3$: 1.1 % (the sharpened density still has 21.5 % there). The sub-mode lies close to B, where the label is uncertain; guidance removes it almost completely. The class's own diversity is lost: a "class A" generator with guidance shows only its B-distant half.
+
+**G6.** Class A (10 %, at +1) overlaps the frequent B: $w = 3$ moves A's samples from mean 1.01 to 1.75 (sd 0.58 → 0.33), away from B. The rarity does not matter for guidance; only $p(A\mid x)$ does. Conditioning on B pushes B's samples to the left, away from A.
+:::
+
+## Explore: latent diffusion on cell shapes {#explore}
+
+The 2D latent space of the cell-shape VAE of the [VAE day](../vae/lec.qmd) (its weights unchanged). Dots: the codes (encoder means) of 800 synthetic training masks, coloured by kind; dashed circle: where 95 % of the VAE prior $\mathcal N(0, I)$ lies. Black: 16 reverse-diffusion paths (the exact denoiser of the noised codes) and their decoded images on the right. Bars: kinds among 200 samples (kind of the nearest code) against the training set (grey). Controls: source (latent diffusion, or decode VAE prior draws), kind and guidance $w$, steps, sampler, and the spread of the codes (the encoder's, or tiny: a model that memorises its codes).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="latentdiff" data-preset="prior"></div>
+<script src="../demos/dist/latentdiff.js"></script>
+```
+
+**L1.** Preset **VAE prior: some nonsense shapes**. Where do the prior's samples lie relative to the codes? Read the kind proportions and the fraction far from every code. Look at the decoded shapes.
+
+**L2.** Preset **latent diffusion: where real codes are**. Compare the kind proportions and the fraction far from every code with L1. Why does diffusion fix the VAE prior's problem?
+
+**L3.** Preset **dividing cells on demand** ($w = 0$). What fraction of the samples is dividing? Now preset **strong guidance: caricatures** ($w = 4$). Where in the latent plane do the samples go, and what do the decoded cells look like?
+
+**L4.** Preset **tiny spreads: it only copies**. Compare the median distance to the nearest training code with the encoder-spread model and with the spacing of the codes among themselves. What would this model's decoded samples be?
+
+**L5.** Who draws the outline of a generated cell: the diffusion model, or the decoder? Use the decoded images of nearby samples to argue.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**L1.** The prior's draws fill the dashed circle evenly, including regions with no codes (around the circle's edge and in gaps between the kinds). Kinds 10 / 28 / 46 / 16 % (round, elongated, dividing, protrusion; training 25 % each); 6 % of the samples farther than 0.3 from every code. Some decoded shapes are blends that look like no kind.
+
+**L2.** Kinds 17 / 32 / 24 / 27 %; 0.5 % far from every code. Diffusion learns the cloud of codes itself (the aggregate posterior), not a round Gaussian, so its samples land where real codes are, in the right proportions (within the noise of 200 samples).
+
+**L3.** $w = 0$: 86 % of the samples have a dividing cell as nearest code (the kinds overlap in the latent plane, so some conditional samples sit nearer an elongated code). $w = 4$: 100 % dividing, and the samples crowd at the far end of the dividing cluster (mean distance from the origin 3.6 against 1.5 without guidance): the most extreme dumbbells, farthest from the other kinds.
+
+**L4.** Median distance to the nearest code 0.022, against 0.045 with the encoder spreads; codes lie 0.059 apart (median) among themselves. With tiny spreads the model is the finite set of codes: its samples are (almost) codes of training images, and decoded they are reconstructions of training cells, not new ones.
+
+**L5.** The decoder: a latent of two numbers cannot carry an outline pixel by pixel. Nearby latent points decode to smoothly varying shapes with the decoder's typical grey edge; the diffusion model only chooses the point in the plane.
+:::
+
+## Where this leads
+
+When the condition is a measured image, conditional generation becomes restoration. The last unit, [Diffusion priors for inverse problems](../diffusion-inverse/lec.qmd), asks which parts of such a restoration were measured and which were imagined.

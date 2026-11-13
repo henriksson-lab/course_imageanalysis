@@ -89,6 +89,8 @@ $\mathbf y = (1, 0, 1)$, $\varepsilon = 0.2$ (data cost 1.39 per disagreeing pix
 
 ## Two answers: MAP and MPM
 
+:::: {.columns}
+::: {.column width="60%"}
 The posterior is a distribution over images. Which single image do we report?
 
 - **MAP** (maximum a posteriori): the one most probable image = the lowest energy. All pixels are decided **jointly**.
@@ -96,6 +98,11 @@ The posterior is a distribution over images. Which single image do we report?
 - MPM gets, on average, the **fewest wrong pixels**. MAP is the best guess of the **whole** image.
 - Marginals come from **sampling** at $T = 1$: run a Gibbs sampler, count how often each pixel is 1. The marginal is also an **uncertainty map**: 0.5 = don't know.
 - Three pixels: $p(L_2 = 1) = 0.64$, $p(L_1 = 1) = 0.75$, so MPM is also $111$, but with a clear warning that the middle pixel is uncertain.
+:::
+::: {.column width="40%"}
+![The demo's image, $\varepsilon = 0.2$, $\lambda = 1.2$; MPM from 300 Gibbs sweeps at $T = 1$.](fig-mpm.svg){fig-alt="Three panels of the 128 × 128 test image. Top left: the exact MAP, 314 wrong pixels: the 1-pixel line is missing (blue) and the 3-pixel line is partly missing. Top right: the MPM, 276 wrong pixels, similar but with fewer missed pixels on the thick line. Bottom: the marginal probability of object, black inside the disc and the squares, grey (uncertain) along all edges and on the 3-pixel line, and only faintly darker along the 1-pixel line." width="100%"}
+:::
+::::
 
 ## The math: which estimate minimises which loss? {.math}
 
@@ -115,10 +122,14 @@ The marginal $p(x_p = v \mid \mathbf y) = \sum_{\mathbf x: x_p = v}p(\mathbf x \
 - But it stops in the **nearest local minimum**, and the result depends on the **order** of visits.
 - Three pixels from $\mathbf y = (1, 0, 1)$, left to right: pixel 1 sees a background neighbour and switches to 0 (1.39 < 2); pixel 2 stays 0, pixel 3 switches for the same reason: $000$, energy 2.77, a local minimum. Visiting the middle pixel first gives $111$, the MAP.
 
+![](fig-icm-order.svg){fig-alt="ICM on the three pixels y = 1 0 1 (black, white, black), ε = 0.2, λ = 2. Left to right: pixel 1 switches to white (energy 3.39), pixel 2 stays white (3.39), pixel 3 switches to white: 000 with energy 2.77, a local minimum. Middle first: pixel 2 switches to black, giving 111 with energy 1.39, and pixels 1 and 3 stay black." width="68%"}
+
 ## Annealing and mean field
 
 - **Simulated annealing** (unit 2): Gibbs sampling while $T$ falls from $T_0$ towards 0, then ICM. Slow cooling approaches the lowest energy; a quench behaves like ICM.
 - **Mean field**: replace each neighbour by its **average** value and iterate: every pixel holds a number between 0 and 1 instead of a label. Deterministic and smooth; an **approximation** of the marginals (often over-confident). Thresholded at 0.5, it gives an estimate.
+
+![The demo's image at $\varepsilon = 0.2$, $\lambda = 0.8$ (presets "ICM", "quench", "slow cooling"). Dashed: the exact minimum.](fig-energy-curves.svg){fig-alt="Posterior energy against sweeps on a log axis. ICM drops from 5400 to 5171.6 in 14 sweeps and stops (427 wrong pixels). Annealing with a 10-sweep cooling (quench) ends at 5161.2 (381 wrong). Slow annealing over 1000 sweeps stays high while hot, then falls steeply after about 400 sweeps to 5124.2 (235 wrong), just above the exact minimum-cut energy 5121.2 (242 wrong)." width="64%"}
 
 ## The math: mean field {.math}
 
@@ -132,11 +143,18 @@ $$m_p \leftarrow \tanh\Big(\frac{J\sum_{q \sim p}m_q + h_p}{T}\Big), \qquad p(x_
 
 ## The exact MAP: one minimum cut
 
+:::: {.columns}
+::: {.column width="56%"}
 For **binary** labels and $\lambda \ge 0$ this energy is the graph-cut day's segmentation energy. One max-flow gives its **exact** minimum (Greig, Porteous & Seheult, 1989; recalled from `maxflow/` and `graphcut-seg/`).
 
 - In the demo it is computed once per parameter change ($128 \times 128$: about 50 ms) and drawn as the dashed reference line.
 - So for binary images the optimiser is not the problem: we can always compare with the true minimum.
 - For more labels the exact MAP is in general NP-hard (graph-cut day, α-expansion).
+:::
+::: {.column width="44%"}
+![The three pixels of the hand example as a graph.](fig-mincut3.svg){fig-alt="An s-t graph for y = 1 0 1 with λ = 2: the source (label 1) is joined to pixels 1 and 3 with capacity 1.39, pixel 2 to the sink (label 0) with capacity 1.39, and neighbouring pixels with capacity 2. The minimum cut, cost 1.39, cuts only the edge from pixel 2 to the sink: all three pixels end on the source side, labelling 111." width="88%"}
+:::
+::::
 
 ## Try it: denoising a binary image
 
@@ -156,11 +174,15 @@ Panels: noisy input, current estimate, and truth / errors (red: false object, bl
 - **The exact MAP is not always the best image.** Greig et al. (1989) found that for large $\lambda$ the exact MAP was *worse* than approximate solutions. In the demo at $\lambda = 1.6$: exact MAP 469 wrong pixels, ICM 401, mean field 207. The fault is the **prior** (it charges for every boundary pixel, so thin structures are "improbable"), not the optimiser.
 - The posterior's best image and the true image are different things. Compare methods by **energy** to judge the optimiser, and by **errors** against a known truth to judge the model.
 
+![$\lambda = 1.6$, $\varepsilon = 0.2$ (demo preset "exact MAP not the best image").](fig-notbest.svg){fig-alt="Error maps of three estimates at λ = 1.6. Exact MAP: 469 wrong, both lines missing (blue) and the corners of the square rounded. ICM: 401 wrong, scattered errors and parts of the lines kept. Mean field: 207 wrong, the 3-pixel line kept almost completely." width="48%"}
+
 ## Choosing $\lambda$
 
 - **Too small**: noise survives. An isolated wrong pixel has 4 disagreeing neighbours; it is removed only if $4\lambda > \log\frac{1 - \varepsilon}{\varepsilon}$: $\lambda > 0.35$ for $\varepsilon = 0.2$. Below that, the MAP is the thresholded image.
 - **Too large**: structures vanish, thin ones first. A clean line of width $k$ is removed once $2\lambda > k \log\frac{1-\varepsilon}{\varepsilon}$ (two boundaries against $k$ data costs per unit length): the shrinking bias of the graph-cut day.
 - $\varepsilon$ can be estimated from the noise (e.g. in a flat region); $\lambda$ by trial on a synthetic image with known truth, or by **pseudo-likelihood** (Besag, 1974): named only.
+
+![The exact MAP of the demo's image ($\varepsilon = 0.2$) for three values of $\lambda$.](fig-lambda.svg){fig-alt="Three exact MAP images. λ = 0.3: identical to the noisy input, 3321 wrong pixels. λ = 0.8: clean disc and squares, the 3-pixel line kept, the 1-pixel line gone, 242 wrong. λ = 3: only the disc and the large square remain, both lines and the small square removed, 602 wrong." width="62%"}
 
 ## Summary
 

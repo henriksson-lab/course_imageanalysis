@@ -61,6 +61,14 @@ explicitly: an image is a matrix, a geometric transform is a matrix acting on
 coordinates, a filter is a linear map, a derivative is a difference of neighbours,
 the Fourier transform is a change of basis.
 
+## 3b. Pictures on the slides
+
+About **half of all slides should carry an image** of some sort: a diagram, a plot, an
+example image with its result, a annotated screenshot of a demo state. Images sit **next to
+text** on the same slide (two columns, or text above/below), seldom alone on a slide. Every
+static figure is generated reproducibly (a script in `tools/figs/<unit>/`, or a hand-written
+SVG in the unit folder) and credited if it uses an external image.
+
 ## 4. Real images, honestly labelled
 
 Use real images (microscopy, photographs, medical images) alongside synthetic test
@@ -72,11 +80,13 @@ Always credit the source and licence of an image in the demo or caption.
 A good number of core exercises every student is expected to complete, rather
 than a few with long optional tails. A short "Where this leads" note is fine.
 
-## 6. Keep slide decks small: split, don't cut
+## 6. Decks: one topic each; split, don't cut
 
-Each deck is a self-contained snippet on one topic (roughly 10–18 content slides).
-When a deck grows too big, split it into its own unit folder rather than cutting
-good material.
+Each deck is a self-contained snippet on one topic. The material is often complex, so a
+deck may need more room: as a guide, about 10–27 content slides (including the math
+slides). This is **not a hard limit** — let the topic decide. When a deck covers what is
+really two topics, split it into its own unit folder rather than cutting good material;
+do not split or cut just to hit a number.
 
 ## 7. Demo engineering rules
 

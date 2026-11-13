@@ -4,34 +4,43 @@
 // lines tA, tB; right: Pearson r (all pixels and above both thresholds), the overlap
 // coefficient, Manders M1 and M2, a Costes button that animates the automatic threshold
 // search, and a randomisation test (block scramble of B, 50 repeats).
+// Readouts also give Spearman's rank correlation; a toggle switches Manders' definition
+// (with / without the own-channel threshold in the denominator). On slides the randomisation
+// histogram is hidden (the readout keeps the numbers).
 // Auto-mounts on <div data-demo="coloc">. Options: data-preset="<id>".
 import { htmlEl, slider, presets, button, autoMount } from "../lib/ui";
 import { Plot, plotFigure } from "../lib/plot";
 import { inferno } from "../lib/colour";
 import { histogram2d } from "../lib/histogram";
 import { S, makeChannels, ChannelOptions, Channels, colocStats, randomisation, startThresholds } from "./model";
+import { mergeGreenMagenta } from "../lib/twochannel";
 
 const NAME = "coloc";
 const BINS = 64;
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .co-img { flex: 0 1 340px; min-width: 220px; margin: 0; }
-[data-demo="${NAME}"] .co-img canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; image-rendering: pixelated; }
-[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
-[data-demo="${NAME}"] .co-sc { flex: 0 1 360px; min-width: 240px; }
-[data-demo="${NAME}"] .co-sc svg { touch-action: none; cursor: crosshair; }
-[data-demo="${NAME}"] .co-side { flex: 1 1 220px; min-width: 200px; max-width: 300px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 250px; gap: .3em; }
-[data-demo="${NAME}"] .co-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-.reveal .qb-demo[data-demo="${NAME}"] { font-size: 15px; gap: .6em; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 17px; }
-.reveal .qb-demo[data-demo="${NAME}"] .co-img { flex-basis: 300px; }
-.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; }
-.reveal .qb-demo[data-demo="${NAME}"] .co-sc { flex-basis: 330px; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .45em; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+.qb-demo[data-demo="${NAME}"] .co-img { flex: 0 1 340px; min-width: 220px; margin: 0; }
+.qb-demo[data-demo="${NAME}"] .co-img canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; image-rendering: pixelated; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
+.qb-demo[data-demo="${NAME}"] .co-sc { flex: 0 1 360px; min-width: 240px; }
+.qb-demo[data-demo="${NAME}"] .co-sc svg { touch-action: none; cursor: crosshair; }
+.qb-demo[data-demo="${NAME}"] .co-side { flex: 1 1 220px; min-width: 200px; max-width: 300px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 250px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .co-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; gap: .5em; flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 18px; line-height: 1.25; padding: .3em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .co-img { flex: 0 0 255px; min-width: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .co-sc { flex: 0 0 300px; min-width: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .co-side { flex: 0 0 255px; min-width: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .co-side .qb-figure { display: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 18px; padding: .05em .35em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; gap: .12em; min-width: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-presets { gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .co-lab { font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-slider { gap: .3em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
 `;
 
@@ -43,8 +52,8 @@ function injectStyle(): void {
   document.head.appendChild(s);
 }
 
-interface State extends Required<Omit<ChannelOptions, "seed">> { roi: "all" | "cells"; thr: "costes" | "zero" }
-const DEFAULT: State = { f: 0.5, layout: "mix", offset: 10, noise: 4, diffuse: 0, bleed: 0, shift: 0, roi: "cells", thr: "costes" };
+interface State extends Required<Pick<ChannelOptions, "f" | "offset" | "noise" | "diffuse" | "bleed" | "shift">> { layout: "mix" | "inside"; roi: "all" | "cells"; thr: "costes" | "zero"; own: boolean }
+const DEFAULT: State = { f: 0.5, layout: "mix", offset: 10, noise: 4, diffuse: 0, bleed: 0, shift: 0, roi: "cells", thr: "costes", own: true };
 
 const PRESETS: { id: string; label: string; s: Partial<State> }[] = [
   { id: "perfect", label: "perfect colocalisation", s: { f: 1 } },
@@ -87,17 +96,24 @@ function mount(host: HTMLElement): void {
   const dS = slider(panel, "diffuse", 0, 60, 2, st.diffuse, v => { st.diffuse = v; unp(); rebuild(false); });
   const bS = slider(panel, "bleed A→B", 0, 0.8, 0.05, st.bleed, v => { st.bleed = v; unp(); rebuild(false); });
   const sS = slider(panel, "shift B (px)", 0, 6, 1, st.shift, v => { st.shift = v; unp(); rebuild(false); });
-  htmlEl("div", "co-lab", "structures · region", panel);
-  const layB = presets(panel, [
+  // on slides the toggles go under the readout, so the panel fits the slide height
+  const ctl = onSlide ? side : panel;
+  htmlEl("div", "co-lab", "structures · region", ctl);
+  const layB = presets(ctl, [
     { label: "mixture", apply: () => { st.layout = "mix"; unp(); rebuild(false); } },
     { label: "A inside B", apply: () => { st.layout = "inside"; unp(); rebuild(false); } },
   ]);
-  const roiB = presets(panel, [
+  const roiB = presets(ctl, [
     { label: "inside cells", apply: () => { st.roi = "cells"; unp(); rand = null; update(); } },
     { label: "whole image", apply: () => { st.roi = "all"; unp(); rand = null; update(); } },
   ]);
-  htmlEl("div", "co-lab", "thresholds (or drag the lines)", panel);
-  const row = htmlEl("div", "qb-presets", "", panel);
+  htmlEl("div", "co-lab", onSlide ? "Manders denominator" : "Manders: own threshold in the denominator?", ctl);
+  const ownB = presets(ctl, [
+    { label: "with (A > tA)", apply: () => { st.own = true; update(); } },
+    { label: "without", apply: () => { st.own = false; update(); } },
+  ]);
+  htmlEl("div", "co-lab", "thresholds (or drag the lines)", ctl);
+  const row = htmlEl("div", "qb-presets", "", ctl);
   button(row, "Costes", () => runCostes(true));
   button(row, "zero", () => { tA = 0; tB = 0; costesMsg = ""; update(); });
   button(row, "randomise B ×50", () => randomise());
@@ -108,6 +124,7 @@ function mount(host: HTMLElement): void {
     fS.set(st.f); offS.set(st.offset); nS.set(st.noise); dS.set(st.diffuse); bS.set(st.bleed); sS.set(st.shift);
     layB.forEach((b, i) => b.classList.toggle("active", ["mix", "inside"][i] === st.layout));
     roiB.forEach((b, i) => b.classList.toggle("active", ["cells", "all"][i] === st.roi));
+    ownB.forEach((b, i) => b.classList.toggle("active", [true, false][i] === st.own));
   }
   const roi = () => (st.roi === "cells" ? ch.cells : undefined);
 
@@ -148,10 +165,7 @@ function mount(host: HTMLElement): void {
     const id = ctx.createImageData(S, S);
     let ma = 1, mb = 1;
     for (let i = 0; i < S * S; i++) { ma = Math.max(ma, ch.a[i]); mb = Math.max(mb, ch.b[i]); }
-    for (let i = 0; i < S * S; i++) {
-      const g = Math.min(255, 255 * ch.a[i] / (0.8 * ma)), m = Math.min(255, 255 * ch.b[i] / (0.8 * mb));
-      id.data[4 * i] = m; id.data[4 * i + 1] = g; id.data[4 * i + 2] = m; id.data[4 * i + 3] = 255;
-    }
+    mergeGreenMagenta(ch.a, ch.b, [0, 0.8 * ma], [0, 0.8 * mb], id.data);
     const tmp = document.createElement("canvas");
     tmp.width = S; tmp.height = S;
     tmp.getContext("2d")!.putImageData(id, 0, 0);
@@ -179,13 +193,13 @@ function mount(host: HTMLElement): void {
     pl.clear();
     pl.setDomain([0, hiA], [0, hiB]);
     pl.heatmap(logc, BINS, BINS, { map: inferno, lo: -0.3, hi: Math.max(1, ...logc.filter(Number.isFinite)), flipY: false, maxCells: 100 });
-    const cs = colocStats(ch, m, tA, tB);
+    const cs = colocStats(ch, m, tA, tB, st.own);
     pl.fn(x => cs.slope * x + cs.intercept, { color: "#7fd3ff", width: 2.5, dash: "7 5" });
     pl.vline(tA, { color: "#2ca02c", width: 3 });
     pl.hline(tB, { color: "#d62728", width: 3 });
     const r = cs.r;
     const f = (v: number, d = 3) => (Number.isFinite(v) ? v.toFixed(d) : "–");
-    let txt = `Pearson r          ${f(r)}\nr above both t     ${f(cs.rAbove)}\noverlap coeff.     ${f(cs.overlap)}\nManders M1 (A)     ${f(cs.m1)}\nManders M2 (B)     ${f(cs.m2)}\n\ntA = ${tA.toFixed(1)}   tB = ${tB.toFixed(1)}\nslope of B on A    ${f(cs.slope, 2)}`;
+    let txt = `Pearson r        ${f(r)}\nSpearman         ${f(cs.rho)}\nr above both t   ${f(cs.rAbove)}\noverlap coeff.   ${f(cs.overlap)}\nManders M1 (A)   ${f(cs.m1)}\nManders M2 (B)   ${f(cs.m2)}${st.own ? "" : "  (no own t)"}\ntA = ${tA.toFixed(1)}  tB = ${tB.toFixed(1)}\nslope B on A     ${f(cs.slope, 2)}`;
     if (rand) {
       const exceed = rand.filter(v => v >= r).length;
       txt += `\nscrambled B: r from ${Math.min(...rand).toFixed(2)} to ${Math.max(...rand).toFixed(2)}\n${exceed} of 50 ≥ observed r`;

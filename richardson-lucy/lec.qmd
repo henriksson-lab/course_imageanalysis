@@ -41,16 +41,25 @@ Third unit of the deconvolution day. Recalls: the Poisson (shot) noise model and
 - Wiener and Tikhonov produce **negative** intensities next to bright objects (the last two units: up to 15 % of the pixels) and treat noise as equally large everywhere.
 - We want a restoration that **keeps every pixel ≥ 0**, **keeps the total number of photons**, and **weights the data as Poisson counts**.
 
+![Cell phantom, Gaussian PSF σ = 2 px, 100 photons at value 1. Wiener at SNR 100 (sharper than its best, SNR 18) turns 4.8 % of the pixels negative (red); Richardson–Lucy after 5 iterations has none.](fig-photons.png){width="80%"}
+
 ## Richardson–Lucy in words
 
 Start from a **flat** guess (every pixel = the mean of the data). Then repeat:
 
+:::: {.columns}
+::: {.column width="50%"}
 1. **Blur** the guess with the PSF: what the microscope would show if the guess were true.
 2. **Compare** with the data, pixel by pixel, as a **ratio** data / blurred guess. Where the guess is too dim the ratio is above 1, where it is too bright below 1.
 3. **Spread the ratio back** with the PSF (mirrored): each object pixel collects the ratios of the image pixels it contributes to.
 4. **Multiply** the guess by it.
 
 Every factor is positive, so the guess **stays non-negative**; and (with a PSF that sums to 1) the **total stays equal** to the total of the data.
+:::
+::: {.column width="50%"}
+![One RL step on two close peaks: the ratio is above 1 where the guess is too dim, below 1 where it is too bright; the new guess is sharper.](fig-rl-loop.svg){width="92%"}
+:::
+::::
 
 ## One step by hand
 
@@ -95,11 +104,18 @@ Beads (a 1 : 4 pair, 6 px apart) next to an edge, Gaussian PSF σ = 2 px, Poisso
 
 Recall from the last unit: an iteration from a flat image fills in **strong (low) frequencies first** and **weak (high, noisy) ones last**. RL does the same.
 
+:::: {.columns}
+::: {.column width="56%"}
 - **Semi-convergence**: the error against the truth falls, then rises; the data fit keeps improving.
 - **Fewer photons → stop earlier**. In the demo (beads): best $k$ = 40 at 1000 photons, 8 at 100, 3 at 20.
 - The misfit (Poisson deviance per pixel) reaches about 1 when the blurred estimate explains the data to the noise level: a discrepancy rule for RL.
 - Alternatives to stopping: add a penalty (e.g. total variation; one line here, the Ising/MRF elective owns TV).
 - Tomography's MLEM (Radon elective) is the same algorithm with the projector instead of the PSF.
+:::
+::: {.column width="44%"}
+![Error against the truth for the beads of the demo at three photon levels: each curve has a minimum (dot), earlier with fewer photons.](fig-semiconv.svg){width="100%"}
+:::
+::::
 
 ## The math: why stopping early regularises here too {.math}
 
@@ -111,18 +127,32 @@ Near a flat image this is a Landweber step with $\omega \approx 1$ (in units of 
 
 ## Offset and background
 
+:::: {.columns}
+::: {.column width="62%"}
 - RL needs **counts**: subtract the camera **offset** first (camera noise unit) but keep the photon scale; a negative pixel breaks the Poisson model.
 - Most images also have a **background**: out-of-focus haze, autofluorescence, a few photons per pixel everywhere.
 - Put it in the model, $\mathbf y \approx A\mathbf x + b$. If $b$ is left out, RL must explain the background by the object, and it **sharpens the background into speckles** (the estimate is a sum of bright points).
 - In the demo (cell phantom, 100 photons at 1, background 30 photons): forgetting $b$ gives at least 27.5 % error at every $k$; with $b$ in the model 3.18 % at $k$ = 10.
+:::
+::: {.column width="38%"}
+![RL on the cell phantom with 30 background photons per pixel. Top: background left out, the haze turns into speckles. Bottom: background in the model.](fig-background.png){width="46%"}
+:::
+::::
 
 ## 3D: widefield stacks
 
 Widefield 3D stacks are where deconvolution is most used. Recall (image formation day): the 3D PSF of a widefield microscope is **elongated in z**: an hourglass of out-of-focus light above and below each point, and its OTF has a **missing cone** around the $k_z$ axis.
 
+:::: {.columns}
+::: {.column width="56%"}
 - **3D RL** with the 3D PSF puts out-of-focus light back where it came from: contrast and axial resolution improve a lot. A bead's axial FWHM in the demo: 1.48 µm blurred, 0.53 µm after 100 iterations.
 - But the missing cone is **not filled**: a thin **horizontal sheet** (all its frequencies along $k_z$) stays smeared in z: 200 nm thick, 4.7 µm blurred, still 1.3 µm after 100 iterations.
 - Vertical structures are restored better than horizontal ones.
+:::
+::: {.column width="44%"}
+![The demo's stack in xz (widefield, NA 0.8): beads, a vertical filament, a horizontal sheet, a hollow sphere; and its OTF, missing cone dashed.](fig-3d-xz.png){width="80%"}
+:::
+::::
 
 ## The math: the missing cone {.math}
 
@@ -147,11 +177,18 @@ The amplitude PSF of a lens is the inverse Fourier transform of the **pupil**: a
 
 ## Confocal, and depth
 
+:::: {.columns}
+::: {.column width="55%"}
 - **Confocal**: the pinhole already rejects most out-of-focus light, and its OTF has **no missing cone**. Deconvolution gains less in contrast, but it works more reliably, and sheets are restored too.
 - **Depth**: the 3D PSF must match the depth. Imaging into water with an oil lens (refractive index mismatch) makes the PSF **asymmetric** in z and **change with depth**. A PSF measured at the coverslip is wrong 30 µm deeper.
 - Sampling: the z-step must resolve the PSF axially (Nyquist, image formation day); otherwise deconvolution has nothing to work with.
+:::
+::: {.column width="45%"}
+![OTF magnitude in the (kx, kz) plane (log scale) for the demo's PSFs; dashed: the edges of the missing cone.](fig-otf-cone.png){width="64%"}
+:::
+::::
 
-## The PSF you use
+## The PSF you use {.smaller}
 
 | PSF used | result | looks |
 |---|---|---|
@@ -159,19 +196,35 @@ The amplitude PSF of a lens is the inverse Fourier transform of the **pupil**: a
 | right | best | |
 | **too wide** | over-sharpening, **dark rims (halos)** around bright objects, ringing, objects **smaller** than they are | crisp, wrong |
 
+:::: {.columns}
+::: {.column width="55%"}
+
 - **Measured** PSF (beads, image formation day): includes the real aberrations, but noisy and from one depth.
 - **Computed** PSF: clean but ideal.
 - Common compromise: fit a model PSF to measured beads.
 - In the demo (beads, 1000 photons, $k$ = 100): the single bead's FWHM is 3.25 px with a PSF 30 % too narrow, 2.63 px with the right one, 2.57 px with one 30 % too wide (truth 1.45 px); the too-wide PSF digs a rim down to 0.013 around it (background 0.05).
+:::
+::: {.column width="45%"}
+![A row through the single bead after 100 RL iterations with a PSF 0.7, 1 and 1.3 times the true width.](fig-psf-mismatch.svg){width="100%"}
+:::
+::::
 
-## Blind deconvolution
+## Blind deconvolution {.smaller}
 
 Estimate **object and PSF together**: alternate an RL step on the object (PSF fixed) with an RL step on the PSF (object fixed).
 
 - Very **under-determined**: the trivial answer "PSF = a point, object = the blurred image" explains the data perfectly.
 - So it needs **constraints**: PSF non-negative, sum 1, limited size, smooth, or a parametric shape (e.g. Gaussian with unknown width).
-- In the demo (start 50 % too wide, FWHM 7.1 px; true 4.8 px): unconstrained, the PSF width passes the true value near 100 iterations and keeps shrinking (3.3 px at 300). A size limit does not stop this; a Gaussian shape slows it (6.0 px at 300).
 - Use it when no PSF can be measured (motion, unknown aberration); otherwise prefer a measured or computed PSF.
+
+:::: {.columns}
+::: {.column width="50%"}
+- In the demo (start 50 % too wide, FWHM 7.1 px; true 4.8 px): unconstrained, the PSF width passes the true value near 100 iterations and keeps shrinking (3.3 px at 300). A size limit does not stop this; a Gaussian shape slows it (6.0 px at 300).
+:::
+::: {.column width="50%"}
+![Width of the blind PSF estimate against the iterations (beads, 1000 photons): without a shape constraint it drifts through the true width towards a point.](fig-blind.svg){width="100%"}
+:::
+::::
 
 ## Try it: the PSF you use
 

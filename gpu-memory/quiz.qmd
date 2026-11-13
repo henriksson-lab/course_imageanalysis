@@ -1,0 +1,101 @@
+---
+title: "Quiz: memory, coalescing and the roofline"
+---
+
+Short questions to test your understanding. Try each on paper first, then open the answer. Numbers are for the generic desktop GPU of the lecture: $3\cdot10^{13}$ operations/s, 1 TB/s memory, 25 GB/s link to the CPU.
+
+---
+
+**Q1.** Why does adding two images use less than 1 % of a GPU's arithmetic?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Count bytes per addition.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+Each addition needs 12 bytes moved (two float32 reads, one write). At 1 TB/s that is $8.3\cdot10^{10}$ additions per second, 0.28 % of the $3\cdot10^{13}$ the lanes could do. The lanes spend their time waiting for memory.
+:::
+
+---
+
+**Q2.** A warp of 32 threads reads 32 floats. Why does it matter whether they read a row or a column of the image?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Memory is delivered in lines of 128 bytes.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+A row is 32 consecutive floats: one 128-byte line serves the whole warp (coalesced). A column of a row-major image has its floats $4W$ bytes apart: 32 separate lines (or sectors), of which only 4 bytes each are used, 12.5 % efficiency. The same work moves 8 times more bytes.
+:::
+
+---
+
+**Q3.** A colour image is stored interleaved (RGBRGB…). A kernel processes only the red channel. Why is it slower than with planar storage?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Which bytes come along with each red value?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+With interleaved storage, the 32 red values of a warp are spread over 384 bytes (3 lines), and the green and blue bytes in between are moved too: a third of the traffic is useful. Planar storage puts the 32 red values in one line: 100 %.
+:::
+
+---
+
+**Q4.** What is the "halo" of a tile, and why does it grow in importance for large kernels?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Compare $(T + k - 1)^2$ with $T^2$.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+To compute a $T\times T$ tile of outputs with a $k\times k$ kernel, the block needs the inputs in a border of $(k-1)/2$ pixels around the tile: the halo. Loaded pixels per output are $(T+k-1)^2/T^2$: about 1.27 for $T = 16$, $k = 3$, but 22.6 for $T = 8$, $k = 31$. For large kernels the tiles must be large, or the filter separable.
+:::
+
+---
+
+**Q5.** On the roofline, a point lies left of the ridge. Name two ways to make it faster and one change that will not help.
+
+::: {.callout-tip collapse="true" title="Hint"}
+Left of the ridge the bytes are the limit.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+It is memory-bound. Faster: move fewer bytes, for example fuse it with the steps before and after (one pass instead of several), use float16 (half the bytes), or reuse inputs through tiles. Doing less arithmetic (a cleverer formula with fewer multiplications) will not help: arithmetic is not the limit.
+:::
+
+---
+
+**Q6.** Why are matrix products, and so neural networks, among the few image workloads that are compute-bound?
+
+::: {.callout-tip collapse="true" title="Hint"}
+How does the work grow with $N$, and the data?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+An $N\times N$ matrix product does $2N^3$ operations on $3N^2$ numbers: intensity $N/6$ operations per byte, which exceeds the ridge (30) from $N \approx 180$. Each number is reused $N$ times. A convolutional layer with many channels is such a matrix product, so it can use the full arithmetic rate.
+:::
+
+---
+
+**Q7.** A program uploads an image, applies one threshold on the GPU, and downloads the result. Why is this usually slower than thresholding on the CPU?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Compare the link with the GPU's own memory.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+The link to the GPU (about 25 GB/s) is slower than the CPU reading its own memory, and the image crosses it twice. The threshold itself takes a fraction of the transfer time. A GPU pays off when the data stays there for many steps, or the work per pixel is large.
+:::
+
+---
+
+**Q8.** *(math)* For a device with peak $\pi$ and bandwidth $\beta$, at which kernel size $k$ does a tiled $k\times k$ filter (intensity $k^2/4$) become compute-bound?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Set $k^2/4$ equal to the ridge.
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+$k^2/4 = \pi/\beta \Rightarrow k = 2\sqrt{\pi/\beta}$. Desktop preset ($\pi/\beta = 30$): $k = 2\sqrt{30} = 10.95$, so from $k = 11$. A device with more arithmetic per byte moves the point to larger kernels.
+:::

@@ -35,19 +35,39 @@ Recalls from the neural networks day: convolution layers, receptive field (recep
 
 ## Recall: what a convolution sees
 
+:::: {.columns}
+::: {.column width="64%"}
 - A $3 \times 3$ kernel combines a pixel with its 8 neighbours. A stack of $L$ such layers sees $(2L + 1) \times (2L + 1)$ pixels (the receptive field, the neural networks day): 3 layers see $7 \times 7$.
 - Seeing a structure 200 pixels long takes about 100 layers, or pooling that throws away resolution.
 - The kernel weights are the **same at every position** and do **not depend on the content**: a filament pixel and a background pixel are combined with their neighbours in the same way.
+:::
+::: {.column width="36%"}
+![](fig-receptive.svg){fig-alt="A pixel grid with one black output pixel and the input pixels it depends on: 3 × 3 after one 3 × 3 convolution layer, 5 × 5 after two, 7 × 7 after three." width="100%"}
+:::
+::::
 
 ## Patches as tokens
 
+:::: {.columns}
+::: {.column width="50%"}
 - Cut the image into patches, e.g. $16 \times 16$ pixels; a $512 \times 512$ image gives $32 \times 32 = 1024$ patches.
 - Flatten each patch into a vector, map it linearly to an **embedding** (a vector of, say, 384 numbers).
 - Add a **position code**: otherwise the network cannot tell where a patch came from.
 - The image is now a **set of $N$ vectors** ("tokens"). Everything that follows works on such a set.
+:::
+::: {.column width="50%"}
+![](fig-patches.png){fig-alt="A 256 × 256 micrograph cut into 8 × 8 = 64 patches of 32 × 32 pixels. Four patches (orange) are shown with their embedding vectors (colour bars) and position codes (0,0), (0,1), (3,4), (7,7)." width="100%"}
+:::
+::::
+
+::: notes
+The micrograph: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.
+:::
 
 ## Self-attention: a learned weighted average
 
+:::: {.columns}
+::: {.column width="57%"}
 Each patch $i$ has three vectors computed from its embedding: a **query** ("what am I looking for?"), a **key** ("what do I offer?") and a **value** ("my content").
 
 - Weight of patch $j$ for patch $i$: how well $i$'s query matches $j$'s key (a dot product), turned into positive weights that sum to 1 (softmax).
@@ -58,6 +78,11 @@ By hand, three tokens: query $(1, 0)$; keys $(1, 0), (0, 1), (1, 1)$; values $10
 - Scores (dot products): $1, 0, 1$. Weights: $e^1, e^0, e^1$ normalised: $0.42, 0.16, 0.42$.
 - Output: $0.42 \cdot 10 + 0.16 \cdot 0 + 0.42 \cdot 4 = 5.9$.
 - With temperature $\tfrac12$ (scores doubled): weights $0.47, 0.06, 0.47$, output 6.6: sharper.
+:::
+::: {.column width="43%"}
+![](fig-byhand.svg){fig-alt="The three-token example as bar charts of the attention weights: at temperature 1 the keys (1,0), (0,1), (1,1) with values 10, 0, 4 get weights 0.42, 0.16, 0.42 and the output is 5.9; at temperature 0.5 the weights are 0.47, 0.06, 0.47 and the output is 6.6." width="100%"}
+:::
+::::
 
 ## The math: scaled dot-product attention {.math .smaller}
 
@@ -73,6 +98,8 @@ softmax along each row: $a_{ij} = e^{s_{ij}}/\sum_l e^{s_{il}}$, $s_{ij} = \math
 
 ## Convolution and attention side by side
 
+:::: {.columns}
+::: {.column width="58%"}
 | | Convolution | Attention |
 |---|---|---|
 | weights depend on | **relative position** only | the **content** (query–key match) |
@@ -82,6 +109,11 @@ softmax along each row: $a_{ij} = e^{s_{ij}}/\sum_l e^{s_{il}}$, $s_{ij} = \math
 
 - Attention whose scores depend only on the **relative position** $j - i$ is a convolution (math slide).
 - Attention with **fixed** queries and keys = the patch itself, similarity by distance, is **non-local means** (the deconvolution day's denoiser): average the patches that look like mine, wherever they are.
+:::
+::: {.column width="42%"}
+![](fig-attnstill.png){fig-alt="The attention demo with content-only weights: the query patch (white square) on a diagonal filament puts its weight (orange) on the other filament patches anywhere in the image, far outside the 3 × 3 footprint of a convolution (blue dashed). Right: the image after one attention layer." width="100%"}
+:::
+::::
 
 ## The math: equivariance, convolution, non-local means {.math .smaller}
 
@@ -104,18 +136,32 @@ softmax along each row: $a_{ij} = e^{s_{ij}}/\sum_l e^{s_{il}}$, $s_{ij} = \math
 
 ## Transformers
 
+:::: {.columns}
+::: {.column width="70%"}
 - A **transformer block** = attention + a small network applied to every token separately, each wrapped in a residual connection (the neural networks day), with normalisation. Blocks are stacked (12, 24, …).
 - Several attention **heads** in parallel: several different weightings (one may look at nearby patches, another at similar texture).
 - **Gains**: every layer is global: a pixel can relate to the whole image in one step; the weighting adapts to the content.
 - **Pays**: $N^2$ weights per layer and head ($64 \times 64$ patches of a $1024^2$ image: 16.8 million); no built-in locality or translation equivariance, so these must be **learned from data**: transformers need much more data or pretraining. Hybrids (convolutions early, attention late) are common.
+:::
+::: {.column width="30%"}
+![](fig-block.svg){fig-alt="A transformer block: N tokens, normalise, attention with several heads, add the skip connection; normalise, a small network applied to each token, add the skip connection; N tokens out. Blocks are stacked 12, 24 or more times." width="100%"}
+:::
+::::
 
 ## Transfer learning
 
+:::: {.columns}
+::: {.column width="44%"}
 Early layers of any image network learn edges, blobs and textures (the neural networks day). Reuse a network trained on a **large** dataset:
 
 - **Frozen features**: run the pretrained network, take its internal vectors (**embeddings**) as features, and train only a small classifier on top (a *linear probe*: logistic regression). Few labels, fast, cannot overfit much.
 - **Fine-tuning**: continue training all or the last layers on your data. Better with enough labels; with few it overfits and can forget what it knew.
 - The random-forest day's loop (paint, train, look) works unchanged on frozen embeddings: the features are learned instead of the filter stack.
+:::
+::: {.column width="56%"}
+![](fig-transfer.svg){fig-alt="Two ways to reuse a pretrained network. Frozen features: image, pretrained network (not trained), embedding, a linear probe, nucleus or not. Fine-tuning: the same chain, but the network is trained further together with a new head." width="100%"}
+:::
+::::
 
 ## Self-supervised pretraining
 
@@ -125,6 +171,12 @@ Learn features **without labels**, from a task the images themselves define:
 - **Masked autoencoding**: hide 75 % of the patches, predict them from the rest. To fill them in, the network must learn what cells look like.
 
 A **foundation model**: a very large network pretrained like this on millions of images, used through frozen features or light fine-tuning.
+
+![](fig-selfsup.png){fig-alt="Self-supervised tasks on crops of the micrograph. Contrastive: view 1 (rotated, blurred) and view 2 (brighter, noisy) of the same crop should get close embeddings; another crop should get a distant one. Masked autoencoding: 75 % of the 16 × 16 patches hidden (orange); the network predicts them from the rest." width="80%" fig-align="center"}
+
+::: notes
+The micrograph: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.
+:::
 
 ## The math: contrastive loss and linear probe {.math .smaller}
 
@@ -140,10 +192,17 @@ a softmax **classification** of "which of the $B$ views is my partner", with cro
 
 ## Promptable segmentation
 
+:::: {.columns}
+::: {.column width="55%"}
 Input: the image **plus a prompt** (a click, a box); output: a mask for "the thing at the click". In miniature: compare every pixel's embedding with the clicked pixel's, threshold the similarity, keep the connected piece containing the click.
 
 - Trained mostly on photographs: it may not know what a cell boundary is in a phase-contrast image.
 - A click gives **a** mask, not a definition of an object that is consistent over 1000 images; for measurements you still need a rule, checked against annotations.
+:::
+::: {.column width="45%"}
+![](fig-prompt.png){fig-alt="The probe demo in click-prompt mode on the synthetic image (nuclei of any brightness, debris, fibres): a click on one bright nucleus (red circle) and the resulting mask (yellow outline) from thresholding the embedding similarity at 0.5 and keeping the connected piece: it covers that nucleus (Dice 0.91)." width="100%"}
+:::
+::::
 
 ## Try it: frozen features and a probe
 
@@ -159,12 +218,19 @@ Synthetic image: nuclei of any brightness among bright debris, fibres and large 
 
 ## Calibration: can you trust 0.95?
 
+:::: {.columns}
+::: {.column width="46%"}
 A network outputs a probability. It is **calibrated** if, among all predictions made with confidence 0.95, 95 % are correct.
 
 - **Reliability diagram**: bin the predictions by confidence, plot the accuracy in each bin against the confidence. Calibrated = on the diagonal.
 - Modern networks are often **overconfident**: they say 0.99 and are right 90 % of the time; more so on data from a new microscope.
 - **Temperature scaling**: divide the network's scores (logits) by one number $T > 1$, fitted on validation data. It fixes the in-domain calibration and never changes which class is predicted. It does **not** fix domain shift.
 - Disagreement between several networks (an ensemble), or between augmented copies of the input, flags doubtful regions.
+:::
+::: {.column width="54%"}
+![](fig-reliability.svg){fig-alt="Three reliability diagrams of the simulated classifier (bars: accuracy per confidence bin; red dots: mean confidence; dashed: the diagonal). Overconfident: accuracy 89.0 %, mean confidence 96.1 %, ECE 7.0 %. With fitted temperature T = 2.86: on the diagonal, ECE 0.4 %, accuracy unchanged. Same T on a shifted domain: accuracy 73.0 %, confidence 83.5 %, ECE 10.5 %." width="100%"}
+:::
+::::
 
 ## The math: ECE and temperature {.math}
 

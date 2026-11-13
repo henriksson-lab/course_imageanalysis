@@ -1,0 +1,172 @@
+---
+title: "Exercise: crowded spots and evaluation"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- predict when two spots give one or two maxima, before and after filtering,
+- decide with a penalty whether a two-spot fit is justified,
+- match detections to ground truth within a gate, greedily and optimally, and compute TP, FP, FN, precision, recall, F1, Jaccard and RMSE,
+- build a precision–recall curve from ranked detections and choose a threshold,
+- predict how the gate radius changes F1 and RMSE,
+- *(math)* derive the merging rule, write matching as an assignment problem, and compute the Rayleigh statistics of 2D errors.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Merging | two equal Gaussians of width σ: two maxima only if $d > 2\sigma$; after a Gaussian filter $\sigma_f$: width $\sqrt{\sigma^2 + \sigma_f^2}$ ($2\sqrt2\sigma$ for the matched filter) |
+| One spot or two | keep two if $\mathrm{RSS}_1 - \mathrm{RSS}_2 > 3c\,\sigma_n^2$; $c = 2$ (AIC-like) or $\ln(\#\text{pixels})$ (BIC-like) |
+| Matching | one-to-one within a gate radius $r_g$; greedy = closest pair first; optimal = most matches, then smallest total distance |
+| Scores | precision TP/(TP+FP), recall TP/(TP+FN), F1 = 2TP/(2TP+FP+FN), Jaccard TP/(TP+FP+FN) |
+| Localisation | RMSE of matched distances; mean offset = average (detection − truth) |
+| PR curve | detections ranked by score; after each, precision and recall; AP = area under the curve with precision made non-increasing from the right |
+| 2D errors of sd σ_loc per axis | distance $r$ is Rayleigh: mean $1.25\,\sigma_\text{loc}$, RMS $\sqrt2\,\sigma_\text{loc}$, $P(r \le r_g) = 1 - e^{-r_g^2/2\sigma_\text{loc}^2}$ |
+
+## By hand
+
+**B1.** Two equal spots of σ = 1.5 px, 4 px apart.
+(a) Do they give two maxima in the raw (noise-free) image?
+(b) After a matched filter?
+(c) Which filter width $\sigma_f$ would still keep them apart? Is that a good filter for noise?
+
+**B2.** **Matching.** True spots $T_1 = (0, 0)$, $T_2 = (3, 0)$, $T_3 = (6, 0)$; detections $D_1 = (1.4, 0)$, $D_2 = (4.4, 0)$, $D_3 = (-1.2, 0)$; gate 1.8.
+(a) List all pairs within the gate with their distances.
+(b) Match greedily (closest pair first). Give TP, FP, FN, F1, Jaccard and RMSE.
+(c) Match optimally. Give the same numbers.
+(d) Which result describes the detector better?
+
+**B3.** **PR curve.** Six detections, ranked by score, were matched to 5 true spots: TP, TP, FP, TP, FP, TP (from the highest score down).
+(a) Compute precision and recall after each detection.
+(b) Compute F1 after each detection. Where would you put the threshold?
+(c) Compute AP (make precision non-increasing from the right, then sum precision × recall step).
+
+**B4.** **Predict: the gate.** A detector finds every spot of an isolated-spot image, with localisation errors of sd 1 px per axis, and makes no other detections. The gate grows from 1 to 2, 3 and 5 px.
+(a) What fraction of the spots is matched at each gate (and what happens to F1)?
+(b) What happens to the RMSE of the matched pairs? What is the true RMS error?
+(c) What would change in a dense image?
+
+**B5.** **One spot or two?** A 31 × 19 patch (589 pixels), noise sd 6. The one-spot fit has RSS₁ = 5 200, the two-spot fit RSS₂ = 4 950.
+(a) Keep two spots with $c = 2$?
+(b) And with the BIC-like $c = \ln 589$?
+(c) What would you check before trusting either verdict?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Yes: $d = 4 > 2\sigma = 3$. (b) No: the width becomes $\sqrt{1.5^2 + 1.5^2} = 2.12$ and $2 \times 2.12 = 4.24 > 4$. (c) Need $2\sqrt{1.5^2 + \sigma_f^2} < 4$, so $\sigma_f < \sqrt{4 - 2.25} = 1.32$. A filter slightly narrower than the spot lets through a bit more noise but keeps such pairs apart; the matched filter is not sacred.
+
+**B2.** (a) $D_3$–$T_1$ 1.2, $D_1$–$T_1$ 1.4, $D_2$–$T_2$ 1.4, $D_1$–$T_2$ 1.6, $D_2$–$T_3$ 1.6. (b) Greedy: $D_3$–$T_1$ (1.2), then $D_1$–$T_1$ is blocked, $D_2$–$T_2$ (1.4), then $D_1$–$T_2$ and $D_2$–$T_3$ are blocked. TP 2, FP 1 ($D_1$), FN 1 ($T_3$); F1 = 4/6 = 0.67; Jaccard 2/4 = 0.50; RMSE $\sqrt{(1.2^2 + 1.4^2)/2} = 1.30$. (c) Optimal: $D_3$–$T_1$ (1.2), $D_1$–$T_2$ (1.6), $D_2$–$T_3$ (1.6): TP 3, FP 0, FN 0; F1 = Jaccard = 1; RMSE $\sqrt{(1.44 + 2.56 + 2.56)/3} = 1.48$. (d) The optimal matching: every spot has a detection within the gate. The greedy result blames the detector for an artefact of the matching (and its smaller RMSE is not a better localisation, just fewer pairs).
+
+**B3.** (a) and (b):
+
+| after | TP | precision | recall | F1 |
+|---|---|---|---|---|
+| 1 | 1 | 1.00 | 0.2 | 0.33 |
+| 2 | 2 | 1.00 | 0.4 | 0.57 |
+| 3 | 2 | 0.67 | 0.4 | 0.50 |
+| 4 | 3 | 0.75 | 0.6 | 0.67 |
+| 5 | 3 | 0.60 | 0.6 | 0.60 |
+| 6 | 4 | 0.67 | 0.8 | 0.73 |
+
+The best F1 (0.73) keeps all six detections: threshold below the sixth score. (c) Non-increasing precision from the right: 1, 1, 0.75, 0.75, 0.67, 0.67. Recall steps of 0.2 at detections 1, 2, 4, 6: AP = 0.2 · (1 + 1 + 0.75 + 0.67) = 0.68.
+
+**B4.** (a) $1 - e^{-r_g^2/2}$: 39 % at 1 px, 86 % at 2 px, 99 % at 3 px, 100 % at 5 px. Unmatched spots count as an FN **and** an FP, so F1 rises from 0.39 to 0.86, 0.99 and 1. (b) The RMSE of the matched pairs rises: 0.68 px (gate 1), 1.17 (gate 2), 1.38 (gate 3), 1.41 (gate 5). The true RMS error is $\sqrt2 = 1.41$ px; small gates hide the large errors. (c) In a dense image a large gate starts matching detections to the wrong (neighbouring) spot: F1 stays high while the RMSE grows past the true value. Choose the gate in the flat part of F1 against the gate, about 2–3 σ_loc.
+
+**B5.** (a) Gain 250 > penalty $3 \times 2 \times 36 = 216$: keep two (narrowly). (b) $c = \ln 589 = 6.38$: penalty 689 > 250: keep one. (c) The residual images (a structured residual with one spot, flat with two), whether the two fitted spots are plausible (distance, both amplitudes positive and not tiny, positions inside the patch), and the noise level (is σ_n really 6 here?). The penalty is a choice; calibrate it on simulations of single spots.
+:::
+
+### Math questions
+
+**B6.** *(math)* (a) For $f(x) = g(x - d/2) + g(x + d/2)$ with $g(x) = e^{-x^2/2\sigma^2}$, compute $f''(0)$ and show that the centre is a maximum iff $d < 2\sigma$. (b) Show that a Gaussian of width σ convolved with a Gaussian of width $\sigma_f$ is a Gaussian of width $\sqrt{\sigma^2 + \sigma_f^2}$, and conclude the merging distance after the matched filter.
+
+**B7.** *(math)* Write the matching of B2 as an assignment problem: give the 3 × 3 weight matrix $w_{ij} = 1 + \varepsilon(r_g - D_{ij})/r_g$ for pairs within the gate (0 otherwise) with $\varepsilon = 1/4$, and check that the optimal matching maximises $\sum w_{ij}x_{ij}$. Why must $\varepsilon$ be smaller than $1/n$?
+
+**B8.** *(math)* For 2D errors $(e_x, e_y)$, independent $\mathcal N(0, \sigma^2)$, show that $r = \sqrt{e_x^2 + e_y^2}$ has density $\frac{r}{\sigma^2}e^{-r^2/2\sigma^2}$, mean $\sigma\sqrt{\pi/2}$ and $P(r \le r_g) = 1 - e^{-r_g^2/2\sigma^2}$. Explain why the RMSE of the matched pairs underestimates the true RMS error.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** (a) $g''(x) = (x^2/\sigma^4 - 1/\sigma^2)g(x)$, so $f''(0) = 2g''(d/2) = \frac{2}{\sigma^2}\big(\frac{d^2}{4\sigma^2} - 1\big)e^{-d^2/8\sigma^2}$, negative iff $d < 2\sigma$. (b) In Fourier space a Gaussian of width σ has transform $e^{-\sigma^2\omega^2/2}$; the product $e^{-(\sigma^2 + \sigma_f^2)\omega^2/2}$ is the transform of a Gaussian of width $\sqrt{\sigma^2 + \sigma_f^2}$ (equivalently: variances of independent random variables add). After the matched filter the spots have width $\sqrt2\sigma$, so they merge for $d < 2\sqrt2\sigma$.
+
+**B7.** Rows $T_1, T_2, T_3$, columns $D_1, D_2, D_3$ ($r_g = 1.8$):
+$\begin{bmatrix} 1.056 & 0 & 1.083\\ 1.028 & 1.056 & 0\\ 0 & 1.028 & 0\end{bmatrix}$ ($T_1$–$D_1$: $1 + 0.25 \cdot 0.4/1.8 = 1.056$, $T_1$–$D_3$: 1.083, $T_2$–$D_1$: 1.028, $T_2$–$D_2$: 1.056, $T_3$–$D_2$: 1.028). The optimal assignment $T_1$–$D_3$, $T_2$–$D_1$, $T_3$–$D_2$ has total 3.139; the greedy pairs $T_1$–$D_3$, $T_2$–$D_2$ only 2.139. With $\varepsilon < 1/n$, $n$ matches weigh at most $n(1 + \varepsilon) < n + 1$, so one more match always wins over any savings in distance; with a larger ε the solver could trade a match for shorter distances.
+
+**B8.** In polar coordinates the joint density $\frac{1}{2\pi\sigma^2}e^{-r^2/2\sigma^2}$ times the area element $r\,dr\,d\theta$, integrated over θ, gives $p(r) = \frac{r}{\sigma^2}e^{-r^2/2\sigma^2}$. Mean: $\int_0^\infty \frac{r^2}{\sigma^2}e^{-r^2/2\sigma^2}dr = \sigma\sqrt{\pi/2}$. CDF: $\int_0^{r_g} p = 1 - e^{-r_g^2/2\sigma^2}$. Only pairs with $r \le r_g$ are matched, so the RMSE is the RMS of a distribution cut off at $r_g$, always below the full $\sqrt2\sigma$ (noticeably for $r_g \lesssim 3\sigma$); the large errors appear instead as FP + FN.
+:::
+
+## Explore: two spots {#explore-crowdfit}
+
+Two spots of PSF width σ (yellow dots: truth) a distance $d$ apart, amplitude ratio $q$, on background 20 with seeded noise, in a 31 × 19 patch. Candidates (blue rings) are maxima of the matched-filtered image above 4 noise sd; green crosses are the fitted spots (one-spot fit, or two-spot fit if it pays the penalty $3c\sigma_n^2$). The profile shows the raw row (grey), the noise-free row (dashed) and the matched-filtered row (blue). The lower plot shows the fraction of 20 seeded pairs that end with two spots against $d/\sigma$: maxima only (blue) and maxima + fitting (green).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="crowdfit" data-preset="three"></div>
+<script src="../demos/dist/crowdfit.js"></script>
+```
+
+**D1.** Preset **d = 3σ**. How many maxima does the noise-free raw profile have, and how many the filtered one? How many candidates, and what does the fit decide? Then **d = 2σ**.
+
+**D2.** Preset **the filter merges them earlier** (2.6σ). Explain the readout "noise-free maxima: raw 2, filtered 1" with B1.
+
+**D3.** Read the lower plot (default settings). From which $d/\sigma$ on do the maxima alone find both spots? And with fitting? What do the lines at 2 and $2\sqrt2$ mark?
+
+**D4.** Preset **unequal pair: maxima lose the dim one**. Is the dim spot a candidate? Does the fit find it? Look at the lower plot for this ratio.
+
+**D5.** Preset **penalty too small: noise gets a spot** ($d = 0$, $c = 0$). What does the fit do? Set $c = 2$, then $c = 6.4$ (BIC-like). Press **new noise** several times for each.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** At $d = 3\sigma$ = 4.5 px both noise-free profiles have 2 maxima (raw: above $2\sigma$ = 3 px; filtered: just above $2\sqrt2\sigma$ = 4.24 px, a very shallow dip). With noise and the threshold there is only 1 candidate: the shallow dip does not survive. The fit splits it: RSS₁ − RSS₂ = 18 057 ≫ 216, fitted at 12.91 and 17.27 (truth 12.75 and 17.25). At $d = 2\sigma$: noise-free raw and filtered profiles have 1 maximum each, 1 candidate, and the fit still splits (gain 5 761).
+
+**D2.** $d = 2.6\sigma = 3.9$ px: above $2\sigma = 3$, so the raw profile has a dip; below $2\sqrt2\sigma = 4.24$, so after the matched filter the dip has gone. The filter merged them.
+
+**D3.** Maxima only: both spots in 5 % of the pairs at $3\sigma$, in all from $3.5\sigma$. With fitting: 55 % at $1\sigma$, 90 % at $1.5\sigma$, all from $2\sigma$. The lines mark the raw merging distance $2\sigma$ and the matched-filter merging distance $2\sqrt2\sigma$; with noise and a threshold, maxima need a little more than $2\sqrt2\sigma$.
+
+**D4.** At $q = 0.3$, $d = 2.5\sigma$ there is one candidate (the bright spot); the dim one sits on its shoulder. The two-spot fit finds it (gain 1 171 > 216). For this ratio the maxima alone find both spots only from about $4.5\sigma$ (70 % of the pairs there), while the fit succeeds in 75–90 % of the pairs from $2\sigma$ on.
+
+**D5.** With $c = 0$ any improvement is accepted: the second spot goes somewhere in the noise (here at x = 17.6 next to the real spot at 15.0, gain 59). Over 100 seeded single spots, $c = 0$ splits 35 %, $c = 2$ splits 5 %, $c = \ln 589 = 6.4$ splits none. A larger penalty also needs a larger gain from real pairs: close pairs are then kept as one.
+:::
+
+## Explore: evaluating a spot detector {#explore}
+
+Tab **image**: a seeded synthetic 256 × 256 image (spots of σ = 1.5 px, amplitudes 8–80, noise 10; 10–1 000 spots) and the detections of a zero-mean Gaussian (matched filter) or LoG detector, threshold $k$ noise sd, optionally refined by a Gaussian fit, optionally shifted by 0.5 px. Rings = truth (white = matched, yellow = missed), dots = detections (green = matched, red = false), lines = matched pairs coloured by distance. Plots: F1 against the gate radius; the precision–recall curve (dot: the current $k$); F1 and RMSE against density. Tab **by hand**: drag the truths (rings) and detections (dots); greedy and optimal matching side by side.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="spotmatch" data-preset="pr"></div>
+<script src="../demos/dist/spotmatch.js"></script>
+```
+
+**E1.** Preset **greedy loses a match** (tab by hand). Read both results. Drag $D_2$ towards $T_1$: at which position does greedy find both matches? Recreate B2.
+
+**E2.** Preset **PR curve: pick the threshold**. Read TP, FP, FN, F1 and AP. Where is the best-F1 threshold? Move $k$ there and read the scores again.
+
+**E3.** Preset **gate too small**. Why does a gate of 0.5 px give so many FP **and** FN? Read the F1-against-gate plot: where is its flat part?
+
+**E4.** Preset **gate too large**. What happens to F1 and RMSE? Why is a large gate dangerous in dense images?
+
+**E5.** Preset **density: recall collapses** (1 000 spots). Read recall, precision and F1. Which kind of error dominates, and why? Read the density plot.
+
+**E6.** Preset **fitting rescues localisation, not merges**. Read RMSE and FN, then untick **fit positions**. What changes, what does not?
+
+**E7.** Preset **a biased detector (offset 0.5 px)**. Which numbers reveal the bias? Untick **offset 0.5 px** and compare.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Greedy: TP 1, FP 1, FN 1, F1 0.50 (pair $D_1$–$T_1$, 1.00); optimal: TP 2, F1 1.00, RMSE 1.77 ($D_2$–$T_1$ 2.00, $D_1$–$T_2$ 1.50). Greedy finds both as soon as $D_2$ is closer to $T_1$ than $D_1$ is (distance below 1), e.g. at $(-0.75, 0)$: then it takes $D_2$–$T_1$ first and $D_1$–$T_2$ (1.5) next.
+
+**E2.** At $k = 3$: TP 73, FP 30, FN 7, F1 0.80; AP 0.93. The best F1 (0.93) is at $k \approx 3.6$: setting $k$ there removes most of the false spots while losing few true ones.
+
+**E3.** At 0.5 px the gate is smaller than the localisation error of many good detections (integer pixel positions are off by up to 0.7 px, plus noise): such a detection is not matched and counts as an FP, and its spot as an FN: TP 40, FP 30, FN 40. The F1 curve rises steeply up to about 1–1.5 px and is flat beyond 2 px; choose the gate in the flat part.
+
+**E4.** With a 5 px gate (200 spots, $k = 3$): F1 0.87 but RMSE 0.65 px: poorly placed detections, and in dense regions detections of a neighbouring spot, now count as true positives. The gate should be about the localisation error times 2–3, not "whatever makes F1 high".
+
+**E5.** 1 000 spots: recall 0.49, precision 1.00, F1 0.66: misses dominate. At a mean spacing of about 8 px, many spots have a neighbour closer than the $2\sqrt2\sigma$ = 4.2 px the filter can separate: two spots, one candidate (which matches one of them). The density plot shows F1 falling steadily with density.
+
+**E6.** With fitting (300 spots): RMSE 0.44 px, FN 84. Without: RMSE 0.61 px, FN 83. Fitting moves each detection onto the light of its spot (better localisation), but a merged pair still has one candidate, and fitting one spot to it does not create the second one (unit 4's two-spot fit would be needed).
+
+**E7.** F1 is unchanged (0.92: the shifted detections are still within the 2 px gate); the RMSE rises from 0.31 to 0.73 px and the mean offset is (0.43, 0.51) instead of about zero. Only the mean offset says that the error is systematic.
+:::
+
+## Where this leads
+
+- **Tracking** (Motion group): detections with positions and error bars are linked over time; the gating and assignment of this unit come back, now between frames.
+- **Localisation microscopy**: detection, fitting and evaluation of sparse single molecules in thousands of frames, rendered as an image from the positions.
+- The **topic page on point detection** collects every place in the course where spots and peaks are found.

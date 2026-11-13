@@ -34,7 +34,11 @@ TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts \
   demos/test/ising-test.ts demos/test/hough-test.ts demos/test/integral-test.ts \
   demos/test/svm-test.ts demos/test/gmm-test.ts demos/test/wavelets-test.ts \
   demos/test/compression-test.ts demos/test/radon-test.ts demos/test/unmixing-test.ts \
-  demos/test/marchingcubes-test.ts demos/test/graphics3d-test.ts
+  demos/test/marchingcubes-test.ts demos/test/graphics3d-test.ts \
+  demos/test/pointdetection-test.ts demos/test/opticalflow-test.ts \
+  demos/test/tracking-test.ts demos/test/colocalisation-test.ts demos/test/fret-test.ts \
+  demos/test/flim-test.ts demos/test/multiview-test.ts demos/test/raytracing-test.ts \
+  demos/test/diffusion-test.ts demos/test/splines-test.ts demos/test/gpus-test.ts
 test:
 	@for t in $(TESTS); do echo "== $$t"; \
 	  js=$$(node_modules/.bin/esbuild $$t --bundle --platform=node --log-level=warning) && printf '%s\n' "$$js" | node || exit 1; \

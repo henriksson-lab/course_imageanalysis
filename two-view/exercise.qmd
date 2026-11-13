@@ -1,0 +1,149 @@
+---
+title: "Exercise: two views, epipolar geometry and triangulation"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- apply the ratio test to candidate matches,
+- write $E$ for simple motions and say what the epipolar lines look like,
+- compute an epipolar line from $F$ and check candidate matches against it,
+- compute the number of RANSAC iterations for different sample sizes and inlier fractions,
+- triangulate a point for two parallel cameras and estimate its depth error,
+- explain why the scale of a two-view reconstruction is unknown,
+- *(math)* derive the epipolar constraint, the epipoles and the rank-2 projection.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Ratio test | accept the nearest descriptor only if (best distance)/(second best) is below a threshold, e.g. 0.8 |
+| Epipolar line | where the match of a point must lie in the other image; all pass through the epipole |
+| Epipole | the image of the other camera's centre |
+| $E$, $F$ | $\hat{\mathbf x}'^\top E\hat{\mathbf x} = 0$ (normalised coordinates), $\mathbf x'^\top F\mathbf x = 0$ (pixels); $E = [\mathbf t]_\times R$, $F = K'^{-\top}EK^{-1}$; rank 2 |
+| Line $l = F\mathbf x = (a, b, c)$ | the points with $a u + b v + c = 0$; distance of a point: $|a u + b v + c| / \sqrt{a^2 + b^2}$ |
+| Eight-point | 8 matches → $F$ by a null vector; normalise first; set the smallest singular value to 0 |
+| RANSAC | $N = \log(1 - p)/\log(1 - w^s)$ iterations for success probability $p$, inlier fraction $w$, sample size $s$ |
+| Parallel cameras | $Z = fB/d$, $X = (x - c_x)Z/f$; $\delta Z \approx Z^2\delta d/(fB)$ |
+
+## By hand
+
+**B1.** Ratio test with threshold 0.8. Point A's two nearest descriptors in the other image are at distances 0.30 and 0.32; point B's at 0.20 and 0.60. Which matches are kept? What kind of image region typically produces a case like A?
+
+**B2.** Calibrated cameras, $R = I$. (a) Sideways motion, $\mathbf t = (1, 0, 0)$: write $[\mathbf t]_\times$ and evaluate $\hat{\mathbf x}'^\top E\hat{\mathbf x}$ for $\hat{\mathbf x} = (x, y, 1)$, $\hat{\mathbf x}' = (x', y', 1)$. What are the epipolar lines? (b) Forward motion, $\mathbf t = (0, 0, 1)$: the same. Through which point do all epipolar lines pass?
+
+**B3.** A fundamental matrix (pixel coordinates):
+$$F = \begin{bmatrix} 0 & -1 & 2 \\ 1 & 0 & -3 \\ -2 & 3 & 0 \end{bmatrix}.$$
+(a) Compute the epipolar line in image 2 of the point $\mathbf x = (1, 1)$. (b) Which of the candidates $(5, 3)$, $(4, 1)$, $(2, 2)$ can be the match? How far (in pixels) are the others from the line? (c) Check that the line passes through $(3, 2)$. What is special about that point?
+
+**B4.** RANSAC with $p = 0.99$: compute $N$ for sample sizes $s = 8, 7, 5$ at inlier fractions $w = 0.5$ and $w = 0.8$. What do you conclude?
+
+**B5.** Two parallel cameras (rectified), $f = 800$ px, baseline $B = 0.1$ m, $c_x = 320$. A point is seen at $x = 420$ in the left and $x' = 400$ in the right image. (a) Depth $Z$ and lateral position $X$. (b) The depth if the disparity is off by one pixel either way. (c) The same point at 8 m: what disparity, and how large is the depth step for one pixel?
+
+**B6.** (a) A scene, and the same scene scaled 2× and placed 2× farther from the same two cameras. Are the images the same? (b) Name three ways to fix the scale of a two-view reconstruction. (c) A camera only rotates about its centre between two shots. Can you reconstruct depth? What relates the two images instead?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** A: $0.30/0.32 = 0.94 > 0.8$, rejected (two nearly equally good candidates: ambiguous). B: $0.20/0.60 = 0.33$, kept. A case like A comes from repetitive texture (a grid, tiles, windows, a regular cell pattern), where many windows look alike.
+
+**B2.** (a) $[\mathbf t]_\times = \begin{bmatrix} 0 & 0 & 0 \\ 0 & 0 & -1 \\ 0 & 1 & 0 \end{bmatrix}$, $E\hat{\mathbf x} = (0, -1, y)$, so $\hat{\mathbf x}'^\top E\hat{\mathbf x} = -y' + y = 0$: $y' = y$. The epipolar lines are the image rows (horizontal); the epipoles are at infinity. (b) $[\mathbf t]_\times = \begin{bmatrix} 0 & -1 & 0 \\ 1 & 0 & 0 \\ 0 & 0 & 0 \end{bmatrix}$, $E\hat{\mathbf x} = (-y, x, 0)$, so $-x'y + y'x = 0$, i.e. $y'/x' = y/x$: the line through the origin (the principal point) and $(x, y)$. All lines pass through the principal point: the focus of expansion.
+
+**B3.** (a) $l = F(1, 1, 1)^\top = (0 - 1 + 2,\ 1 + 0 - 3,\ -2 + 3 + 0) = (1, -2, 1)$: the line $u - 2v + 1 = 0$. (b) $(5, 3)$: $5 - 6 + 1 = 0$, on the line: possible. $(4, 1)$: $4 - 2 + 1 = 3$, distance $3/\sqrt 5 = 1.34$ px. $(2, 2)$: $2 - 4 + 1 = -1$, distance $1/\sqrt 5 = 0.45$ px (could pass with a tolerance of 1 px, so the epipolar constraint alone cannot always decide). (c) $3 - 4 + 1 = 0$. $(3, 2)$ is the epipole of image 2: $F^\top(3, 2, 1)^\top = 0$ (here $F$ is antisymmetric, so also $F(3, 2, 1)^\top = 0$); every epipolar line passes through it.
+
+**B4.**
+
+| | $s = 8$ | $s = 7$ | $s = 5$ |
+|---|---|---|---|
+| $w = 0.5$ | 1177 | 588 | 146 |
+| $w = 0.8$ | 26 | 20 | 12 |
+
+The number explodes with the sample size when there are many outliers: a smaller minimal sample (seven- or five-point algorithm) and a good matcher (ratio test, cross-check) both pay off. With few outliers RANSAC is cheap whatever the sample size.
+
+**B5.** (a) $d = 420 - 400 = 20$ px, $Z = 800 \cdot 0.1/20 = 4$ m, $X = (420 - 320) \cdot 4/800 = 0.5$ m. (b) $d = 19$: 4.21 m; $d = 21$: 3.81 m, about ±0.2 m. (c) $d = 800 \cdot 0.1/8 = 10$ px; $d = 9$ gives 8.89 m, $d = 11$ gives 7.27 m: about ±0.8 m, four times the step at 4 m (depth twice as large: error four times as large).
+
+**B6.** (a) Yes: every ray carries the same points, only twice as far along it; the pixels do not change. (b) A known length in the scene (a scale bar, a calibration object), a known baseline (a calibrated stereo rig), or another measurement (a range sensor, the known motion of a stage). (c) No: without a baseline every point keeps its ray; no depth can be recovered. The two images are related by a homography ($K R K^{-1}$), which is how panoramas are made.
+:::
+
+### Math questions
+
+**B7.** *(math)* Derive the epipolar constraint $\hat{\mathbf x}'^\top[\mathbf t]_\times R\,\hat{\mathbf x} = 0$ from the fact that $\hat{\mathbf x}'$, $\mathbf t$ and $R\hat{\mathbf x}$ are coplanar. Then show $F = K'^{-\top}EK^{-1}$.
+
+**B8.** *(math)* Show that the epipole $\mathbf e$ (the image of the other camera centre in image 1) satisfies $F\mathbf e = 0$, and conclude that every epipolar line in image 1 ($F^\top\mathbf x'$) passes through $\mathbf e$.
+
+**B9.** *(math)* State the Eckart–Young theorem for the Frobenius norm and use it to show that the closest rank-2 matrix to $F = U\,\mathrm{diag}(s_1, s_2, s_3)V^\top$ is $U\,\mathrm{diag}(s_1, s_2, 0)V^\top$. How far is it from $F$?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** In camera 2's frame, the ray of $\mathbf x$ has direction $R\hat{\mathbf x}$ and starts at camera 1's centre, which is at $\mathbf t$ (since $\mathbf X_2 = R\mathbf X_1 + \mathbf t$ maps the origin to $\mathbf t$). The ray of $\mathbf x'$ starts at the origin with direction $\hat{\mathbf x}'$. Both rays and the baseline $\mathbf t$ lie in the epipolar plane, so the three vectors are coplanar: their triple product vanishes, $\hat{\mathbf x}' \cdot (\mathbf t \times R\hat{\mathbf x}) = 0$. With $\mathbf t \times \mathbf v = [\mathbf t]_\times\mathbf v$: $\hat{\mathbf x}'^\top[\mathbf t]_\times R\,\hat{\mathbf x} = 0$. Substituting $\hat{\mathbf x} = K^{-1}\mathbf x$ and $\hat{\mathbf x}' = K'^{-1}\mathbf x'$: $\mathbf x'^\top K'^{-\top}EK^{-1}\mathbf x = 0$, so $F = K'^{-\top}EK^{-1}$.
+
+**B8.** Every epipolar plane contains the baseline, hence both camera centres; so every epipolar line in image 1 contains the image $\mathbf e$ of the second centre. Algebraically: for any $\mathbf x'$, the line $F^\top\mathbf x'$ contains $\mathbf e$ iff $\mathbf x'^\top F\mathbf e = 0$; this holds for all $\mathbf x'$ iff $F\mathbf e = 0$. Directly: $\hat{\mathbf e} \propto -R^\top\mathbf t$ (camera 2's centre in camera 1's frame), and $E\hat{\mathbf e} \propto [\mathbf t]_\times RR^\top\mathbf t = \mathbf t \times \mathbf t = 0$.
+
+**B9.** Eckart–Young: for $A = \sum_k s_k\mathbf u_k\mathbf v_k^\top$ (SVD, $s_1 \ge s_2 \ge \dots$), the best rank-$r$ approximation in the Frobenius norm is $\sum_{k \le r} s_k\mathbf u_k\mathbf v_k^\top$, and the error is $\sqrt{\sum_{k > r} s_k^2}$. For $r = 2$: drop the third term, $U\,\mathrm{diag}(s_1, s_2, 0)V^\top$, at distance $s_3$. (Reason: the Frobenius norm is unchanged by the orthogonal $U$, $V$, so the problem reduces to approximating the diagonal matrix, where zeroing the smallest entry is optimal.)
+:::
+
+## Explore: triangulation in flatland {#explore-triangulate}
+
+A top-down 2D world with 1D cameras ($f = 200$ px, 160 pixels). Drag the cameras (large circles), their headings (small circles) and the point (black). Shaded: ±δ-pixel wedges; yellow: the region where the two wedges meet; grey: 200 triangulations of the point with seeded pixel noise σ. Side plot: RMS error against depth along the current direction (dots) and the rule of thumb $\sqrt 2\,\sigma Z^2/(fB)$ (dashed).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="triangulate"></div>
+<script src="../demos/dist/triangulate.js"></script>
+```
+
+**D1.** At the default setting, read the baseline, depth, angle between the rays, the size of the yellow region and the cloud's RMS error in depth and sideways. Which is larger, and by how much?
+
+**D2.** Presets **short baseline**, **wide baseline**, **point far away**, **nearly parallel rays**. For each, read the depth RMS error. Which rule explains the numbers?
+
+**D3.** Compare the simulated dots with the dashed curve in the side plot at the default setting. Where does the rule of thumb hold, and why does it not hold exactly?
+
+**D4.** Preset **a third view**. How much smaller does the depth error get? Untick the third camera to compare. Why does a camera from the side help so much?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** $B = 1.2$, $Z = 3.4$, rays 20.0° apart. The region is 0.199 long and 0.035 wide; the cloud's RMS error is 0.075 in depth and 0.012 sideways: about 6× larger in depth.
+
+**D2.** Short baseline ($B = 0.5$, 8.4°): 0.180. Wide baseline ($B = 4.4$, 76°): 0.022, and the region is nearly round (0.058 × 0.045). Point far away ($Z = 5.3$): 0.181. Nearly parallel rays ($B = 0.24$, $Z = 4.6$, 3.0°): 0.81. The depth error grows like $Z^2/B$.
+
+**D3.** The dots follow the dashed curve closely; the rule predicts 0.068 at $Z = 3.4$, the simulation gives 0.076 there (the depth error 0.075 combined with the sideways error 0.012). The rule assumes parallel cameras and small errors; these cameras are turned towards the point, and at large depth the error is no longer small compared with the depth, so the curve is only approximate.
+
+**D4.** From 0.125 (two cameras) to 0.014 (three): the side camera sees the depth direction of the first two **sideways**, which is the direction it measures best. Complementary viewing directions make the region small in every direction.
+:::
+
+## Explore: epipolar geometry and estimating $F$ {#explore}
+
+A synthetic scene (a house, a ground grid, three posts) seen by two cameras ($f = 700$ px, 640 × 480). Click a point in image 1: its epipolar line (green) in image 2 passes through the true match (red circle); purple marks the epipoles (an arrow if outside the image). Sliders: baseline, its direction (0° sideways … 90° forward), rotation of camera 2. **Estimate F** adds seeded noise and outliers to the matches and estimates $F$ (dashed red line).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="epipolar" data-preset="sideways"></div>
+<script src="../demos/dist/epipolar.js"></script>
+```
+
+**E1.** Preset **sideways**. What do the epipolar lines look like, and where are the epipoles? Now drag the direction slider slowly to 90°. Where do the epipoles travel?
+
+**E2.** Preset **general motion**. Read the positions of the two epipoles. Click points in different parts of image 1: do all lines in image 2 pass through one point?
+
+**E3.** Preset **pure rotation**. What happens, and why?
+
+**E4.** Preset **no normalisation** (σ = 1 px). Read how far the true matches lie from the estimated lines. Switch to **8-point normalised**. Also compare the singular values of $F$ before the rank-2 step.
+
+**E5.** Preset **20 % outliers**. How far are the true matches from the least-squares lines? Then **RANSAC repairs it**: how many inliers, at which iteration was the best sample found, and how far are the true matches now?
+
+**E6.** Preset **planar scene**. The true matches lie very close to the estimated lines. Why is the estimate nevertheless wrong? Look at the smallest singular values of $A$ and compare them with the general scene.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Horizontal lines (the rows), epipoles at infinity (arrows pointing sideways). As the motion turns forward, the epipoles come in from infinity and reach the principal point (320, 240) at 90°, where the lines radiate from it (focus of expansion).
+
+**E2.** Image 1: (2243, 240); image 2: (1547, 183). Both lie far to the right of the images. All lines in image 2 pass through the epipole (they meet outside the image).
+
+**E3.** No lines are drawn: without a baseline both cameras share one centre, every point keeps its ray, and there is no epipolar plane. Depth cannot be recovered; the two images are related by a homography.
+
+**E4.** Unnormalised: the true matches lie 23.7 px from the estimated lines on average; normalised: 0.81 px. Before the rank-2 step, the unnormalised $F$ has singular values $1.0$, $2.8 \cdot 10^{-5}$, $2.1 \cdot 10^{-7}$: wildly different scales (pixel coordinates in the hundreds next to 1), a badly conditioned problem. Normalised: 0.74, 0.67, 0.0037.
+
+**E5.** 7 of the 29 matches are outliers. Least squares: 19.1 px. RANSAC: 22 inliers (as many as there are good matches), the best sample at iteration 209 of 1177, and 0.45 px.
+
+**E6.** For points on one plane, many $F$ satisfy all the equations (the planar points are related by a homography; any $F$ compatible with it fits). The three smallest singular values of $A$ are 0.014, 0.009 and 0.008, against 1.6, 1.2 and 0.024 for the general scene: two extra (nearly) null directions. The estimated epipolar lines happen to pass through the planar matches but point in wrong directions, and the epipoles are wrong.
+:::
+
+## Where this leads
+
+With two calibrated cameras and their relative pose known, the epipolar lines can be made the image **rows**: then matching is a 1D search along a row, depth is just a division, and every pixel can be matched. That is **stereo**, the next unit. With many cameras, everything (poses and points) is refined together: **bundle adjustment** in the last unit.

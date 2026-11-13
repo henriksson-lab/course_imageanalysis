@@ -37,11 +37,13 @@ $6.02 \times 10^{23}$: a few significant digits and an exponent. Floats do the s
 
 $$x = \pm\, 1.f_1 f_2 \dots f_m \;(\text{binary}) \times 2^{E}.$$
 
-| format | bits | sign | exponent | fraction $m$ | largest | relative precision |
-|---|---|---|---|---|---|---|
-| float32 | 32 | 1 | 8 | 23 | $3.4 \times 10^{38}$ | $2^{-23} \approx 1.2 \times 10^{-7}$ |
-| float16 (half) | 16 | 1 | 5 | 10 | 65 504 | $2^{-10} \approx 0.001$ |
-| bfloat16 | 16 | 1 | 8 | 7 | $3.4 \times 10^{38}$ | $2^{-7} \approx 0.008$ |
+![](fig-fields.svg){fig-alt="Three bars drawn to scale, one tick per bit: float32 is 1 sign bit, 8 exponent bits and 23 fraction bits (m = 23); float16 is 1, 5 and 10; bfloat16 is 1, 8 and 7, the first half of a float32." width="78%" fig-align="center"}
+
+| format | bits | largest | relative precision |
+|---|---|---|---|
+| float32 | 32 | $3.4 \times 10^{38}$ | $2^{-23} \approx 1.2 \times 10^{-7}$ |
+| float16 (half) | 16 | 65 504 | $2^{-10} \approx 0.001$ |
+| bfloat16 | 16 | $3.4 \times 10^{38}$ | $2^{-7} \approx 0.008$ |
 
 - About 7 significant decimal digits in float32, 3 in float16, 2 in bfloat16.
 - bfloat16 keeps float32's exponent range but very few digits (used in machine learning).
@@ -58,7 +60,7 @@ $$x = \pm\, 1.f_1 f_2 \dots f_m \;(\text{binary}) \times 2^{E}.$$
 0.1 in float16: 0x2E66, exactly 0.0999755859375. 0.1 has no finite binary expansion, like 1/3 in decimal. Click +1 ulp a few times and watch the value step. Then click the exponent bits: each one doubles or halves. Presets: 2049 becomes 2048 in half; 65535 becomes infinity; switch to float32: 2049 is exact. Smallest subnormal: 6e-8. The plot: the gap between neighbouring floats against the value, a staircase; where it crosses "spacing 1", integers stop being exact.
 :::
 
-## Floats are spaced unevenly
+## Floats are spaced unevenly {.nostretch}
 
 Between two powers of two there are always the same number of floats ($2^m$), evenly spaced. The next interval is twice as long, so the gaps double:
 
@@ -70,8 +72,12 @@ Between two powers of two there are always the same number of floats ($2^m$), ev
 - Rounding to the nearest float makes a relative error of at most half that: about 0.05 % for float16, $6 \times 10^{-8}$ for float32.
 - 0.1 is not exactly a float (like 1/3 in decimal). In float16 it is 0.099 975 585 937 5.
 
+![](fig-toyfloats.svg){fig-alt="A number line from 0 to 16 with a tick at every number of a toy float format with 2 fraction bits: four numbers between each pair of powers of two, so the ticks are dense near 0 and the gap doubles from 0.5 between 2 and 4 to 1 between 4 and 8 and 2 between 8 and 16." width="70%" fig-align="center"}
+
 ## Integers in floats
 
+:::: {.columns}
+::: {.column width="55%"}
 Every integer is exact as long as the gap is at most 1:
 
 | format | all integers exact up to | first one that is not |
@@ -85,13 +91,31 @@ A 16-bit image stored in **half floats**:
 - values up to 2048 survive; 2049 → 2048, 3001 → 3000, 40 001 → 40 000 (gap 32);
 - **65 535 → infinity**: the largest half float is 65 504.
 - Normalised to $[0, 1]$ instead, the gap near 1 is $2^{-11}$: about 11 bits. Half float is fine for 8- or 10-bit data, not for 16-bit.
+:::
+::: {.column width="45%"}
+![](fig-int16half.svg){fig-alt="Stored minus true value for every integer 0 to 65 535 stored as float16: zero up to 2048, then a growing band of errors, up to plus or minus 16 above 32 768; values from 65 520 up become infinity." width="100%"}
+:::
+::::
 
 ## Special values
 
+:::: {.columns}
+::: {.column width="58%"}
 - **±0**: two zeros (the sign is kept, e.g. for $1/(-0) = -\infty$).
 - **±∞**: overflow (65 535 in half), or $1/0$.
 - **NaN** ("not a number"): $0/0$, $\infty - \infty$, $\sqrt{-1}$. Any arithmetic with NaN gives NaN, and NaN ≠ NaN. One NaN pixel spreads through a blur to every pixel it touches; a mean over an image with one NaN is NaN.
 - **Subnormals**: below the smallest normal number ($2^{-14} \approx 6 \times 10^{-5}$ in half) the spacing stops shrinking, so the floats run down evenly to 0. Tiny values lose relative precision gradually instead of dropping to 0 at once.
+:::
+::: {.column width="42%"}
+![](fig-nanblur.png){width="88%" fig-alt="A small patch of the cell micrograph with one NaN pixel, shown red, then after one, two and three 3 by 3 blurs: the red square grows to 3 by 3, 5 by 5 and 7 by 7 pixels."}
+
+A 3 × 3 blur, repeated: the one NaN pixel becomes 9, 25, 49.
+:::
+::::
+
+::: notes
+The patch is cut from the micrograph used throughout the course: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.
+:::
 
 ## The math: IEEE 754 numbers {.math}
 With sign $s$, stored exponent field $E$ ($e$ bits), fraction field $F$ ($m$ bits) and **bias** $b = 2^{e-1} - 1$ (15 for half, 127 for float32):
@@ -112,12 +136,19 @@ Subtracting two nearly equal numbers keeps their **absolute** error but not thei
 
 ## Summing many pixels
 
+:::: {.columns}
+::: {.column width="57%"}
 A running sum grows. Once the sum is large, the gap at the sum is larger than the pixel values: each addition rounds, and the small values lose their low bits.
 
 - float32: adding 1 to $2^{24}$ gives $2^{24}$. A 2048 × 2048 image with mean 1000 sums to $4 \times 10^9$: the naive float32 mean is off by 1 %.
 - float16: summing normalised pixel values (≈ 0.015 each) gets **stuck at 64**: from there, adding a pixel rounds back to the same sum.
 - **Pairwise** summation (add in a tree: pairs, pairs of pairs, …) keeps partial sums of similar size: error grows like $\log n$ instead of $n$.
 - **Kahan** summation carries the rounding error of each addition into the next one: nearly exact.
+:::
+::: {.column width="43%"}
+![](fig-stall.svg){fig-alt="The running sum of normalised pixel values (about 0.015 each) against the number of pixels added: the exact sum is a straight line to about 180; the float16 running sum follows it, then bends at 32 and stops at exactly 64 after about 5500 pixels." width="100%"}
+:::
+::::
 
 ## Try it: summing 4 million pixels
 

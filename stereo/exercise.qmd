@@ -1,0 +1,151 @@
+---
+title: "Exercise: stereo, from disparity to depth"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute depth from disparity and the depth step of one pixel,
+- compute SAD costs and census codes by hand, and say which brightness changes each one tolerates,
+- predict what the window size does at depth edges,
+- run winner-take-all and scanline dynamic programming on a small cost table,
+- refine a disparity to sub-pixel precision with a parabola,
+- *(math)* derive the depth error, census invariance and the relation between SGM, WTA and scanline DP.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Rectified pair | matches on the same row; disparity $d = x - x' \ge 0$ |
+| Depth | $Z = fB/d$ ($f$ in pixels, baseline $B$); $\delta Z \approx Z^2\delta d/(fB)$ |
+| SAD, NCC | sum of absolute differences over a window; correlation of mean-free, normalised windows (cost $1 - \mathrm{NCC}$) |
+| Census | bit $k$ = "neighbour $k$ darker than the centre"; cost = number of differing bits (Hamming distance) |
+| Cost volume | $C(x, y, d)$; winner-take-all picks $\arg\min_d C$ per pixel |
+| Left–right check | keep $d$ at $x$ only if the right image's disparity at $x - d$ agrees (±1) |
+| Scanline DP | per row, the cheapest path through the $x \times d$ table; $P_1$ per step of 1, $P_2$ per larger jump |
+| SGM | the same 1D recursion along 4 or 8 directions, summed, then winner-take-all |
+| Sub-pixel | $\delta^* = (C_- - C_+)/(2(C_- - 2C_0 + C_+))$ |
+
+## By hand
+
+**B1.** $f = 1000$ px, $B = 0.12$ m. (a) The depth for $d = 60$, 6 and 5 px. (b) The depth step between $d = 6$ and $d = 5$, and between $d = 60$ and $d = 59$. (c) Use $\delta Z \approx Z^2/(fB)$ at 2 m and at 20 m and compare with (b).
+
+**B2.** 1D SAD with a window of 3. Left row (positions 0 … 7): $(1, 1, 5, 9, 5, 1, 1, 1)$. The right row is the left row shifted by 2 pixels to the left: $(5, 9, 5, 1, 1, 1, 1, 1)$. (a) For the left pixel at position 3 (the 9), compute the SAD for $d = 0, 1, 2$ (compare with the right window centred at $3 - d$). (b) Now a left row that is constant, $(4, 4, 4, 4, 4, 4, 4, 4)$, and an identical right row: what are the costs, and what does winner-take-all do?
+
+**B3.** Census with a 3 × 3 window (8 bits, row by row, skipping the centre; bit = 1 if the neighbour is darker than the centre).
+$$W_1 = \begin{bmatrix} 10 & 20 & 30 \\ 40 & 25 & 15 \\ 5 & 35 & 50 \end{bmatrix}, \qquad W_2 = \begin{bmatrix} 12 & 30 & 28 \\ 41 & 26 & 14 \\ 6 & 33 & 49 \end{bmatrix}.$$
+(a) The census codes of both windows and their Hamming distance. (b) Replace $W_1$ by $2W_1 + 10$. What happens to its code? (c) Would SAD between $W_1$ and $2W_1 + 10$ be small?
+
+**B4.** A thin textured post stands in front of a far, textured wall. Sketch (one row) the true disparity and what winner-take-all with a 15 × 15 window gives near the post's edges. Why does the post come out wider than it is? On which side of the post are the occluded pixels in the left image?
+
+**B5.** One row's cost slice, columns $x = 0 \dots 4$, disparities $d = 0 \dots 3$:
+
+| | $x = 0$ | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|---|
+| $d = 0$ | 5 | 4 | 6 | **1** | 5 |
+| $d = 1$ | **2** | 3 | **1** | 2 | **2** |
+| $d = 2$ | 6 | **2** | 4 | 6 | 6 |
+| $d = 3$ | 4 | 5 | 5 | 4 | 7 |
+
+(a) Winner-take-all per column. (b) The energy of the WTA profile with $P_1 = 1$ for a step of 1 and $P_2 = 2$ for larger jumps. (c) Find the minimum-energy profile (scanline DP) and its energy. (d) With $P_1 = 0.25$, which profile wins?
+
+**B6.** Sub-pixel: the costs around the WTA disparity $d = 12$ are $C(11) = 4$, $C(12) = 1$, $C(13) = 2$. Where is the parabola's minimum? With $f = 1000$ px and $B = 0.12$ m, how much does this change the depth?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $120/60 = 2$ m, $120/6 = 20$ m, $120/5 = 24$ m. (b) Between 6 and 5 px: 4 m. Between 60 and 59: $2.034 - 2 = 0.034$ m. (c) $4/120 = 0.033$ m at 2 m and $400/120 = 3.3$ m at 20 m: the rule matches the first and underestimates the second a little (a step of a whole pixel at $d = 6$ is no longer small).
+
+**B2.** (a) Left window $(5, 9, 5)$. $d = 0$: right window at positions 2–4 = $(5, 1, 1)$, SAD $0 + 8 + 4 = 12$. $d = 1$: positions 1–3 = $(9, 5, 1)$, SAD $4 + 4 + 4 = 12$. $d = 2$: positions 0–2 = $(5, 9, 5)$, SAD 0. WTA picks $d = 2$. (b) Every cost is 0: all disparities tie, WTA picks whatever the tie rule says (or the noise decides). A constant region carries no information about disparity.
+
+**B3.** (a) $W_1$, centre 25: 10 → 1, 20 → 1, 30 → 0, 40 → 0, 15 → 1, 5 → 1, 35 → 0, 50 → 0: **11001100**. $W_2$, centre 26: 12 → 1, 30 → 0, 28 → 0, 41 → 0, 14 → 1, 6 → 1, 33 → 0, 49 → 0: **10001100**. Hamming distance 1. (b) Unchanged (11001100): doubling and adding 10 keeps every "darker than the centre" comparison. (c) No: the windows differ by $W_1 + 10$, a SAD of several hundred. SAD sees a gain change as a mismatch.
+
+**B4.** True: wall disparity (small) on both sides, the post's (large) disparity over its width, sharp steps. A large window centred on a wall pixel next to the post contains part of the post; the post's texture dominates the match, so the wall pixel gets the post's disparity: the post's disparity spreads by up to half a window (7 px) on each side: foreground fattening. Occluded pixels in the left image: just **left** of the post (that background strip is hidden behind the post in the right camera, which sees the post shifted left).
+
+**B5.** (a) $d = 1, 2, 1, 0, 1$ (costs 2, 2, 1, 1, 2: sum 8). (b) Four steps of size 1: $8 + 4 \cdot 1 = 12$. (c) The straight profile $d = 1$ everywhere: $2 + 3 + 1 + 2 + 2 = 10$, no jumps: energy 10, the unique minimum. (d) With $P_1 = 0.25$ the WTA profile costs $8 + 4 \cdot 0.25 = 9 < 10$ and wins. The smoothness weight decides between following the data and following the neighbours.
+
+**B6.** $\delta^* = (4 - 2)/(2(4 - 2 + 2)) = 0.25$: $d = 12.25$. Depth $120/12 = 10.00$ m becomes $120/12.25 = 9.80$ m: a 0.2 m correction, as large as the whole effect of a quarter pixel at this distance.
+:::
+
+### Math questions
+
+**B7.** *(math)* Derive $Z = fB/d$ for rectified cameras and $\delta Z \approx Z^2\delta d/(fB)$. For a fixed depth error, how must $B$ grow with $Z$?
+
+**B8.** *(math)* Show that the census code of a window is unchanged by any strictly increasing brightness map $g$. Is NCC unchanged by every such map? Give a counterexample or a proof.
+
+**B9.** *(math)* Show that SGM with $P_1 = P_2 = 0$ reduces to winner-take-all on the cost volume. Then show that SGM with one direction (left to right) gives, at the last pixel of each row, the same disparity as scanline DP, and explain why it can differ elsewhere.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Left camera at the origin, right at $(B, 0, 0)$, both looking down $z$. A point $(X, Y, Z)$ projects to $x = fX/Z$ and $x' = f(X - B)/Z$ (from each principal point). So $d = x - x' = fB/Z$, $Z = fB/d$. Then $\partial Z/\partial d = -fB/d^2 = -Z^2/(fB)$, and to first order $|\delta Z| = Z^2|\delta d|/(fB)$. For a fixed $\delta Z$ with fixed $f$ and $\delta d$: $B \propto Z^2$.
+
+**B8.** Bit $k$ is $[I(\mathbf q_k) < I(\mathbf p)]$. If $g$ is strictly increasing, $I(\mathbf q_k) < I(\mathbf p) \iff g(I(\mathbf q_k)) < g(I(\mathbf p))$, so every bit, and the code, is unchanged. NCC is invariant only under affine maps $aI + b$ with $a > 0$: e.g. the window $(0, 1, 2)$ against itself has NCC 1, but against $g(I) = I^2$, i.e. $(0, 1, 4)$, the NCC is $0.96$, not 1.
+
+**B9.** With $P_1 = P_2 = 0$: $\min(L(\mathbf p - \mathbf r, d), L(\cdot, d \pm 1), \min_k L(\cdot, k)) = \min_k L(\mathbf p - \mathbf r, k)$, so $L_\mathbf r(\mathbf p, d) = C(\mathbf p, d) + \text{const}(\mathbf p)$; summing over directions, $S(\mathbf p, d) = \#\text{dirs}\cdot C(\mathbf p, d) + \text{const}$, and $\arg\min_d S = \arg\min_d C$: WTA. One direction: $L$ is the forward recursion of the Viterbi/DP on the row with pairwise costs $0, P_1, P_2$ (the subtracted constant does not change any minimum). At the last pixel, $\min_d L(\text{last}, d)$ is the optimal energy of the whole row and $\arg\min_d$ its end label, exactly where DP starts backtracking. At an earlier pixel, $L(\mathbf p, d)$ is the best cost of a path that **ends** at $(\mathbf p, d)$, ignoring everything to the right; DP's backtracked label also uses the costs to the right. So they can differ.
+:::
+
+## Explore: the cost slice {#explore-slice}
+
+The second tab of the stereo demo shows one row's cost slice: column $x$, disparity $d$ upwards, dark = low cost. Red dots: winner-take-all per column; yellow: the scanline DP path with the current $P_1$, $P_2$; dashed: the truth.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="stereomatch" data-preset="scanline" data-tab="slice"></div>
+<script src="../demos/dist/stereomatch.js"></script>
+```
+
+**D1.** Row 45 crosses the wall (x ≈ 40–76), the post (x ≈ 82–96) and the fence (x ≈ 100–176). In which of the three regions is the dark valley clear, where is it flat, and where are there several valleys?
+
+**D2.** Set $P_2$ to 0 and then to 4. What happens to the DP path at the post's edges and on the fence? Set $P_1 = P_2 = 0$: what does the DP path become?
+
+**D3.** Move the row slider to a row through the bottom of the image (the slanted ground, e.g. 120). How does the true disparity look there, and why does a small $P_1$ (not $P_2$) matter for it?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** Clear on the post and the textured ground; flat inside the wall (no texture: every $d$ costs about the same, only the textured frame gives a clear valley); on the fence, several parallel valleys 8 disparities apart (the stripe period), and winner-take-all jumps between them.
+
+**D2.** $P_2 = 0$: jumps are free, and the DP path is exactly the WTA choice, wrong dots included (87 wrong pixels in row 45). $P_2 = 1$ (the preset): 8 wrong pixels, the wall and fence are crossed at one disparity. $P_2 = 4$: a jump now costs as much as 40 steps of $P_1 = 0.1$, so the path replaces each jump by a ramp of single steps: the depth edges at the wall and the post are smeared into slopes (39 wrong pixels). $P_1 = P_2 = 0$: WTA again.
+
+**D3.** On the slanted ground the true disparity changes smoothly from row to row, and along a row it is constant here (the ground tilts towards the camera downwards, not sideways); a surface slanted sideways needs many steps of 1, which cost $P_1$ each, so $P_1$ must be smaller than $P_2$ to allow slants while blocking spurious jumps.
+:::
+
+## Explore: stereo matching {#explore}
+
+A rectified 192 × 144 pair with ground truth: **random dots** (background $d = 8$, a raised square $d = 20$), **wall, fence, post** (slanted ground $d = 6 \dots 18$, a textureless wall with a textured frame $d = 26$, a striped fence with textured rails, period 8 px, $d = 24$, a post $d = 32$), and **gain change** (smooth texture, the right camera at gain 0.6 and offset +60). Click a pixel to see its windows and its cost curve. Errors: red > 1 px, blue occluded; the left strip ($x$ < maximum disparity) is not evaluated.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="stereomatch" data-preset="window"></div>
+<script src="../demos/dist/stereomatch.js"></script>
+```
+
+**E1.** Preset **window 3 × 3 vs 15 × 15** (random dots, SAD). Read the percentage of bad pixels for windows 3 × 3, 7 × 7 and 15 × 15. What happens to the raised square's corners at 15 × 15?
+
+**E2.** Preset **textureless wall**. Click inside the wall: what does the cost curve look like, and what disparity is found (truth 26)? Preset **striped fence**: the cost curve at (140, 40)?
+
+**E3.** Preset **gain change: SAD fails, census copes**. Compare SAD, NCC and census. Why does NCC fall between the two?
+
+**E4.** Back on **wall, fence, post** with SAD 3 × 3: compare **none**, **scanline DP**, **SGM 4** and **SGM 8** (bad pixels, and the look of the disparity map). Where do you see streaks?
+
+**E5.** Preset **occlusion: left–right check**. How many pixels become invalid, and how many of them are occluded? Without the check, how many occluded pixels are wrong? Why is "invalid" better than a wrong value?
+
+**E6.** Preset **sub-pixel on the slanted ground**. Read the mean error of the good ground pixels with and without **sub-pixel**. Click a ground pixel and look at the parabola.
+
+**E7.** Look at the update time in the readout for winner-take-all and for SGM 8. Which step is the expensive one?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 24.8 % (3 × 3), 1.5 % (7 × 7), 1.0 % (15 × 15). The large window is the most reliable on random dots overall, but the square's corners round off and its edges move outwards by a few pixels (foreground fattening): almost all of the remaining errors are along the edges.
+
+**E2.** Inside the wall, the cost curve is low and flat over many disparities: the minimum is decided by noise (pixel (58, 45) gets 31 with a 7 × 7 window, 34 with 3 × 3). On the fence, the curve has several equally deep minima 8 disparities apart; at (140, 40) winner-take-all picks 8 instead of 24 (two periods off).
+
+**E3.** Bad pixels with a 7 × 7 window: SAD 18.4 %, NCC 3.4 %, census 1.4 %. SAD compares brightnesses directly and is fooled by the gain and offset. NCC removes gain and offset per window, but its normalisation is noisy in low-contrast windows; census compares only orders and is the most robust here.
+
+**E4.** None: 19.9 %; scanline DP: 2.8 %; SGM 4: 1.7 %; SGM 8: 1.5 %. DP fills the wall and fixes the fence row by row, but rows that go wrong stay wrong: thin horizontal streaks, e.g. along the post's edges and the wall. SGM, aggregating vertically and diagonally too, removes most streaks.
+
+**E5.** 1103 pixels are marked invalid, 939 of them occluded (of 1138 occluded pixels). Without the check, 1054 of the occluded pixels get a wrong disparity (they have no correct match at all). An invalid pixel is honest: it can be left as a hole or filled from its neighbours later; a wrong disparity is a wrong 3D point that nothing downstream can detect.
+
+**E6.** Integer disparities: mean error 0.26 px (about a quarter pixel, as expected for rounding). With the parabola: 0.12 px. The parabola through the three costs around the minimum puts its vertex between two integers, here e.g. 16.05 at (160, 120) where the truth is 16.07.
+
+**E7.** Winner-take-all updates take tens of milliseconds, SGM 8 a few hundred: the aggregation over 8 directions, each touching every pixel × disparity, dominates; the cost volume itself is cheaper (and is only recomputed when the cost or the window changes).
+:::
+
+## Where this leads
+
+Stereo turns two calibrated, rectified cameras into a depth map. With many cameras whose poses are **unknown**, the cameras and the points have to be found together: **structure from motion** and **bundle adjustment**, the next unit, followed by dense **multi-view stereo**, which sweeps depth planes through many views at once.

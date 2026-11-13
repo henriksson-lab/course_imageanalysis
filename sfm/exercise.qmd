@@ -1,0 +1,162 @@
+---
+title: "Exercise: structure from motion and bundle adjustment"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- count the unknowns, residuals and the size of the reduced camera system of a bundle adjustment,
+- take Gauss–Newton steps by hand on a one-unknown problem,
+- say which changes of a reconstruction leave all images unchanged (the gauge),
+- order an incremental reconstruction from a table of matches,
+- explain what a robust loss does to an outlier,
+- run a plane sweep for one pixel by hand,
+- *(math)* derive the Gauss–Newton step, the Schur complement and the gauge's zero eigenvalues.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Incremental SfM | initial pair → triangulate → resect the next camera → triangulate → bundle adjust → repeat |
+| Bundle adjustment | minimise $\sum\lVert\mathbf x_{ij} - \pi(P_j, \mathbf X_i)\rVert^2$ over all cameras and points |
+| Gauss–Newton | linearise $\mathbf r(\boldsymbol\theta + \boldsymbol\delta) \approx \mathbf r + J\boldsymbol\delta$, solve $J^\top J\boldsymbol\delta = -J^\top\mathbf r$; 1 unknown: $\delta = -r/r'$ |
+| Levenberg–Marquardt | $(J^\top J + \mu D)\boldsymbol\delta = -J^\top\mathbf r$; $\mu$ down after a good step, up after a bad one |
+| Gauge | moving, turning or scaling everything changes no image: 7 free directions in 3D (4 in 2D) |
+| Schur complement | eliminate the points (small blocks), solve a $6m \times 6m$ system for $m$ cameras |
+| Huber loss | $r^2$ for $|r| \le \delta$, $2\delta|r| - \delta^2$ beyond: large residuals pull with a constant force |
+| Plane sweep | per pixel, try depths; score photo-consistency (e.g. variance) across views; keep the best |
+
+## By hand
+
+**B1.** A bundle adjustment with 10 cameras (6 parameters each) and 1000 points, each seen in 4 images. (a) Number of unknowns and of residuals (2 per observation). (b) How many non-zero entries does one row of the Jacobian have? What fraction of the row is that? (c) The size of the reduced camera system after eliminating the points. (d) The same if each camera also has its own focal length.
+
+**B2.** Gauss–Newton in one unknown: a point at $X = 1$ (metres, sideways) is seen at normalised image coordinate $x = 0.25$; its depth $Z$ is unknown. The residual is $r(Z) = 0.25 - 1/Z$. (a) Compute $r'(Z)$. (b) Starting from $Z_0 = 3$, take two Gauss–Newton steps $Z \leftarrow Z - r/r'$. (c) What is the true depth, and how fast does the error shrink?
+
+**B3.** Which of these change at least one image of the reconstruction? (a) Rotating all cameras and points together by 10° about a vertical axis. (b) Scaling all camera positions and points by 2. (c) Moving one camera 10 cm sideways. (d) Moving all points 1 m up, but not the cameras. How many directions of zero cost are there in 3D, and how do you remove them?
+
+**B4.** Five photographs with these numbers of matches between pairs:
+
+| | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| **1** | – | 120 | 70 | 10 | 0 |
+| **2** | 120 | – | 150 | 60 | 5 |
+| **3** | 70 | 150 | – | 140 | 40 |
+| **4** | 10 | 60 | 140 | – | 130 |
+| **5** | 0 | 5 | 40 | 130 | – |
+
+(a) Which initial pair would you pick (assume all pairs have a real baseline)? (b) Add cameras greedily: each time the one with the most matches to the cameras already added. In which order? (c) Why does a pair with many matches but almost no baseline make a bad start?
+
+**B5.** Plane sweep for one reference pixel (value 100) with two other views and three depth hypotheses. The other views' values at the projected positions:
+
+| depth | view A | view B |
+|---|---|---|
+| 2 m | 130 | 85 |
+| 3 m | 98 | 103 |
+| 4 m | 60 | 120 |
+
+Compute the variance of the three values (reference, A, B) for each depth. Which depth wins? What would happen if view B were occluded at the true depth?
+
+**B6.** Residuals of four observations: $0.3$, $-0.2$, $0.4$ and $25$ pixels (the last a wrong match). (a) The contribution of each to the squared loss, and the "pull" (the derivative $2r$) of each. (b) The same for the Huber loss with $\delta = 1$ (pull $2\delta\,\mathrm{sign}(r)$ beyond $\delta$). (c) What does this mean for where the solution moves?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $10 \cdot 6 + 1000 \cdot 3 = 3060$ unknowns; $1000 \cdot 4 = 4000$ observations, 8000 residuals. (b) 9 (the 6 parameters of its camera and the 3 coordinates of its point), $9/3060 \approx 0.3\,\%$. (c) $60 \times 60$. (d) 7 parameters per camera: $70 \times 70$ (and 3070 unknowns).
+
+**B2.** (a) $r'(Z) = 1/Z^2$. (b) $Z_0 = 3$: $r = 0.25 - 0.3333 = -0.0833$, $r' = 0.1111$, step $+0.75$: $Z_1 = 3.75$. $Z_1$: $r = 0.25 - 0.2667 = -0.0167$, $r' = 0.0711$, step $+0.234$: $Z_2 = 3.984$. (c) $Z = 4$ (where $1/Z = 0.25$). Errors 1, 0.25, 0.016, then 0.00006: each error is about the square of the previous one: quadratic convergence near the solution (Gauss–Newton behaves like Newton's method here, because the residual at the solution is zero).
+
+**B3.** (a) No change (a rigid motion of everything). (b) No change (scale). (c) Changes the images of that camera. (d) Changes every image (the points move relative to the cameras). 7 directions (3 translation, 3 rotation, 1 scale); fix the first camera's pose and one distance (or one coordinate of a second camera), or add a known length.
+
+**B4.** (a) Pair 2–3 (150 matches). (b) After {2, 3}: camera 1 has $120 + 70 = 190$, camera 4 has $60 + 140 = 200$, camera 5 has 45: add 4. After {2, 3, 4}: camera 1 has 200, camera 5 has $5 + 40 + 130 = 175$: add 1, then 5. Order: 2, 3, 4, 1, 5. (c) Without a baseline (nearly a pure rotation) the two views give almost no depth information: the essential matrix is badly determined and the triangulated points are wildly uncertain, so every later camera is resected from bad points.
+
+**B5.** 2 m: values $(100, 130, 85)$, mean 105, variance $(25 + 625 + 400)/3 = 350$. 3 m: $(100, 98, 103)$, variance 4.2. 4 m: $(100, 60, 120)$, variance 622. 3 m wins clearly. If B were occluded at 3 m it would show the occluder, e.g. 40 instead of 103: the variance at 3 m jumps to 774, and a wrong depth may win. Robust scores (ignore the worst view, or use only the best pairs) help.
+
+**B6.** (a) Squared: 0.09, 0.04, 0.16, 625; pulls 0.6, −0.4, 0.8, 50. (b) Huber: 0.09, 0.04, 0.16, $2 \cdot 25 - 1 = 49$; pulls 0.6, −0.4, 0.8, **2**. (c) With squared loss the wrong match pulls 60 times harder than the strongest correct one, so the solver bends cameras and points to reduce it. With Huber its pull is capped at 2: it still has some influence, but the correct observations decide.
+:::
+
+### Math questions
+
+**B7.** *(math)* Derive the Gauss–Newton step: linearise $\mathbf r(\boldsymbol\theta + \boldsymbol\delta)$, minimise $\lVert\mathbf r + J\boldsymbol\delta\rVert^2$ over $\boldsymbol\delta$, and show that the result solves $J^\top J\boldsymbol\delta = -J^\top\mathbf r$. Check that it reduces to $\delta = -r/r'$ for one unknown.
+
+**B8.** *(math)* For the block system $\begin{bmatrix} U & W \\ W^\top & V \end{bmatrix}\binom{\boldsymbol\delta_c}{\boldsymbol\delta_p} = \binom{\mathbf g_c}{\mathbf g_p}$ with $V$ block-diagonal, derive the reduced system for $\boldsymbol\delta_c$ and the back-substitution for $\boldsymbol\delta_p$. Count the work for $m$ cameras and $n$ points (dense solves cost the cube of their size) and compare with solving the full system.
+
+**B9.** *(math)* Show that the bundle adjustment objective is unchanged if all points are transformed by a similarity $\mathbf X \to sQ\mathbf X + \mathbf a$ and each camera $(R_j, \mathbf t_j)$ is changed suitably. Conclude that $J^\top J$ has 7 zero eigenvalues in 3D (and 4 in 2D).
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $f(\boldsymbol\delta) = \lVert\mathbf r + J\boldsymbol\delta\rVert^2 = \mathbf r^\top\mathbf r + 2\boldsymbol\delta^\top J^\top\mathbf r + \boldsymbol\delta^\top J^\top J\boldsymbol\delta$. Setting the gradient $2J^\top\mathbf r + 2J^\top J\boldsymbol\delta$ to zero gives $J^\top J\boldsymbol\delta = -J^\top\mathbf r$ (the normal equations of the linearised problem). One unknown, one residual: $J = r'$, so $r'^2\delta = -r'r$, $\delta = -r/r'$ (Newton's method for the root of $r$).
+
+**B8.** Second block row: $W^\top\boldsymbol\delta_c + V\boldsymbol\delta_p = \mathbf g_p$, so $\boldsymbol\delta_p = V^{-1}(\mathbf g_p - W^\top\boldsymbol\delta_c)$. First row: $U\boldsymbol\delta_c + WV^{-1}(\mathbf g_p - W^\top\boldsymbol\delta_c) = \mathbf g_c$, i.e. $(U - WV^{-1}W^\top)\boldsymbol\delta_c = \mathbf g_c - WV^{-1}\mathbf g_p$. Work: $n$ inversions of $3 \times 3$ blocks ($\approx 27n$), forming the reduced matrix (sparse products, at most $O(n m^2)$, much less when each point is seen by few cameras), one dense solve of size $6m$ ($\approx (6m)^3$), and $n$ small back-substitutions. The full system costs $\approx (6m + 3n)^3$: for $m = 10$, $n = 1000$, $3060^3 \approx 2.9 \cdot 10^{10}$ against $60^3 = 2.2 \cdot 10^5$.
+
+**B9.** Let $\mathbf X_i' = sQ\mathbf X_i + \mathbf a$, $R_j' = R_jQ^\top$, $\mathbf t_j' = s\mathbf t_j - R_jQ^\top\mathbf a$. Then $R_j'\mathbf X_i' + \mathbf t_j' = sR_j\mathbf X_i + R_jQ^\top\mathbf a + s\mathbf t_j - R_jQ^\top\mathbf a = s(R_j\mathbf X_i + \mathbf t_j)$: every point in every camera's coordinates is scaled by $s > 0$, and the division by depth removes $s$. So every residual is unchanged along a family with 7 parameters ($\mathbf a$: 3, $Q$: 3, $s$: 1). Differentiating $\mathbf r(\boldsymbol\theta(\tau)) = \text{const}$ along each of the 7 curves at $\tau = 0$ gives $J\mathbf v_k = 0$ for 7 independent tangent vectors $\mathbf v_k$, so $J^\top J\mathbf v_k = 0$: 7 zero eigenvalues. In 2D: translation 2, rotation 1, scale 1: 4.
+:::
+
+## Explore: plane sweep in flatland {#explore-flatland}
+
+A 2D object (five textured faces) seen by 2–5 cameras of 120 pixels each; camera 2 of 3 (the middle one) is the reference. For the chosen reference pixel (red), depth hypotheses along its ray are projected into the other views; the upper plot shows the variance of the sampled values against depth (window ±w pixels), the true depth in green. The lower plot shows the best depth of every reference pixel against the truth.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="flatland" data-mode="sweep" data-preset="textured"></div>
+<script src="../demos/dist/flatland.js"></script>
+```
+
+**D1.** Preset **textured object**. Read the best and the true depth of pixel 60, and how many object pixels are off by more than 0.1. Set the window to ±0: what happens to the curve and the count?
+
+**D2.** Change the number of views from 2 to 5 (window ±3). How does the count change? Why do 4 and 5 views not help here?
+
+**D3.** Preset **a textureless face**. Describe the consistency curve of pixel 66 and the depth found. Which part of the depth plot goes wrong?
+
+**D4.** Preset **occluded in one view**. Where is the block, and which camera does it hide the object from? Read pixel 60's depth. Now set views = 2. What changes, and what does this suggest for a better photo-consistency score?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** Pixel 60: best 2.58, true 2.57. 13 of 85 object pixels are off by more than 0.1, mostly near the corners, where faces are seen at grazing angles. With a window of ±0 (single pixels) the curve has many sharp, deep minima (single values can agree by chance) and 43 of 85 pixels are off: a window makes the comparison distinctive.
+
+**D2.** 2 views: 28 off; 3: 13; 4: 23; 5: 44. The outer cameras (4 and 5) see the side faces at grazing angles and parts of the reference camera's surface are hidden from them; the plain variance requires **all** views to agree, so a single view that cannot see the point spoils the score.
+
+**D3.** Over a wide range of depths the variance is near zero (all views see the same flat grey), so the minimum is ill-defined; pixel 66 gets 2.16 instead of 2.60. The whole flat face (pixels about 55–90) is wrong in the depth plot; 45 of 85 pixels are off.
+
+**D4.** The grey block sits between camera 3 (right) and the object's lower face. Pixel 60 gets 3.00 instead of 2.57 (55 of 89 pixels off): camera 3 reports the block's texture, and no depth makes all three views agree at the true depth. With 2 views (camera 3 removed) pixel 60 is correct again (2.58). A better score would tolerate one disagreeing view: e.g. use the best $k$ of the views, or a robust spread instead of the variance; visibility reasoning (is the point hidden in this view?) is the full answer.
+:::
+
+## Explore: bundle adjustment in flatland {#explore}
+
+10 cameras (1D, $f = 130$ px, 160 pixels) around an object outline with 40 points, each seen by at least 3 cameras: 169 observations with seeded noise $\sigma = 0.2$ px, 110 unknowns. The estimate starts at the truth plus a seeded perturbation; thin lines are the rays of the observations from the estimated cameras. **GN step**, **LM step**, **run LM**; the plot shows the RMS reprojection error per step. The gauge: camera 1 fixed and one coordinate of the opposite camera (sets the scale).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="bundleadjust" data-preset="small"></div>
+<script src="../demos/dist/bundleadjust.js"></script>
+```
+
+**E1.** Preset **small perturbation**. Press **GN step** a few times, read the RMS after each; reset and do the same with **LM step**. Why is the final RMS (about 0.15 px) smaller than the noise (0.2 px)?
+
+**E2.** Preset **large perturbation**. Compare GN steps with LM steps. Watch $\mu$ in the readout during LM.
+
+**E3.** Preset **no gauge fixed**. Read the smallest eigenvalues of $J^\top J$. How many are (nearly) zero, and what do they correspond to? Run LM: does it still converge?
+
+**E4.** Presets **3 outliers, squared loss** and **3 outliers, Huber loss** (each runs LM). Compare the RMS of the inliers and the residuals of the three outliers. Why is one outlier "absorbed" even with Huber?
+
+**E5.** Preset **cameras on one side**. Describe the covariance ellipses. Then go back to the ring of cameras (reset, tick the ellipses, ×10): how do the ellipses differ?
+
+**E6.** Preset **incremental reconstruction**. Press **next camera** repeatedly and read the log. From how many points is each camera resected? What happens to the RMS?
+
+**E7.** Look at the sparsity of $J$ and of $J^\top J$. How many non-zeros does a row of $J$ have here? Where is the block-diagonal part?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** GN: 3.42 → 0.57 → 0.25 → 0.14 px; LM: 3.42 → 0.19 → 0.15 px. Both converge in a few steps from a small perturbation. 110 unknowns are fitted to 169 measurements, so part of the noise is absorbed by the parameters; the expected RMS is about $\sigma\sqrt{(169 - 106)/169} \approx 0.12$ px for pure least squares with 106 free unknowns, the same order as observed.
+
+**E2.** GN makes things worse: 58 → 154 → 1178 px, and it keeps jumping around: the linearisation is useless so far from the solution. LM goes 58 → 15 → 4.9 → 1.0 → 0.25 → 0.19 px: it starts with cautious, gradient-like steps and lets $\mu$ shrink as the steps succeed, ending with Gauss–Newton-like steps.
+
+**E3.** Four eigenvalues of about $10^{-12}$ (two translations, the rotation and the scale of the whole plane), the next is 0.44. LM still converges (its damping makes the system solvable), but to an arbitrary member of the family; the point error is only meaningful after aligning the result to the truth by a similarity.
+
+**E4.** Squared loss: inliers RMS 1.32 px, the three outliers' residuals 1.7, −9.8 and −1.2 px: the solution bent to explain them, spoiling everything. Huber: inliers 0.45 px, two outliers keep residuals of 21.5 and −24.8 px (recognisably wrong), the third only −0.5 px. Its point is seen by just four 1D cameras: there is little redundancy, and moving the point (and a camera) a little explains the wrong observation at small cost to the others. Outliers can only be detected where there is redundancy.
+
+**E5.** On one side: long, thin ellipses (standard deviations of about 0.5 along their long axis and 0.02 across), all oriented roughly the same way: the depth (along the viewing directions) is poorly fixed, and since the cameras' own positions are estimated too, the whole reconstruction can flex along that direction. On the ring: small ellipses (about 0.04 by 0.015, magnified ×10 to be visible), points seen from many directions.
+
+**E6.** Initial pair: cameras 1 and 2, 14 points triangulated. Camera 3 is resected from 12 points, camera 4 from only 4, camera 5 from 9, …, camera 10 from 17; each step adds the newly visible points (up to 10). After each step's bundle adjustment the RMS is 0.10–0.14 px, at the noise level.
+
+**E7.** 5 non-zeros per row (3 for the camera, 2 for the point); $J$ is 169 × 110. $J^\top J$: the camera block (30 × 30, top left) is block-diagonal with 3 × 3 blocks, the point block (80 × 80, bottom right) is block-diagonal with 2 × 2 blocks, and the off-diagonal blocks show which camera sees which point: the arrowhead.
+:::
+
+## Where this leads
+
+Known cameras plus dense matching give depth maps and meshes. A newer route skips explicit surfaces: fit a **radiance field** (density and colour everywhere, rendered by the emission–absorption compositing of [volume rendering](../volrender/lec.qmd)) or a cloud of **3D Gaussian splats** (blobs composited front-to-back) to all the photographs, and render the scene from new viewpoints. They start from exactly the camera poses (and sparse points) that structure from motion delivers.

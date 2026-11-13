@@ -1,0 +1,176 @@
+---
+title: "Exercise: from detections to tracks"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- link two frames by **nearest neighbour**, **greedy** and **global assignment**, and explain when they differ,
+- include a **gate** and the cost **b** of ending or starting a track, and find for which b a link is taken,
+- predict how hard a tracking problem is from the **displacement/spacing ratio**,
+- explain why per-link errors **compound** over long tracks,
+- *(math)* write linking as a linear assignment problem with an augmented matrix, and derive the nearest-neighbour error rate.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Track | a chain of detections, at most one per frame, of the same object |
+| Cost of a link | squared distance (default): small = likely; extra terms for area, intensity, overlap |
+| Nearest neighbour | each detection takes its closest successor; conflicts possible |
+| Greedy | cheapest pair first, never revisited |
+| Global assignment | minimum **total** cost, each detection used at most once (Hungarian algorithm) |
+| Gate | pairs farther apart than the gate are not allowed |
+| End/start cost b | a track may end (cost b) and a new one start (cost b); a link is taken only if its cost < 2b |
+| Difficulty ratio | rms displacement per frame / mean nearest-neighbour spacing; spacing ≈ $0.5/\sqrt{n}$ at density $n$; rms displacement of a 2D random walk $\sqrt{4D\Delta t}$ |
+| Nearest-neighbour error | about $a/(1+a)$ with $a = 4\pi nD\Delta t$ |
+
+## By hand
+
+**B1.** Frame t: A(0, 0), B(3, 0). Frame t+1: P(2, 0), Q(5, 0). Cost = squared distance.
+(a) Write the 2 × 2 cost matrix. What does nearest neighbour do?
+(b) Run greedy. Which pair is taken first, and what is the total?
+(c) Find the global assignment and its total.
+(d) Repeat (b) and (c) with plain distances as the cost. Does the global choice change?
+
+**B2.** Same detections, squared distances, and now every unlinked detection at t costs b (its track ends) and every unlinked detection at t+1 costs b (a track starts).
+(a) Write the total cost of the four candidate solutions as functions of b: both links A–P and B–Q; only B–P; only A–P (or only B–Q); no links.
+(b) For which b is each solution optimal? What happens exactly at b = 3.5 and b = 0.5?
+(c) A link is taken if its cost is below 2b. With b = 3.5, how long may a link be (in distance units)?
+
+**B3.** Three detections at t (A, B, C) and three at t+1 (P, Q, R), costs (–: outside the gate):
+
+| | P | Q | R |
+|---|---|---|---|
+| A | 1 | 2 | 8 |
+| B | 2 | 6 | – |
+| C | 9 | 3 | 5 |
+
+(a) List all assignments that link every detection (at most 6) and their totals. Which is the global optimum?
+(b) Run greedy. What goes wrong?
+
+**B4.** Particles diffuse with $D = 0.05$ µm²/s, imaged every $\Delta t = 0.5$ s, at a density of 0.5 particles per µm².
+(a) Compute the rms displacement per frame, the mean spacing and the ratio.
+(b) Estimate the nearest-neighbour error rate. Will nearest neighbour be good enough?
+(c) Which frame interval gives a ratio of 0.2?
+
+**B5.** **Errors compound.** (a) With 2 % wrong links, what fraction of 50-frame tracks (49 links; use 50 for simplicity) is perfect? (b) With 0.5 %? (c) What does this mean for experiments that need complete tracks?
+
+**B6.** **Predict.** Two nuclei of very different size (one 300 px², one 80 px²) pass close to each other. Which extra cost term would help the linker, and how would you weigh it against the squared distance?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Rows A, B; columns P, Q: $\begin{pmatrix}4 & 25\\ 1 & 4\end{pmatrix}$. Nearest neighbour: A's closest is P (4), B's closest is also P (1): a **conflict** on P; Q gets no predecessor.
+(b) Greedy takes B–P (1) first; A is left with Q (25): total **26**.
+(c) Global: A–P + B–Q = 4 + 4 = **8** (the other complete assignment, A–Q + B–P, costs 26).
+(d) Distances: A–P 2, A–Q 5, B–P 1, B–Q 2. Greedy: B–P then A–Q, total 6. Global: A–P + B–Q = 4 < 6. The choice is the same, but the gap is smaller: squared distances punish one long link more than two medium ones.
+
+**B2.** (a) Both links: 8. Only B–P: 1 + 2b (A ends, Q starts). Only A–P: 4 + 2b; only B–Q: 4 + 2b. No links: 4b.
+(b) Both links beat only B–P when 8 < 1 + 2b, i.e. **b > 3.5**. Only B–P beats no links when 1 + 2b < 4b, i.e. **b > 0.5**. So: b > 3.5 both links; 0.5 < b < 3.5 only B–P; b < 0.5 no links. "Only A–P" is never best (always 3 more than "only B–P"). At b = 3.5, "both" and "only B–P" tie at 8; at b = 0.5, "only B–P" and "no links" tie at 2.
+(c) Cost < 2b = 7, so a squared distance below 7: links shorter than $\sqrt7 \approx 2.65$.
+
+**B3.** (a) A–P, B–Q, C–R: 1 + 6 + 5 = 12. A–Q, B–P, C–R: 2 + 2 + 5 = **9**. A–R, B–P, C–Q: 8 + 2 + 3 = 13. A–R, B–Q, C–P: 8 + 6 + 9 = 23. The two others need B–R, which is gated. The optimum is A–Q, B–P, C–R (9).
+(b) Greedy takes A–P (1), then C–Q (3); B's only remaining candidate is R, which is gated: **B is left without a link** (its track ends, R starts a new one). Greedy's early cheap choice A–P blocked B's only good option.
+
+**B4.** (a) rms displacement $\sqrt{4 \cdot 0.05 \cdot 0.5} = \sqrt{0.1} = 0.316$ µm; spacing $0.5/\sqrt{0.5} = 0.707$ µm; ratio 0.447.
+(b) $a = 4\pi \cdot 0.5 \cdot 0.05 \cdot 0.5 = 0.157$; error ≈ $0.157/1.157 = 0.136$: about 14 % wrong links. Not good enough: use global assignment and, better, a shorter frame interval.
+(c) Ratio 0.2 needs an rms displacement of $0.2 \cdot 0.707 = 0.141$ µm, so $4D\Delta t = 0.02$ µm² and $\Delta t = 0.1$ s.
+
+**B5.** (a) $0.98^{50} \approx 0.36$. (b) $0.995^{50} \approx 0.78$. (c) Complete tracks (for lineages, or for long-time MSD) need error rates well below 1 % per link: image faster, at lower density, or correct the tracks by hand. Measurements that use only short pieces (speeds over a few frames) are much more forgiving.
+
+**B6.** A term for the change in area, e.g. $w\,(A_1 - A_2)^2/(A_1 A_2)$ or $w\,(\log A_1/A_2)^2$, added to the squared distance. The weight $w$ converts "how different may the areas be" into squared-distance units: if an area ratio of 1.5 should cost as much as a step of 3 px, set $w (\log 1.5)^2 = 9$, so $w \approx 55$. With it, the big nucleus prefers the big successor even when the small one is slightly closer.
+:::
+
+### Math questions
+
+**B7.** *(math)* Build the 4 × 4 augmented matrix for B1 with b = 3 (rows A, B, start-P, start-Q; columns P, Q, end-A, end-B). Find the minimum-cost perfect assignment by listing permutations (most contain ∞ and can be skipped). Check that it agrees with B2.
+
+**B8.** *(math)* For independent 2D random-walk steps, show that minimising the sum of squared distances maximises the likelihood of all steps. If a track ends with probability $p_e$ and continues otherwise, express b in the same units as the link cost.
+
+**B9.** *(math)* Derive the nearest-neighbour error rate $a/(1+a)$ from $E[e^{-\pi n r^2}]$ with $r^2$ exponential of mean $4D\Delta t$. What does it become for $a \ll 1$, and how does it scale with the difficulty ratio?
+
+**B10.** *(math)* Give a 2 × 2 example in which greedy is worse than global by an arbitrarily large factor. (Then embed it in a 3 × 3 problem.)
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $$M = \begin{pmatrix} 4 & 25 & 3 & \infty \\ 1 & 4 & \infty & 3 \\ 3 & \infty & 0 & 0 \\ \infty & 3 & 0 & 0 \end{pmatrix}.$$ Finite permutations: both links (A–P, B–Q, start-P–end-A, start-Q–end-B): 4 + 4 + 0 + 0 = 8; A–P, B ends, Q starts: 4 + 3 + 3 + 0 = 10; B–P, A ends, Q starts: 1 + 3 + 3 + 0 = **7**; A–Q, B–P: 25 + 1 + 0 + 0 = 26; B–Q, A ends, P starts: 4 + 3 + 3 + 0 = 10; no links: 3 + 3 + 3 + 3 = 12. The minimum is 7 (only B–P), as B2 says for 0.5 < b = 3 < 3.5.
+
+**B8.** The joint density of $K$ independent steps is $\prod_k \frac{1}{4\pi D\Delta t}e^{-r_k^2/4D\Delta t}$; its minus log is $\frac{1}{4D\Delta t}\sum_k r_k^2 + K\log(4\pi D\Delta t)$. For a fixed number of links the second term is constant, so the smallest $\sum r_k^2$ is the most likely set of links. Now let a track end with probability $p_e$ and a new one start with probability $p_s$. Multiply all minus log-probabilities by $4D\Delta t$ to get squared-distance units: a link costs $r^2 + c_0$ with $c_0 = 4D\Delta t\,[\log(4\pi D\Delta t) - \log(1 - p_e)]$, an end costs $-4D\Delta t\log p_e$ and a start $-4D\Delta t\log p_s$. The link wins if $r^2 < 4D\Delta t\,\log\frac{1}{p_e p_s} - c_0$. With equal probabilities, $b \approx 4D\Delta t\,\log(1/p)$ up to the constant: b is a log-probability in the units of the link cost, which is why it must be expressed in the same units (squared pixels or squared µm).
+
+**B9.** $P(\text{right} \mid r) = e^{-\pi n r^2}$. With $s = r^2$ exponential of mean $\mu = 4D\Delta t$: $E[e^{-\pi n s}] = \int_0^\infty \frac{1}{\mu}e^{-s/\mu}e^{-\pi n s}\,ds = \frac{1}{1 + \pi n\mu}$, so $P_\text{err} = \frac{\pi n\mu}{1 + \pi n\mu} = \frac{a}{1+a}$, $a = 4\pi nD\Delta t$. For $a \ll 1$, $P_\text{err} \approx a$. Since $\rho^2 = 4D\Delta t/(0.25/n) = 16nD\Delta t$, $a = \pi\rho^2/4$: the error grows with the **square** of the ratio; halving the frame interval halves the error.
+
+**B10.** Rows A, B, columns P, Q with costs $\begin{pmatrix}0 & 1\\ 1 & M\end{pmatrix}$. Greedy takes A–P (0), then B–Q (M): total M. Global takes A–Q + B–P = 2. The ratio $M/2$ is as large as you like. In 3 × 3, add a third row and column C–R with cost 0 and all other pairs large: greedy M, global 2.
+:::
+
+## Explore: linking two frames {#explore-linkpairs}
+
+Filled discs are detections at frame t (A, B, …), rings at frame t+1 (P, Q, …); drag them, add or remove them. The matrix shows the costs (rows t, columns t+1; – = outside the gate), with the chosen links boxed; with **augmented matrix** it shows the $(m+n) \times (n+m)$ matrix with b on the diagonals. **Step** plays greedy one link at a time.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="linkpairs" data-preset="conflict"></div>
+<script src="../demos/dist/linkpairs.js"></script>
+```
+
+**D1.** Preset **NN conflict**, then **greedy loses** (press step twice), then **global: 8 < 26**. Check your answers to B1.
+
+**D2.** Preset **ending is cheaper (b = 2)**. Read the total and the ends and starts. Now move b from 0.25 to 5. At which values do the links change? Compare with B2.
+
+**D3.** Preset **gate too small: a track breaks**. Which object loses its link, and why? Set the gate to "off": which link appears, and what does nearest neighbour do with the gate on?
+
+**D4.** Preset **a newcomer steals a link**. Which ring does A link to? Is that right if Q is a new object? Can any cost based only on positions avoid this error?
+
+**D5.** Preset **augmented matrix (b = 3)**. Find the boxed cells and explain each: a link, an end, a start, and the pairing of the leftover dummies. Compare with B7.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** Nearest neighbour: both A and B choose P (red: conflict on P). Greedy: B–P (1) then A–Q (25), total 26. Global: A–P + B–Q, total 8.
+
+**D2.** With b = 2: only B–P (cost 1); A ends and Q starts; total 1 + 2 + 2 = 5 < 8. Below b = 0.5 there are no links (total 4b); between 0.5 and 3.5 only B–P; from 3.5 both links (total 8). At exactly 0.5 and 3.5 two solutions tie.
+
+**D3.** The middle object B (at 0, 0) moves to Q (4.5, 0.2): squared distance 20.29, distance 4.5 > gate 3. It cannot be linked, so its track ends and Q starts a new track. With the gate off, B–Q (20.29) is taken and all three tracks continue (total 24.58). With the gate on, nearest neighbour sends B to its nearest allowed ring, R (5.20), which C also takes (2.00): a conflict.
+
+**D4.** A links to the ring Q at (0.9, 0.4) (cost 2.02) instead of P at (2.2, 1.5) (cost 4.84); P starts a new track. If Q is a newcomer, this link is wrong and A's track continues on the wrong object. Positions alone cannot tell, because Q is simply closer. Help comes from other cues (size, intensity), from a prediction of where A should be (next unit: if A was moving right, P is expected), or from tighter imaging.
+
+**D5.** Boxed: B–P (cost 1, a link), A–A✕ (3: A ends), +Q–Q (3: Q starts), and +P–B✕ (0: the dummies of the linked pair B–P pair up in the zero block). Total 1 + 3 + 3 + 0 = 7, as in B7.
+:::
+
+## Explore: a simulated movie {#explore}
+
+A seeded movie of 60 frames: particles in a 256 × 256 px field move by random walk (diffusion coefficient D, frame interval Δt), straight lines (directed) or both (mixed), with localisation noise σ, entering and leaving at the border. The field shows the current frame with tails coloured by track; red crosses mark wrong links. The readout gives the displacement/spacing ratio, the link error rate (true links missed), the fraction of wrong links among those made, and the fraction of true tracks reconstructed without error. The side plot shows the link error against the ratio for all three methods (random walk, same density, sensible gate and b for each ratio), with the estimate a/(1+a).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="linkmovie" data-preset="easy"></div>
+<script src="../demos/dist/linkmovie.js"></script>
+```
+
+**E1.** Preset **sparse and slow: everything works**. Read the ratio and the error rate for nearest, greedy and global. Press play: where do the few errors happen?
+
+**E2.** Preset **ratio 0.5: NN fails, global better**. Compare the three methods' error rates and perfect tracks. Where on the side plot are the three methods, and how close is nearest neighbour to a/(1+a)?
+
+**E3.** Preset **ratio 1: nobody can**. What error rate does global assignment reach? Which two sliders would you change to make the problem easy, and by how much?
+
+**E4.** Preset **drift**. Read the ratio and the error rate. Tick **correct drift**. What changes, and why does correcting a motion that all objects share help so much?
+
+**E5.** Preset **b too low: tracks shatter**, then **b too high: wrong links**. For each, which error rate is high: missed true links, or wrong links among those made? Find a b that keeps both low for the "b too high" settings.
+
+**E6.** Switch the motion to **directed** at the default settings. Why does the ratio rise, and what happens to the errors at crossings? (The next unit fixes this with prediction.)
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Ratio 0.12; error rates 0.7 % (nearest), 0.7 % (greedy), 0.2 % (global); 81 %, 84 % and 89 % of the 37 true tracks are perfect. The few errors happen where two particles come very close, and at the border where one particle leaves as another enters nearby.
+
+**E2.** Ratio 0.50. Nearest 15.5 % errors (31 % perfect tracks), greedy 14.5 % (33 %), global 9.3 % (36 %). On the side plot the nearest-neighbour dots lie on the dashed a/(1+a) curve (a = π·0.5²/4 = 0.196, a/(1+a) = 0.16); global lies clearly below it. Even global gets only about a third of the 272 true tracks completely right: errors compound.
+
+**E3.** Global still misses 34 % of true links (ratio 0.99). To reach a ratio of about 0.2: halve the displacement and double the spacing, e.g. reduce Δt (displacement ∝ √Δt for random motion, so Δt 25 times smaller) or reduce the number of particles (spacing ∝ 1/√n). In practice: image faster, or label fewer objects.
+
+**E4.** With drift (6.7 px per frame) the ratio is 0.44 and global misses 17.9 % of links; 16 % of tracks are perfect. Corrected: ratio 0.17, 1.7 % errors, 86 % perfect tracks. The drift adds the same large step to every object, so the links must reach further and compete with neighbours; once it is removed only the particles' own small motion remains.
+
+**E5.** b = 3 px (as a distance): 37.9 % of true links missed but only 5.1 % of the links made are wrong: tracks shatter into pieces (every step longer than about √2·3 ≈ 4.2 px ends a track). b = 60 px with the gate off: 10.8 % missed and 11.8 % wrong: particles that leave are linked to ones that enter. For these settings (100 particles, gate off) b between 8 and 15 px gives about 4.3 % missed and 4.4 % wrong.
+
+**E6.** Directed particles move speed × Δt = 4 px per frame on top of the diffusion, so the displacement and the ratio rise (0.24 → 0.34), and the global error rate from 3.6 % to 4.8 % (nearest neighbour 6.9 % → 7.5 %). The extra errors sit where tracks cross or run close: the linker looks only at the last position and does not know where each particle is heading.
+:::
+
+## Where this leads
+
+Linking to the **last** position fails for fast objects, especially at crossings. The next unit links to the **predicted** position and lets the uncertainty of the prediction set the gate: motion models and the **Kalman filter**. After that: missed detections, divisions and lineage trees, and what tracks measure.

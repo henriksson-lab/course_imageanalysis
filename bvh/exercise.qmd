@@ -1,0 +1,127 @@
+---
+title: "Exercise: tracing fast"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- run the **slab test** for a ray and a box by hand,
+- build a small **bounding-volume hierarchy** and trace a ray through it, counting tests,
+- compare split candidates with the **surface area heuristic**,
+- walk a ray through a **uniform grid**,
+- estimate the cost of brute force against a tree, and choose between **rasterisation and ray tracing** for a task,
+- *(math)* derive the slab test (with infinities), the SAH probability, and the best and worst cases of traversal.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Slab test | per axis $t \in [(\min_k - o_k)/d_k,\ (\max_k - o_k)/d_k]$ (sorted); box = intersection; hit iff $t_\text{near} \le t_\text{far}$, $t_\text{far} > 0$ |
+| BVH | binary tree of boxes over the objects; traverse nearest child first; skip boxes beyond the best hit |
+| Median split | split at the median centre along the longest axis |
+| SAH | cost $= 1 + \frac{A_L}{A}N_L + \frac{A_R}{A}N_R$ (one box test, one object test as unit costs); leaf: $N$ |
+| Grid | cells walked in order along the ray; stop in the first cell that contains the nearest hit |
+| Cost | brute force: pixels × rays per pixel × objects; tree: about $2\log_2 N$ tests per ray |
+
+## By hand
+
+**B1.** **Slab test** (2D). Box $[0, 2] \times [0, 1]$.
+(a) Ray $\mathbf o = (-1, 0.5)$, $\mathbf d = (1, 0.25)$: give the $t$-interval for each slab, the overlap, and the entry and exit points.
+(b) Ray $\mathbf o = (-1, 2)$, same $\mathbf d$: hit or miss?
+(c) Ray $\mathbf o = (1, -3)$, $\mathbf d = (0, 1)$: what happens in the $x$-slab?
+
+**B2.** **A BVH in 1D.** Eight intervals on a line (think of them as objects seen along a ray):
+$[0, 1],\ [2, 3],\ [3.5, 4],\ [6, 7],\ [10, 11],\ [12, 12.5],\ [14, 15],\ [17, 18]$.
+(a) Build a median-split tree with at most 2 intervals per leaf: give the boxes (intervals) of all 7 nodes.
+(b) A ray starts at $x = 8$ and goes right. Traverse the tree (nearest child first, skip boxes beyond the best hit). Count box tests and interval tests; compare with brute force.
+(c) The same for a ray starting at $x = -1$ going right.
+(d) Why is the saving small here, and when does it become large?
+
+**B3.** **Surface area heuristic.** A node has surface area 10 and 12 objects. Split A: left area 4 with 6 objects, right area 5 with 6. Split B: left area 7 with 10 objects, right area 2 with 2. Compute the SAH cost of both splits (one box test and one object test both cost 1) and of making the node a leaf. Which is chosen? Why is the "balanced" split B worse?
+
+**B4.** **A grid walk.** A 4 × 4 grid of unit cells covers $[0, 4]^2$. A ray starts at $(0, 0.5)$ in direction $(1, 0.4)$. List the cells it visits, in order, with the $t$ at which it crosses each cell boundary.
+
+**B5.** **Cost.** 1920 × 1080 pixels, 4 rays per pixel, $10^6$ triangles. (a) Tests with brute force. (b) With about $2\log_2 N$ tests per ray. (c) The ratio.
+
+**B6.** **Rasterise or ray-trace?** For each, say which you would use and why: (a) a wireframe view of a CAD model; (b) an architect's room with mirrors and glass; (c) an isosurface of a CT scan, rotated interactively to look for a fracture; (d) a computer game at 60 frames per second with realistic reflections in puddles.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $x$: $[1, 3]$; $y$: $[(0 - 0.5)/0.25, (1 - 0.5)/0.25] = [-2, 2]$; overlap $[\max(1, -2), \min(3, 2)] = [1, 2]$: a hit; entry at $t = 1$: $(0, 0.75)$; exit at $t = 2$: $(1, 1)$, through the top. (b) $x$: $[1, 3]$; $y$: $[(0 - 2)/0.25, (1 - 2)/0.25] = [-8, -4]$; $t_\text{near} = 1 > t_\text{far} = -4$: a miss (the ray passes above the box). (c) $d_x = 0$ and $o_x = 1$ lies inside $[0, 2]$: the $x$-slab does not restrict $t$ (interval $(-\infty, \infty)$); $y$: $[3, 4]$: a hit from $t = 3$ to $4$.
+
+**B2.** (a) Root $[0, 18]$; left $[0, 7]$ (the first four), right $[10, 18]$ (the last four); leaves $[0, 3]$ = {[0, 1], [2, 3]}, $[3.5, 7]$ = {[3.5, 4], [6, 7]}, $[10, 12.5]$ = {[10, 11], [12, 12.5]}, $[14, 18]$ = {[14, 15], [17, 18]}. (b) Root: hit (the ray starts inside it). Children: $[0, 7]$ lies behind the ray: miss; $[10, 18]$: hit at $t = 2$. Its children: $[10, 12.5]$ at $t = 2$, $[14, 18]$ at $t = 6$; nearer first: test $[10, 11]$ (hit, $t = 2$) and $[12, 12.5]$ ($t = 4$); best $t = 2$. The leaf $[14, 18]$ starts at $t = 6 > 2$: skipped. 5 box tests + 2 interval tests = 7, against 8 for brute force. (c) Root hit; $[0, 7]$ at $t = 1$, $[10, 18]$ at $t = 11$; nearer first: $[0, 3]$ at $t = 1$, $[3.5, 7]$ at $t = 4.5$; test $[0, 1]$ (hit at $t = 1$) and $[2, 3]$; the other boxes start beyond $t = 1$: skipped. Again 5 + 2 = 7. (d) With 8 objects the tree is only 3 levels deep, and each level costs 2 box tests; the saving grows with $N$: $2\log_2 N$ against $N$, about 40 against $10^6$.
+
+**B3.** A: $1 + 0.4\cdot6 + 0.5\cdot6 = 6.4$. B: $1 + 0.7\cdot10 + 0.2\cdot2 = 8.4$. Leaf: 12. Split A. B splits off a small group but leaves 10 objects in a box that covers 70 % of the parent: most rays still test those 10. (B is also not balanced; balance by count is not what matters, tight boxes are.)
+
+**B4.** $(0, 0)$; $x = 1$ at $t = 1$ → $(1, 0)$; $y = 1$ at $t = 1.25$ → $(1, 1)$; $x = 2$ at $t = 2$ → $(2, 1)$; $x = 3$ at $t = 3$ → $(3, 1)$; $y = 2$ at $t = 3.75$ → $(3, 2)$; $x = 4$ at $t = 4$: leaves the grid. Six cells (the $t$ here is in units of the direction $(1, 0.4)$, not normalised).
+
+**B5.** (a) $1920\cdot1080\cdot4\cdot10^6 = 8.3\cdot10^{12}$. (b) $2\log_2 10^6 = 39.9$ tests per ray, $1920\cdot1080\cdot4\cdot39.9 = 3.3\cdot10^8$. (c) About 25 000.
+
+**B6.** (a) Rasterise: lines and primary visibility only, and fast. (b) Ray-trace: reflections and refraction several bounces deep. (c) Rasterise (or ray-cast the volume, as on the 3D graphics day): interactive, primary visibility and simple shading suffice. (d) Hybrid: rasterise what the camera sees, trace a few rays per pixel for the reflections, and denoise.
+:::
+
+### Math questions
+
+**B7.** *(math)* **The slab test.** (a) Derive the slab interval for axis $k$ and the rule $t_\text{near} = \max_k \min(\cdot)$, $t_\text{far} = \min_k \max(\cdot)$. (b) Show that with $d_k = 0$ and IEEE arithmetic ($1/0 = \infty$) the formula gives the right answer whether $o_k$ is inside or outside the slab. (c) If $o_k$ lies exactly on a slab plane and $d_k = 0$, one of the products is $0\cdot\infty$. What is it in IEEE arithmetic, and how must the max/min be written so the test still works?
+
+**B8.** *(math)* **Why surface area.** In 2D, the Cauchy–Crofton formula says that the measure of random lines hitting a convex set is proportional to its perimeter. (a) A box of 4 × 2 lies inside a box of 10 × 6. What is the probability that a random line that hits the big box also hits the small one? (b) In 3D the corresponding measure is the surface area. Give the probability for a cube of side 1 inside a cube of side 2. (c) Why is this the right weight for the SAH, and when is it wrong (think of the rays a camera actually sends)?
+
+**B9.** *(math)* **Best and worst cases.** (a) A balanced BVH with one object per leaf over $N = 2^m$ objects; a ray hits exactly one leaf box and no other box. How many box tests does it need? (b) Construct a scene and a ray for which traversal visits every node of the tree and tests every object. How does that compare with brute force?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** (a) On axis $k$ the ray coordinate $o_k + t d_k$ lies in $[\min_k, \max_k]$ for $t$ between $(\min_k - o_k)/d_k$ and $(\max_k - o_k)/d_k$ (in increasing order, since $d_k$ may be negative). The box is the set of points inside all slabs, so the ray is in the box for $t$ in the intersection of the intervals: the largest lower end and the smallest upper end. (b) $d_k = 0$, $o_k$ inside: the two values are $(\text{negative})\cdot\infty = -\infty$ and $(\text{positive})\cdot\infty = +\infty$: no restriction, correct, since the ray stays inside the slab forever. Outside, e.g. $o_k > \max_k$: both differences negative, both $-\infty$, the interval $[-\infty, -\infty]$, so $t_\text{far} = -\infty$: a miss, correct. (c) $0\cdot\infty$ = NaN. Every comparison with NaN is false, so write `if (a > tnear) tnear = a` (a NaN never replaces the current value); a library max function that propagates NaN would turn the whole test into NaN.
+
+**B8.** (a) Perimeters 12 and 32: $12/32 = 0.375$. (b) Surface areas 6 and 24: $6/24 = 0.25$. (c) The SAH needs the probability that a ray which reaches a node also reaches a child; for rays in all directions and positions (as in path tracing with many bounces) that is the ratio of the surface areas. Camera rays are not random: they all start at the eye and go forward, so a box seen edge-on or hidden behind another is hit less often than its area says. The SAH is a heuristic, good on average.
+
+**B9.** (a) The root and, at each of the $m$ levels below it, the two children of the visited node: $1 + 2m = 1 + 2\log_2 N$ box tests (and one object test). (b) Example: $N$ thin vertical segments side by side, each just above a horizontal ray that passes under all of them but through all their boxes (the boxes are made a little taller than the segments, or the segments are diagonal so their boxes cover the ray's path while the segments themselves do not). No hit is found, so nothing is ever skipped: all $2N - 1$ boxes and all $N$ objects are tested, about three times the cost of brute force.
+:::
+
+## Explore {#explore}
+
+A 2D scene of $N$ discs and segments (seeded layouts: uniform, clustered, a "teapot in a stadium", one long wall). Choose the structure: **none** (brute force), **BVH median**, **BVH SAH**, or a **grid** (cells slider). The boxes of one tree level are drawn (box level slider). Drag the ray's origin **O** and its aim ◆. **Step** walks the traversal: orange boxes were hit, red dashed boxes missed; the objects that were tested are outlined; the red dot is the nearest hit. The readout counts box tests (or grid cells) and object tests against brute force. The plot shows the average number of tests per ray against $N$ (1000 random rays per point; the grid uses about $\sqrt{N/2}$ cells per side) for the current layout.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="bvhstep" data-preset="median"></div>
+<script src="../demos/dist/bvhstep.js"></script>
+```
+
+**E1.** Preset **brute force**: how many tests does the ray need? Preset **median BVH**: press **step** repeatedly and describe the order in which boxes are visited. How many box and object tests in total?
+
+**E2.** Still at 64 objects, switch between **BVH median** and **BVH SAH**. Which tree is deeper? Which needs fewer tests for this ray? Read the "SAH cost" of both trees.
+
+**E3.** Preset **SAH vs median, clustered**. Compare the drawn boxes at level 2 for the two methods. Where does the SAH put its boxes? Compare the SAH cost of the two trees.
+
+**E4.** Preset **grid on a uniform scene**. How many cells does the ray visit and how many objects does it test? Change the number of cells to 4 and to 40: what happens to the count, and why is there an optimum?
+
+**E5.** Preset **teapot in a stadium**. How many objects does the grid test for this ray? Switch to **BVH SAH**. Then look at the plot for this layout: how do the grid and the BVH grow with $N$?
+
+**E6.** Preset **a ray that misses**. How many tests? Why?
+
+**E7.** Preset **near-first stops early** (1024 objects). How many tests does the ray need, and how does that compare with $\log_2 1024$? Step through: why are the far boxes never opened?
+
+**E8.** Choose the layout **long wall** with the BVH. Which boxes does the wall end up in, and what does that do to rays that pass close to it? Compare the plot for this layout with the uniform one.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Brute force: 64 object tests. Median BVH: the root first, then its two children; the traversal descends into the nearer child that the ray hits, opens boxes along the ray from the origin outwards, and stops opening boxes once their entry point lies beyond the hit found. 21 box tests and 6 object tests, 27 in total against 64.
+
+**E2.** The median tree has depth 5 (32 leaves of 2 objects), the SAH tree depth 7 with 55 leaves (it stops splitting where a leaf is cheaper and splits deeper elsewhere). For this ray the SAH needs 25 box tests and 2 object tests (27, the same total as the median tree's 21 + 6). The SAH costs are 24.2 (SAH) and 26.4 (median): on average over random rays the SAH tree is cheaper.
+
+**E3.** The SAH wraps each cluster in a tight box early and leaves the empty space between the clusters outside all boxes, while the median cuts through the middle of the clusters and makes boxes that span empty space. SAH cost 43.4 against 48.7 for the median tree; this ray needs 39 box and 6 object tests with the SAH tree (27 + 6 with the median tree: one ray is not the average).
+
+**E4.** 3 cells and 7 object tests (the ray hits an object in its third cell). With 4 cells per side each cell holds many objects (16 per cell on average), so the few cells visited mean many object tests; with 40 cells most cells are empty but the ray walks through many of them before the hit. The optimum puts about one or two objects in a cell.
+
+**E5.** The grid visits 14 cells and tests 913 of the 1024 objects: the "teapot" sits in one or two cells. The SAH BVH needs 33 box tests and 2 object tests. In the plot (stadium layout) the grid grows from 7 tests at $N = 8$ to 77 at $N = 4096$, the BVH from 2 to 24.
+
+**E6.** One test: the ray starts in the empty corner and points away from the scene, so it misses the root box and nothing inside is ever looked at (brute force: 256).
+
+**E7.** 19 box tests and 1 object test; $\log_2 1024 = 10$, so about $2\log_2 N$. The ray hits an object early (at $t = 22.8$); every remaining box on the stack starts farther than that and is skipped without being opened.
+
+**E8.** The wall spans the whole scene, so its box is as big as the root, and whichever leaf holds it has a huge box: every ray that crosses the middle of the scene enters that box and tests the wall. In this scene the effect on the average is small (31.5 tests per ray at $N = 1024$ against 31.1 for the uniform layout), because only one object is long; scenes made of many long, thin objects (grass, hair) are hard for BVHs.
+:::
+
+## Where this leads
+
+The tree makes each ray cheap. Unit 4, [Path tracing](../pathtrace/lec.qmd), spends that budget on many random rays per pixel to compute light that bounces everywhere, and fights the noise this creates. The same trees reappear wherever geometry must be searched: picking a vertex with the mouse, the inside/outside test of a mesh, nearest neighbours of points.

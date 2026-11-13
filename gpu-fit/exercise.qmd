@@ -1,0 +1,159 @@
+---
+title: "Exercise: what GPUs are good and bad at"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- judge with **four questions** whether an image analysis method suits a GPU, and name the obstacle if not,
+- apply **Amdahl's law** to a pipeline,
+- run **label propagation** by hand and predict its number of passes,
+- find the **wavefront** schedule of a dynamic-programming table,
+- recall what float16 does to image data and why matrix units **accumulate in float32**.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Four questions | many independent outputs? same work in neighbouring threads? regular memory access? no global order? (and: worth the transfer?) |
+| Label propagation | every foreground pixel takes the smallest label among itself and its 4-neighbours, all at once; repeat until nothing changes |
+| Pointer jumping | after each pass, a pixel whose label is (the number of) pixel $q$ takes $q$'s label |
+| Wavefront | DP cells with the same $i + j$ are independent: $n + m - 1$ steps |
+| Amdahl | serial fraction $s$, rest $k$ times faster: speed-up $1/(s + (1-s)/k) \le 1/s$ |
+| float16 | 11 significant bits: integers exact up to 2048; largest value 65 504 |
+| Mixed precision | 16-bit inputs, products summed in float32 |
+
+## By hand
+
+**B1.** **The decision table.** For each method, answer the four questions (yes / no / partly) and give a verdict, naming the pattern that makes it fit or the obstacle: (a) Gaussian blur; (b) 3 × 3 median filter; (c) registration by FFT cross-correlation; (d) Otsu's threshold of one image; (e) two-pass union–find labelling; (f) watershed by priority-queue flooding; (g) exact Euclidean distance transform (separable); (h) chamfer distance transform (two raster scans); (i) graph-cut segmentation by max-flow; (j) a U-Net applied to a large image; (k) maximum intensity projection rendering of a volume; (l) error-diffusion dithering.
+
+**B2.** **Amdahl.** A pipeline: loading 2 s (sequential), filtering 6 s, labelling 1 s (sequential), measuring 1 s.
+(a) The filter becomes 50 times faster on a GPU. New time and speed-up?
+(b) Everything except loading becomes 50 times faster. New time and speed-up?
+(c) What is the most any GPU could achieve, if loading stays as it is?
+
+**B3.** **Label propagation by hand.** A 6 × 6 binary mask (1 = foreground), rows from top to bottom:
+```
+1 1 1 1 1 1
+0 0 0 0 0 1
+1 1 1 1 0 1
+1 0 0 1 0 1
+1 0 0 1 1 1
+1 1 0 0 0 0
+```
+Each foreground pixel starts with its raster number as label (row 1: 1–6, row 2: 7–12, …).
+(a) Which pixel holds the smallest label? After one pass, what are the labels in row 3?
+(b) How many passes change something before the labels are stable? (Think about distances along the shape, not every pass.)
+(c) With pointer jumping, the program needs 9 passes. Why not about $\log_2 20 \approx 5$?
+
+**B4.** **Wavefront.** A DP table of 5 rows and 7 columns, where cell $(i, j)$ needs $(i-1, j)$, $(i, j-1)$ and $(i-1, j-1)$. How many parallel steps, the largest number of cells in one step, and the average?
+
+**B5.** **Precision.** (a) A 16-bit pixel value of 4097 is stored in float16. What is stored? And 65 535? (b) 10 000 values of 0.01 are summed with float16 additions, and with float16 values but float32 additions. Predict both results roughly, and explain.
+
+**B6.** A float32 matrix product takes 10 ms on a desktop GPU. How long in float64 if float64 runs at 1/64 of the float32 rate, and on a data-centre GPU where float64 runs at half the float32 rate (with the same float32 time)?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.**
+
+| method | many outputs | same work | regular access | no global order | verdict |
+|---|---|---|---|---|---|
+| (a) Gaussian blur | yes | yes | yes | yes | good: stencil, separable |
+| (b) median 3 × 3 | yes | mostly (sorting 9 values) | yes | yes | good: stencil |
+| (c) FFT registration | yes | yes | mostly (transposes) | yes | good: FFT + map + reduction (the peak) |
+| (d) Otsu | histogram yes; threshold search tiny | yes | scatter | yes | partly: atomic histogram, then 256 bins: do the search anywhere |
+| (e) union–find labelling | yes | no | no (pointer chasing) | **no** (raster order) | bad; label propagation / tile-wise hybrids instead |
+| (f) priority-queue watershed | yes | no | no | **no** (lowest first) | bad; level-synchronous flooding instead |
+| (g) exact EDT, separable | yes | yes | yes (rows, then columns) | yes per row | good |
+| (h) chamfer DT | yes | yes | yes | **no** (each pixel needs updated neighbours) | bad; use the separable EDT or jump flooding |
+| (i) max-flow graph cut | yes | no | no | **no** (path after path) | bad; push–relabel, many irregular passes |
+| (j) U-Net | yes | yes | yes | yes | very good: matrix products, compute-bound |
+| (k) MIP rendering | yes (one ray per pixel) | yes (fixed number of steps) | partly (texture cache) | yes | good: a map of reductions |
+| (l) error diffusion | yes | yes | yes | **no** (error flows to the next pixels) | bad; use ordered dithering (a map) |
+
+**B2.** (a) $2 + 6/50 + 1 + 1 = 4.12$ s: $10/4.12 = 2.4$ times faster. (b) $2 + 8/50 = 2.16$ s: 4.6 times. (c) $10/2 = 5$ times: the loading alone takes 2 s.
+
+**B3.** (a) Pixel 1 (top left). After one pass, row 3 (labels 13–16 and 18 at first) becomes 13, 13, 14, 15, ·, 12: each pixel took the smallest label of itself and its 4-neighbours (the right-most pixel got 12 from the pixel above it). (b) The 21 foreground pixels form one path; label 1 moves one pixel per pass, and the farthest pixel (row 6, column 2) is 20 steps along the path from pixel 1: **20 passes** (plus one to see that nothing changes). (c) Pointer jumping shortens chains of labels that lead to the **same** smallest label. Here the left part of the path converges first to its own local minimum, label 13 (row 3, column 1), within two passes. Label 1 then has to cross that region, and label 13 does not point towards 1, so jumping cannot skip ahead: label 1 still advances about one pixel per pass through it.
+
+**B4.** $5 + 7 - 1 = 11$ steps; at most 5 cells in one step (anti-diagonals 4 to 6); on average $35/11 = 3.2$.
+
+**B5.** (a) 4097 lies between 4096 and 4100 (spacing 4 between 4096 and 8192) and is rounded to **4096**. 65 535 is larger than 65 504 and becomes **infinity**. (b) float16 throughout: the sum stalls at **32**, where the spacing is $2^{-5} = 0.031$ and adding 0.01 (less than half a spacing) rounds back to the same sum. With float32 additions: about **100.02**: 0.01 is stored as 0.010002 in float16, and the float32 sum of 10 000 of them has no stalling problem.
+
+**B6.** 1/64: $10 \cdot 64 = 640$ ms. Half rate: 20 ms.
+:::
+
+### Math questions
+
+**B7.** *(math)* (a) Derive Amdahl's law $S = 1/(s + (1-s)/k)$ and its limit for $k \to \infty$. (b) A GPU makes the parallel part of a pipeline 100 times faster but adds a transfer equal to 5 % of the original time. With a serial fraction of 10 %, what is the speed-up? (c) Gustafson: the serial part takes 1 s whatever the image size, and the parallel part takes 9 s per image unit. With a GPU 100 times faster on the parallel part, compare the speed-up for 1 and for 10 image units.
+
+**B8.** *(math)* (a) Prove that label propagation on a straight bar of $\ell$ pixels stabilises after $\ell - 1$ passes when the smallest label is at one end, and after $\lceil(\ell-1)/2\rceil$ when it is in the middle. (b) With pointer jumping on a chain where each pixel's label points to its neighbour towards the root, show that $\lceil\log_2\ell\rceil$ jumps suffice.
+
+**B9.** *(math)* For an $n\times m$ DP table filled by anti-diagonals, derive the number of cells on diagonal $d$, the depth, and the average parallelism. Show that it is about $n/2$ for a square table.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** (a) Original time 1 (normalised): serial $s$, parallel $1 - s$. New time $s + (1-s)/k$; speed-up $S = 1/(s + (1-s)/k)$. As $k \to \infty$, $(1-s)/k \to 0$ and $S \to 1/s$. (b) New time $0.1 + 0.9/100 + 0.05 = 0.159$: $S = 6.3$ (without the transfer 9.2, limit 10). (c) 1 unit: $10/(1 + 0.09) = 9.2$. 10 units: original $1 + 90 = 91$ s, new $1 + 0.9 = 1.9$ s: $S = 48$. The serial part stays the same while the parallel part grows, so the achievable speed-up grows with the problem.
+
+**B8.** (a) Let the bar be pixels $0, \dots, \ell-1$ with the smallest label $L$ at pixel 0. By induction, after pass $t$ exactly the pixels $0, \dots, t$ hold $L$ (a pixel takes $L$ in pass $t$ iff a neighbour held it after pass $t-1$; only pixel $t$ is newly adjacent). All hold $L$ after pass $\ell-1$; every other label is larger than $L$, so the passes before change something, and pass $\ell$ changes nothing. With $L$ in the middle (pixel $c$), the label spreads both ways and reaches the far end after $\max(c, \ell-1-c)$ passes, at least $\lceil(\ell-1)/2\rceil$, with equality for the middle pixel. (b) Let $d(p)$ be the distance from $p$ to the root along its pointer chain. After one jump $p$ points to its old grandparent: $d'(p) = \lceil d(p)/2\rceil$ in terms of chain length (the root and its child point to the root). After $j$ jumps $d \le \lceil \ell/2^j\rceil$, which is 1 (pointing at the root) when $2^j \ge \ell$: $j = \lceil\log_2 \ell\rceil$.
+
+**B9.** Diagonal $d = i + j$, $0 \le d \le n + m - 2$: $i$ runs from $\max(0, d - m + 1)$ to $\min(n-1, d)$, i.e. $\min(d+1, n, m, n+m-1-d)$ cells. Depth: $n + m - 1$ diagonals, each needing the previous ones. Average parallelism $= \text{work}/\text{depth} = nm/(n + m - 1)$. For $n = m$: $n^2/(2n-1) = n/2 + 1/4 + O(1/n) \approx n/2$.
+:::
+
+## Explore: irregular algorithms in parallel {#explore}
+
+A simulation. Mode **label** (preset buttons and **algorithm**): a 24 × 24 binary image (click pixels to change them). **sequential union–find** shows the reference labelling; **label propagation** shows each pass (labels start as pixel numbers in raster order; changed pixels outlined in red; colours are labels); **propagation + pointer jumping** adds a jump after each pass. The readout gives passes (depth), pixel updates (work) and a model time: each pass costs a 10 µs launch plus the work spread over 10 000 lanes, against a sequential scan at 5 ns per pixel per pass. Mode **wavefront**: a DP table filled by anti-diagonals, with the number of busy lanes per step. Mode **flood**: watershed flooding of a grey-level landscape from three markers, level-synchronous (step through) against the priority queue.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="parlabel" data-mode="label" data-preset="blobs"></div>
+<script src="../demos/dist/parlabel.js"></script>
+```
+
+**L1.** Preset **blobs: 12 passes**. Step through the first passes. Which blob takes longest, and why? Compare the model times for the GPU and the sequential scan, here and at 1024².
+
+**L2.** Preset **spiral: 262 passes**. How many foreground pixels are there? Explain the number of passes with B8. What are the model times now?
+
+**L3.** Preset **pointer jumping: 41 passes, not 262**. Step through: how does the smallest label spread now? Then choose the image **comb** with both algorithms.
+
+**L4.** On the spiral (label propagation), click one pixel of the spiral to cut it. How many components and passes are there now? Where would you cut to minimise the passes?
+
+**L5.** Preset **DP wavefront**. Step through it. How many steps, how many cells, the largest number of busy lanes, the average?
+
+**L6.** Preset **flooding: one pixel at a time**. Compare the number of steps of the priority queue and of level-synchronous flooding. Do they give the same labels?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**L1.** 5 components, 205 pixels, 12 passes. The largest blob (radius 5 at the lower right) takes longest: its smallest label starts at its top pixel and must travel to its far bottom corner, about 12 pixels along the shape. Model: GPU 130 µs (13 launches of 10 µs dominate), sequential 5.8 µs. At 1024² with the same shapes scaled up: about 512 passes, GPU 5.2 ms against 10.5 ms for the CPU: the GPU only wins when the image is big **and** the objects are compact.
+
+**L2.** 264 pixels in one component; 262 passes: the smallest label starts at the outer end (top left) and crawls one pixel per pass along the whole spiral (geodesic length 262 from that end). Model: GPU 2630 µs against 5.8 µs sequential; at 1024² about 11 000 passes, 113 ms against 10.5 ms. The GPU loses by a factor of 10 or more.
+
+**L3.** 41 passes, 11 088 pixel updates instead of 69 432. Labels jump along chains: a pixel that points to a pixel that points further takes the further label, so stretches of the spiral take the smallest label in a few passes, but where a stretch has already settled on its own local minimum, the smallest label must still cross it pass by pass. Comb: propagation 40 passes, pointer jumping 5.
+
+**L4.** Cutting the spiral splits it into two components; the passes drop to the longer piece's length (minus one), counted from its own smallest label. Cutting in the middle of the path roughly halves the passes; many cuts (tiles labelled separately, then merged) are what hybrid GPU labelling codes do.
+
+**L5.** 25 steps (10 + 16 − 1) for 160 cells; at most 10 busy lanes (the number of rows), 6.4 on average. The first and last steps have one cell each.
+
+**L6.** Priority queue: 573 steps of one pixel (all 576 pixels minus the 3 markers). Level-synchronous: 22 steps, 26 pixels per step on average, up to 72. The labels agree for 569 of 576 pixels; the differences lie on ties between basins, where the order of processing decides.
+:::
+
+## Explore: precision and the roofline {#explore-roofline}
+
+The roofline calculator of the [memory unit](../gpu-memory/exercise.qmd#explore), with the preset for a network layer: a 3 × 3 convolution with $C$ input and output channels on a 256 × 256 image, in float32, in float16 on the ordinary lanes (twice the rate), and in float16 on the matrix units.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="roofline" data-tab="roofline" data-preset="cnn"></div>
+<script src="../demos/dist/roofline.js"></script>
+```
+
+**N1.** Preset **a network layer: three roofs** ($C = 64$). Read the intensity and time of the three points. Which roof limits each?
+
+**N2.** Lower $C$ to 8. What happens to the three points, and to the advantage of the matrix units? What does this say about small networks?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**N1.** float32: $I = 143$, at the float32 roof, 161 µs. float16 on the lanes: $I = 287$ (half the bytes), at the doubled roof, 81 µs. Matrix units: $I = 287$, at the matrix roof (240·10¹² op/s), 20 µs: 8 times faster than float32. All three are compute-bound.
+
+**N2.** With $C = 8$ the intensity falls 8-fold ($9C/4$: about 18 in float32, 36 in float16). The float32 point drops below the ridge (memory-bound); the float16 points sit on the bandwidth slope, and the matrix units give no more than float16 on the lanes: both are limited by the bytes. Matrix units pay off only for layers with many channels (large matrices); small layers are memory-bound like any filter.
+:::
+
+## Where this leads
+
+The day ends here. The patterns return wherever speed matters: the FFT and filters on large stacks, [neural networks](../cnn/lec.qmd), [volume rendering](../volrender/lec.qmd). The parallel versions of irregular algorithms (jump flooding for distance transforms, tile-wise connected components, parallel watershed and push–relabel) are a further step, beyond this day.

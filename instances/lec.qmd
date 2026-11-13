@@ -35,6 +35,8 @@ This unit builds on the U-Net unit of the neural networks day (pixel probabiliti
 
 ## Recall: a U-Net gives a class per pixel
 
+:::: {.columns}
+::: {.column width="56%"}
 The U-Net unit of the neural networks day: a probability "nucleus" per pixel, thresholded to a mask. Its "touching nuclei merge" preset: two touching nuclei become **one** connected blob.
 
 - **Semantic** segmentation: a class per pixel ("nucleus", "background").
@@ -42,6 +44,11 @@ The U-Net unit of the neural networks day: a probability "nucleus" per pixel, th
 - **Panoptic** segmentation: both at once. Every pixel gets a class; countable **things** (nuclei, cells) also get an identity, uncountable **stuff** (background, stroma) does not.
 
 Counting, measuring, tracking: all need instances.
+:::
+::: {.column width="44%"}
+![](fig-semantic.png){fig-alt="The four-route demo with the semantic route: 14 synthetic cells, and the connected pieces of the thresholded mask: 11 objects; three pairs of touching cells are merged (marked M)." width="100%"}
+:::
+::::
 
 ## Why post-processing is unavoidable
 
@@ -51,21 +58,37 @@ Counting, measuring, tracking: all need instances.
 
 The question for every method: *which map, and which classical step?*
 
+![](fig-maps.png){fig-alt="The same 14 cells as four predicted maps, each with its classical step: a boundary class (green interior, magenta boundary) then labelling of the interiors; a distance map then watershed; objectness with the 32 rays of one pixel then suppression; a flow field (colour = direction) then following the arrows." width="76%" fig-align="center"}
+
 ## Route 1: a boundary class
 
+:::: {.columns}
+::: {.column width="52%"}
 Train with **three** classes: background, cell interior, cell **boundary** (a thin ring around every cell, also between touching cells).
 
 - Label the connected **interiors** (the labelling day), then grow each one back over its boundary pixels.
 - Touching cells are separated by the boundary class between them.
 - Fails when the boundary is **missed in one place**: a one-pixel bridge connects two interiors and they merge. Thin structures are hard to predict, especially exactly where two cells touch.
+:::
+::: {.column width="48%"}
+![](fig-boundary.png){fig-alt="Boundary route with contact bias 0.5: the predicted boundary class (magenta) fades where cells touch, so the green interiors of three touching pairs connect; labelling gives 11 objects with three merges (M)." width="100%"}
+:::
+::::
 
 ## Route 2: a predicted distance map
 
+:::: {.columns}
+::: {.column width="52%"}
 Train the network to predict, for every cell pixel, its **distance to the cell's border** (scaled to 1 at the centre of each cell).
 
 - Then exactly the watershed day's pipeline: threshold for the mask, **h-maxima** as markers, flood $-D$ inside the mask.
 - Better than the distance transform of a mask: the network has seen the **image**, so it can put a deep neck between two cells even where the mask has none.
 - Fails on **elongated** cells: the distance has a long flat ridge, and small errors make several peaks on it: one cell is **split**.
+:::
+::: {.column width="48%"}
+![](fig-distance.png){fig-alt="Distance route with noise 0.2 and h = 0.1: the noisy distance map has several peaks along the rod and the C-shaped cell; watershed splits them (marked S): 20 objects for 14 cells." width="100%"}
+:::
+::::
 
 ## Try it: four maps on one image
 
@@ -81,11 +104,18 @@ Simulated network output: the exact target of the chosen route, plus the error s
 
 ## Route 3: star-convex polygons
 
+:::: {.columns}
+::: {.column width="52%"}
 For **every** pixel, the network predicts an **objectness** (how central the pixel is in its cell) and the distances to the border along $n$ fixed rays (e.g. 32 directions).
 
 - Each pixel thus proposes a **polygon** for "its" cell; pixels near the centre propose good ones.
 - Overlapping proposals are pruned by **non-maximum suppression**: keep the best, delete those that overlap it by more than $t$, repeat (next unit).
 - Works well for round and oval nuclei. Fails **by construction** on shapes that are not star-convex: a C-shaped or kidney-shaped cell has no point from which all of its border is visible along straight rays.
+:::
+::: {.column width="48%"}
+![](fig-star.png){fig-alt="Star-convex route: the objectness map with the 32 rays and polygon (red) of a pixel in the C-shaped cell; the polygon covers only part of the C, and the C ends up split into two objects (S)." width="100%"}
+:::
+::::
 
 ## The math: the four targets {.math .smaller}
 
@@ -99,11 +129,18 @@ Cell $O$, pixel $p \in O$:
 
 ## Route 4: flow fields
 
+:::: {.columns}
+::: {.column width="60%"}
 For every cell pixel, the network predicts a small **arrow** pointing along a path **inside** the cell towards its centre.
 
 - Training targets: put a heat source at the cell's centre and let heat **diffuse inside the cell only**; the arrows point uphill in temperature. The paths bend around corners, so they follow a C-shape or a bent cell.
 - To segment: every pixel follows the arrows for a number of steps. Pixels that end in the same **sink** form one object.
 - Handles long, bent, irregular cells. Fails when the predicted arrows are **noisy** (spurious sinks: splits) or when two touching cells share one smooth field (merge).
+:::
+::: {.column width="40%"}
+![](fig-cflow.svg){fig-alt="A C-shaped cell with its flow target: blue arrows along the gradient of heat diffused from a source in the cell (red star). Five particle paths (orange) start at the two ends and the middle of the C, follow the arrows around the bend inside the cell, and all end at the star." width="100%"}
+:::
+::::
 
 ## The math: following the flow {.math}
 
@@ -140,17 +177,26 @@ Whatever the route: **look at the predicted map**, not only at the final labels.
 
 ## Detection: objects as a list
 
+:::: {.columns}
+::: {.column width="56%"}
 The other big family predicts a **list** of objects instead of a map: a **box** and a score per object, optionally a small mask inside each box ("detect, then segment inside the box").
 
 - A box is 4 numbers; good for counting, tracking and cropping; poor for long diagonal objects.
 - The detector proposes many overlapping boxes, removed by non-maximum suppression: the **next unit**.
 - Star-convex polygons are the same idea with a polygon instead of a box.
+:::
+::: {.column width="44%"}
+![](fig-boxes.png){fig-alt="Detection on a sparse synthetic image: 12 green boxes kept with their scores (0.39 to 0.94) for nine cells, three of them false; grey dashed: overlapping candidate boxes removed by suppression." width="100%"}
+:::
+::::
 
 ## Panoptic segmentation
 
 A **semantic** head (stuff and thing classes for every pixel) and an **instance** head (identities of the things), merged by a rule: on "thing" pixels the instance label wins.
 
 Tissue example: nuclei are things (counted, measured one by one); stroma, lumen and background are stuff (area only).
+
+![](fig-panoptic.png){fig-alt="Synthetic tissue: a gland with a ring of nuclei around a lumen, in stroma with scattered elongated nuclei. Semantic: every pixel coloured by class (stroma, epithelium, lumen, nucleus), all nuclei the same colour. Panoptic: the same stuff classes, and every nucleus in its own colour." width="78%" fig-align="center"}
 
 ## The math: panoptic quality {.math}
 

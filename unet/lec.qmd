@@ -35,10 +35,17 @@ Suggested demo tour (unetseg): "a typical image" (Dice 0.986), "U-Net vs Otsu on
 
 ## From "what" to "which pixels"
 
+:::: {.columns}
+::: {.column width="56%"}
 - Output: one class probability **per pixel**, an image of the same size as the input.
 - Naive way: classify a patch around every pixel with the network of the last unit. Slow (one network run per pixel), and the patch is small, so the context is small.
 - Better: a network that is **convolutional all the way**: no dense layer, so it takes any image size and gives a map out.
 - The problem: pooling made the maps small ($64 \to 16$ pixels). We need to get back to full resolution.
+:::
+::: {.column width="44%"}
+![](fig-whatwhich.png){fig-alt="A synthetic 64 by 64 image of five bright nuclei. A classification network gives one answer for it (contains nuclei); the segmentation network of the demo gives a probability of nucleus for each of the 64 × 64 pixels, bright inside the nuclei and dark elsewhere." width="100%"}
+:::
+::::
 
 ## Encoder–decoder
 
@@ -62,6 +69,8 @@ $$(0.5,\ 1,\ 1.5,\ 2,\ 2.5,\ 3,\ 1.5)$$
 
   linear interpolation. With a **learned** kernel the network chooses its own way to upsample.
 
+![](fig-upsample.svg){fig-alt="Three stem plots. Input: 1, 2, 3. Nearest neighbour then smoothing: 0.75, 1.25, 1.75, 2.25, 2.75, 2.25, over the grey staircase 1, 1, 2, 2, 3, 3. Transposed convolution: 0.5, 1, 1.5, 2, 2.5, 3, 1.5, with the three stamped kernel copies drawn dashed." width="56%" fig-align="center"}
+
 ## The math: transposed convolution {.math}
 
 - A strided convolution is a matrix $A$ (banded, rows $s$ positions apart): $\mathbf y = A\mathbf x$ maps $n$ to about $n/s$ values.
@@ -73,9 +82,16 @@ $$(0.5,\ 1,\ 1.5,\ 2,\ 2.5,\ 3,\ 1.5)$$
 
 A decoder that only gets the bottleneck knows **what** is where, roughly; the **exact** boundaries were lost in pooling.
 
+:::: {.columns}
+::: {.column width="54%"}
 - **U-Net** (Ronneberger, Fischer and Brox, 2015): copy the encoder's feature maps of each size across to the decoder and **concatenate** them with the upsampled maps.
 - Context comes **from below** (deep, coarse maps), detail **from the side** (shallow, sharp maps).
 - In the demo network: $32$ upsampled channels + $16$ copied = 48 channels into the decoder at $32 \times 32$; $16 + 8 = 24$ at $64 \times 64$.
+:::
+::: {.column width="46%"}
+![](fig-skips.png){fig-alt="A test image with small nuclei and the error maps of two networks (white correct, red false positive, blue missed): the network without skip connections reaches Dice 0.936, the U-Net with skips 0.954, with fewer errors at the boundaries of the smallest nuclei." width="100%"}
+:::
+::::
 
 ## Try it: a U-Net segments nuclei
 
@@ -91,10 +107,17 @@ Synthetic 64×64 images, generated with the same code as the training set; "new 
 
 ## Per-pixel loss
 
+:::: {.columns}
+::: {.column width="56%"}
 - **Cross-entropy per pixel**, averaged over all pixels: every pixel is one classification example.
 - **Class imbalance**: if nuclei are 5 % of the pixels, "everything is background" is 95 % correct (recall "accuracy lies", thresholding day). Its cross-entropy is not very large either.
-- Remedies: **weight** the object pixels more, or use the **Dice loss**: $1 - $ soft Dice, computed from the probabilities so that it has a gradient.
+- Remedies: **weight** the object pixels more, or use the **Dice loss**: 1 − soft Dice, computed from the probabilities so that it has a gradient.
 - Recall (thresholding day): Dice $= 2|P \cap G|/(|P| + |G|)$ of a predicted mask $P$ and the truth $G$; IoU $= |P \cap G|/|P \cup G|$.
+:::
+::: {.column width="44%"}
+![](fig-imbalance.png){fig-alt="A typical demo image, its true mask (11 % of the pixels are nucleus) and the prediction all background, which is 89 % correct but has Dice 0." width="100%"}
+:::
+::::
 
 ## The math: soft Dice and its gradient {.math}
 
@@ -108,10 +131,17 @@ $$D = \frac{2\sum_i p_ig_i}{\sum_i p_i + \sum_i g_i}, \qquad \mathcal L_\text{Di
 
 ## Evaluating a segmentation network
 
+:::: {.columns}
+::: {.column width="54%"}
 - Dice and IoU against the ground truth, on **held-out** images (never seen in training or tuning).
 - **Look at the errors**, not only at the number: where are the false positives and negatives? Merged nuclei, missed dim nuclei and boundary pixels are different problems.
 - The number hides the **distribution**: a few failed images can disappear in an average over many good ones.
 - How to build an honest test set, and object-level scores (matched nuclei, F1): the evaluation day (day 16).
+:::
+::: {.column width="46%"}
+![](fig-errors.png){fig-alt="An image with an illumination gradient (brighter at the bottom) and two error maps (white correct, red false positive, blue missed). U-Net: almost all white, Dice 0.987. Otsu threshold: the whole bright bottom part is red, Dice 0.349." width="100%"}
+:::
+::::
 
 ## Data: annotation is the bottleneck
 
@@ -120,9 +150,18 @@ $$D = \frac{2\sum_i p_ig_i}{\sum_i p_i + \sum_i g_i}, \qquad \mathcal L_\text{Di
 - **Synthetic** images with known truth (as in the demo) are good for teaching and testing, but real images differ: blur, debris, textures the generator never made.
 - A network knows only its **training range**: a dimmer microscope, more noise, another stain can break it. The demo's sliders show this; days 16 and 18 come back to it.
 
+![](fig-domain.png){fig-alt="The same synthetic image as in training and at half the brightness, each with the U-Net's error map (white correct, red false positive, blue missed): Dice 0.951 for the training-like image, 0.269 for the dimmer one, where most nucleus pixels are missed (blue)." width="60%" fig-align="center"}
+
 ## After the mask
 
+:::: {.columns}
+::: {.column width="54%"}
 - **Touching nuclei** come out as one blob: a semantic mask says "nucleus or not", not "which nucleus". Classic fix: a third class "boundary between nuclei", then labelling or the watershed (days 9–10). Networks that output separate objects directly: day 18.
+:::
+::: {.column width="46%"}
+![](fig-touching.png){fig-alt="An image with seven nuclei, several touching. True nuclei in seven colours; the U-Net mask (Dice 0.986 against the true mask) labelled into connected pieces gives only four, because touching nuclei merge." width="100%"}
+:::
+::::
 - The probability map is a perfect **data term** for a graph cut (day 13): $D_p(\ell) = -\log p_\ell$, plus a smoothness term. The two ideas combine.
 - The **baseline** to beat: a random forest on the feature stack (day 14) with a few strokes of annotation. Often it is good enough, and it needs much less data.
 

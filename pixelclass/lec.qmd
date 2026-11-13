@@ -36,12 +36,21 @@ This unit owns the pixel feature stack and the paint – train – correct loop 
 
 ## Every pixel is a point
 
+:::: {.columns}
+::: {.column width="50%"}
 - Thresholding asked one question of one number: is the pixel bright?
 - Instead, describe each pixel by **many numbers**: its brightness at several blurs, how strong the edges near it are, whether it sits in a blob, a line or a texture.
 - The painted pixels, with their classes, are **training points** in this feature space.
 - The forest colours the whole feature space, and with it every pixel of the image.
 
 Why not intensity alone? Two kinds of cell in the test image have the **same mean brightness**: smooth nuclei and granular cells. Only their **texture** differs: exactly the situation of the eight pixels in the decision-trees unit.
+:::
+::: {.column width="50%"}
+![](fig-pixelpoint.png){fig-alt="The synthetic test image and 400 pixels from inside each class, plotted by smoothed brightness and texture: background, nuclei and granular cells form separate clouds, and nuclei and granular cells overlap in brightness but not in texture." width="100%"}
+
+Each dot is one pixel. Brightness alone puts bright nuclei and granular cells together (right); texture pulls them apart. The vertical orange streaks are nucleus pixels near the rims, where the σ = 5 blur mixes in background.
+:::
+::::
 
 ## The feature stack
 
@@ -77,12 +86,19 @@ The factor $\sigma^2$ makes responses comparable across scales. Derived and expl
 
 ## The loop: paint, train, look, correct
 
+:::: {.columns}
+::: {.column width="56%"}
 1. **Paint** a few strokes per class.
 2. **Train** the forest on the painted pixels (seconds, or less).
 3. **Look** at the segmentation and at the **uncertainty** map (1 − the largest vote fraction).
 4. **Correct**: paint where the result is wrong or uncertain, and train again.
 
 Few strokes go a long way, because each stroke holds hundreds of pixels and the features describe their neighbourhoods. Interactive pixel-classification programs implement exactly this loop.
+:::
+::: {.column width="44%"}
+![](fig-loop.png){fig-alt="Four panels: strokes for background and nucleus; the result calls the granular cells nucleus (90.1 % of pixels right); a granular stroke is added; the retrained result separates all three classes (96.3 %)." width="88%"}
+:::
+::::
 
 ## Try it: paint and classify
 
@@ -98,12 +114,21 @@ Synthetic test image: background (uneven illumination, brighter to the right), s
 
 ## Trap 1: neighbouring pixels are near copies
 
+:::: {.columns}
+::: {.column width="50%"}
 - The pixels of one stroke are almost identical in every channel (the filters even mix them).
 - **OOB error assumes independent samples.** A pixel left out of a tree's bootstrap sample has its neighbour inside it: the "unseen" pixel is not new. OOB accuracy is close to 100 % almost regardless of the result.
 - Honest evaluation: a **held-out region** (or another image) with its own labels: the confusion matrix and Dice of the thresholding day.
 - Even then: your strokes sit where labelling was **easy**. Accuracy on painted pixels overrates the result; a full annotation of a region is the honest test.
 
 Rule: split by image or region, never by pixel. The evaluation day treats leakage and object-level evaluation in full.
+:::
+::: {.column width="50%"}
+![](fig-heldout.png){fig-alt="Left: training strokes left of a yellow line, test strokes in the held-out region on the right. Right: the segmentation. OOB accuracy 100.0 %, painted pixels in the held-out region 99.8 %, all pixels of the held-out region against the ground truth 95.9 %." width="100%"}
+
+Same forest, three scores: the OOB estimate (left of the line), the held-out strokes, and every pixel of the held-out region against the truth.
+:::
+::::
 
 ::: notes
 "OOB vs held-out region": training strokes only left of the yellow line. OOB accuracy 100.0 %; the held-out region's painted pixels 99.8 % right (650 pixels); against the full ground truth in that region 95.9 %.
@@ -115,10 +140,21 @@ The bootstrap treats the $n$ painted pixels as $n$ independent draws. Pixels alo
 
 ## Trap 2: label imbalance
 
+:::: {.columns}
+::: {.column width="55%"}
 - A big background stroke has thousands of pixels; a nucleus stroke a few dozen.
 - Ambiguous pixels (dim nuclei, object rims) fall into leaves dominated by background: the probabilities lean towards the big class.
 - Fix: **balance**: weight each class by $1/n_c$ (or sample the same number of pixels per class).
 - Balancing moves errors from the small classes to the large one: the small classes are found more often, the background a little less. It cannot invent information the strokes lack.
+:::
+::: {.column width="45%"}
+![](fig-imbalance.png){fig-alt="Huge background strokes against one short nucleus and one short granular stroke. Without balancing the dim nuclei vanish into background (nucleus Dice 0.53); with balancing parts of them come back (0.58)." width="92%"}
+:::
+::::
+
+::: notes
+The "huge background strokes" preset: 4772 background, 37 nucleus, 45 granular pixels painted. Balancing raises the share of pixels called nucleus from 3.5 % to 3.9 % and granular from 9.5 % to 13.7 % of the image; nucleus Dice 0.53 → 0.58, granular 0.82 → 0.78 (more granular false positives), whole-image accuracy 92.6 % → 91.8 %.
+:::
 
 ## The math: class weights = resampling {.math}
 
@@ -128,9 +164,20 @@ the same as if each sample of class $k$ were copied $w_k$ times. So weighted Gin
 
 ## Trap 3: the forest knows only what it was shown
 
+:::: {.columns}
+::: {.column width="55%"}
 - Paint only the bright nuclei, and the dim ones look like nothing the forest knows: part of them become background.
 - Leave out a whole class (the granular cells) and its pixels are forced into the classes that exist, often **confidently**: the uncertainty map flags rims and new illumination, but not "something else that looks like a nucleus".
 - **Scale**: channels much larger than the structures blur across boundaries; with only small scales the result is speckled and loses context.
+:::
+::: {.column width="45%"}
+![](fig-trap3.png){fig-alt="Three segmentations. Only bright nuclei painted: the dim nuclei (dashed circles) shrink to their cores. Granular cells never painted: they are all called nucleus. Small scales only: speckles in the brighter background on the right." width="92%"}
+:::
+::::
+
+::: notes
+Numbers (demo presets, forest defaults): "only bright nuclei painted": 28.4 % of the dim nuclei's pixels become background, whole-image accuracy 95.9 %. Without a granular stroke 94.9 % of the granular pixels are called nucleus (accuracy 90.1 %). "Small scales only": 94.8 % (full stack 96.3 %).
+:::
 
 ## From probabilities to objects
 
@@ -138,6 +185,8 @@ the same as if each sample of class $k$ were copied $w_k$ times. So weighted Gin
 - **Clean up** with morphology: opening, filling holes, removing small pieces.
 - Or smooth with a **graph cut**: use $-\log P(\text{class} \mid \text{features})$ as the data term (the graph-cuts day).
 - Then **label** the connected components and **measure** them, and the measurement table may go into another forest (previous unit).
+
+![](fig-objects.png){fig-alt="From left: the forest's nucleus probability on the test image; thresholded at 0.5 (21 pieces, many single pixels); after opening, hole filling and removing pieces under 30 pixels; the labelled result, 9 nuclei, as in the ground truth." width="92%"}
 
 ## Forests, SVMs and networks on the same pixels
 

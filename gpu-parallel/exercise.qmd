@@ -1,0 +1,160 @@
+---
+title: "Exercise: throughput, warps and divergence"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compare the **peak rates** of a CPU and a GPU, and find the **break-even** size from start-up cost and rate,
+- count the cycles of a **warp** with a branch or a loop, and its lane **efficiency**,
+- predict which images and which warp shapes cause **divergence**,
+- explain **latency hiding** and estimate how many warps are needed to keep a GPU busy.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Latency / throughput | time for one task / tasks finished per second |
+| Peak rate | lanes × clock rate × operations per lane per cycle (a fused multiply–add counts 2) |
+| Start-up + rate | $t(n) = t_0 + n/R$ for $n$ items |
+| Warp | 32 threads that execute one instruction at a time together (SIMT) |
+| Divergence | lanes of a warp disagree on a branch: the warp runs every path that any lane takes, the others masked |
+| Lane efficiency | useful lane-cycles / (32 × cycles the warp spends) |
+| Loop in a warp | runs until the slowest lane is done |
+| Latency hiding | while a warp waits for memory, another resident warp issues; **occupancy** = resident warps / maximum |
+
+## By hand
+
+**B1.** A CPU has 8 cores at 3 GHz, each doing 16 floating-point operations per cycle. A GPU has 10 000 lanes at 1.5 GHz, each doing one fused multiply–add (2 operations) per cycle. Compute the peak rate of each, and the ratio.
+
+**B2.** A warp covers one row of 32 pixels; pixels 8–12 (5 pixels) lie inside an object. The kernel spends 100 cycles on an inside pixel and 10 on an outside one.
+(a) How many cycles does the warp take? How many would it take if it could run each lane only on its own path (the average lane time)?
+(b) What is the lane efficiency?
+(c) The same image is processed with warps shaped as 8 × 4 tiles, and the object happens to cover exactly one tile. How many cycles does that warp take, and the warps around it? What is the efficiency now?
+
+**B3.** A CPU filters an image with start-up $t_0 = 0.01$ ms and rate $2 \cdot 10^8$ pixels/s; a GPU with $t_0 = 0.5$ ms (transfers, launching) and $10^{10}$ pixels/s.
+(a) Which is faster for a $128 \times 128$ image, and for $2048 \times 2048$? Give both times.
+(b) From which image size on is the GPU faster?
+
+**B4.** A loop "iterate until converged" runs on 8 lanes (a small warp) that need 3, 1, 1, 12, 2, 1, 4 and 1 iterations. How many iterations does the warp run? What is the average, and the efficiency? Suggest a way to make the GPU waste less.
+
+**B5.** **Predict.** Two images and two warp shapes (rows of 32 pixels, or 8 × 4 tiles aligned to the image grid), and a branch on "bright or dark":
+(a) vertical stripes, 8 pixels wide, alternating bright and dark;
+(b) horizontal stripes, 1 pixel tall, alternating bright and dark.
+For each image, which warp shape diverges?
+
+**B6.** For each job, say whether a GPU is likely to help, and name the obstacle if not: (a) a 5 × 5 blur of a 4096 × 4096 image; (b) a 5 × 5 blur of a 64 × 64 thumbnail; (c) a per-pixel iteration that converges in 2–3 steps for most pixels but in 500 steps for a few scattered ones; (d) the same blur applied to 10 000 thumbnails of 64 × 64 at once.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** CPU: $8 \cdot 3\cdot10^9 \cdot 16 = 3.84 \cdot 10^{11}$ operations/s (384 G). GPU: $10\,000 \cdot 1.5\cdot10^9 \cdot 2 = 3 \cdot 10^{13}$ (30 T). Ratio 78.
+
+**B2.** (a) The warp runs both paths: $100 + 10 = 110$ cycles. Average lane time: $(5\cdot100 + 27\cdot10)/32 = 770/32 = 24.1$ cycles.
+(b) Useful $770$ lane-cycles of $32 \cdot 110 = 3520$ issued: $21.9\,\%$.
+(c) The tile entirely inside takes 100 cycles with all 32 lanes busy; the tiles entirely outside take 10 cycles each. No warp diverges: efficiency 100 %.
+
+**B3.** (a) $128^2 = 16\,384$ pixels: CPU $0.01 + 0.082 = 0.092$ ms, GPU $0.5 + 0.0016 = 0.502$ ms: the CPU wins. $2048^2 = 4\,194\,304$ pixels: CPU $0.01 + 20.97 = 20.98$ ms, GPU $0.5 + 0.42 = 0.92$ ms: the GPU wins by a factor of 23.
+(b) Equal when $0.01\text{ ms} + n \cdot 5\text{ ns} = 0.5\text{ ms} + n \cdot 0.1\text{ ns}$: $n = 0.49\text{ ms}/4.9\text{ ns} = 100\,000$ pixels, about $316 \times 316$.
+
+**B4.** 12 iterations (the slowest lane); average $25/8 = 3.1$; efficiency $25/(8\cdot12) = 26\,\%$. Less waste: run a fixed small number of iterations for everyone, then collect the unfinished pixels into a dense list (compaction, unit 3) and continue only with those, so that the slow pixels fill whole warps.
+
+**B5.** (a) Vertical stripes of width 8: a row-warp of 32 pixels crosses 4 stripes and always diverges; an 8 × 4 tile aligned with the stripes lies inside one stripe: no divergence. (b) Horizontal 1-pixel stripes: a row-warp lies in one stripe: no divergence; an 8 × 4 tile spans 4 rows, two bright and two dark: always diverges. Neither shape is best for every image; what matters is whether a warp's pixels agree.
+
+**B6.** (a) Yes: 16.8 million independent pixels, the same small computation. (b) No: 4096 threads cannot fill the GPU, and the transfer and launch costs exceed the work. (c) Poorly as written: the few slow pixels hold their warps for 500 steps (divergence in a loop); split it into a short pass for all and a second pass over the compacted list of slow pixels. (d) Yes, if the thumbnails are **batched** into one launch: 41 million pixels in total, the fixed costs paid once.
+:::
+
+### Math questions
+
+**B7.** *(math)* Each lane takes branch A (100 cycles) with probability $p$, independently; otherwise B (10 cycles). For $p = 0.01$, $0.1$ and $0.5$ compute $P(\text{mixed})$ and the expected warp time, and compare with the average cost per pixel $100p + 10(1-p)$. For which $p$ is divergence relatively most expensive?
+
+**B8.** *(math)* Little's law. Global memory delivers 2 TB/s with a latency of 600 ns, and every thread loads 8 bytes. (a) How many bytes must be in flight to keep the memory busy? (b) How many threads, and how many warps of 32, must be waiting for their load at every moment?
+
+**B9.** *(math)* (a) Derive the break-even size $n^*$ for $t(n) = t_0 + n/R$ on two processors. (b) Show that if the GPU has the larger start-up cost **and** the lower rate, it never wins. (c) A pipeline of $m$ filters is run on the GPU with one start-up cost, while the CPU pays nothing extra per filter. How does $n^*$ change with $m$?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.**
+
+| $p$ | $P(\text{mixed}) = 1 - p^{32} - (1-p)^{32}$ | $E[T]$ | average per pixel |
+|---|---|---|---|
+| 0.01 | 0.275 | 37.5 | 10.9 |
+| 0.1 | 0.966 | 106.6 | 19 |
+| 0.5 | ≈ 1 ($1 - 4.7\cdot10^{-10}$) | 110 | 55 |
+
+$E[T] = p^{32}\cdot100 + (1-p)^{32}\cdot10 + P(\text{mixed})\cdot110$. Relative to the average, $p = 0.1$ is the worst (5.6 times), then $p = 0.01$ (3.4 times), then $p = 0.5$ (2 times): a **rare** expensive branch is the costliest, because nearly every warp pays for it although few lanes use it.
+
+**B8.** (a) $2\cdot10^{12}\ \text{B/s} \times 600\cdot10^{-9}\ \text{s} = 1.2\cdot10^6$ bytes (1.2 MB). (b) $1.2\cdot10^6/8 = 150\,000$ threads, i.e. $1.2\cdot10^6/256 = 4688$ warps waiting at once. A GPU with fewer resident threads than this cannot reach its memory bandwidth.
+
+**B9.** (a) $t_0^a + n/R_a = t_0^b + n/R_b \Rightarrow n^* = (t_0^b - t_0^a)/(1/R_a - 1/R_b)$, with $b$ the GPU. (b) If $t_0^b > t_0^a$ and $R_b \le R_a$, then $t_0^b + n/R_b > t_0^a + n/R_a$ for every $n \ge 0$: the GPU is slower for all sizes. (c) The CPU time is $m\,n/R_\text{CPU}$, the GPU time $t_0^\text{GPU} + m\,n/R_\text{GPU}$ (one start-up): $n^* = t_0^\text{GPU}/\big(m(1/R_\text{CPU} - 1/R_\text{GPU})\big)$ (with $t_0^\text{CPU} \approx 0$): the break-even size falls as $1/m$. Long pipelines that stay on the GPU pay off on small images too.
+:::
+
+## Explore: the same filter on the CPU and the GPU {#explore-gpufilter}
+
+The demo runs a direct $k \times k$ box (or Gaussian) filter on an $n \times n$ float image: on the **CPU** in plain code on one thread, and on the **GPU** as a small program that runs once per output pixel. The GPU time includes moving the image to the GPU (**upload**), the computation, and reading the result back (**download**). Times are the median of several runs after a warm-up. Very large CPU jobs are not run but extrapolated from a 256 × 256 crop (marked \*). Your computer gives its own numbers.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="gpufilter" data-tab="race" data-preset="big"></div>
+<script src="../demos/dist/gpufilter.js"></script>
+```
+
+**G1.** Preset **2048², 9×9**, then **run both**. Note the two times and the ratio. Switch to **breakdown**: which of upload, compute and download is largest?
+
+**G2.** Preset **128², 3×3**, **run both** (twice: the first run includes some warm-up). Which is faster now? Explain with B3.
+
+**G3.** In **breakdown**, choose $k = 9$ and press **measure all sizes**. From which size on is the GPU faster? How does the dashed line (GPU compute only) compare with the GPU total?
+
+**G4.** Set $k = 31$ at $n = 1024$. How do the CPU and GPU times change compared with $k = 9$? Why does the GPU time grow much less?
+
+::: {.callout-note collapse="true" title="Solutions"}
+On the author's computer (a workstation with a desktop GPU; box filter, float32):
+
+**G1.** CPU 1230 ms, GPU 145 ms: 8.5 times faster. The breakdown: upload 25 ms, compute 14 ms, download 106 ms. The computation itself is about 90 times faster than the CPU, but reading the result back dominates. Your numbers will differ, often by a factor of several, but transfers are almost always a large part.
+
+**G2.** About 2 ms each (CPU 1.6 ms, GPU 1.9 ms in one run; the order can flip between runs). A $128^2$ image is 16 384 pixels: too little work to pay for the fixed costs of transfers and starting the GPU program (B3's start-up cost).
+
+**G3.** On the author's computer the GPU is faster from 128 × 128 at $k = 9$ (128²: 13.7 against 7.3 ms; 2048²: 1230 against 145 ms). The compute-only line lies far below the total for large images: most of the GPU time is transfer.
+
+**G4.** At $n = 1024$: $k = 9$ gives CPU 328 ms, GPU 48 ms; $k = 31$ gives CPU about 4500 ms (extrapolated) and GPU 77 ms. The work per pixel grows by $31^2/9^2 = 11.9$; the CPU time grows almost by that factor, the GPU time only by 1.6 because its transfers do not change and its arithmetic is cheap.
+:::
+
+## Explore: warps and divergence, latency hiding {#explore}
+
+A **model** of a GPU multiprocessor with the rules of a real one (not a measurement). Tab **divergence**: a 64 × 32 image is cut into warps of 32 pixels (rows of 32, or 8 × 4 tiles). The kernel spends **cost A** cycles on pixels above the threshold and **cost B** below. Each warp is outlined orange (all A), blue (all B) or red (mixed: runs both). Click a warp to see its lane masks. **loop until converged** gives every pixel a number of iterations; a warp runs until its slowest lane is done. Tab **latency hiding**: $N$ warps on one multiprocessor, each doing $k$ cycles of work and then a load that takes $L$ cycles; one instruction can be issued per cycle.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="warpsim" data-tab="divergence" data-preset="rows"></div>
+<script src="../demos/dist/warpsim.js"></script>
+```
+
+**E1.** Presets **uniform image** and **noise**. How many warps diverge in each, and what is the lane efficiency with costs 100 and 10? Compare the noise result with B7 at $p = 0.5$.
+
+**E2.** Presets **nuclei, warps = rows** and **nuclei, warps = 8×4 tiles**. Read the cycles, the efficiency and the number of divergent warps for both. Why do tiles help, and why only a little here?
+
+**E3.** Choose the image **blocks** (8 × 8 squares) and switch between rows and tiles. Explain the result with B5.
+
+**E4.** Preset **one slow lane holds 31 hostage**. How many warps contain a slow lane, and what is the efficiency? Tick and untick the 8 × 4 tiles: which is better here, and why?
+
+**E5.** Tab **latency hiding**, preset **one warp cannot hide memory** ($k = 4$, $L = 200$). Read the utilisation. Raise $N$ to 8, 16 and 32. Does it ever reach 100 %? How many warps would be needed?
+
+**E6.** Preset **enough warps hide it** ($k = 8$, $L = 200$, 32 warps), then lower $N$ until the utilisation drops below 100 %. Compare with $(k + L)/k$. Then preset **too many registers**: why does $N = 32$ not help any more?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Uniform: no warp diverges, efficiency 100 %. Noise thresholded at 128: all 64 warps diverge, 7040 cycles instead of about 3531, efficiency 50.2 %. B7 at $p = 0.5$: practically every warp mixed, 110 cycles against an average of 55: efficiency 50 %, the same.
+
+**E2.** Rows: 3540 cycles (1720 without divergence), 48.6 %, 29 of 64 warps divergent. Tiles: 3310 cycles, 52.0 %, 24 divergent. An 8 × 4 tile has a shorter perimeter than a 32 × 1 row with the same 32 pixels, so it is cut by object boundaries less often. Here the nuclei are small (radius 4.5–7 pixels) compared with a warp, so many tiles are still cut.
+
+**E3.** Rows: all 64 warps diverge (each row of 32 crosses 4 squares), 7040 cycles, 50 %. Tiles: 8 × 4 tiles lie inside one square: no divergence, 3520 cycles, 100 %. As in B5(a).
+
+**E4.** With rows, 16 of the 64 warps contain a slow pixel (32 iterations instead of 1): 5600 cycles, 17.0 % efficiency. With tiles, the slow pixels fall into 32 different warps: 10 560 cycles, 9.0 %. Rows are better here only because these slow pixels happen to share rows; the general cure is to collect the slow pixels into their own warps.
+
+**E5.** $N = 1$: 2.3 %; $N = 8$: 18.3 %; $N = 16$: 35.4 %; $N = 32$: 66.9 %. It never reaches 100 %: each warp is busy 4 of every 204 cycles, so about $204/4 = 51$ warps would be needed, more than the 32 allowed. (The simulation is a little above Little's law, $N\cdot4/204$, because the last of the 6 rounds has no load to wait for.)
+
+**E6.** 100 % down to $N = 26$ warps; at 13 warps 54.5 %, at 8 warps 34.8 %. $(k + L)/k = 208/8 = 26$. With 255 registers per thread only $65\,536/(32 \cdot 255) = 8$ warps fit (occupancy 25 %), so the utilisation stays at 34.8 % whatever $N$ is asked for: a big per-thread program costs latency hiding.
+:::
+
+## Where this leads
+
+The waiting in the last demo was for **memory**. The next unit, [memory is the bottleneck](../gpu-memory/lec.qmd), shows that most image operations are limited by how fast bytes move, not by arithmetic, and how coalescing, tiling, fusing and keeping data on the GPU help.

@@ -32,9 +32,16 @@ A thresholded image is a mask of 0s and 1s, and it is rarely clean: specks of no
 
 ## Where we start
 
+:::: {.columns}
+::: {.column width="52%"}
 - From the thresholding day: a threshold turns a grey image into a **mask**, 1 = foreground (object), 0 = background.
 - Typical defects: isolated **specks** (noise above the threshold), **holes** inside objects, **gaps** that split one object, thin **bridges** that join two.
 - A linear filter (a blur, from the kernels unit) would smear the mask into grey values, and we would have to threshold again.
+:::
+::: {.column width="48%"}
+![A mask with the four typical defects marked: a one-pixel hole, specks, a one-pixel gap that splits a bar, and a one-pixel-thick bridge between two blocks.](fig-defects.svg){width=100%}
+:::
+::::
 
 Wanted: operations that take a mask and return a mask, and that act on **shape**: "remove what is thinner than 3 pixels", "fill what is narrower than 3 pixels".
 
@@ -46,7 +53,9 @@ Write the mask as the **set** $A$ of its foreground pixels: $A = \{(x, y) : \tex
 - **Translate** $A_z$: the set shifted by the vector $z$.
 - **Reflect** $\check B$: the set mirrored through the origin, every $b$ replaced by $-b$.
 
-A **structuring element** $B$ is a small set with a marked **origin**: a 3-pixel cross, a $3 \times 3$ square, a digital disc, a line, an L-shape. It plays the role of the kernel in a convolution.
+A **structuring element** $B$ is a small set with a marked **origin**: a 5-pixel cross, a $3 \times 3$ square, a digital disc, a line, an L-shape. It plays the role of the kernel in a convolution.
+
+![Five structuring elements; the orange dot marks the origin.](fig-se-shapes.svg){width=70%}
 
 ## The math: sets and translates {.math}
 
@@ -75,9 +84,16 @@ Keep $x$ if the **reflected** SE placed at $x$ **hits** at least one object pixe
 
 $$A \oplus B = \{x : \check B_x \cap A \ne \emptyset\} = \{a + b : a \in A,\ b \in B\}.$$
 
+:::: {.columns}
+::: {.column width="52%"}
 - The second form: put a copy of $B$ on **every** object pixel and take the union. A single pixel dilates to a copy of $B$ itself.
-- In the figure: 17 pixels become 28. Objects grow, holes and gaps narrower than the SE close.
+- In the $7 \times 7$ example of the last slide: 17 pixels become 28. Objects grow, holes and gaps narrower than the SE close.
 - Why the reflection? For an asymmetric SE like the L, "paste $B$ on every pixel" and "look through $B$ at each pixel" differ by a mirror image, exactly as convolution and correlation differ by a flip of the kernel.
+:::
+::: {.column width="48%"}
+![Two pixels $A$ (dark) dilated by the L: a copy of $B$ on each pixel (green: added). Right: the mirrored L placed at the pixel $x$ (orange outline) hits $A$, so $x$ is in $A \oplus B$.](fig-dilate-L.svg){width=100%}
+:::
+::::
 
 ## The math: two ways to write each {.math}
 
@@ -92,6 +108,8 @@ $$A \ominus B = \{x : x + b \in A \ \ \forall b \in B\} = \bigcap_{b \in B} A_{-
 Write the mask as 0/1 values. Then (from the kernels unit: slide a window, combine the values under it)
 
 $$(A \ominus B)(x) = \min_{b \in B} A(x + b), \qquad (A \oplus B)(x) = \max_{b \in B} A(x - b).$$
+
+![One row of a mask with a 3-wide window (orange: the window at one pixel, $1\,1\,0$ gives min 0 and max 1). Red: removed by the min, green: added by the max.](fig-minmax-row.svg){width=56%}
 
 - A **flat** SE is a window with no weights: erosion is a **min filter**, dilation a **max filter**.
 - **Shift-invariant** like a convolution: shift the image, the result shifts the same way.
@@ -121,9 +139,16 @@ Left: the SE editor (click cells, "set origin" then click a cell), SE presets an
 
 $$(A \ominus B)^c = A^c \oplus \check B .$$
 
+:::: {.columns}
+::: {.column width="60%"}
 - In words: a pixel is **not** in the erosion if the SE placed there **hits the background** somewhere. That is a dilation of the background.
 - So a filter on objects is also a filter on the background: erosion shrinks the objects and grows the background, and the reflection $\check B$ is needed when $B$ is asymmetric.
-- Check with the L in the figure: the complement of $A^c \oplus \check B$ is exactly the 7 pixels of $A \ominus B$ (exercise).
+- Check with the L: the complement of $A^c \oplus \check B$ is exactly the 7 pixels of $A \ominus B$ (right; the exercise does it by hand).
+:::
+::: {.column width="40%"}
+![The $7 \times 7$ example with the L. Dilate the background by $\check B$ (green: added), take the complement: the same 7 pixels as $A \ominus B$.](fig-duality.svg){width=92%}
+:::
+::::
 
 ## The math: duality and adjunction {.math}
 
@@ -139,6 +164,8 @@ Proof: both say "$a + b \in C$ for all $a \in A$, $b \in B$". Consequences: $(A 
 
 Dilation is associative: $A \oplus (B_1 \oplus B_2) = (A \oplus B_1) \oplus B_2$.
 
+![Three pixels dilated by a row of 3, then by a column of 3 (green: added at each step): 3 → 9 → 22 pixels, the same set as the dilation by the $3 \times 3$ square.](fig-row-col.svg){width=60%}
+
 - A $3 \times 3$ square is a row of 3 dilated by a column of 3, so dilating by the square = dilating by the row, then by the column. A $15 \times 15$ square: 30 comparisons per pixel instead of 225. The separable-kernel trick of the kernels unit, again.
 - A disc is approximated by lines in a few directions (an octagon from 4 lines).
 - A line of any length costs about 3 comparisons per pixel with the **van Herk / Gil–Werman** algorithm (running min/max over blocks): the cost no longer depends on the SE size.
@@ -150,17 +177,31 @@ The **inner boundary** of an object: the pixels that erosion removes,
 
 $$\partial A = A \setminus (A \ominus B).$$
 
+:::: {.columns}
+::: {.column width="52%"}
 - With the **cross**, a pixel is interior if its 4 neighbours are in $A$; the boundary is a thin contour that is **8-connected** (it may step diagonally).
 - With the **square**, a pixel is interior only if all 8 neighbours are in $A$; the boundary is thicker and **4-connected**.
 - Course convention (the labelling and watershed days use it too): objects 8-connected, background 4-connected.
+:::
+::: {.column width="48%"}
+![The inner boundary (orange) of the same object: 18 pixels with the cross, 28 with the square.](fig-boundaries.svg){width=100%}
+:::
+::::
 
 ## At the image border
 
 Erosion near the edge asks about pixels **outside** the image. A convention decides:
 
+:::: {.columns}
+::: {.column width="55%"}
 - **outside = 0**: the image is surrounded by background; erosion eats into every object that touches the edge.
 - **outside = 1** (or "ignored"): the outside never removes anything; an object cut by the edge is not eroded from that side.
 - Example (the demo's "border convention"): 36 pixels, eroded by the $3 \times 3$ square: 10 with outside = 0, 16 with outside = 1.
+:::
+::: {.column width="45%"}
+![The demo's example eroded by the $3 \times 3$ square; red: removed. The shaded frame on the right stands for an outside of 1s.](fig-border.svg){width=100%}
+:::
+::::
 
 Neither is right in general: an object cut by the image edge continues outside, or it does not. The same question as zero vs replicate padding for convolutions.
 
