@@ -2,19 +2,21 @@
 
 Status: proposal for the user. Nothing built yet.
 
+**Course map (2026-11-13, self-study restructure):** day 40 of 51, Part VII "Learning from examples". Hard prerequisites: Modern deep learning (day 39), Evaluation and statistics (day 37). Soft (see also): Watershed (day 15), Edge-preserving smoothing and PDEs (day 10), Graph cuts (day 27). Source: `days.yml`.
+
 **Update 2026-11-13:** the course is self-study with no cap on days and **no electives** (see
-`plan/coursemap.md`, "Self-study restructure"). So the question "core day or elective" is gone:
-"Networks for cells and objects" is simply a day placed after modern deep learning in Part V.
+`plan/coursemap.md`, "Self-study restructure"). So the question of where the day goes
+is settled: "Networks for cells and objects" is day 40, placed after modern deep learning (day 39) in Part VII.
 
 ## What exists already
 
-- `instances/` (day 18, modern deep learning): the four routes from a semantic mask to objects —
+- `instances/` (day 39, modern deep learning): the four routes from a semantic mask to objects —
   boundary class, distance map + watershed, **star-convex polygons** (StarDist's idea), **flow
   fields** (Cellpose's idea) — with simulated "network outputs" (`instancemaps` demo).
-- `detection/` (day 18): boxes, IoU, **anchors vs centre heat maps**, greedy NMS and its failures
+- `detection/` (day 39): boxes, IoU, **anchors vs centre heat maps**, greedy NMS and its failures
   (YOLO's ingredients), `nmsboxes` demo.
-- `attention/` (day 18): promptable segmentation (SAM's idea) as one slide.
-- `graphcut-seg/` (day 13): the `graphcut` demo **does** run on image data (micrograph preset
+- `attention/` (day 39): promptable segmentation (SAM's idea) as one slide.
+- `graphcut-seg/` (day 27): the `graphcut` demo **does** run on image data (micrograph preset
   "nucleus", seed painting), but opens on a synthetic preset and is laggy on the micrograph
   (100–200 ms per update: graph and intensity model rebuilt every time).
 - Rust ports in github.com/henriksson-lab: `stardist-rs`, `cellpose-rs` (incl. Cellpose-SAM via
@@ -22,28 +24,28 @@ Status: proposal for the user. Nothing built yet.
   video/z-slice, automatic masks), plus `deconwolf-rs`, `itk-rs`, `bioformats-rs` and others that
   could serve later demos.
 
-## Recommendation: one new core day, built around real models in the browser
+## Recommendation: one new day, built around real models in the browser
 
-**Day 19 (new core, Part V): "Networks for cells and objects"**, directly after modern deep
+**Day 40 (new, Part VII): "Networks for cells and objects"**, directly after modern deep
 learning. The named model families are methods (like Canny), so naming them is fine under
 principle 0; what we avoid is teaching a tool's interface. The day's angle: *what does each
 network predict, and how do you get objects out of it?* — representation and decoding are the
 theory, and they are exercise-friendly.
 
-Reorganise day 18 at the same time so nothing is taught twice:
+Reorganise day 39 at the same time so nothing is taught twice:
 
-| Day 18 Modern deep learning (after) | Day 19 Networks for cells and objects (new) |
+| Day 39 Modern deep learning (after) | Day 40 Networks for cells and objects (new) |
 |---|---|
 | `attention/` (patches, attention, transfer, foundation models in general) | 1. `stardist/`: star-convex polygons — rays, the distance targets, probability map, polygon NMS, what shapes it cannot represent (absorbs Route 3 of `instances/`) |
 | `diffusion/` (introduction) | 2. `cellpose/`: flows from a simulated diffusion inside each mask, gradient tracking to sinks, flow error check, cell diameter and rescaling, generalist training on many image types; Cellpose-SAM as a pointer to unit 4 (absorbs Route 4) |
-| `instances/` shrinks to the overview: why post-processing, routes 1–2, a one-slide pointer per route 3–4 to day 19, panoptic | 3. `yolo/`: **directly from image to a list of objects**: the grid, what each output cell predicts (box offsets, objectness, classes), decoding the output tensor, multi-scale heads (feature pyramid), anchor-based vs anchor-free heads, the loss (box IoU-type loss, classification, distribution focal loss as idea), NMS, speed vs accuracy; detection of cells/organelles/colonies (absorbs the anchor/heat-map part of `detection/`) |
+| `instances/` shrinks to the overview: why post-processing, routes 1–2, a one-slide pointer per route 3–4 to day 40, panoptic | 3. `yolo/`: **directly from image to a list of objects**: the grid, what each output cell predicts (box offsets, objectness, classes), decoding the output tensor, multi-scale heads (feature pyramid), anchor-based vs anchor-free heads, the loss (box IoU-type loss, classification, distribution focal loss as idea), NMS, speed vs accuracy; detection of cells/organelles/colonies (absorbs the anchor/heat-map part of `detection/`) |
 | `detection/` shrinks to boxes, IoU, NMS failures (general) | 4. `sam/`: promptable segmentation — a heavy image encoder run once, a light prompt encoder + mask decoder run per click; points/boxes/masks as prompts; ambiguity and three candidate masks with scores; automatic mask generation (a grid of point prompts + filtering + NMS); SAM 2's memory for video/z-stacks; failure modes on microscopy and why fine-tuned variants exist |
 
-Day 19 ends with one **comparison unit or section**: the same images through a classical pipeline
+Day 40 ends with one **comparison unit or section**: the same images through a classical pipeline
 (threshold + watershed), StarDist, Cellpose and SAM; evaluated with the evaluation day's matching
 (`object-eval/`); cost (parameters, time per image in the browser).
 
-(No elective variant: every day is part of the one sequence.)
+(No day variant: every day is part of the one sequence.)
 
 ## Exercises (the hard part)
 
@@ -125,7 +127,7 @@ Two kinds:
   `lib/maxflow.ts`, tested against it). This is also the natural first, small use of the Wasm
   pipeline and can serve as the spike for the infrastructure before the large models. Then allow
   larger images (512²) in the demo.
-- Later: run it on the same real fluorescence images as day 19, so students can compare graph
+- Later: run it on the same real fluorescence images as day 40, so students can compare graph
   cuts with the networks.
 
 ## Order of work
@@ -139,13 +141,13 @@ Two kinds:
 2. **Infrastructure**: `make wasm`, `make models`, the GitHub Actions deploy workflow (switch
    Pages to Actions), model loader/cache, `file://` message, demos/README rules, size budget.
 3. **Graph-cut fix** (independent, can run in parallel with 1).
-4. **Plan and build day 19** (parallel per unit after the infrastructure exists), and the
+4. **Plan and build day 40** (parallel per unit after the infrastructure exists), and the
    day-18 reorganisation (`instances/` and `detection/` slimmed, pointers).
-5. **Image pass** for day 19, integration, full render, checks.
+5. **Image pass** for day 40, integration, full render, checks.
 
 ## Decisions for the user
 
-1. ~~Core day or elective?~~ Decided: no electives; a day after modern deep learning.
+1. ~~Where does the day go?~~ Decided: no electives; a day after modern deep learning.
 2. ~~Where to host weights?~~ Decided: fetched and converted in CI at deploy time, not committed.
 3. ~~YOLO weights?~~ Decided: use them; licences are not a concern.
 4. ~~Which real image sets?~~ Decided: any public microscopy data, fetched in CI.

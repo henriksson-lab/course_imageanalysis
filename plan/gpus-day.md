@@ -2,9 +2,11 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "Computing: GPUs" (row marked *requested, not
-yet planned*; this plan answers it). Entry after core day 3 (bit depth and noise); the 3D
-graphics elective helps (its `rasterise/` "GPU pipeline" slide, `gpuformats/` and
+**Course map (2026-11-13, self-study restructure):** day 51 of 51, Part IX "3D and computing". Hard prerequisites: Bit depth and noise (day 3). Soft (see also): 3D graphics (day 48). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part IX (row marked *requested, not
+yet planned*; this plan answers it). Entry after day 3 (bit depth and noise); the 3D
+graphics day helps (its `rasterise/` "GPU pipeline" slide, `gpuformats/` and
 `volrender/`) but is not required. Links named in the course map: 3D graphics (the pipeline
 GPUs come from; `gpuformats/`), integral images (parallel scan), neural networks.
 
@@ -66,16 +68,16 @@ the browser.
   "summing many pixels", pairwise vs naive summation; demo `floatbits`): unit 3's tree
   reduction **is** pairwise summation, and unit 4's precision slides recall the format
   table. Applied here, not re-taught.
-- **FFT cost** (`fourier/`, day 1; `xcorr-fft/` "What it costs" on day 12): "FFT is
+- **FFT cost** (`fourier/`, day 1; `xcorr-fft/` "What it costs" on day 23): "FFT is
   $O(n\log n)$" is stated as a recall; the FFT's data-flow picture (butterflies in
   $\log_2 n$ passes) is drawn here in one slide.
-- **3D graphics** (elective, helps): `rasterise/` already says "every pixel is tested
+- **3D graphics** (helps): `rasterise/` already says "every pixel is tested
   independently: why GPUs are fast" and has the slide "The GPU pipeline, conceptually";
   `gpuformats/` covers texture formats and filtering in hardware; `volrender/` ray-marches
   on the GPU with early termination. Unit 1 recalls the pipeline in one slide for those who
   took it, and stands on its own for those who did not.
-- **Later days used as examples in unit 4** (watershed day 10, labelling day 9, graph cuts
-  day 13, neural networks day 15, dynamic programming elective): a student entering after day 3
+- **Later days used as examples in unit 4** (watershed day 15, labelling day 14, graph cuts
+  day 27, neural networks day 36, dynamic programming day): a student entering after day 3
   has not seen them. Each example is therefore one self-contained picture ("a queue that
   always serves the lowest pixel next", "follow parent pointers to a root") with a pointer
   forward ("the watershed day does this in full"); none needs the method's details.
@@ -96,7 +98,7 @@ reproducibility of parallel sums), and the "good and bad on a GPU" judgement. Ot
 | GPU graphics pipeline (vertex/fragment stages, rasterisation) | 3D graphics `rasterise/` | one recall slide: "the fragment stage is a map over pixels; GPUs became general by running it on anything" |
 | Texture formats, hardware filtering, mipmaps | 3D graphics `gpuformats/` | pointer (texture caches and free bilinear interpolation, one line) |
 | Ray marching, early termination | 3D graphics `volrender/` | example of divergence (rays stop at different steps), pointer |
-| Hardware ray tracing (acceleration-structure traversal units) | ray-tracing elective (requested, not planned) | one line in unit 4, pointer; that day points back here for divergence and incoherent memory access |
+| Hardware ray tracing (acceleration-structure traversal units) | ray-tracing day (requested, not planned) | one line in unit 4, pointer; that day points back here for divergence and incoherent memory access |
 | Prefix sums, integral image, 2D table = scan rows then columns | integral images `integral-image/` | **parallel scan owned here** (proposed; see open questions); `integral-more/` (optional, not built) keeps a one-slide recall and embeds this day's `parscan` |
 | Convolution cost: direct, separable, running sum, integral image | `kernels/`, integral `box-filters/` (`boxspeed`) | recall; arithmetic intensity of the same filters is new here |
 | FFT and its cost | `fourier/`, `xcorr-fft/` | recall; FFT on the GPU (bandwidth-bound, $\log_2 n$ passes) one slide |
@@ -345,11 +347,11 @@ Concept layer:
   address are **serialised**: a dark image whose pixels all fall into bin 0 is the worst
   case (**contention**). Fix: **privatisation**: each block keeps its own histogram in shared
   memory, then the block histograms are summed (a reduction). Same idea for any scatter
-  (accumulating votes in the Hough elective's accumulator, splatting).
+  (accumulating votes in the Hough day's accumulator, splatting).
 - **Gather vs scatter**: a thread reading many inputs (gather: convolution) needs no atomics;
   a thread writing to many outputs (scatter: histograms, voting, splatting, back-projection
   in tomography) does. Rewrite scatter as gather when possible (back-projection per output
-  pixel instead of per projection ray; recall the radon elective in one line).
+  pixel instead of per projection ray; recall the radon day in one line).
 - **FFT** in one slide: $\log_2 n$ passes of butterflies, each pass a map over pairs:
   regular, parallel, bandwidth-bound; the 2D FFT is 1D FFTs along rows then columns (with a
   transpose: coalescing again).
@@ -377,7 +379,7 @@ The math layer:
 
 Demo and exercises:
 
-- **Demo `parscan`** (new, SVG, step-through; the integral elective's `integral-more/` can
+- **Demo `parscan`** (new, SVG, step-through; the integral day's `integral-more/` can
   embed it with `data-mode="scan"`): 16 editable values (click ±, or presets) drawn as a row
   of boxes; `data-mode="reduce"`: the tree, one level per *step*; `"scan-hs"`: Hillis–Steele
   ladder, arrows for the additions of the current step; `"scan-blelloch"`: up-sweep then
@@ -426,7 +428,7 @@ Concept layer:
     early ray termination makes rays in a warp stop at different steps (divergence: unit 1),
     which is why bricks/empty-space skipping are used; the texture cache gives trilinear
     interpolation for free. Hardware ray tracing (acceleration-structure traversal units):
-    one line, pointer to the ray-tracing elective;
+    one line, pointer to the ray-tracing day;
   - per-pixel statistics, local thresholds, distance transform done **separably** (exact EDT
     row by row, then column by column: each row independent).
 - **Bad** (each one slide: the recalled picture, the property that breaks, the usual parallel
@@ -559,7 +561,7 @@ Demos and exercises:
   `checkerboard` for `warpsim`, `parlabel`, `parscan`), `label.ts` (`label2d`,
   `UnionFind`: the sequential reference in `parlabel`), `distance.ts` (`edt` for the
   jump-flooding error map), `watershed.ts` (`watershedTrace` for the flood mode), `dp.ts`
-  (owner dynprog elective; cost table for the wavefront mode), `histogram.ts` (reference
+  (owner dynprog day; cost table for the wavefront mode), `histogram.ts` (reference
   counts for `parscan`), `gl3d.ts` (`webgl2Available` only; `gpufilter` does not use the
   scene renderer), `colour.ts` (`viridis`, `diverging` for heat maps and difference maps),
   `random.ts`. The float16 rounding for `parscan`'s precision toggle comes from
@@ -581,7 +583,7 @@ Demos and exercises:
     compaction, atomic histogram with per-bin serialisation and privatised variant, label
     propagation and pointer jumping on a grid (as `GridAlgorithm`s), DP wavefront schedule,
     level-synchronous flooding, jump flooding. Used by `parscan` and `parlabel`; the
-    integral elective's `integral-more/` may import the scans.
+    integral day's `integral-more/` may import the scans.
   - `lib/glcompute.ts` (WebGL2, DOM): minimal "compute through a fragment shader" helper:
     create an offscreen WebGL2 context only while the demo is visible (same pattern as
     `gl3d.ts`: IntersectionObserver, release off-screen), check
@@ -590,7 +592,7 @@ Demos and exercises:
     passes), read back, and **timing helpers** (warm-up run, `fenceSync` + `clientWaitSync`
     between upload/compute/download, `EXT_disjoint_timer_query_webgl2` when present,
     median of runs). Used by `gpufilter`; available to later demos (e.g. a ray-tracing
-    elective's progressive tracer). It does not replace `gl3d.ts` (scene rendering).
+    day's progressive tracer). It does not replace `gl3d.ts` (scene rendering).
 - **New demos** (names checked against `demos/src/`: none exists): `warpsim`, `coalesce`,
   `roofline`, `gpufilter`, `parscan`, `parlabel`. Settings through `data-*`
   (`data-tab`, `data-mode`, `data-preset`, `data-device`, `data-k`, `data-size`).
@@ -634,7 +636,7 @@ Demos and exercises:
 
 ## Open questions
 
-- **Ownership of the parallel scan**: the integral elective's optional `integral-more/` (not
+- **Ownership of the parallel scan**: the integral day's optional `integral-more/` (not
   built) planned a "parallel prefix sums on GPUs" slide and a `satstep` `data-mode="scan"`
   (not implemented in the built `satstep`). Proposal: this day owns parallel scan;
   `integral-more/` keeps one recall slide and embeds `parscan` (`data-mode="scan-hs"`), and
@@ -643,8 +645,8 @@ Demos and exercises:
 - **Course-map row**: mark "Computing: GPUs" as planned (this file) and add the owners
   above (throughput/SIMT/roofline/patterns/GPU precision) to the owners table. Not edited
   here.
-- **Entry point vs examples**: entry after day 3, but unit 4's examples come from days 9,
-  10, 13, 15 and the DP elective. Keep them as self-contained one-picture recalls (this
+- **Entry point vs examples**: entry after day 3, but unit 4's examples come from days 14,
+  10, 13, 15 and the DP day. Keep them as self-contained one-picture recalls (this
   plan), or recommend the day after Part II? Proposal: entry stays after day 3; unit 4's
   examples are written as forward pointers.
 - **WebGPU**: compute shaders, shared memory and atomics would let `parscan`, the histogram
@@ -662,7 +664,7 @@ Demos and exercises:
   textbooks; "tensor cores" likewise. Proposal: use "warp", "shared memory" and
   "matrix units", with one line each naming the alternatives, and no API or product names
   (teacher references below may name them).
-- **Ray-tracing elective** (requested, not planned): it should recall divergence and
+- **Ray-tracing day** (requested, not planned): it should recall divergence and
   incoherent access from units 1–2 and use `lib/glcompute.ts` for its progressive tracer;
   hardware ray-tracing units are one line here.
 - Is unit 4 too dense (good/bad survey + Amdahl + precision)? Fallback: move the precision

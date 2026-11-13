@@ -1,12 +1,14 @@
 # Plan: a day on diffusion models
 
 Internal working doc (plan/ is not rendered). Status: core units built (2026-11-13); see "Build notes" at the end.
-**Course map:** elective, group **"Generative models"** (requested 2026-11-12; this plan is
-its first day). Entry after core day 18 *Modern deep learning*, whose `diffusion/` unit is
-the introduction this day builds on. The day also leans on day 17 (VAEs) and day 5
+**Course map:** Part VII (requested 2026-11-12; this plan is
+its first day). Entry after day 39 *Modern deep learning*, whose `diffusion/` unit is
+the introduction this day builds on. The day also leans on day 38 (VAEs) and day 5
 (deconvolution). Pending coursemap edit: the "Generative models" row changes from
 "requested, not yet planned" to "planned (`plan/diffusion-day.md`)", and the owners table
 gains the rows listed under *Overlaps*.
+
+**Course map (2026-11-13, self-study restructure):** day 41 of 51, Part VII "Learning from examples". Hard prerequisites: Modern deep learning (day 39), Variational autoencoders (day 38), Deconvolution (day 5). Soft (see also): Ising model and Markov random fields (day 28), Gaussian mixtures (day 35). Source: `days.yml`.
 
 ## Goal of the day
 
@@ -49,14 +51,14 @@ approximation. No architecture, library or product is taught as a tool.
 
 ## Prerequisite gap
 
-- **`diffusion/`** (day 18, built): forward formula $\mathbf x_t = \sqrt{\bar\alpha_t}\mathbf x_0 + \sqrt{1-\bar\alpha_t}\boldsymbol\varepsilon$,
+- **`diffusion/`** (day 39, built): forward formula $\mathbf x_t = \sqrt{\bar\alpha_t}\mathbf x_0 + \sqrt{1-\bar\alpha_t}\boldsymbol\varepsilon$,
   linear and cosine schedules, "the best denoiser is an average", Tweedie (math slide), one
   DDPM and one DDIM step (math slide), memorising vs generalising, conditioning by Bayes and
   the guidance weight $w$, posterior mean vs sample (twice the error), hallucination, the five
   rules for what may be measured. **This day recalls each of these in at most one slide** and
   does not re-derive them; its demos `diffusion2d` and `genrestore` are embedded unchanged
   (existing presets) on recall slides only.
-- **VAE day** (day 17, built: `autoencoder/`, `vae/`, `vae-gen/`): latent space, encoder
+- **VAE day** (day 38, built: `autoencoder/`, `vae/`, `vae-gen/`): latent space, encoder
   means and spreads, the decoder outputs a mean (blur), the 2D cell-shape latent space of
   `vaeimages`. Unit 3 recalls them; its demo reuses the shape VAE's weights.
 - **Deconvolution day** (day 5): Wiener/Tikhonov (`deconv/`), data + λ·penalty, the
@@ -65,18 +67,18 @@ approximation. No architecture, library or product is taught as a tool.
   (`resolution/`), invisible objects and the null space (`illposed/`). Unit 4 recalls them.
 - **Fourier** (day 1, `fourier/`): power spectrum, low-pass. Unit 1 uses a radially
   averaged spectrum (recall in one line).
-- **Neural networks** (day 15): loss, training, `unet/` (the usual denoiser shape; one line).
-  **Evaluation** (day 16): `leakage/` (never test on training images) is recalled for the
+- **Neural networks** (day 36): loss, training, `unet/` (the usual denoiser shape; one line).
+  **Evaluation** (day 37): `leakage/` (never test on training images) is recalled for the
   memorisation check.
-- **Not assumed:** the GMM elective (the mixture is restated as in `diffusion/`), the Ising
-  elective (`mcmc/` is a "see also" for Langevin steps), stochastic or ordinary differential
+- **Not assumed:** the GMM day (the mixture is restated as in `diffusion/`), the Ising
+  day (`mcmc/` is a "see also" for Langevin steps), stochastic or ordinary differential
   equations (introduced as "follow the arrows, with or without jitter"; the SDE/ODE language
   is math layer only).
 
 ## Overlaps / who owns what
 
 Ownership change from coursemap "Ownership changes" applied: **this day owns diffusion models
-in depth**; `diffusion/` stays on day 18 as the **introduction** (decided here, not moved),
+in depth**; `diffusion/` stays on day 39 as the **introduction** (decided here, not moved),
 and only its "Where this leads" pointer is edited (see pending edits). Proposed new owners-table
 rows: *score matching, samplers, guidance, latent diffusion, diffusion posterior sampling* →
 this day; *evaluation of generated images (precision/recall of a distribution, Fréchet
@@ -93,7 +95,7 @@ distance, memorisation check)* → this day (unit 2).
 | Camera noise `cameranoise/` | SNR, PSNR | log-SNR of a schedule (unit 1) |
 | Evaluation day | object matching, leakage, statistics | distribution-level metrics for generated images (unit 2); per-object metrics only recalled |
 | Wavelets `shrinkage/`, deconvolution `denoise/` | classical denoisers | one line in unit 4: "any good denoiser can serve as a prior" |
-| Ising `mcmc/` (elective) | MCMC, detailed balance | Langevin corrector as "see also" (unit 2) |
+| Ising `mcmc/` | MCMC, detailed balance | Langevin corrector as "see also" (unit 2) |
 | Integrity unit (`integrity/`, not placed) | images as evidence | unit 4 points to it if it exists, as `diffusion/` does |
 
 Topic page "Denoising" (coursemap): add this day's unit 1 (denoiser = score) and unit 4.
@@ -545,7 +547,7 @@ replacement is exact for the measured coordinates.
   exact posterior vs importance sampling; coverage ≈ 0.9 with the matched prior; `virtualstain`
   posterior weights sum to 1 and the nucleus readout matches truth on the "nucleus" preset;
   `latentdiff` stored codes vs TS encoder.
-- Site: new sidebar group "Generative models" under *Electives* (after "More learning") with
+- Site: new sidebar group "Generative models" (after "More learning") with
   the day "Diffusion models" and the five units; every demo in `demos.qmd`. Follow
   `demos/README.md`: fixed seeds, presets + reset, keyboard back to reveal.js, static figure
   fallbacks for PDF/print.
@@ -554,7 +556,7 @@ replacement is exact for the measured coordinates.
 
 - `diffusion/exercise.qmd`, "Where this leads": point to the four units by name
   (`score-matching/`, `diffusion-sampling/`, `guidance/`, `diffusion-inverse/`) instead of the
-  generic "an elective day on diffusion models". Nothing else in `diffusion/` changes.
+  generic "a day on diffusion models". Nothing else in `diffusion/` changes.
 - `plan/coursemap.md`: Generative models row → planned; owners-table rows (see Overlaps).
 - `vae-gen/exercise.qmd` "Where this leads" (diffusion bullet) could also point to `guidance/`
   (latent diffusion); optional, owner VAE day.
@@ -570,8 +572,8 @@ replacement is exact for the measured coordinates.
 
 ## Open questions
 
-1. **`diffusion/` stays or moves?** Decided here: it stays on day 18 as the introduction (the
-   core track needs it for the hallucination rules); this day only recalls it. Confirm in the
+1. **`diffusion/` stays or moves?** Decided here: it stays on day 39 as the introduction (the
+   learning part needs it for the hallucination rules); this day only recalls it. Confirm in the
    coursemap.
 2. Evaluation of generated images placed in unit 2 (it is needed to say what "better" means for
    steps) and reused in unit 3 for guidance. Alternative: a fifth core unit `gen-eval/` if the
@@ -579,10 +581,10 @@ replacement is exact for the measured coordinates.
 3. Latent diffusion shares unit 3 with guidance. If unit 3 runs long, latent diffusion becomes
    optional unit 6 `latent-diffusion/` with `latentdiff` unchanged.
 4. Real data: a licensed paired transmitted-light / fluorescence set would make
-   `virtualstain` honest about texture; synthetic only for now (as all of day 18).
+   `virtualstain` honest about texture; synthetic only for now (as all of day 39).
 5. `posterior1d` uses the Jacobian-free clean-estimate approximation; is the version with the
    Jacobian (exact for the mixture, more code) worth showing as a third sampler?
-6. Should a second elective day in the group (e.g. GANs/normalising flows, or generative models
+6. Should a second day in the group (e.g. GANs/normalising flows, or generative models
    for 3D) be requested? Not planned.
 7. The integrity unit (`integrity/`) is still unplaced; unit 4 points to it only if it exists.
 

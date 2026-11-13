@@ -5,6 +5,8 @@ Follows `plan/coursemap.md` (this day **owns** Gaussian derivatives, LoG/DoG, th
 the structure tensor, Canny and scale space) and `plan/review-organisation.md` §2.1
 (the units `canny/`, `scale-space/`, `hessian/`, `structure-tensor/`).
 
+**Course map (2026-11-13, self-study restructure):** day 2 of 51, Part I "Images as numbers". Hard prerequisites: Images, filters and frequencies (day 1). Soft (see also): none. Source: `days.yml`.
+
 ## Goal of the day
 
 After the day a student can:
@@ -58,7 +60,7 @@ What day 1 already teaches (checked in the built units), and what this day recal
   recalls "symmetric 2×2 ⇒ real eigenvalues, orthogonal eigenvectors" from it and `images/`
   (`matrix2x2` demo).
 - **Hysteresis thresholding: an ordering problem.** The Hough plan and the brief call it a
-  "recall from the thresholding day", but the thresholding day is now **day 6**, three days
+  "recall from the thresholding day", but the thresholding day is now **day 12**, three days
   *after* this one. Proposal: this day **introduces** hysteresis in its original context (it is
   Canny's invention, Canny 1986) as a two-slide concept ("strong pixels seed, weak pixels
   survive only if connected to a seed"; connectivity as a picture, not an algorithm), and the
@@ -80,7 +82,7 @@ What day 1 already teaches (checked in the built units), and what this day recal
 | `randomforest-day.md` unit 4 / `svm-day.md` unit 4 / `integral-day.md` | Teaching of every Gaussian feature family (smoothed intensity, gradient magnitude, LoG/DoG, Hessian eigenvalues, structure-tensor eigenvalues). RF's "structure tensor: no owner, concept + math slide here" is resolved | The **feature stack** (`featureStack()`), its browser and the paint–train loop (RF owns); each family recalled as one picture with a pointer here. Integral: box filters as the fast approximation of Gaussians and DoG (centre–surround), SURF's box Hessian: one-line pointer back to unit 3 |
 | `morphology-day.md` unit 3 | nothing | Morphological gradient (dilation − erosion). Unit 1 names it in one line as the non-linear contrast to the derivative ("edge strength without derivatives; comes on the morphology day") |
 | `snakes-day.md` (ASM pyramid), `graphics3d-day.md` (mipmaps) | The **Gaussian pyramid** is owned by unit 2 | Both recall it in one line (`snakes`: "Gaussian pyramid (from *Filtering & convolution*)" should be repointed to `scale-space/`) |
-| `fftregistration-day.md` / review-gaps gap 5 | Corners as interest points (unit 4, pointer) | Feature-based registration, if a motion/registration elective is written |
+| `fftregistration-day.md` / review-gaps gap 5 | Corners as interest points (unit 4, pointer) | Feature-based registration, if a motion/registration day is written |
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
@@ -123,8 +125,8 @@ Concept layer:
   noise chains attached to real edges. The ratio $t_\text{high}/t_\text{low}$ of about 2–3 is a
   rule of thumb.
 - Where this leads (one line each): Hough voting with the edge list and its directions (Hough
-  elective); the morphological gradient as a non-linear edge strength (morphology day); edge
-  maps as the external force for snakes (snakes elective).
+  day); the morphological gradient as a non-linear edge strength (morphology day); edge
+  maps as the external force for snakes (snakes day).
 - Pointer: image libraries call the pipeline "Canny".
 
 Math layer (`## The math: … {.math}` slides):
@@ -198,7 +200,7 @@ Concept layer:
   corners. One slide.
 - **Blob detection**: a bright blob gives a strong negative LoG at its centre; the strongest
   response comes when the kernel's negative centre fits the blob. Use $-\nabla^2 L$ so bright
-  blobs are positive (the "Mexican hat", pointer to the wavelets elective).
+  blobs are positive (the "Mexican hat", pointer to the wavelets day).
 - **Why scale-normalise**: blurring flattens the image, so raw derivatives shrink as σ grows and
   the unnormalised LoG always prefers the smallest σ. Multiplying by σ² (σ per derivative) makes
   responses at different scales comparable: measure distances in units of σ. Then each blob's
@@ -218,7 +220,7 @@ Concept layer:
   blur, take every second pixel, repeat; total size 1 + ¼ + 1/16 + … = 4/3 of the image. **Laplacian
   pyramid**: the difference between a level and the upsampled next level (a DoG); the levels add
   back up to the image exactly. Uses: coarse-to-fine search (snakes/ASM, registration), fast
-  large-scale filters, blending, mipmaps (graphics elective).
+  large-scale filters, blending, mipmaps (graphics day).
 - Pointer: scale-invariant keypoints (SIFT) are DoG extrema in a pyramid plus an orientation
   from the gradient (one line).
 
@@ -295,13 +297,13 @@ Concept layer:
 - Two numbers that do not depend on rotation: the **trace** $\lambda_1 + \lambda_2$ is the LoG of
   unit 2 (it cannot tell a blob from a ridge); the **determinant** $\lambda_1\lambda_2$ is large
   only for blobs (the "determinant of Hessian" blob detector; pointer: the box-filter version on
-  the integral-image elective).
+  the integral-image day).
 - **Vesselness** (Frangi, basics): reward pixels where $\lambda_2$ is strongly negative
   (structure present) and $|\lambda_1/\lambda_2|$ is small (line, not blob); two knobs: β (how
   strictly blobs are rejected) and c (what counts as noise). **Multi-scale**: compute at several
   σ, normalise by σ² (unit 2), take the maximum; the winning σ grows with the line width.
   Failure in one picture: junctions look blob-like and fade. Applications (vessel and neuron
-  networks, skeletonising them, measuring) are the skeleton elective: one pointer slide.
+  networks, skeletonising them, measuring) are the skeleton day: one pointer slide.
 - Ridges in practice: membranes in the micrograph, filaments, roads, fingerprints' ridges.
 
 Math layer:
@@ -368,7 +370,7 @@ Concept layer:
   Harris $\det J - k\,(\operatorname{tr}J)^2$, Förstner/Shi–Tomasi $\mu_2$ (the smaller
   eigenvalue). Corners are **interest points**: they can be found again in a shifted or rotated
   image, which is what feature-based registration and tracking match (pointer to the motion
-  elective; SIFT/ORB-style descriptors named in one line).
+  day; SIFT/ORB-style descriptors named in one line).
 - Contrast with the Hessian (one slide, a table): Hessian = second derivatives, signed, finds
   blobs and lines at their centre; structure tensor = squared first derivatives, unsigned,
   finds orientation and corners, needs a window ρ. Both are symmetric 2×2 matrices per pixel,
@@ -488,13 +490,13 @@ Names follow the shared-infrastructure table in `plan/review-organisation.md` §
 
 ## Open questions
 
-1. **Hysteresis ownership**: the thresholding day is now day 6, after this day. Proposal above:
+1. **Hysteresis ownership**: the thresholding day is now day 12, after this day. Proposal above:
    introduce hysteresis here (Canny context), thresholding day recalls and generalises it. Needs
    agreement and a one-line edit of `plan/thresholding-day.md` (and of the Hough plan's
    "recall from the thresholding day").
 2. **Is four units too much for day 2**, coming straight after day 1 (which grows to four units
    with `pca/`)? Fallback order of cuts: move the pyramid to a short optional slide; shorten
-   Frangi to one slide (the skeleton elective has the full treatment); make Harris a pointer.
+   Frangi to one slide (the skeleton day has the full treatment); make Harris a pointer.
    The review's fallback (one merged `gaussian-derivatives/` unit after `kernels/`, Canny on the
    Hough day) is no longer needed now that the day exists.
 3. **Unit 1 name**: `canny/` (as in the review and the Hough plan, keeps the `canny` demo name)

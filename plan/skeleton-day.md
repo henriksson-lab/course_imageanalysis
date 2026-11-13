@@ -4,8 +4,10 @@ Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026
 Decided 2026-11-12: skeletons are their own day (not a unit of the morphology day), and
 the hit-or-miss transform moves here with them.
 
-**Course map (2026-11-12):** elective, group "Objects" (skeletons, moments); entry after core
-day 9 (labelling). Morphology (day 8, owner of the distance transform), labelling (day 9) and
+**Course map (2026-11-13, self-study restructure):** day 17 of 51, Part III "From pixels to objects". Hard prerequisites: Labelling (day 14), Edges, blobs and ridges (day 2). Soft (see also): Watershed (day 15), Measurements (day 16). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part III (skeletons, moments); entry after
+day 14 (labelling). Morphology (day 13, owner of the distance transform), labelling (day 14) and
 the edges day (day 2, owner of the Hessian and vesselness basics) are always taught first.
 Edits applied 2026-11-12: unit 4's Hessian/vesselness basics became a one-slide recall of
 day 2 `hessian/`; the freed time goes to the neuron and vessel applications.
@@ -29,35 +31,35 @@ biologists make every day, with answers that are numbers students can check.
 
 ## Prerequisite gap
 
-- **Erosion, opening, structuring elements** (day 8, morphology): used directly; the
+- **Erosion, opening, structuring elements** (day 13, morphology): used directly; the
   hit-or-miss transform is two erosions. One-slide recall.
-- **Distance transform** $\mathrm{DT}$ (day 8, morphology owns it: definition, by hand,
+- **Distance transform** $\mathrm{DT}$ (day 13, morphology owns it: definition, by hand,
   two-pass chamfer): one-line recall; `lib/distance.ts` computes it.
-- **Connectivity and labelling** (day 9): needed for "simple point" (counting components in
+- **Connectivity and labelling** (day 14): needed for "simple point" (counting components in
   a 3×3 window), for the Euler number and for splitting a skeleton into edges. One-line
   recall (decided: labelling always comes first, so no recap).
-- **Hysteresis thresholding**: the idea is day 6's (thresholding); the implementation as
-  reconstruction + labelling is day 9's. One-line recall.
+- **Hysteresis thresholding**: the idea is day 12's (thresholding); the implementation as
+  reconstruction + labelling is day 14's. One-line recall.
 - **Hessian, its eigenvalues, Frangi vesselness, scale-normalised derivatives** (day 2,
   edges day, `hessian/`, the owner): recalled in one slide in unit 4.
 
 ## Links to other days
 
-- **Morphology** (day 8): hit-or-miss = $(A \ominus B_1) \cap (A^c \ominus B_2)$; Lantuéjoul's skeleton is
+- **Morphology** (day 13): hit-or-miss = $(A \ominus B_1) \cap (A^c \ominus B_2)$; Lantuéjoul's skeleton is
   built only from erosions and openings; pruning uses reconstruction. The morphology day
   has a one-slide pointer here from its unit 2.
-- **Labelling** (day 9): thinning preserves the Euler number (components − holes); skeleton edges
+- **Labelling** (day 14): thinning preserves the Euler number (components − holes); skeleton edges
   are the connected components of the skeleton with the junctions removed; length,
   branch count and tortuosity become per-object properties in the labelling day's table.
 - **Edges, blobs and ridges** (day 2): owns the Hessian and vesselness; this day uses them.
-- **Watershed** (day 10): the medial axis is the ridge set of $\mathrm{DT}$, the same landscape whose peaks
+- **Watershed** (day 15): the medial axis is the ridge set of $\mathrm{DT}$, the same landscape whose peaks
   split touching nuclei there; vessel segmentation by watershed of the vesselness is a
   pointer.
-- **Level sets** (elective): Blum's grassfire (a front moving inwards at unit speed; the skeleton is
+- **Level sets**: Blum's grassfire (a front moving inwards at unit speed; the skeleton is
   where fronts collide) is a level-set picture; arrival time = distance transform.
-- **Graph cuts** (day 13): thin structures are exactly what the smoothness term removes
+- **Graph cuts** (day 27): thin structures are exactly what the smoothness term removes
   (shrinking bias); vesselness as a data term is a pointer.
-- **Marching cubes** (3D elective; `volumes3d/` owns stacks and voxel spacing): 3D vessel trees and neurons; curve skeletons in 3D, and centreline
+- **Marching cubes** (Part IX; `volumes3d/` owns stacks and voxel spacing): 3D vessel trees and neurons; curve skeletons in 3D, and centreline
   + radius as a compact alternative to a surface mesh (tube rendering).
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -104,7 +106,7 @@ Hessian (day 2 does), which was what made it the densest.
 - **Grassfire** (Blum 1967): set fire to the boundary, let it burn inwards at unit speed;
   the skeleton is where fire fronts meet. Equivalent: the **medial axis** = centres of
   **maximal inscribed discs** (discs inside $A$ not contained in any other such disc).
-- The arrival time of the fire is the distance transform $\mathrm{DT}$ (day 8). The medial axis is the
+- The arrival time of the fire is the distance transform $\mathrm{DT}$ (day 13). The medial axis is the
   **ridge** set of $\mathrm{DT}$: points where $\mathrm{DT}$ has a local maximum across the shape (in 1D
   across a band of width $w$: a tent with its top at $w/2$). Each axis point carries a
   radius $\mathrm{DT}(x)$; **reconstruction** $A = \bigcup_{x \in S} \text{disc}(x, \mathrm{DT}(x))$: the
@@ -112,7 +114,7 @@ Hessian (day 2 does), which was what made it the densest.
 - **Lantuéjoul's formula** $S(A) = \bigcup_r S_r$, $S_r = (A \ominus rB) \setminus \big((A \ominus rB) \circ B\big)$:
   the points that the erosion by $rB$ keeps but the following small opening removes are
   centres of maximal discs of radius $r$. Reconstruction $A = \bigcup_r S_r \oplus rB$.
-  Only erosions and openings: everything from day 8.
+  Only erosions and openings: everything from day 13.
 - **Thinning vs medial axis**: thinning is connected but only approximately centred; the
   discrete medial axis is centred but can be disconnected and is not one pixel wide.
   Practical tools combine both (thin, keep $\mathrm{DT}$ on the result for radii).
@@ -190,7 +192,7 @@ Hessian (day 2 does), which was what made it the densest.
   fade (the skeleton graph loses branch points or gets gaps), touching parallel vessels
   merge (one edge instead of two), bright blobs on a vessel (spurious short branches).
   Threshold the vesselness, not the input.
-- **The pipeline**: vesselness → threshold (hysteresis: day 6 idea, day 9 implementation)
+- **The pipeline**: vesselness → threshold (hysteresis: day 12 idea, day 14 implementation)
   → clean (area filter, small closing) → skeletonize → prune → graph → measurements.
 - **Neurons**: total dendritic length, number of primary branches (edges leaving the
   soma), branch points, terminal points, branch order (centrifugal order; Strahler order
@@ -210,10 +212,10 @@ Hessian (day 2 does), which was what made it the densest.
 - **How good is the graph?** (new, uses the freed time): compare a measured skeleton graph
   with the ground-truth graph of the synthetic tree: length error, missed and spurious
   branch points, and how they move with noise, blur and the pruning length $k$. One line
-  forward to day 16 (evaluation) for matching objects in general.
+  forward to day 37 (evaluation) for matching objects in general.
 - 3D in one slide: 3D vessel trees (micro-CT, light-sheet) with the 3×3 Hessian (day 2) and
   3D thinning; stacks and anisotropic spacing $(\Delta x, \Delta y, \Delta z)$ recalled from
-  `volumes3d/` (marching-cubes elective) as a pointer.
+  `volumes3d/` (marching-cubes day) as a pointer.
 - **Demo `arbor`** (new, main demo): a seeded synthetic neuron (soma + branching
   dendrites) or vessel network (tree with varying radius, tortuosity and a few loops)
   from `lib/trees.ts`, with the known ground-truth graph. Steps as tabs: vesselness (the
@@ -263,7 +265,7 @@ Hessian (day 2 does), which was what made it the densest.
   vesselness tab in `arbor` reuses `lib/edges.ts` (a few ms per scale); thinning of 256×256 converges in tens of passes; both
   should be live. Measure first; Rust/Wasm only if a recomputation exceeds ~30 ms
   (candidate: a 3D Frangi filter on a 128³ volume, only if a 3D demo is added). 3D
-  views, if any, through `lib/gl3d.ts` (WebGL; owner 3D graphics elective).
+  views, if any, through `lib/gl3d.ts` (WebGL; owner 3D graphics day).
 - Tests (`make test` over `demos/test/*-test.ts`): thinning preserves the number of components and holes (via
   `label.ts`) and yields no removable simple non-end pixels; Zhang–Suen and template
   thinning agree on simple shapes up to known artefacts; Lantuéjoul skeleton with radii
@@ -305,8 +307,8 @@ Hessian (day 2 does), which was what made it the densest.
   general "template matching" example.
 - 3D: one slide on 3D thinning and 3D Frangi (proposal), or a WebGL demo of a 3D vessel
   tree from `lib/trees.ts` (centreline as tubes with radius)? 3D images as such are
-  `volumes3d/` (marching-cubes elective).
-- **Decided (course map):** labelling (day 9) always comes before this elective; the
+  `volumes3d/` (marching-cubes day).
+- **Decided (course map):** labelling (day 14) always comes before this day; the
   two-slide connectivity recap is dropped.
 - Sholl analysis and branch order: core (proposal) or only in the `arbor` exercise?
 - Programming language for any code parts is still open (see README).

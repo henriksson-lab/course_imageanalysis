@@ -1,10 +1,12 @@
 # Plan: a day on tracking
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
-**Course map (2026-11-12):** elective, group **"Motion"** (with the planned optical-flow day and
-non-rigid registration). **Entry after:** day 9 (Labelling: objects and their centroids) and the
-point detection day (spots and sub-pixel positions). FFT registration (day 12, drift) and
-evaluation (day 16, matching) help but are not required: what this day needs from them is
+**Course map (2026-11-13, self-study restructure):** day 26 of 51, Part V "Aligning images and motion". Hard prerequisites: Labelling (day 14), Point detection (day 20). Soft (see also): FFT registration (day 23), Measurements (day 16), Evaluation and statistics (day 37), Gaussian mixtures (day 35). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part V (with the planned optical-flow day and
+non-rigid registration). **Entry after:** day 14 (Labelling: objects and their centroids) and the
+point detection day (spots and sub-pixel positions). FFT registration (day 23, drift) and
+evaluation (day 37, matching) help but are not required: what this day needs from them is
 recalled in one slide each (see prerequisite gap). Inspiration for the methods: the user's
 tracking module and tracking suite (teacher notes only; no tool names in student material).
 
@@ -45,7 +47,7 @@ actually measures.
 
 What earlier days teach (checked in the built units) and what this day recalls in one line:
 
-- **Objects and centroids** (day 9: `label-connectivity/`, `regionprops/`, `label-measure/`):
+- **Objects and centroids** (day 14: `label-connectivity/`, `regionprops/`, `label-measure/`):
   a label image → a table of objects with centroid, area, mean intensity. Unit 1 starts from
   "one table per frame". The **border rule** (`label-measure/`, "Border objects and the counting
   frame") is recalled in unit 3 for objects that enter or leave.
@@ -53,25 +55,25 @@ What earlier days teach (checked in the built units) and what this day recalls i
   with sub-pixel positions, a **localisation error σ** and a detection score; missed and false
   detections. Unit 1 recalls "a detection is a position ± σ with a score"; unit 4 uses σ for the
   MSD offset. If point detection is skipped, `regionprops/` centroids are enough for units 1–3.
-- **Linear assignment / Hungarian algorithm**: taught for **evaluation** on day 16
+- **Linear assignment / Hungarian algorithm**: taught for **evaluation** on day 37
   (`object-eval/`: "Below 0.5: greedy can lose a match", math slide "matching as a linear
-  assignment problem"). Day 16 is core but comes **after** day 9, and a student can take this
-  elective before it. So unit 1 teaches assignment **with costs and alternatives** (the
+  assignment problem"). Day 37 comes **after** day 14, and a student can take this
+  day before it. So unit 1 teaches assignment **with costs and alternatives** (the
   tracking form) on its own, with a back-reference to `object-eval/` for students who have seen
   it. Proposed ownership change (open question 1).
 - **Gaussians and covariance**: the normal distribution and variance (audience.md); covariance
-  ellipses from `pca/` (day 1). The **Mahalanobis distance** is taught in the GMM elective
+  ellipses from `pca/` (day 1). The **Mahalanobis distance** is taught in the GMM day
   (`gaussian-mixture/`, slide "Mahalanobis distance"); unit 2 gives it one concept slide of its
-  own (the GMM elective is not a prerequisite) and points there.
-- **Drift** (day 12, `stitching/`, slides "Drift in a time-lapse" and "Try it: drift
+  own (the GMM day is not a prerequisite) and points there.
+- **Drift** (day 23, `stitching/`, slides "Drift in a time-lapse" and "Try it: drift
   correction", demo `drift`): the whole field moves between frames; remove it **before**
   linking, or every gate is wrong. One recall slide in unit 1.
-- **Nearest-neighbour distances and density** (day 11, `relations/` and demo `neighbours`:
+- **Nearest-neighbour distances and density** (day 16, `relations/` and demo `neighbours`:
   nearest-neighbour distance, Clark–Evans): unit 1's "displacement / spacing" ratio uses the
   mean nearest-neighbour distance $\approx 0.5/\sqrt{n}$ for random positions at density $n$.
-- **IoU** (day 16 `object-eval/`, or Jaccard on day 6 `seg-eval/`): an optional cost term for
+- **IoU** (day 37 `object-eval/`, or Jaccard on day 12 `seg-eval/`): an optional cost term for
   segmented objects (overlap between frames); one line.
-- **Maximum flow / graphs** (day 13, `maxflow/`): the math layer of unit 3 mentions that
+- **Maximum flow / graphs** (day 27, `maxflow/`): the math layer of unit 3 mentions that
   whole-movie linking is a min-cost flow; a pointer only.
 
 ## Overlaps / who owns what
@@ -84,16 +86,16 @@ anomalous exponent, speed, straightness). Others recall:
 
 | Day / plan | What stays there | What this day does |
 |---|---|---|
-| Evaluation (day 16, `object-eval/`) | Matching objects for **evaluation** (IoU, τ, F1, AP), the LAP math slide for IoU tables, `lib/eval.ts` `hungarian` | Teaches assignment with **costs and alternatives** for linking; reuses `hungarian`. `object-eval/` gets a one-line forward pointer ("the tracking elective uses the same solver to link frames"). Track evaluation (unit 3) recalls F1 from `object-eval/` |
+| Evaluation (day 37, `object-eval/`) | Matching objects for **evaluation** (IoU, τ, F1, AP), the LAP math slide for IoU tables, `lib/eval.ts` `hungarian` | Teaches assignment with **costs and alternatives** for linking; reuses `hungarian`. `object-eval/` gets a one-line forward pointer ("the tracking day uses the same solver to link frames"). Track evaluation (unit 3) recalls F1 from `object-eval/` |
 | Point detection (parallel) | Detection, localisation, sub-pixel fitting, **matching detections to ground truth by distance** for evaluation | Recalls σ and missed/false detections; **shares the gated distance assignment code** (`lib/linking.ts`, see shared engineering; open question 2) |
-| FFT registration (day 12, `stitching/`) | Drift estimation and correction (`drift` demo) | One recall slide: correct drift first, then link |
+| FFT registration (day 23, `stitching/`) | Drift estimation and correction (`drift` demo) | One recall slide: correct drift first, then link |
 | Optical flow (Motion group, not planned) | Dense motion fields, brightness constancy, Lucas–Kanade, **feature tracking** of corners (the `structure-tensor/` pointer "points to track between two video frames") | One slide in unit 1: "flow = motion of every pixel; tracking = identity of objects"; when flow helps tracking (as a prediction) |
 | Edges (day 2, `structure-tensor/`) | Corners as trackable points | Nothing; the flow day takes the corner-tracking pointer |
-| Labelling (day 9) | Labels, centroids, border rule | Uses them; unit 3 recalls the border rule |
-| Measurements (day 11, `relations/`) | Nearest-neighbour distances, density, Clark–Evans | Uses the mean NN distance for the difficulty ratio |
-| GMM elective (`gaussian-mixture/`) | Mahalanobis distance and covariance ellipses in depth | One concept slide of its own (Mahalanobis as a gate) + pointer |
-| Modern deep learning (day 18, `detection/`, `instances/`, `attention/`) | Learned detectors and instance segmentation; attention | Optional unit 6 `track-learned/` points back: learned appearance costs, learned association; "tracking by detection" |
-| Graph cuts (day 13, `maxflow/`) | Max-flow/min-cut | Math pointer: whole-movie linking as min-cost flow |
+| Labelling (day 14) | Labels, centroids, border rule | Uses them; unit 3 recalls the border rule |
+| Measurements (day 16, `relations/`) | Nearest-neighbour distances, density, Clark–Evans | Uses the mean NN distance for the difficulty ratio |
+| GMM day (`gaussian-mixture/`) | Mahalanobis distance and covariance ellipses in depth | One concept slide of its own (Mahalanobis as a gate) + pointer |
+| Modern deep learning (day 39, `detection/`, `instances/`, `attention/`) | Learned detectors and instance segmentation; attention | Optional unit 6 `track-learned/` points back: learned appearance costs, learned association; "tracking by detection" |
+| Graph cuts (day 27, `maxflow/`) | Max-flow/min-cut | Math pointer: whole-movie linking as min-cost flow |
 | Modern deep learning `diffusion/` and the planned diffusion-models day | Diffusion **models** (generative) | **Naming clash:** unit 4's "diffusion" is Brownian motion. One sentence on the first MSD slide: "diffusion here means random motion of particles; the diffusion models of the deep learning day borrowed the name from it" |
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -112,7 +114,7 @@ Concept layer:
 
 - **The problem** (picture): frames 1…T, each with a list of detections (dots). A **track** is
   a chain of detections, one per frame, that belong to the same object. Tracking = deciding
-  which dot in frame t+1 continues which dot in frame t. Input recalled in one line from day 9 /
+  which dot in frame t+1 continues which dot in frame t. Input recalled in one line from day 14 /
   the point detection day: "a detection is a position (± σ) with a few measurements".
 - **Flow vs tracking** (one slide): optical flow gives the motion of every pixel; tracking keeps
   the **identity** of objects. Pointer to the optical-flow day of the Motion group.
@@ -540,7 +542,7 @@ Math questions:
 ### 6. (optional) `track-learned/`: Learned costs and tracking by detection
 
 - Appearance features (intensity, shape, texture from the measurements day; learned
-  embeddings from day 18) as extra cost terms; learned association scores (a network sees two
+  embeddings from day 39) as extra cost terms; learned association scores (a network sees two
   frames and predicts link probabilities); the assignment step stays the same (scores → costs,
   costs → LAP). Calibrated probabilities vs arbitrary scores; the alternative costs must be in
   the same units.
@@ -644,8 +646,8 @@ single-particle movie, both with a clear licence.
 
 ## Open questions
 
-1. **Ownership of the linear assignment problem.** `object-eval/` (day 16) teaches it for
-   evaluation; this elective can come before day 16. Proposal: this day owns "assignment with
+1. **Ownership of the linear assignment problem.** `object-eval/` (day 37) teaches it for
+   evaluation; this day can come before day 37. Proposal: this day owns "assignment with
    costs, gates and alternatives" (concept + math); `object-eval/` keeps the IoU special case and
    its math slide and adds a one-line pointer. Needs a line in the coursemap owners table
    ("Linking / assignment with costs: tracking").
@@ -653,7 +655,7 @@ single-particle movie, both with a clear licence.
    ground truth within a distance. Proposal: `lib/linking.ts` exports `matchPoints` (gated LAP on
    distances); whichever day is built first creates it. Coordinate with the point-detection
    builder so there is one implementation, not two.
-3. **Four units or five?** Track evaluation is in the elective's scope. Proposal: the essentials
+3. **Four units or five?** Track evaluation is in the day's scope. Proposal: the essentials
    (link/division F1, complete tracks, compounding) are two slides in unit 3; the graph-edit and
    MOT-style scores are the optional `track-eval/`. Alternative: make `track-eval/` core and move
    "cells: persistent random walk" and "ensemble vs single track" to optional.
@@ -668,7 +670,7 @@ single-particle movie, both with a clear licence.
 7. **Coursemap edits** (not done here): the Motion row's tracking entry → "planned
    (`plan/tracking-day.md`)"; owners table: Kalman filter, MSD, lineage trees → tracking.
    Pending pointers in built units: `object-eval/` (assignment pointer), `stitching/` ("Drift in
-   a time-lapse": forward pointer to tracking), `structure-tensor/` (its "motion elective"
+   a time-lapse": forward pointer to tracking), `structure-tensor/` (its "motion day"
    pointer should name the optical-flow day for corners and this day for objects).
 
 Teacher notes from the user's tracking module (inspiration, not student material): gate in

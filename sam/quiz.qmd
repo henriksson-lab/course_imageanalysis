@@ -1,0 +1,77 @@
+---
+title: "Quiz: promptable segmentation (SAM)"
+---
+
+Short questions to test your understanding. Try each on paper first, then open the answer. Timings are those measured in the browser on one CPU core: image encoder 26.6 s per image, prompt encoder + mask decoder 0.42 s per click.
+
+---
+
+**Q1.** Why does the image encoder run only once per image, while the mask decoder runs for every click? What would go wrong if the prompt were fed into the encoder?
+
+::: {.callout-tip collapse="true" title="Hint"}
+What does the encoder's output depend on?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+The encoder sees only the image; its output (the 64 × 64 × 256 embedding) is the same for every prompt, so it is computed once and kept. The decoder combines the prompt with that embedding, and is small. If the prompt went into the encoder, every click would cost a full encoder run (about 27 s instead of 0.42 s): 40 clicks would take 1081 s instead of 43 s, and interactive use would be impossible.
+:::
+
+---
+
+**Q2.** Why does the decoder return three masks for one click instead of one?
+
+::: {.callout-tip collapse="true" title="Hint"}
+Click on the edge of a nucleus that touches another one. What could you mean?
+:::
+
+::: {.callout-note collapse="true" title="Answer"}
+One click is ambiguous: a part of the object, the object, or the group it belongs to are all valid answers. A single output trained on such examples would learn an in-between, blurred answer. Three outputs, trained so that only the best one is corrected for each example, specialise to roughly small, medium and large interpretations. Each comes with a predicted IoU, so a default can be chosen and the user can pick another.
+:::
+
+---
+
+**Q3.** What does the "predicted IoU" of a candidate mask estimate, and why should you not report it as the accuracy of your segmentation?
+
+::: {.callout-note collapse="true" title="Answer"}
+It is the network's own estimate of the IoU between that mask and the mask the user meant, from a small head trained on the training masks. It is a guess made without any ground truth for your image; on images unlike the training data (microscopy, bright field) it can be confidently wrong. Accuracy needs annotated images and the matching of the [evaluation day](../object-eval/lec.qmd).
+:::
+
+---
+
+**Q4.** A click inside a clump returns a mask that covers the clicked nucleus and its touching neighbour. Which extra prompt fixes this, and why does a negative click on empty background not help?
+
+::: {.callout-note collapse="true" title="Answer"}
+A negative ("not this") click on the neighbour, or a box around the clicked nucleus. A negative click tells the decoder which nearby structure is **not** part of the object; on the background, which was already excluded, it adds almost no information (measured: the clump mask stays; on the neighbour, the chosen mask becomes the single nucleus, 522 px, score 0.64).
+:::
+
+---
+
+**Q5.** What does the stability score measure? A mask has 380 pixels with logit > 1 and 430 with logit > −1. Does it pass a 0.95 filter?
+
+::: {.callout-note collapse="true" title="Answer"}
+Whether the mask keeps its shape when the threshold on its logits moves from 0 to ±1: area(ℓ > 1)/area(ℓ > −1). Here 380/430 = 0.88 < 0.95: dropped. Many pixels have logits near 0, so the border is uncertain; a steep logit border gives a ratio near 1.
+:::
+
+---
+
+**Q6.** How are "automatic masks" made, and name three filters applied to the candidates.
+
+::: {.callout-note collapse="true" title="Answer"}
+A regular grid of single positive clicks (e.g. 8 × 8 = 64 points), three candidates each (192). Filters: predicted IoU above a threshold, stability above a threshold, and removal of duplicates by box overlap (non-maximum suppression, keeping the higher score). Pixels covered by no kept mask stay unlabelled.
+:::
+
+---
+
+**Q7.** On a bright-field image the automatic masks are whole cells, and none of the 98 annotated nuclei is found. Why is "a nucleus" not a concept for this network, and what can you do?
+
+::: {.callout-note collapse="true" title="Answer"}
+It was trained to produce masks of *anything* that looks like an object (mostly in photographs), not of a class. In bright field the cells are the most object-like structures; the nuclei are small, low-contrast parts. Options: click (or box) the nuclei yourself; use a microscopy-tuned version; or use a network trained for nuclei (StarDist, Cellpose) and check all of them against annotations.
+:::
+
+---
+
+**Q8.** *(math)* With encoder time $T_\text{enc}$ and decoder time $T_\text{dec}$, what is the total time for $m$ prompts with a cached embedding, and what speed-up over re-encoding do you get for very many prompts? Give the number for 26.6 s and 0.42 s.
+
+::: {.callout-note collapse="true" title="Answer"}
+$T_\text{enc} + mT_\text{dec}$ instead of $m(T_\text{enc} + T_\text{dec})$. The ratio $m(T_\text{enc} + T_\text{dec})/(T_\text{enc} + mT_\text{dec})$ tends to $(T_\text{enc} + T_\text{dec})/T_\text{dec} = 27.02/0.42 = 64.3$ as $m \to \infty$ (it is 8.8 for 10 clicks and 24.9 for 40).
+:::

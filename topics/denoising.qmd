@@ -1,0 +1,226 @@
+---
+title: "Topic: removing noise"
+description: "Averaging, robust filters, energies with priors, sparsity and learned networks: every denoiser in the course compared by what it believes about images."
+---
+
+**A noisy image is the true image plus something random. Can we get the true image back?** Not
+exactly. Noise and fine detail overlap, so any method that removes one also removes some of the other.
+Every denoiser in this course makes a **guess**, and the guess rests on a **belief** about what images
+look like: smooth, piecewise constant, repetitive, sparse in some basis, or "like the training images".
+A denoiser works where its belief is true of the image, and does harm where it is not.
+
+The course meets denoising on at least eight days. This page puts the methods side by side:
+what each assumes, what it costs, what it keeps and when it fails, with links to the units and demos.
+Read the plain text for the ideas. The one **The math** box near the end ties the methods together
+as one formula, and you can skip it.
+
+::: {.callout-tip title="If you only want denoising"}
+The shortest path: [filtering](../kernels/lec.qmd) → [camera noise](../cameranoise/lec.qmd) →
+[linear deconvolution](../deconv/lec.qmd) (Wiener as a denoiser) → [denoising and what you may
+measure](../denoise/lec.qmd). Then pick by interest: [wavelet shrinkage](../shrinkage/lec.qmd),
+the [edge-preserving smoothing day](../heat-equation/lec.qmd) (it ends with
+[all smoothers on one image](../smoothers/lec.qmd)), [MRF denoising](../mrf-denoise/lec.qmd), and
+[learned denoisers](../score-matching/lec.qmd).
+:::
+
+## The question in plain words {#question}
+
+![A transmission electron micrograph with added Gaussian noise of σ = 30 (18.6 dB), and seven denoisers, each at the setting that gives its best PSNR against the original (computed in `tools/figs/topics-denoising/`). Gaussian 23.1 dB, median 21.3, Wiener with the true power spectrum 23.8, bilateral 21.8, total variation 23.0, wavelet shrinkage 22.3, non-local means 22.5. Micrograph: R. M. Hunt, CC BY 3.0, Wikimedia Commons.](fig-dn-gallery.png){fig-alt="Eight panels of the same cell micrograph: the noisy input, then Gaussian, median, Wiener, bilateral, total variation, wavelet shrinkage and non-local means results. All are cleaner than the input; the median and bilateral look blotchy, TV looks flat and patchy, NLM looks smooth and slightly painted, Gaussian and Wiener look soft."}
+
+Three things to see in this figure:
+
+- **The gains are modest.** On a real image full of fine texture, the best method gains about 5 dB,
+  and the methods are within 2.5 dB of each other.
+- **The ranking depends on the image.** Here the best linear filter (Wiener) comes first, because
+  this micrograph is texture everywhere and has few clean edges. On a test card with straight edges and repeating
+  dots, non-local means wins by 4 dB ([smoothers](../smoothers/lec.qmd): NLM 34.6 dB, TV 30.6,
+  Gaussian 27.4).
+- **Equal scores do not mean equal results.** Gaussian and TV have almost the same PSNR here, but they look
+  completely different (zoom below).
+
+## Where the noise comes from, and how big it is {#noise}
+
+Before choosing a method, know the noise ([camera noise](../cameranoise/lec.qmd)):
+
+- **Shot noise** is part of light itself: a pixel that collects $N$ photons varies by about
+  $\sqrt N$. Its variance grows with the brightness (Poisson).
+- **Read noise** from the electronics has the same variance everywhere (Gaussian).
+- **Outliers** (hot pixels, cosmic rays) are rare but large; salt-and-pepper noise is the extreme case.
+
+Most methods below assume **Gaussian noise of one known level** σ. Estimate σ from the image itself:
+the median of the absolute fine-scale differences is barely affected by edges and spots
+([shrinkage](../shrinkage/lec.qmd), [spot-threshold](../spot-threshold/lec.qmd)). For Poisson
+noise, either use a method that knows the noise model (Richardson–Lucy, Poisson data terms), or
+first apply a variance-stabilising transform such as $2\sqrt{x + 3/8}$, which makes the noise level
+about the same everywhere ([spot-threshold](../spot-threshold/lec.qmd)).
+
+## Four families of denoisers {#families}
+
+![One noisy profile (grey, σ = 20) with a plateau, a ramp, a 1-pixel line and a 3-pixel spot (truth in green), and four denoisers (blue). The Gaussian rounds both steps and lowers the line from 160 to 85. The median keeps the steps and removes the line (66). The bilateral keeps the steps, the line (147) and the spot (142). TV makes flat plateaus and turns the ramp into stairs; it keeps the spot at 121 and the line at 103.](fig-dn-profile.svg){fig-alt="Four stacked plots of the same 160-pixel profile. Each shows the noisy data in light grey, the true piecewise profile in green and the result in blue: Gaussian smooth and rounded, median with sharp steps but no line, bilateral sharp and noisier, total variation piecewise flat with a staircase on the ramp."}
+
+1. **Average the neighbours.** Gaussian, box, the heat equation, Wiener. These are linear, fast and
+   well understood. Noise and structure are averaged alike, so every edge is blurred.
+2. **Choose whom to average with.** The median takes the middle value. The bilateral filter
+   averages only neighbours of **similar** value. Non-local means averages pixels whose whole **patch**
+   looks similar. Perona–Malik diffusion stops at strong gradients. These keep edges, but each has
+   its own way of losing detail.
+3. **Minimise an energy: fit the data, plus a penalty for implausible images.** A quadratic
+   penalty on the gradient gives smooth results. Total variation gives piecewise-constant ones. An $\ell^1$ penalty on wavelet coefficients
+   or on a sparse code over learned patches gives sparse ones. The Ising prior does the same for binary images. The penalty **is** the belief,
+   written down.
+4. **Learn the belief from examples.** A network trained on noisy/clean pairs learns the
+   **average clean image** that could explain the noisy one. A generative model can instead draw
+   **one plausible** clean image, which looks sharp but may contain invented detail.
+
+## All denoisers side by side {#compare}
+
+| Method | Believes the image is… | Cost | Keeps | Fails when | Taught in |
+|---|---|---|---|---|---|
+| Gaussian / box (= heat flow) | **smooth** | one separable blur | nothing in particular | edges, lines, small spots (all blurred) | [kernels](../kernels/lec.qmd), [heat-equation](../heat-equation/lec.qmd) |
+| Wiener | an "average" image with a known **power spectrum** | two FFTs | what lies above the noise per frequency | sharp, sparse structures; the spectrum must be known | [deconv](../deconv/lec.qmd), [denoise](../denoise/lec.qmd) |
+| median | made of structures **wider than the window**; outliers rare | a sort per window | steps; removes outliers | thin lines and dots (removed), corners (rounded) | [denoise](../denoise/lec.qmd), [morph-grey](../morph-grey/lec.qmd) |
+| Perona–Malik | **piecewise smooth**, edges stronger than $K$ | many explicit steps | strong edges (even sharpens them) | weak edges, ramps (staircases); must be stopped | [perona-malik](../perona-malik/lec.qmd) |
+| bilateral | **nearby, similar** values belong together | a window of weights per pixel | edges, lines | noise as large as the edges; ramps become cartoon | [denoise](../denoise/lec.qmd), [bilateral-nlm](../bilateral-nlm/lec.qmd) |
+| non-local means | it **repeats** itself (similar patches elsewhere) | patch comparisons over a search window: the most expensive classical filter | repeated texture, long edges | unique fine detail (only the pixel itself matches) | [denoise](../denoise/lec.qmd), [bilateral-nlm](../bilateral-nlm/lec.qmd) |
+| quadratic penalty (Tikhonov, Gaussian MRF) | smooth (small gradients everywhere) | one sparse linear system or FFT | smooth regions | edges (blurred, like a low-pass) | [gmrf](../gmrf/lec.qmd), [regularise](../regularise/lec.qmd) |
+| total variation | **piecewise constant**, short edges | an iterative solver | steps, plateaus | ramps (staircases), texture, small low-contrast objects (lose contrast) | [gmrf](../gmrf/lec.qmd), [tv-flow](../tv-flow/lec.qmd) |
+| wavelet shrinkage | **few large** wavelet coefficients | a fast transform and a threshold | edges and smooth parts | textures with many medium coefficients; blocky artefacts without cycle spinning | [shrinkage](../shrinkage/lec.qmd) |
+| sparse coding over a dictionary | patches are sparse combinations of **learned atoms** | dictionary learning plus a pursuit per patch | structures the atoms have learned | structures the dictionary has not seen | [ista](../ista/lec.qmd), [dictionaries](../dictionaries/lec.qmd) |
+| Ising prior (binary) | neighbouring labels **agree** | a graph cut (exact) or ICM | large regions | thin structures (removed when λ is large) | [mrf-denoise](../mrf-denoise/lec.qmd) |
+| learned denoiser (posterior mean) | like the **training images** | training data and a network | what the data determine | far from the training data; rare structures pulled to common ones | [score-matching](../score-matching/lec.qmd) |
+| generative restoration (posterior sample) | like the training images, **sharp** | many network evaluations per image | a plausible, sharp image | detail where the data are weak is **invented** (or removed) | [diffusion](../diffusion/lec.qmd), [diffusion-inverse](../diffusion-inverse/lec.qmd) |
+
+## What each one removes {#tradeoff}
+
+Every denoiser has a strength knob, and turning it up trades remaining noise for lost signal.
+The useful question is: **for the same noise left over, how much of a small structure survives?**
+
+![A test card with noise σ = 20: for each method, the noise left in a flat region (x-axis, decreasing to the right) against the contrast kept by a 1-pixel line (left) and by small discs of radius 2 (right), as the strength is turned up. Non-local means keeps 97 % of the line's contrast at 2.6 noise left, because the line is a long repeated structure. The median keeps only 18 % even at its smallest window. At about 3–4 noise left, the Gaussian keeps 14–24 % of the line.](fig-dn-tradeoff.svg){fig-alt="Two plots with noise left on a reversed x-axis from 20 to 0 and contrast kept in percent on the y-axis. For the line, non-local means stays near 100 percent down to about 2.5 noise, the wavelet and TV curves fall in between, the Gaussian falls steadily, and the median starts at 18 percent. For the discs all methods fall as they smooth more, non-local means and TV last longest."}
+
+Read the curves as **beliefs tested against structures**:
+
+- A **thin line** is the worst case for the median (a minority in every window) and the best case
+  for non-local means (many similar patches along the line).
+- **Small discs** are unique, low-contrast objects. Every method loses them as it smooths more, and
+  TV and non-local means hold them longest.
+- No method sits in the top-right corner: **no free lunch**.
+
+Up close, at their best-PSNR settings, the methods leave different marks:
+
+![A 72 × 72 crop at the edge of the nucleus. Reference, noisy (18.6 dB), Gaussian (23.1 dB: soft everywhere), total variation (23.0 dB: flat patches, cartoon-like), wavelet shrinkage (22.3 dB: blocky Haar artefacts), non-local means (22.5 dB: smooth, slightly painted texture).](fig-dn-zoom.png){fig-alt="Six crops of the nuclear envelope region: the reference with fine granular texture, the noisy version, then four results. The Gaussian is soft and blurred, TV shows flat patches of constant grey, wavelet shrinkage shows small square blocks, non-local means is smooth with streaky texture."}
+
+The [smoothers unit](../smoothers/lec.qmd) runs the same comparison with eight methods and four
+more scores (SSIM, edge width, line and disc contrast, staircasing). No method wins every score.
+
+### Try it {#try-smoothers}
+
+Eight smoothers on one test card, each at its best PSNR. Click a result to change its strength;
+the tabs show method noise, profiles and scores. Try the presets for salt-and-pepper noise,
+Poisson noise, strong noise, texture, and "best PSNR against best look".
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="smoothercompare" data-preset="g15"></div>
+<script src="../demos/dist/smoothercompare.js"></script>
+```
+
+The same demo with questions: [smoothers exercise](../smoothers/exercise.qmd#explore).
+
+## The average answer and a plausible answer {#mean-sample}
+
+Learned denoisers make one distinction sharp, and it holds for every method on this page. Should the
+result be the **average** of all clean images that could have produced the measurement, or **one**
+of them?
+
+![Left: denoisers for a toy image whose pixels are 50 (70 %) or 150 (30 %), measured with noise σ = 40. The best linear filter is a straight line (slope 0.57). The posterior mean, which has the lowest squared error, is an S-curve. The most probable value jumps from about 50 to about 150. Right: one pixel measured at y = 105. The posterior has two peaks, with a probability of 0.37 that the pixel is 150. Its mean is 87, a value no pixel has. Eight random samples from it give 43, 50, 147, 63, 44, 56, 58 and 47.](fig-dn-meansample.svg){fig-alt="Left: denoised value against noisy value, with a dotted identity line, an orange straight Wiener line, a blue S-shaped posterior mean and a red dashed step for the most probable value; a grey vertical line at y = 105. Right: a two-peaked posterior with peaks at 50 and 150, a blue vertical line at 87 between them, and purple triangles for samples, seven near 50 and one near 150."}
+
+- The **average** (posterior mean) has the best PSNR. Where the data are ambiguous it is a **blur
+  between the possibilities**, and it may look like no real image. Classical methods and networks
+  trained with squared error give this answer ([score-matching](../score-matching/lec.qmd)).
+- A **sample** looks real and sharp, but where the data are weak its detail comes from the
+  **training images**, not from the measurement. On average its squared error is twice that of the mean.
+  Two samples **disagree** exactly where the detail is invented ([diffusion](../diffusion/lec.qmd),
+  [diffusion-inverse](../diffusion-inverse/lec.qmd)).
+- Neither is "the truth". A disagreement map (several samples or several models) shows where the
+  result comes from the prior rather than from the data.
+
+The [diffusion demo](../diffusion/exercise.qmd#explore) shows this on synthetic cells: in a heavily
+blurred cell with two nucleoli, the samples show 1 or 2 nucleoli and the mean shows none, and an
+unusual ring-shaped nucleus is "corrected" to a normal one.
+
+## Denoising and measurement {#measure}
+
+A denoised image is an **estimate**: change the method, the strength or the stopping point, and it
+changes. Use it for what it is good at, and measure on the raw data
+([denoise](../denoise/lec.qmd), [compress-science](../compress-science/lec.qmd)).
+
+| Use | Denoise first? | Why |
+|---|---|---|
+| looking, figures | yes, and say how | easier to see; label the method and settings |
+| segmentation (thresholds, seeds, edges) | often, with an edge-preserving method | cleaner masks ([smoothers](../smoothers/lec.qmd): a threshold after TV had 105 wrong pixels, after a Gaussian 151) |
+| spot detection | the filter **is** the matched filter | a separate denoiser before it only changes the noise model of the threshold ([spot-filters](../spot-filters/lec.qmd)) |
+| total intensity in a region | **no**: measure on the raw image inside the mask | averaging filters keep the total over large regions, but peaks, sizes and counts change |
+| counting small objects, sizes near the resolution | carefully | smoothing merges and removes small objects; restoration can split or invent them |
+| anything learned or generative | check | compare with a classical baseline; a disagreement map; never measure invented detail |
+
+## Choosing a denoiser {#choose}
+
+- **Outliers or salt-and-pepper?** Median.
+- **Poisson counts, few photons?** A variance-stabilising transform, then any method below. Or a
+  method with a Poisson data term.
+- **Flat regions with sharp edges (labels, cells on a flat background)?** TV, bilateral, Perona–Malik.
+- **Repeated texture, long straight edges?** Non-local means, a learned dictionary.
+- **Smooth images, or measurement to follow?** A light Gaussian or Wiener: the least surprising.
+- **Many images of the same kind and a training set?** A learned denoiser, checked against a
+  classical baseline. Report the method.
+- **Binary images?** An Ising/MRF prior solved by a graph cut.
+
+::: {.callout-note collapse="true" title="The math: one formula, different priors"}
+Almost every method on this page is a **MAP estimate**: the image $\mathbf u$ that best balances fitting the noisy data $\mathbf y$
+against a penalty $R$ (the negative log of the prior):
+
+$$\hat{\mathbf u} = \arg\min_{\mathbf u}\ \frac{1}{2\sigma^2}\|\mathbf u - \mathbf y\|^2 + \lambda\,R(\mathbf u).$$
+
+| Method | Penalty $R(\mathbf u)$ | Result |
+|---|---|---|
+| quadratic (Tikhonov, Gaussian MRF) | $\sum\|\nabla u\|^2$ | a linear low-pass filter, $(I + \lambda' L)^{-1}\mathbf y$ |
+| Wiener | $\sum_f \|\hat u(f)\|^2/P(f)$ | gain $P/(P + \sigma^2)$ per frequency |
+| total variation | $\sum\|\nabla u\|$ | piecewise constant |
+| wavelet shrinkage | $\|W\mathbf u\|_1$, $W$ orthogonal | soft threshold of each coefficient |
+| sparse coding | $\|\boldsymbol\alpha\|_1$ with $\mathbf u = D\boldsymbol\alpha$ | ISTA / pursuit per patch |
+| Ising (binary $u$) | $\sum_{p \sim q}[u_p \ne u_q]$ | a minimum cut |
+| median (per window) | data term $\sum\|u - y_q\|$ instead of squares | robust to outliers |
+
+The **neighbourhood filters** are weighted averages $\hat u_p = \sum_q w_{pq}\,y_q / \sum_q w_{pq}$ with weights
+$G_s(p - q)$ (Gaussian), $\times\,G_r(y_p - y_q)$ (bilateral), or $G_h(\|\mathbf P_p - \mathbf P_q\|)$ over patches (non-local means).
+Each is one step of a diffusion on a graph whose edge weights are the $w_{pq}$ ([bilateral-nlm](../bilateral-nlm/lec.qmd)).
+
+**Learned denoisers** minimise the expected squared error, so they converge to the **posterior mean**, which Tweedie's formula ties to the
+score of the noisy data:
+
+$$\mathbb E[\mathbf x \mid \mathbf y] = \mathbf y + \sigma^2\,\nabla \log p_\sigma(\mathbf y).$$
+
+For a Gaussian prior this is exactly the Wiener filter. A **posterior sample** $\tilde{\mathbf x}$ has, given $\mathbf y$, expected squared error
+$2\,\mathrm{tr}\,\mathrm{Cov}(\mathbf x \mid \mathbf y)$, twice that of the mean ([diffusion](../diffusion/lec.qmd)).
+:::
+
+## Demos on this topic {#demos}
+
+| Demo | What it shows |
+|---|---|
+| [Camera noise](../cameranoise/exercise.qmd#explore) | shot and read noise, SNR |
+| [Filtering](../kernels/exercise.qmd#explore) | averaging kernels |
+| [Deconvolution lab](../deconv/exercise.qmd#explore) | Wiener and Tikhonov (with no blur: denoisers) |
+| [Denoisers](../denoise/exercise.qmd#explore) and [what may be measured](../denoise/exercise.qmd#explore-measure) | Gaussian, median, bilateral, NLM; method noise; measurements |
+| [Wavelet shrinkage](../shrinkage/exercise.qmd#explore) and [in 1D](../shrinkage/exercise.qmd#explore-1d) | hard and soft thresholds |
+| [Heat flow](../heat-equation/exercise.qmd#explore) | smoothing as diffusion |
+| [Edge-stopping diffusion](../perona-malik/exercise.qmd#explore) | Perona–Malik |
+| [TV flow](../tv-flow/exercise.qmd#explore) | small things go first |
+| [Bilateral and NLM weight maps](../bilateral-nlm/exercise.qmd#explore) | who is averaged with whom |
+| [Eight smoothers compared](../smoothers/exercise.qmd#explore) | all classical methods on one card |
+| [Quadratic, Huber and TV in 1D](../gmrf/exercise.qmd#explore) | priors as penalties |
+| [Denoising a binary image](../mrf-denoise/exercise.qmd#explore) | Ising prior, ICM against graph cut |
+| [Restoring with a sparsity prior](../ista/exercise.qmd#explore-sparserestore) and [with dictionaries](../dictionaries/exercise.qmd#explore-sparserestore) | sparse coding |
+| [Pairs, averages and a learned network](../score-matching/exercise.qmd#explore) | the learned denoiser is a conditional mean |
+| [Which details are real?](../diffusion/exercise.qmd#explore) | posterior mean against samples, hallucination |
+| [Measured and imagined, in 1D](../diffusion-inverse/exercise.qmd#explore-posterior1d) | what the data determine and what the prior fills in |

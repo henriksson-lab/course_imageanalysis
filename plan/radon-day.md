@@ -2,7 +2,9 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "Transforms" (wavelets → compression; Radon); entry after Part I (core day 4). Independent of the wavelets chain; if the Hough elective (group "Detection") is also taken, run it first so the $(\rho, \theta)$ pictures are back-references.
+**Course map (2026-11-13, self-study restructure):** day 9 of 51, Part II "Transforms and reconstruction". Hard prerequisites: Images, filters and frequencies (day 1). Soft (see also): Image formation (day 4), Deconvolution (day 5), Hough transform (day 21), Ising model and Markov random fields (day 28). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part II (wavelets → compression; Radon); entry after Part I (day 4). Independent of the wavelets chain; if the Hough day (Part IV) is also taken, run it first so the $(\rho, \theta)$ pictures are back-references.
 
 ## Goal of the day
 
@@ -56,8 +58,8 @@ from `cameranoise/` (day 3) as intuition only ("few photons, noisy counts").
   one slide: tomography is the same story with $A$ = the projector. Wiener/Tikhonov/
   Richardson–Lucy deconvolution is the deconvolution day's (`plan/deconvolution-day.md`);
   pointer only.
-- **Total variation**: owned by the Ising/MRF elective (`gmrf/`, 1D). Unit 4 states it in
-  one line for 2D images, because the Ising elective may not have been taken (different
+- **Total variation**: owned by the Ising/MRF day (`gmrf/`, 1D). Unit 4 states it in
+  one line for 2D images, because the Ising day may not have been taken (different
   group).
 
 ## Links to other days
@@ -67,17 +69,17 @@ from `cameranoise/` (day 3) as intuition only ("few photons, noisy counts").
 | Normal parameterisation of a line $(\rho, \theta)$, $\rho = x\cos\theta + y\sin\theta$ | both, **same convention** | Hough: voting, accumulator, peaks; this day: integrals, sinogram, inversion |
 | Radon transform, sinogram, back-projection, inversion | **this day** | Hough day: one optional slide "Hough of an edge map ≈ Radon transform of the edge map", pointing here |
 | Line detection by peaks in $(\rho,\theta)$ | **Hough day** | this day, optional unit 6: one slide, pointer to Hough |
-| Fourier slice theorem | **this day**, unit 2 | `fourier/`: none; FFT registration (day 12): may quote it for "rotation rotates the spectrum" (pointer) |
+| Fourier slice theorem | **this day**, unit 2 | `fourier/`: none; FFT registration (day 23): may quote it for "rotation rotates the spectrum" (pointer) |
 | 2D DFT, convolution theorem, continuous FT (math), `lib/fft.ts` | `fourier/` (day 1) | this day: recall + reuse of code |
-| Polar / log-polar resampling of an image or spectrum | shared code (`lib/polar.ts`, owner: dynprog elective) | FFT registration: Cartesian → (log-)polar; dynprog: polar unwrap; this day: polar → Cartesian **gridding** in direct Fourier reconstruction |
-| Beer–Lambert, absorption along a ray (line integral of attenuation) | **this day** (unit 1) | graphics3d `volrender/` generalises to emission–absorption and transmittance $\mathcal T$; stain optical density (unmixing elective, colour day) recalls it in one line |
+| Polar / log-polar resampling of an image or spectrum | shared code (`lib/polar.ts`, owner: dynprog day) | FFT registration: Cartesian → (log-)polar; dynprog: polar unwrap; this day: polar → Cartesian **gridding** in direct Fourier reconstruction |
+| Beer–Lambert, absorption along a ray (line integral of attenuation) | **this day** (unit 1) | graphics3d `volrender/` generalises to emission–absorption and transmittance $\mathcal T$; stain optical density (unmixing day, colour day) recalls it in one line |
 | Volume rendering, MIP/average projection | **graphics3d** `volrender/` | this day: "volume rendering computes projections to look at, tomography inverts projections to get the volume" |
 | Hounsfield units, display window/level | **`highbit/`** (day 3, `window16`) | this day: HU defined as the output scale of a reconstruction, one line, recall for display |
-| Energy = data + λ·prior | **graph cuts** `seg-energy/` (day 13) | this day unit 4: the same form with $\|A\mathbf x - \mathbf b\|^2$ as the data term |
+| Energy = data + λ·prior | **graph cuts** `seg-energy/` (day 27) | this day unit 4: the same form with $\|A\mathbf x - \mathbf b\|^2$ as the data term |
 | TV and quadratic priors | **ising** (`gmrf/`) | this day unit 4: one line for 2D TV |
 | Forward model, ill-posed inversion | **day 4** (image formation) | this day unit 4: recall |
 | Deconvolution (Wiener, Tikhonov, Richardson–Lucy), denoiser comparison | **deconvolution day** (`plan/deconvolution-day.md`) | this day: pointer only (MLEM ≈ Richardson–Lucy for emission data) |
-| Denoising by wavelet shrinkage | **wavelets** (elective) | this day: pointer only (denoise sinogram or reconstruction) |
+| Denoising by wavelet shrinkage | **wavelets** | this day: pointer only (denoise sinogram or reconstruction) |
 | Shot noise, Poisson, SNR/PSNR | **`cameranoise/`** (day 3) | this day: intuition only |
 
 **Hough split (agreed with `plan/hough-day.md`; course convention: origin at the centre, $\theta \in [0°, 180°)$, signed $\rho$).**
@@ -91,7 +93,7 @@ edge map is (a discretised) Radon transform of that map". `lib/radon.ts` is writ
 Hough demos may call its forward projector for that slide but keep their own voting code.
 
 **Graphics3d split.** This day owns Beer–Lambert (absorption along a ray, two lines, own
-math slide). Graphics3d `volrender/` (3D elective) recalls it and generalises to the
+math slide). Graphics3d `volrender/` (Part IX) recalls it and generalises to the
 emission–absorption ODE (transmittance $\mathcal T$), with an "average = an X-ray" mode in
 `volview`; this day points to that mode for the 3D picture. Parallel-beam 3D tomography is a stack of 2D
 slices: one slide, no 3D reconstruction demo (`volview` can show a reconstructed stack if a
@@ -117,7 +119,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   Monochromatic beam assumed (beam hardening breaks this; optional unit 5).
 - **Parameterising lines**: a line is all points with $x\cos\theta + y\sin\theta = \rho$
   ($\theta$ = direction of the normal, $\rho$ = signed distance from the centre). Same
-  parameterisation as the Hough elective (a recall there if taken first; otherwise this slide
+  parameterisation as the Hough day (a recall there if taken first; otherwise this slide
   defines it). A **projection** at angle
   $\theta$ is the profile $p_\theta(\rho)$ of line integrals of all parallel lines; stacking
   the profiles for $\theta \in [0°, 180°)$ gives the **sinogram**.
@@ -308,7 +310,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   the iteration starts fitting the noise. Stopping early is a form of regularisation.
 - **Priors**: what we know about the object that the data don't say. Non-negativity
   (attenuation $\ge 0$: clip after each step) and **total variation** (the image is mostly
-  piecewise constant; TV is owned by the Ising/MRF elective): alternate "agree with the data" (a SIRT step)
+  piecewise constant; TV is owned by the Ising/MRF day): alternate "agree with the data" (a SIRT step)
   and "be piecewise constant" (a TV denoising step). With 20–30 views or a missing wedge,
   TV gives clean reconstructions where FBP streaks; the price: lost fine texture and
   staircased ramps (same failure as in 1D). One slide: iterative methods with priors are
@@ -325,7 +327,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 - **The math: regularised reconstruction** {.math}: $\min_{\mathbf x \ge 0}\
   \tfrac12\|A\mathbf x - \mathbf b\|^2 + \lambda\,\mathrm{TV}(\mathbf x)$,
   $\mathrm{TV}(\mathbf x) = \sum_p \|\nabla x_p\|$ (smoothed by $\sqrt{\|\nabla x_p\|^2 + \varepsilon^2}$
-  for gradient steps); the same "data + λ·prior" form as `seg-energy/` (day 13) and the Ising elective, with $A \ne I$. One
+  for gradient steps); the same "data + λ·prior" form as `seg-energy/` (day 27) and the Ising day, with $A \ne I$. One
   line: for emission data (PET) the data term is the Poisson log-likelihood and the
   iteration becomes multiplicative (MLEM, $\mathbf x \leftarrow \tfrac{\mathbf x}{A^\top \mathbf 1}\,
   A^\top\tfrac{\mathbf b}{A\mathbf x}$), stated only; it is Richardson–Lucy with $A$ = the projector
@@ -396,7 +398,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   texture direction in micrographs, stripe artefacts. Compare (one slide) with the
   structure tensor (day 2, `structure-tensor/`) and the 2D spectrum orientation (`fourier/`).
 - **Line detection**: bright lines are peaks in the sinogram; for a binary edge map this is
-  the Hough transform (one slide; pointer to the Hough elective, which owns peak finding and
+  the Hough transform (one slide; pointer to the Hough day, which owns peak finding and
   voting).
 - **Demo**: `radonproj` with `data-mode="orient"`: adds a plot of column variance vs
   $\theta$ and the detected orientation drawn on the image; images: stripes, a fibrous texture
@@ -416,7 +418,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
   filtering, FBP, ART/SIRT iterations (instrumented: per-iteration error and residual),
   explicit sparse $A$ (CSR) for images up to 16×16 for `artsmall`, analytic projections of
   ellipses (Shepp–Logan) for tests. One implementation shared by `radonproj`, `fourierslice`,
-  `backproj`, `tomosampling`, `iterrecon`, `ctartefacts`. Owner: this day; the Hough elective imports its forward projector for its one Radon slide.
+  `backproj`, `tomosampling`, `iterrecon`, `ctartefacts`. Owner: this day; the Hough day imports its forward projector for its one Radon slide.
 - **Phantoms** in `lib/synth.ts` (owner: thresholding day; Shepp–Logan and `window16`'s
   `ctPhantom` move there): modified Shepp–Logan from its ellipse table (the analytic sinogram
   stays in `lib/radon.ts`), disc, square, point masses, metal inserts, fibrous texture;
@@ -424,11 +426,11 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 - **Reuse**: `lib/fft.ts` (moved from `fourier2d/fft.ts`, owner `fourier/`; `fft1d` for
   ramp filtering, `fft2d` for `fourierslice` and the spectrum panel of `tomosampling`);
   bilinear sampling from `lib/imageops.ts`; polar ↔ Cartesian resampling in `lib/polar.ts`
-  (owner: dynprog elective); `lib/plot.ts` (owner: morphology day; profiles, filter
+  (owner: dynprog day); `lib/plot.ts` (owner: morphology day; profiles, filter
   responses, error vs iteration); `lib/metrics.ts` (RMSE/PSNR, image-quality section owned
   by `cameranoise/`); colour maps from `lib/colour.ts` (owner: colour day; sequential for
   sinograms, diverging for filtered projections and error images); 2D TV step from
-  `lib/smooth.ts` (owner: Ising elective; no private TV in `lib/radon.ts`).
+  `lib/smooth.ts` (owner: Ising day; no private TV in `lib/radon.ts`).
 - **Poisson noise**: `poisson()` from `lib/random.ts` (owner: bit-depth day, moved from
   `camerabits/sensor.ts`): counts $\sim \mathrm{Poisson}(I_0 e^{-p})$, then
   $-\ln(\text{count}/I_0)$ with a floor at 1 count (and a visible "photon starvation" flag).

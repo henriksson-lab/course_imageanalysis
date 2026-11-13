@@ -1,15 +1,17 @@
-# Plan: a day on edge-preserving smoothing and PDEs (elective, group "Transforms")
+# Plan: a day on edge-preserving smoothing and PDEs (Part II)
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
 From `plan/coursemap.md`, section "Queue, second batch": **Edge-preserving smoothing and PDEs**
 (heat equation = Gaussian blur, anisotropic diffusion, total variation flow, bilateral and
-non-local means in depth, inpainting, stability of explicit schemes). Elective, group
-"Transforms", **entry after Deconvolution (day 5)**. This day **owns** nonlinear diffusion
+non-local means in depth, inpainting, stability of explicit schemes). Part II
+(transforms and reconstruction), **entry after Deconvolution (day 5)**. This day **owns** nonlinear diffusion
 (Perona–Malik and its relatives), TV *flow* (TV as a time evolution), stability of explicit
 diffusion schemes, bilateral and non-local means **in depth**, and classical (diffusion and
-exemplar) inpainting. It **recalls** scale space (edges day), TV as a prior (Ising elective,
+exemplar) inpainting. It **recalls** scale space (edges day), TV as a prior (Ising day,
 `gmrf/`), the denoisers (deconvolution day, `denoise/`) and the CFL condition (level-set
-elective, `levelset-eq/`). See "Proposed reorganisation" for the ownership edits this implies.
+day, `levelset-eq/`). See "Proposed reorganisation" for the ownership edits this implies.
+
+**Course map (2026-11-13, self-study restructure):** day 10 of 51, Part II "Transforms and reconstruction". Hard prerequisites: Deconvolution (day 5), Edges, blobs and ridges (day 2). Soft (see also): Ising model and Markov random fields (day 28), Level sets (day 31). Source: `days.yml`.
 
 ## Goal of the day
 
@@ -22,7 +24,7 @@ After the day a student can:
    2D), recognise the **checkerboard explosion** of an unstable step, contrast this limit with
    the CFL rule for moving fronts (level sets: $\Delta t \propto \Delta x$, here $\propto \Delta x^2$),
    and say what an **implicit** step buys (any $\Delta t$; one implicit step is the quadratic
-   smoother of the Ising elective);
+   smoother of the Ising day);
 3. run **Perona–Malik diffusion**: an **edge-stopping function** $g(|\nabla u|)$ with a contrast
    parameter $K$; predict which edges survive; explain **backward diffusion** (gradients above
    about $K$ get *steeper*), **staircasing** of ramps, why the stopping time is a regularisation
@@ -54,35 +56,35 @@ systems). Everything is shown in a demo first; the PDE language sits in the math
 
 ## Prerequisites and recalls
 
-Entry is after day 5, so the core days 1–5 are assumed. Two of the recalled units sit in the
-"Curves and energies" elective, whose entry is after day 13, so a student may arrive here
+Entry is after day 5, so the days 1–5 are assumed. Two of the recalled units sit in the
+"Curves and energies" group (now Part VI), whose entry is after day 27, so a student may arrive here
 without them: their recalls must be **self-contained** (one concept slide each, with a pointer
 "in depth: …").
 
-- **`scale-space/`** (core, day 2): the math slide "scale space as diffusion"
+- **`scale-space/`** (day 2): the math slide "scale space as diffusion"
   ($\partial_t L = \tfrac12\nabla^2 L$, $t = \sigma^2$) and causality. Unit 1 turns this math
   slide into the concept: the heat equation is the day's starting point. Convention: this day
   writes $u_t = \Delta u$ (the PDE literature's form), so $\sigma = \sqrt{2t}$; one line says it
   is the same equation as in `scale-space/` with time measured differently.
-- **`kernels/`** (core, day 1): the Laplacian kernel $[0\,1\,0;\,1\,{-4}\,1;\,0\,1\,0]$ and border
+- **`kernels/`** (day 1): the Laplacian kernel $[0\,1\,0;\,1\,{-4}\,1;\,0\,1\,0]$ and border
   rules (mirror border = no heat leaves the image). Recalled, not re-taught.
-- **`canny/`** (core, day 2): gradient magnitude at scale σ (the edge-stopping function reads
+- **`canny/`** (day 2): gradient magnitude at scale σ (the edge-stopping function reads
   it; Catté pre-smoothing is "use the Canny σ").
-- **`structure-tensor/`** (core, day 2): orientation and coherence; only for the optional
+- **`structure-tensor/`** (day 2): orientation and coherence; only for the optional
   `tensor-diffusion/` unit (its slide "coherence-enhancing diffusion (pointer)" points here).
-- **`denoise/`** (core, day 5): one slide each on bilateral and non-local means (formulas in its
+- **`denoise/`** (day 5): one slide each on bilateral and non-local means (formulas in its
   math slide), the `denoisers` demo, method noise, "a restored image is an estimate". Unit 4
   starts from these slides and goes deeper; unit 6 extends the comparison.
-- **`regularise/`** (core, day 5): data + λ·penalty, "stopping early regularises". Units 2–3
+- **`regularise/`** (day 5): data + λ·penalty, "stopping early regularises". Units 2–3
   recall it: the diffusion time plays the role of λ.
-- **`gmrf/`** (elective, Ising): quadratic smoothing = sparse system $(I + \lambda L)x = y$,
+- **`gmrf/`** (Ising): quadratic smoothing = sparse system $(I + \lambda L)x = y$,
   TV denoising (Rudin–Osher–Fatemi), staircasing, contrast loss. Unit 1 uses the system as the
   implicit step; unit 3 recalls TV in one slide and then treats it as a *flow*.
-- **`levelset-eq/`** (elective, level sets): forward Euler, upwind differences, the CFL rule
+- **`levelset-eq/`** (level sets): forward Euler, upwind differences, the CFL rule
   ("the front may not move more than one pixel per step"), curvature flow of a curve. Unit 1
   recalls CFL in one slide; unit 3 uses "a curve moving by its curvature" for the level lines of
   TV flow (stated with a picture, so it needs no level-set background).
-- **`shrinkage/`** (elective, wavelets): appears only as one method in the unit-6 comparison
+- **`shrinkage/`** (wavelets): appears only as one method in the unit-6 comparison
   (one line, pointer).
 - **Divergence** may be rusty: one slide recalling $\nabla\cdot\mathbf v$ as "net outflow"
   (same picture as `levelset-eq/`), drawn as flux arrows between pixels.
@@ -147,7 +149,7 @@ Concept layer:
 - **Implicit steps**: solve for the new image instead of computing it: $(I + \Delta t\,L)\,u^{new}
   = u^{old}$. Stable for any Δt (but a huge step is just a big blur, inaccurate in time). This is
   **exactly the quadratic smoother of `gmrf/`** with λ = Δt (recall in one line, self-contained
-  for students without the Ising elective): "one implicit heat step = one GMRF denoising".
+  for students without the Ising day): "one implicit heat step = one GMRF denoising".
 - **Diffusion is everywhere** (one slide, pointers only): Horn–Schunck's flow smoothing
   (`horn-schunck/`), regularising a deformation field (`nonrigid-reg/`), smoothing splines
   (`spline-fit/`), heat-kernel ideas behind the diffusion models (different "diffusion": noise is
@@ -234,7 +236,7 @@ Concept layer:
   the conductivity is a number per pixel (the flux is still along the gradient); true
   anisotropy (smooth *along* an edge, not across) needs a tensor: optional `tensor-diffusion/`,
   structure-tensor link. One line: the same $g$ slows a front at edges in geodesic active
-  contours (`geodesic/`, level-set elective).
+  contours (`geodesic/`, level-set day).
 - **Time step**: since $g \le 1$, the heat limit still holds ($\Delta t \le 1/4$ in 2D).
 - Pointer: image libraries call it "anisotropic diffusion".
 
@@ -721,13 +723,13 @@ Changes to other plans and units that this plan implies (not done here):
    (owner of TV); `denoise/` keeps the first introduction of all denoisers; `levelset-eq/` keeps
    CFL for fronts. The heat equation as a *concept* moves from a math slide in `scale-space/`
    to this day's unit 1 (scale-space keeps its math slide and gains a pointer).
-2. **Group placement**: the day is not a transform. Proposal: a new elective group
+2. **Group placement**: the day is not a transform. Proposal: a new day group
    **"Restoration"** (entry after Deconvolution, day 5) holding this day and, later, the queued
    **Sparse representations** day (which additionally needs wavelets). If a new group is not
    wanted, keep "Transforms" but list this day after Radon so the wavelets → compression chain
    stays intact.
 3. **Soft prerequisites across groups**: this day's entry (day 5) is earlier than the
-   "Curves and energies" entry (day 13), so `gmrf/` and `levelset-eq/` are soft prerequisites
+   "Curves and energies" entry (day 27), so `gmrf/` and `levelset-eq/` are soft prerequisites
    (recalled self-contained), not hard ones; record it this way in the planned `days.yml`.
    Conversely, `levelset-eq/` and `gmrf/` can list this day as a soft "see also".
 4. **Pointer edits** once accepted: `levelset-eq/` "How large may a time step be?" (diffusion
@@ -745,7 +747,7 @@ Changes to other plans and units that this plan implies (not done here):
 ## Open questions
 
 1. **Six units in one day is dense.** Fallbacks in order: shorten unit 3 to one slot when most
-   students took the Ising elective (TV recall is then truly one slide); move exemplar
+   students took the Ising day (TV recall is then truly one slide); move exemplar
    inpainting to a short optional section; make unit 6 a take-home exercise and topic page.
    Alternative: split into two half-days ("PDE smoothing": units 1–3; "Neighbourhood filters and
    inpainting": units 4–6).

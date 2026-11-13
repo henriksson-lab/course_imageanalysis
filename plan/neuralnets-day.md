@@ -2,7 +2,9 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** core day 15 of 18, Part V "Learning from examples". Order: random forests (day 14) → this → evaluation and statistics (day 16) → modern deep learning (day 18) → VAEs (day 17). Unit 1 is the built `neuralnet/` (moved here from the VAE part).
+**Course map (2026-11-13, self-study restructure):** day 36 of 51, Part VII "Learning from examples". Hard prerequisites: Random forests (day 33). Soft (see also): Thresholding (day 12), Graph cuts (day 27). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** day 36 of 51, Part V "Learning from examples". Order: random forests (day 33) → this → evaluation and statistics (day 37) → modern deep learning (day 39) → VAEs (day 38). Unit 1 is the built `neuralnet/` (moved here from the VAE part).
 
 ## Goal of the day
 
@@ -11,10 +13,10 @@ After the day a student can:
 1. compute the output of a **neuron** (weighted sum + bias, then a nonlinearity) and of a small **multilayer network** by hand, draw the decision line of one neuron, and explain why the **nonlinearity** is needed (XOR; stacked linear layers collapse to one matrix);
 2. choose a **loss** (mean squared error for numbers, softmax + cross-entropy for classes), describe **training** as gradient descent on it, and say what the learning rate and the mini-batch size do;
 3. run **backpropagation** by hand on a two-neuron network: forward values, then gradients by the chain rule on the computational graph, then one update step;
-4. recognise **overfitting** from training and validation **learning curves** (train / validation / test recalled from day 14) and name three defences (weight decay, dropout, data augmentation);
+4. recognise **overfitting** from training and validation **learning curves** (train / validation / test recalled from day 33) and name three defences (weight decay, dropout, data augmentation);
 5. explain a **convolutional layer** as a bank of learned kernels with weight sharing, count its parameters, compute output sizes and the **receptive field** of a stack of layers, and describe the edges → textures → parts hierarchy;
 6. explain how an **encoder–decoder / U-Net** produces a per-pixel segmentation, why it needs **skip connections**, and train it with a per-pixel cross-entropy or a **Dice loss**; evaluate it with Dice / IoU;
-7. *(optional unit)* name what goes wrong in practice (**shortcut learning**, **domain shift**, too little data) and what batch normalisation, residual connections and pretrained networks are for (days 16 and 18 continue this).
+7. *(optional unit)* name what goes wrong in practice (**shortcut learning**, **domain shift**, too little data) and what batch normalisation, residual connections and pretrained networks are for (days 37 and 39 continue this).
 
 Why it fits this audience: a layer is a matrix–vector product, training is "follow the
 negative gradient", backpropagation is the chain rule applied in a clever order, and a
@@ -25,7 +27,7 @@ distribution is needed; the genuinely new ideas are *learning a map from example
 
 ## Prerequisite gap and links to other days
 
-- **Classification basics are known from day 14** (random forests, the course owner of
+- **Classification basics are known from day 33** (random forests, the course owner of
   feature space, train / validation / test, overfitting, cross-validation and the pixel feature
   stack). Unit 1 recalls the 2D feature scatter and "a classifier carves up feature space" in one
   slide; unit 2 recalls train / validation / test and overfitting in one slide and adds what is
@@ -36,36 +38,36 @@ distribution is needed; the genuinely new ideas are *learning a map from example
   reuses the `kernel3x3` demo's code (`demos/src/kernel3x3/conv.ts`) for the hand-made
   kernel bank. Correlation vs convolution: one line ("networks actually correlate; with
   learned weights the flip does not matter").
-- **Thresholding** (day 6): a threshold on one feature is a neuron with one input and a step
+- **Thresholding** (day 12): a threshold on one feature is a neuron with one input and a step
   nonlinearity (unit 1, first slide). Pixel-level evaluation (confusion matrix, **Dice**,
   **Jaccard/IoU**, class imbalance: "accuracy lies") is owned by `seg-eval/` there; unit 4
   recalls Dice in one line and builds the **Dice loss** on it, and uses Otsu as the baseline in
-  its demo. Object-level evaluation (matching, F1/AP) is the next day but one (day 16).
-- **The hand-made feature stack** (day 14, `pixelclass/`): unit 3 opens from it: "yesterday the
+  its demo. Object-level evaluation (matching, F1/AP) is the next day but one (day 37).
+- **The hand-made feature stack** (day 33, `pixelclass/`): unit 3 opens from it: "yesterday the
   filters were chosen by hand (Gaussian, LoG, Hessian from the edges day); a CNN learns them".
   The forest on a stack is the baseline the U-Net (unit 4) is compared with.
 - **PCA** (`pca/`, day 1): only touched in unit 1's math layer ("a network with one linear hidden
   layer and squared error learns the PCA subspace"; the VAE day's `autoencoder/` shows it).
-- **Classical vs learned features** (measurements, day 11: Haralick, Gabor; its texture unit
+- **Classical vs learned features** (measurements, day 16: Haralick, Gabor; its texture unit
   already has the pointer "CNN embeddings as learned texture features"): unit 3 shows
   first-layer filters next to a hand-made bank (Sobel, Laplacian, Gaussian, oriented edges) and
   states the trade-off: designed features are interpretable and need no training data; learned
   features adapt to the task but need labelled examples.
-- **Graph cuts** (day 13): a network's per-pixel probability gives the data term
+- **Graph cuts** (day 27): a network's per-pixel probability gives the data term
   $D_p(\ell) = -\log p_\ell$; graph-cut smoothing on top of a CNN is one slide in unit 4
   ("the two ideas combine").
-- **Watershed / labelling** (days 9–10): a U-Net gives a *semantic* mask; touching nuclei still
+- **Watershed / labelling** (days 14–15): a U-Net gives a *semantic* mask; touching nuclei still
   need splitting. One pointer slide in unit 4 (a third "boundary" class, then labelling or
   watershed); **instance segmentation by networks** (boundary class, distance map + watershed,
-  star-convex polygons, flow fields) is owned by the modern deep learning day (day 18,
+  star-convex polygons, flow fields) is owned by the modern deep learning day (day 39,
   `plan/moderndl-day.md`).
-- **Evaluation and statistics** (day 16, `plan/evaluation-day.md`) and **modern deep learning**
-  (day 18): own leakage and honest test sets, shortcut learning and domain shift as evaluation
+- **Evaluation and statistics** (day 37, `plan/evaluation-day.md`) and **modern deep learning**
+  (day 39): own leakage and honest test sets, shortcut learning and domain shift as evaluation
   problems, transfer learning, pretraining, transformers, detection and diffusion. The optional
   `deep-practice/` here gives them one slide each and points forward.
 - **Learned denoising / restoration**: owned by the deconvolution day
   (`plan/deconvolution-day.md`); the PSF / forward model by image formation (day 4). Pointer only.
-- **Ising / Hopfield** (Ising elective, optional unit `boltzmann/`): energy-based
+- **Ising / Hopfield** (Ising day, optional unit `boltzmann/`): energy-based
   networks are a different family; one "Where this leads" line, no unit here.
 
 ### Split with the VAE day (`plan/vae-day.md`) — decided (course map)
@@ -83,8 +85,8 @@ as unit 1 of the VAE part. The course map moves it here:
 - **This day owns** neurons, layers, activations, losses, gradient descent, learning rate,
   backpropagation, mini-batches, learning curves and regularisation, CNNs, training practice,
   segmentation networks.
-- **The VAE day (day 17)** starts at `autoencoder/` with a 2–3 slide recall ("a layer: matrix,
-  then bend; training = walk downhill; see day 15"); its exercise keeps the parameter-count
+- **The VAE day (day 38)** starts at `autoencoder/` with a 2–3 slide recall ("a layer: matrix,
+  then bend; training = walk downhill; see day 36"); its exercise keeps the parameter-count
   question only. The sidebar block `neuralnet/` moves into the neural-networks part.
 - **Notation**: `neuralnet/` uses $\mathbf h = \mathrm{ReLU}(A\mathbf x + \mathbf b)$,
   out $= C\mathbf h + d$. This day generalises to $\mathbf a^{(l)} = \varphi(W^{(l)}\mathbf
@@ -129,7 +131,7 @@ The built unit (by-hand forward pass, collapse, hinges, `nnfit`) plus the additi
 - **Mini-batch / stochastic** gradient descent: the gradient on a random batch of 32 images is a noisy, cheap estimate of the full one; an **epoch** = one pass over the data. The noise is not only tolerable but helps escape flat regions.
 - **Backpropagation**: the network as a **computational graph** (multiply, add, ReLU, loss nodes). Forward pass: values left to right. Backward pass: each node multiplies the incoming gradient by its *local* derivative and passes it on (the chain rule, organised). Cost: about twice a forward pass, whatever the number of weights; that is why networks with millions of weights can be trained.
 - What the local derivatives tell us: ReLU passes the gradient or blocks it (a "dead" unit never learns); a saturated sigmoid passes almost nothing (**vanishing gradients**, the reason deep sigmoid networks were hard and ReLU won).
-- **Overfitting**, recalled from day 14 in one slide (train / validation / test, the U-shaped test curve). New here: **learning curves** for a network, the training loss keeps falling while the validation loss rises; choose size, $\eta$ and **when to stop** (early stopping) on validation, report once on test.
+- **Overfitting**, recalled from day 33 in one slide (train / validation / test, the U-shaped test curve). New here: **learning curves** for a network, the training loss keeps falling while the validation loss rises; choose size, $\eta$ and **when to stop** (early stopping) on validation, report once on test.
 - **Regularisation**: weight decay (penalise $\|\mathbf w\|^2$: smoother boundaries), dropout (randomly silence units during training: no unit can rely on another), more data / **data augmentation** (unit 3, images).
 - The math: $\mathbf w \leftarrow \mathbf w - \eta\nabla_{\mathbf w}\mathcal L$ (the loss is written $\mathcal L$ on slides; $L$ below for brevity); chain rule on the graph, $\partial L/\partial w = \sum_{\text{paths}}\prod$ local derivatives; for a layer, $\boldsymbol\delta^{(l-1)} = (W^{(l)})^\top\boldsymbol\delta^{(l)} \odot \varphi'(\mathbf z^{(l-1)})$ and $\partial L/\partial W^{(l)} = \boldsymbol\delta^{(l)}(\mathbf a^{(l-1)})^\top$ (an outer product); softmax + cross-entropy gives the gradient $\mathbf p - \mathbf y$; mini-batch gradient is an unbiased estimate of the full gradient; weight decay adds $2\lambda\mathbf w$; momentum and Adam in one line each.
 - **Demo `backprop`** (new): the network $x \to z = w_1x + b_1 \to h = \mathrm{ReLU}(z) \to \hat y = w_2h + b_2 \to L = (\hat y - y)^2$ (and a 2–2–1 variant via `data-net`), drawn as a graph in SVG. Buttons: *forward* (values appear node by node, blue), *backward* (gradients appear node by node, red, with the local derivative on each edge), *update* (weights change by $-\eta\cdot$gradient, loss before/after), *reset*. Weights, $x$, $y$, $\eta$ editable. A *check* button compares each gradient with a finite difference. Presets: "the by-hand exercise", "dead ReLU: all gradients upstream are 0", "sigmoid saturates", "learning rate too large: the loss goes up".
@@ -139,7 +141,7 @@ The built unit (by-hand forward pass, collapse, hinges, `nnfit`) plus the additi
 
 ### 3. `cnn/`: Convolutional networks
 
-- Opening (one slide): day 14's feature stack was a hand-made first layer (Gaussian, LoG, Hessian filters at chosen scales). A CNN learns that layer, and the ones after it, from examples.
+- Opening (one slide): day 33's feature stack was a hand-made first layer (Gaussian, LoG, Hessian filters at chosen scales). A CNN learns that layer, and the ones after it, from examples.
 - Problem with dense layers on images: too many weights, and no notion that neighbouring pixels belong together or that a nucleus is a nucleus wherever it is.
 - **A convolutional layer** = a bank of 3×3 kernels (`kernels/`, day 1), one output image (**feature map**) per kernel, plus a bias and ReLU. The kernel values are **learned**. Hand-made vs learned: the first layer of a trained network looks like edge, line and blob detectors.
 - **Weight sharing**: the same 9 weights at every position. Parameter count independent of image size ($3\cdot3\cdot C_\text{in}\cdot C_\text{out} + C_\text{out}$). **Translation equivariance**: shift the input, the feature maps shift.
@@ -148,7 +150,7 @@ The built unit (by-hand forward pass, collapse, hinges, `nnfit`) plus the additi
 - **Receptive field**: each layer sees a slightly bigger part of the input; pooling/stride multiplies the growth. Three 3×3 layers see 7×7; with pooling in between much more. Deep layers see whole objects.
 - **Feature hierarchy**: edges → textures/corners → parts → objects. Visualising: filters (layer 1 only makes sense as pictures), feature maps for an input, the image patches that excite a unit most, occlusion (cover part of the image, watch the class probability).
 - **A classification network end to end**: conv–ReLU–pool ×2, flatten, dense, softmax; trained with cross-entropy (unit 2). Counting its weights: a few thousand instead of hundreds of thousands.
-- **Data augmentation**: train on shifted, rotated, flipped, brightness-changed copies; the network learns invariances we can name (link to the moments elective: there invariance was built into the features; here it is taught by examples).
+- **Data augmentation**: train on shifted, rotated, flipped, brightness-changed copies; the network learns invariances we can name (link to the moments day: there invariance was built into the features; here it is taught by examples).
 - The math: discrete multi-channel correlation $y_{c'}[i, j] = b_{c'} + \sum_c\sum_{u,v} w_{c',c}[u, v]\,x_c[i + u, j + v]$; a convolutional layer is a dense layer with a sparse, repeated (Toeplitz-like) weight matrix; equivariance $T_s(\text{conv}(x)) = \text{conv}(T_s x)$, broken by stride/pooling; receptive field recursion $r_l = r_{l-1} + (k_l - 1)\,j_{l-1}$, $j_l = j_{l-1}s_l$; backprop through a convolution is again a correlation (one line).
 - **Demo `convlayer`** (new; reuses `kernel3x3/conv.ts`): input (the micrograph `cell256.png`, a digit, a synthetic cell mask) and a bank of 8 kernels shown as small 3×3 grids with their feature maps after ReLU underneath. Bank switch: *hand-made* (Sobel x/y, Laplacian, Gaussian, two diagonals, …) vs *learned* (layer 1 of the `cnnviewer` network). Click a kernel to edit it (as in `kernel3x3`); *shift input* buttons show the maps shifting with it; *2×2 max pool* toggle shows the halved maps. Presets: "learned filters look like edge detectors", "shift the input", "pooling".
 - **Demo `receptive`** (new, small, SVG): a 1D (and 2D) stack of up to 5 layers with per-layer kernel size, stride, pooling (and dilation as an extra); click a unit at the top, its receptive field lights up in every layer below with the size printed. Presets: "three 3×3 layers = 7", "with pooling", "one 7×7 vs three 3×3 (same field, fewer weights)", "how deep to see a whole nucleus?".
@@ -163,7 +165,7 @@ The built unit (by-hand forward pass, collapse, hinges, `nnfit`) plus the additi
 - **Per-pixel loss**: cross-entropy averaged over pixels. Class imbalance (nuclei are 5 % of pixels; recall "accuracy lies" from `seg-eval/`): weight the classes, or use the **Dice loss** $1 - \text{soft Dice}$, computed from probabilities so it has a gradient.
 - **Evaluation**: Dice / IoU against ground truth on held-out images (owned by `seg-eval/`; one-line recall); look at the errors (merged nuclei, missed dim cells) not only the number.
 - Data: annotations are expensive; augmentation (flips, rotations, intensity, elastic deformation) and small networks go a long way with tens of annotated images. Synthetic images with known truth for teaching.
-- After the mask: touching nuclei (one pointer slide: a third "boundary" class, then labelling / watershed of days 9–10; network-based instance segmentation is day 18); the probability map as the data term of a graph cut (day 13). Baseline: day 14's forest on the feature stack.
+- After the mask: touching nuclei (one pointer slide: a third "boundary" class, then labelling / watershed of days 14–15; network-based instance segmentation is day 39); the probability map as the data term of a graph cut (day 27). Baseline: day 33's forest on the feature stack.
 - The math: soft Dice $D = 2\sum_p p_p g_p / (\sum_p p_p + \sum_p g_p)$ and its gradient; weighted cross-entropy; transposed convolution as the transpose of the conv matrix of unit 3; receptive field of the bottleneck.
 - **Demo `unetseg`** (new, precomputed weights): a tiny U-Net (two levels, 8–16–32 channels, about 25k weights) trained offline on synthetic fluorescence-like images, 64×64 (nuclei of varying size and brightness, touching pairs, uneven illumination, noise; generated by the shared `lib/synth.ts` generator with ground truth, so *new image* gives unlimited test images). Panels: input, probability map, mask at a threshold slider, error overlay (TP/FP/FN as in `threshroc`) with Dice and IoU, and the Otsu mask with its Dice for comparison. Click a level of a small architecture diagram to see its feature maps. Weight sets: *U-Net*, *no skip connections*, *trained with plain cross-entropy* vs *Dice loss*. Sliders that move the input away from the training data: noise, illumination gradient, brightness scale, object size (domain shift). Presets: "U-Net vs Otsu on uneven illumination", "no skips: blurry boundaries", "touching nuclei merge", "too noisy: outside the training range", "brighter microscope: domain shift".
 - By hand: (a) soft Dice and cross-entropy of a 3×3 probability map against a mask; the same for the "all background" prediction on a 5 %-object image (cross-entropy looks fine, Dice does not); (b) 1D upsampling + convolution / transposed convolution of a 3-sample signal; (c) channel counts and sizes through a 2-level U-Net on a 64×64 input, including the concatenations; (d) receptive field at the bottleneck: can one output pixel see a whole 20-pixel nucleus? *(math)*: derive the gradient of soft Dice with respect to one $p_p$; show transposed convolution is the adjoint of strided convolution.
@@ -171,9 +173,9 @@ The built unit (by-hand forward pass, collapse, hinges, `nnfit`) plus the additi
 ### 5. (optional / further reading) `deep-practice/`: Deep networks in practice, and what goes wrong
 
 - **Deeper is harder**: vanishing gradients (recall unit 2). **Residual connections** ($\mathbf a + F(\mathbf a)$: the identity path lets the gradient through; ResNet). **Batch normalisation** (standardise each channel over the batch, then learned scale and shift; training becomes less sensitive to $\eta$ and initialisation).
-- **Transfer learning**: one slide; pretraining, self-supervised learning and generalist cell segmenters are owned by day 18 (`pretrained/`).
-- **Shortcut learning**: the network learns whatever separates the training classes, e.g. a scale bar, a plate edge or the scanner, not the biology. **Domain shift**: a new microscope, stain or cell line. Always test on data from a new source (how to build such a test set: day 16); occlusion maps help detect shortcuts.
-- Pointers, one slide: attention / **transformers** (the image as a set of patches; day 18), generative models (VAEs, day 17; diffusion, day 18), learned denoising (`plan/deconvolution-day.md`).
+- **Transfer learning**: one slide; pretraining, self-supervised learning and generalist cell segmenters are owned by day 39 (`pretrained/`).
+- **Shortcut learning**: the network learns whatever separates the training classes, e.g. a scale bar, a plate edge or the scanner, not the biology. **Domain shift**: a new microscope, stain or cell line. Always test on data from a new source (how to build such a test set: day 37); occlusion maps help detect shortcuts.
+- Pointers, one slide: attention / **transformers** (the image as a set of patches; day 39), generative models (VAEs, day 38; diffusion, day 39), learned denoising (`plan/deconvolution-day.md`).
 - **Demo**: reuse `cnnviewer` with `data-weights="shortcut"`: a weight set trained on cell masks where one class always carries a small corner mark; it scores perfectly on validation data with the mark and fails without it; the occlusion map points at the corner. Reuse `unetseg` domain-shift presets.
 - By hand: (a) batch-normalise 4 numbers; (b) why $\partial(\mathbf a + F(\mathbf a))/\partial\mathbf a = I + \partial F/\partial\mathbf a$ cannot vanish; (c) design a test set that would catch a given shortcut.
 
@@ -198,13 +200,13 @@ The built unit (by-hand forward pass, collapse, hinges, `nnfit`) plus the additi
 
 ## Open questions
 
-- Day length: unit 2 is the densest (losses, gradient descent, backprop, mini-batches, learning curves, regularisation); the train/test recall from day 14 saves some time. If still too much, regularisation could move into unit 3 next to data augmentation.
+- Day length: unit 2 is the densest (losses, gradient descent, backprop, mini-batches, learning curves, regularisation); the train/test recall from day 33 saves some time. If still too much, regularisation could move into unit 3 next to data augmentation.
 - Live CNN training in the browser: feasible for `cnnviewer`'s size (estimate ~2 s per epoch on 2000 images in TS, in a Web Worker), but nondeterministic timing and battery cost; recommendation is precomputed epoch snapshots, which show the same thing reproducibly. Decide after a measurement.
 - Real microscopy for `unetseg`: a small annotated nuclei set with a clear licence (the same search as the thresholding and watershed plans) would be more convincing than synthetic images; would need a separate weight set and honest Dice on it.
-- **Decided (course map):** this day comes before the VAEs (day 15 vs 17); `neuralnet/` is unit 1 here, and the VAE day keeps a 2–3 slide recall in `autoencoder/`. Whether `nnfit` is also re-embedded in the recall is the VAE plan's choice.
-- **Decided (course map):** transformers get one pointer slide here; the content belongs to day 18.
+- **Decided (course map):** this day comes before the VAEs (day 36 vs 38); `neuralnet/` is unit 1 here, and the VAE day keeps a 2–3 slide recall in `autoencoder/`. Whether `nnfit` is also re-embedded in the recall is the VAE plan's choice.
+- **Decided (course map):** transformers get one pointer slide here; the content belongs to day 39.
 - **Decided (conventions):** $W^{(l)}$ here with the bridge line "$A = W^{(1)}$, $C = W^{(2)}$" in `neuralnet/`; activation $\varphi$, never $\sigma$.
-- Whether `deep-practice/` stays optional: shortcut learning and domain shift are now carried by days 16 and 18, so optional is enough.
+- Whether `deep-practice/` stays optional: shortcut learning and domain shift are now carried by days 37 and 39, so optional is enough.
 
 ## References
 

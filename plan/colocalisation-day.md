@@ -2,11 +2,13 @@
 
 Internal working doc (plan/ is not rendered). Status: plan, 2026-11-13; not built, except
 unit 1 `coloc/` (built for the measurements day, taken over and adapted here).
-**Course map (2026-11-12):** elective, group "Fluorescence quantification" (with FRET and
-FLIM, both still unplanned), entry after Colour (day 7). This is the group's first day; FRET
+**Course map (2026-11-13, self-study restructure):** day 44 of 51, Part VIII "Colour and fluorescence". Hard prerequisites: Colour (day 42). Soft (see also): Image formation (day 4), Labelling (day 14), Measurements (day 16), FFT registration (day 23), Spectral unmixing (day 43). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part VIII (with FRET and
+FLIM, both still unplanned), entry after Colour (day 42). This is the group's first day; FRET
 and FLIM build on it (bleed-through, two-channel forward model). **Ownership change applied by
 this plan** (coursemap, "Ownership changes"): this day takes over `coloc/` (folder, quiz,
-exercise, demo `coloc`) from the measurements day (day 11), which keeps a one-slide recall.
+exercise, demo `coloc`) from the measurements day (day 16), which keeps a one-slide recall.
 
 ## Goal of the day
 
@@ -45,42 +47,42 @@ idea is that **pixels are not independent samples**, which is what makes naive t
 
 ## Prerequisite gap
 
-The course map lets the group start after day 7, but units 3–4 lean on later core days. What
-each unit needs, and how it copes if the student comes straight from day 7:
+The course map lets the group start after day 42, but units 3–4 lean on later days. What
+each unit needs, and how it copes if the student comes straight from day 42:
 
-- **Colour** (day 7, `colour-display/`, slide "Fluorescence: channels are grey images"): the
+- **Colour** (day 42, `colour-display/`, slide "Fluorescence: channels are grey images"): the
   green/magenta merge and per-channel display ranges. Unit 1's first slide recalls it.
 - **PCA** (day 1, `pca/`): the orthogonal regression line is the first principal component
   (already used by the built `coloc/` math slide). One-line recall.
-- **Thresholding** (day 6, `histogram/`, `otsu/`): a threshold on a 1D histogram; Costes is
+- **Thresholding** (day 12, `histogram/`, `otsu/`): a threshold on a 1D histogram; Costes is
   "a threshold chosen on a 2D histogram". One-line recall.
 - **Image formation** (day 4, `psf/`, `resolution/`, demos `psfotf`, `resolve`): PSF, Airy
   pattern, FWHM ≈ 0.51 λ/NA, Rayleigh 0.61 λ/NA; `lib/psf.ts` `airySigma` (σ ≈ 0.21 λ/NA).
   Unit 4 recalls it in one slide with the numbers (NA 1.4, 520 nm: FWHM ≈ 190 nm).
 - **Camera noise** (day 3, `cameranoise/`): shot noise, offset, saturation. One line in unit 4.
-- **Morphology** (day 8, `morph-grey/`): background subtraction by top-hat. One line in unit 4.
-- **Labelling** (day 9, `label-connectivity/`): connected components. Unit 3 needs it to turn a
-  thresholded channel into objects; a student who has not done day 9 gets a one-slide recall
+- **Morphology** (day 13, `morph-grey/`): background subtraction by top-hat. One line in unit 4.
+- **Labelling** (day 14, `label-connectivity/`): connected components. Unit 3 needs it to turn a
+  thresholded channel into objects; a student who has not done day 14 gets a one-slide recall
   ("one label per connected blob") — enough for the concept layer.
-- **Measurements** (day 11, `relations/`): parent–child by overlap or centroid, nearest-neighbour
+- **Measurements** (day 16, `relations/`): parent–child by overlap or centroid, nearest-neighbour
   distances, Clark–Evans and the Poisson nearest-neighbour law (math slide "The Poisson nearest
   neighbour"). Unit 3 is the **two-channel** version of these and recalls them; it re-states
-  the law in its own math slide for students who skipped day 11 (it is two lines).
-- **FFT registration** (day 12, `matching/`, `phasecorr/`, `stitching/` demo `subpixel`):
+  the law in its own math slide for students who skipped day 16 (it is two lines).
+- **FFT registration** (day 23, `matching/`, `phasecorr/`, `stitching/` demo `subpixel`):
   unit 2's **shift curve** is brute-force cross-correlation (the "slide and score" of
   `matching/`), so the idea of finding a shift by maximising a score is taught here in its own
   terms; unit 4's bead registration recalls phase correlation and sub-pixel peaks in one slide.
-- **Spectral unmixing** (elective, `crosstalk/`, demo `bleedthrough`): owns bleed-through and
+- **Spectral unmixing** (`crosstalk/`, demo `bleedthrough`): owns bleed-through and
   2×2 compensation. Unit 4 recalls it in one concept slide + one math slide (the 2×2 inverse),
-  self-contained for students who did not take that elective.
-- **Evaluation and statistics** (day 16, `object-eval/`, `replicates/`): one-to-one matching
+  self-contained for students who did not take that day.
+- **Evaluation and statistics** (day 37, `object-eval/`, `replicates/`): one-to-one matching
   (Hungarian) and the statistics of measurements across cells/replicates. Unit 3 uses matching
   as a one-line recall (concept: "each spot may be used once"); unit 2 ends with a forward
   pointer: a per-image p-value is not a comparison between conditions.
 
-**Proposal (open question 1):** move the group's entry point to "Measurements (day 11)" in the
-course map (FFT registration helps). Colocalisation now leaves the core, so the core student
-meets it only as the recall slide in `relations/`; that is acceptable for an elective topic.
+**Proposal (open question 1):** move the group's entry point to "Measurements (day 16)" in the
+course map (FFT registration helps). Colocalisation now leaves the measurements day, so a student who skips this day
+meets it only as the recall slide in `relations/`; that is acceptable for a specialised topic.
 
 ## Overlaps / who owns what
 
@@ -92,7 +94,7 @@ centroid-in-object, cross-channel nearest-neighbour distances, chance level, cro
 
 | Day / unit | Owns, recalled here | What this day adds / takes |
 |---|---|---|
-| Measurements (day 11): `coloc/` | — (moves here) | The whole unit, adapted as unit 1. Day 11 keeps **one recall slide** in `relations/` and pointer lines in `intensity-features/`, `texture-features/`, `relations/` (edits listed below) |
+| Measurements (day 16): `coloc/` | — (moves here) | The whole unit, adapted as unit 1. Day 16 keeps **one recall slide** in `relations/` and pointer lines in `intensity-features/`, `texture-features/`, `relations/` (edits listed below) |
 | Measurements: `relations/` | Parent–child by overlap/centroid, nearest neighbours, Poisson NN law, Clark–Evans | Unit 3 does the same between **two channels**, adds the chance level and randomisation envelopes |
 | Measurements: `texture-features/` | GLCM as a 2D histogram | Unit 1's scatter plot: "same object, second channel instead of shifted copy" (kept from built `coloc/`) |
 | Image formation: `psf/`, `resolution/` | PSF, FWHM, Rayleigh/Sparrow, wavelength dependence | Unit 4: what the PSF does to coefficients (Gaussian-spot formulas), "colocalised = closer than ~0.7 FWHM" |
@@ -101,7 +103,7 @@ centroid-in-object, cross-channel nearest-neighbour distances, chance level, cro
 | Thresholding: `otsu/` | 1D thresholds | Costes as a 2D-histogram threshold (one line) |
 | Morphology: `morph-grey/` | Top-hat background subtraction | Unit 4 one line |
 | Evaluation: `object-eval/`, `replicates/` | Hungarian matching, unit of replication | Unit 3 recall; unit 2 forward pointer |
-| Planned point-detection elective | Spot detection, sub-pixel localisation by fitting, localisation precision | Unit 3 uses LoG + local maxima + weighted centroid with a one-slide recall/pointer; the optional `coloc-points/` uses point lists |
+| Planned point-detection day | Spot detection, sub-pixel localisation by fitting, localisation precision | Unit 3 uses LoG + local maxima + weighted centroid with a one-slide recall/pointer; the optional `coloc-points/` uses point lists |
 | FRET / FLIM (same group, unplanned) | Proximity below ~10 nm by energy transfer | Forward pointer from units 3–4: "colocalisation stops at the resolution; FRET measures 1–10 nm". FRET reuses `lib/twochannel.ts` and the bleed-through recall |
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -112,11 +114,11 @@ what the microscope does to all of it (unit 4, the synthesis).
 
 ### 1. `coloc/`: Colocalisation of two channels: scatter plot, Pearson and Manders (taken over, adapted)
 
-Built for day 11; keep the deck, quiz, exercise and demo `coloc`, with these changes:
+Built for day 16; keep the deck, quiz, exercise and demo `coloc`, with these changes:
 
 - Notes: "Fourth unit of the measurements day" → "First unit of the colocalisation day
-  (elective group Fluorescence quantification)"; drop "A planned fluorescence-quantification
-  elective will take colocalisation further"; "the parent–child relation of the last unit" →
+  (Part VIII)"; drop "A planned fluorescence-quantification
+  day will take colocalisation further"; "the parent–child relation of the last unit" →
   "the parent–child relation of the measurements day (`relations/`)".
 - Slide "Controls" moves to unit 2 (it becomes that unit's opening); slide "Pitfalls" shrinks
   to a two-line preview ("background, bleed-through, chromatic shift and the resolution limit:
@@ -176,7 +178,7 @@ Concept layer:
   $r(\Delta x)$. Colocalised small structures: a narrow peak at 0, as wide as the structures
   plus the PSF. Large-scale correlation (cell outline, background): a broad hump that survives
   big shifts. A peak **off zero** is a shift between the channels (forward pointer to unit 4's
-  chromatic shift). This is "slide and score" from `matching/` (day 12) with Pearson as score.
+  chromatic shift). This is "slide and score" from `matching/` (day 23) with Pearson as score.
 - **Randomisation**: destroy the spatial relation but keep each channel's own statistics.
   Shuffle **blocks** of B (Costes et al. 2004), recompute $r$, many times; p-value = share of
   shuffles at least as large as the observed $r$.
@@ -196,7 +198,7 @@ Concept layer:
   null idea: below the thresholds is noise. Failure: weak correlation or a big shared
   background makes the walk stop too low or never start (one picture of the trace).
 - Where this leads: a p-value per image is not a comparison of conditions; comparing
-  coefficients between treatments needs replicates (day 16, `replicates/`).
+  coefficients between treatments needs replicates (day 37, `replicates/`).
 
 Math layer:
 
@@ -290,7 +292,7 @@ Math layer:
   $\sigma_A^2 + \sigma_B^2$ per axis: $E[d_\text{meas}^2] = d^2 + 2(\sigma_A^2 + \sigma_B^2)$; for
   $d = 0$ the measured distance is Rayleigh-distributed with mean $\sqrt{\sigma_A^2+\sigma_B^2}\sqrt{\pi/2}$
   (20 nm each: 35 nm). Localisation precision itself ($\approx s/\sqrt N$ for $N$ photons) is
-  owned by the point-detection elective (one-line recall).
+  owned by the point-detection day (one-line recall).
 - *One-to-one pairing* as an assignment problem (the Hungarian algorithm of the evaluation day,
   one line).
 
@@ -406,7 +408,7 @@ overlap formulas; (i) the shared-background $r$.
 For localisation (super-resolution) microscopy, where the data are coordinates with
 uncertainties, not images: coordinate-based colocalisation per localisation (Malkusch et al.
 2012), cross-K/L/pair-correlation with edge correction, cluster detection in one line, 3D and
-the larger axial chromatic shift. Needs the point-detection elective or image formation's
+the larger axial chromatic shift. Needs the point-detection day or image formation's
 optional `localisation/` (both unbuilt). **Demo**: `colocobjects` with `data-mode="points"`
 (no image, point lists with precision ellipses).
 
@@ -416,24 +418,24 @@ optional `localisation/` (both unbuilt). **Demo**: `colocobjects` with `data-mod
   (before the catalogue): the merge figure (`../coloc/fig-merge.png`), "white in the merge is
   not evidence", one line each on the scatter plot, Pearson/Manders needing a region and
   thresholds, object-based colocalisation = the parent–child relation of this unit; pointer to
-  the Fluorescence quantification elective (`coloc/` …). Line 159 ("the next unit does
-  colocalisation pixel by pixel") → "the colocalisation elective does it pixel by pixel".
+  Part VIII (colour and fluorescence) (`coloc/` …). Line 159 ("the next unit does
+  colocalisation pixel by pixel") → "the colocalisation day does it pixel by pixel".
 - `relations/exercise.qmd` line 132 ("the next unit pairs pixels of two channels") → "the
-  colocalisation elective pairs …".
+  colocalisation day pairs …".
 - `texture-features/lec.qmd` lines 34 (notes) and 103: "the colocalisation unit" → "the
-  colocalisation elective (`coloc/`)".
+  colocalisation day (`coloc/`)".
 - `texture-features/exercise.qmd` line 147: "The unit after next replaces …" → "The
-  colocalisation elective replaces …"; keep "the next unit measures relations".
+  colocalisation day replaces …"; keep "the next unit measures relations".
 - `intensity-features/lec.qmd` line 33 (notes): "first of four units … colocalisation between
   channels" → "first of three units … (colocalisation moved to the Fluorescence quantification
-  elective; recall slide in `relations/`)".
+  day; recall slide in `relations/`)".
 
 **Integration edits outside this day's files** (for the integrating step, not the builder):
-`_quarto.yml` (move the "Colocalisation of two channels" section out of Day 11 into a new
-Electives group "Fluorescence quantification" → "Colocalisation", with the four units);
+`_quarto.yml` (move the "Colocalisation of two channels" section out of Day 16 into a new
+sidebar group "Fluorescence quantification" → "Colocalisation", with the four units);
 `demos.qmd` (unit label of `coloc`, new gallery entries); `crosstalk/lec.qmd` line 181
 ("Colocalisation itself is taught on the measurements day (`coloc/`)" → the colocalisation
-elective); `plan/measurements-day.md` (goal 5 and unit 4 → recall; timetable);
+day); `plan/measurements-day.md` (goal 5 and unit 4 → recall; timetable);
 `plan/coursemap.md` (group row: colocalisation planned; ownership change applied).
 
 ## Shared engineering
@@ -499,13 +501,13 @@ elective); `plan/measurements-day.md` (goal 5 and unit 4 → recall; timetable);
 
 ## Open questions
 
-1. **Entry point**: the course map says "after Colour (day 7)"; units 3–4 lean on labelling
-   (day 9), `relations/` (day 11) and FFT registration (day 12). Proposal: entry after
-   Measurements (day 11), FFT registration recommended. The units are written to survive with
+1. **Entry point**: the course map says "after Colour (day 42)"; units 3–4 lean on labelling
+   (day 14), `relations/` (day 16) and FFT registration (day 23). Proposal: entry after
+   Measurements (day 16), FFT registration recommended. The units are written to survive with
    recalls either way.
-2. **Measurements day after the hand-over**: day 11 drops to three units. Proposal: give the
+2. **Measurements day after the hand-over**: day 16 drops to three units. Proposal: give the
    freed slot to the long `intensity-features/` deck (build-issues: "decks run long") or to
-   exercises; decide in `plan/measurements-day.md`. Core students now see colocalisation only
+   exercises; decide in `plan/measurements-day.md`. Students who skip this day see colocalisation only
    in the recall slide; is that enough, given how often two-channel images occur in biology?
    (Alternative: keep `coloc/` core and make this day units 2–4 + optional; rejected here because
    the course map assigns the unit to this day.)

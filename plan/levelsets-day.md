@@ -2,7 +2,9 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "Curves and energies" (snakes → level sets → dynamic programming; Ising/MRF); entry after core day 13 (graph cuts). Comes after the snakes day and before the dynamic programming day in this chain.
+**Course map (2026-11-13, self-study restructure):** day 31 of 51, Part VI "Segmentation as optimisation". Hard prerequisites: Snakes and active shape models (day 30), Morphology (day 13). Soft (see also): Marching cubes (day 47). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part VI (snakes → level sets → dynamic programming; Ising/MRF); entry after day 27 (graph cuts). Comes after the snakes day and before the dynamic programming day in this chain.
 
 ## Goal of the day
 
@@ -20,9 +22,9 @@ Why it fits this audience: everything rests on partial derivatives, the gradient
 
 - **No PDEs or numerical methods.** The level set equation is presented as "a rule for how each pixel value of $\phi$ changes per time step", i.e. forward Euler = a first-order Taylor step (link to the Taylor slide in *Filtering & convolution*). Stability (CFL) is shown empirically in the demo before the condition is stated. No existence/viscosity-solution theory.
 - **Divergence** may be rusty: one slide recalling $\nabla\cdot\mathbf{v} = \partial_x v_1 + \partial_y v_2$, with the picture "how much the normals spread out" (curvature of a circle $= 1/r$).
-- **Segmentation**: thresholding and isodata are known from day 6 (`otsu/`); unit 4 back-references them in one line instead of a recap. Graph cuts (day 13, `seg-energy/`) own the energy vocabulary (data + λ·smoothness); Chan–Vese is the continuous cousin of the same data + boundary-length energy and recalls it.
-- **Snakes** were the previous day of this elective chain; unit 3 recalls them in one slide.
-- **Distance transform** is owned by morphology (day 8); the SDF is "a distance transform with a sign" (one-line recall).
+- **Segmentation**: thresholding and isodata are known from day 12 (`otsu/`); unit 4 back-references them in one line instead of a recap. Graph cuts (day 27, `seg-energy/`) own the energy vocabulary (data + λ·smoothness); Chan–Vese is the continuous cousin of the same data + boundary-length energy and recalls it.
+- **Snakes** were the previous day of this chain of days; unit 3 recalls them in one slide.
+- **Distance transform** is owned by morphology (day 13); the SDF is "a distance transform with a sign" (one-line recall).
 - **Dirac delta / Heaviside**: needed for Chan–Vese only in a smoothed form ($H_\varepsilon$, $\delta_\varepsilon$); introduce as "a soft step and its derivative", plotted.
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -36,8 +38,8 @@ Four core units, about 1.5 h each including the exercise, plus one optional poin
 - Set operations for free: union $\min(\phi_1, \phi_2)$, intersection $\max$, complement $-\phi$. Two circles drawn as one $\phi$.
 - **Topology is a property of the slice, not of $\phi$**: raise the cutting plane $\phi = c$ through a two-peaked surface and watch one contour become two. This is the central picture of the day.
 - Geometry from $\phi$: normal $\mathbf{n} = \nabla\phi/|\nabla\phi|$; curvature $\kappa = \nabla\cdot\mathbf{n}$. Worked for the circle: $\kappa = 1/r$.
-- **Signed distance function** (SDF): $|\phi|$ = distance to the curve (the distance transform of day 8, with a sign). Then $|\nabla\phi| = 1$, $\mathbf{n} = \nabla\phi$, $\kappa = \nabla^2\phi$ (the Laplacian kernel they already know). Not every $\phi$ is an SDF: $\phi = x^2 + y^2 - r^2$ has the same zero set but not the same slope.
-- On a pixel grid: $\phi$ is an image. Extracting the contour = **marching squares** (sign changes along cell edges, linear interpolation for the crossing): one concept slide only. Marching squares is owned by the marching cubes day (3D elective, `isocontour/`: the 16-case table, the saddle case, the by-hand work); the demos draw the zero contour with its `lib/marching.ts`.
+- **Signed distance function** (SDF): $|\phi|$ = distance to the curve (the distance transform of day 13, with a sign). Then $|\nabla\phi| = 1$, $\mathbf{n} = \nabla\phi$, $\kappa = \nabla^2\phi$ (the Laplacian kernel they already know). Not every $\phi$ is an SDF: $\phi = x^2 + y^2 - r^2$ has the same zero set but not the same slope.
+- On a pixel grid: $\phi$ is an image. Extracting the contour = **marching squares** (sign changes along cell edges, linear interpolation for the crossing): one concept slide only. Marching squares is owned by the marching cubes day (Part IX, `isocontour/`: the 16-case table, the saddle case, the by-hand work); the demos draw the zero contour with its `lib/marching.ts`.
 - **Demo `levelsurface`** (new): left, the surface $z = \phi(x, y)$ as a rotatable shaded mesh (≈ 48×48, WebGL via the shared `lib/gl3d.ts`, drag to rotate) with a translucent horizontal plane at height $c$; right, the top view: $\phi$ as a diverging colour map with the contour $\phi = c$ in black and the zero contour in white. Slider $c$; shape menu (circle, ellipse, two circles via min, square, "egg crate" $\sin x \sin y$); toggle "true SDF / squared distance / SDF × 3" (same contour, different surface); click a point to show $\mathbf{n}$ and $\kappa$ there. Presets: "one becomes two" (two circles, sweep $c$), "same curve, different φ", "corner: where κ blows up".
 - By hand: on a 5×5 grid sample $\phi = \sqrt{x^2+y^2} - 1.5$; mark signs (inside/outside); compute $\nabla\phi$ and $\kappa$ by central differences at one pixel and compare with $1/r$. (Marching squares by hand removed: owned by the marching cubes day.)
 
@@ -72,7 +74,7 @@ Four core units, about 1.5 h each including the exercise, plus one optional poin
 
 ### 4. `chanvese/`: Region-based segmentation: Chan–Vese
 
-- Motivation, with a back-reference to thresholding (day 6) and to `seg-energy/` (day 13): thresholding a noisy image fails. Edges are weak or blurred in many micrographs, but the **means** inside and outside differ.
+- Motivation, with a back-reference to thresholding (day 12) and to `seg-energy/` (day 27): thresholding a noisy image fails. Edges are weak or blurred in many micrographs, but the **means** inside and outside differ.
 - Chan–Vese energy (piecewise-constant Mumford–Shah), in the course convention (λ = weight of the prior/smoothness term, data weights 1 in the concept layer):
   $$E(\phi, c_1, c_2) = \int_{\text{in}} (I - c_1)^2 + \int_{\text{out}} (I - c_2)^2 + \lambda\,\text{Length} + \nu\,\text{Area}_{\text{in}}.$$
   Name once: the literature writes $\mu$ for the length weight and $\lambda_1, \lambda_2$ for the data weights (math layer only, where unequal data weights are discussed).
@@ -80,16 +82,16 @@ Four core units, about 1.5 h each including the exercise, plus one optional poin
 - Alternate: for fixed curve, $c_1$, $c_2$ are the **means** inside and outside (one line of calculus). For fixed $c$'s, gradient descent on $\phi$ gives
   $$\phi_t = \delta_\varepsilon(\phi)\big[\lambda\kappa - \nu - (I - c_1)^2 + (I - c_2)^2\big]$$
   (sign depends on the inside convention; fix it once on the slides). Read the bracket as a speed: a pixel joins the side whose mean it is closer to; $\lambda\kappa$ keeps the curve short. Write it with smoothed $H_\varepsilon$, $\delta_\varepsilon$, plotted.
-- Consequences: no image gradient needed (robust to noise and blur); with $\lambda = 0$ the result is the threshold at $(c_1 + c_2)/2$, i.e. two-means clustering of intensities: literally the **isodata** fixed point of day 6 (`otsu/`), as "λ = 0 is thresholding" on day 13; with a wide $\delta_\varepsilon$ interior holes appear far from the initial curve (new topology, again for free); local minima, so initialisation still matters (a grid of small circles is the classic robust start).
-- **Connection to graph cuts**: the same energy (data term + boundary length) is what `graphcut-seg/` minimises on a pixel graph. Graph cuts: global optimum for fixed $c_1, c_2$, discrete, metrication artefacts. Level sets: continuous, sub-pixel, smooth boundaries, any differentiable energy, but local minimum. Graph cuts (day 13) always come first, so this is a back-reference slide here.
+- Consequences: no image gradient needed (robust to noise and blur); with $\lambda = 0$ the result is the threshold at $(c_1 + c_2)/2$, i.e. two-means clustering of intensities: literally the **isodata** fixed point of day 12 (`otsu/`), as "λ = 0 is thresholding" on day 27; with a wide $\delta_\varepsilon$ interior holes appear far from the initial curve (new topology, again for free); local minima, so initialisation still matters (a grid of small circles is the classic robust start).
+- **Connection to graph cuts**: the same energy (data term + boundary length) is what `graphcut-seg/` minimises on a pixel graph. Graph cuts: global optimum for fixed $c_1, c_2$, discrete, metrication artefacts. Level sets: continuous, sub-pixel, smooth boundaries, any differentiable energy, but local minimum. Graph cuts (day 27) always come first, so this is a back-reference slide here.
 - Pointers, not taught: multiphase Chan–Vese (two functions → four regions), vector-valued images, shape priors.
 - **Demo `chanvese`** (new, main demo of the afternoon): image (synthetic: noisy two-level shapes with a hole, a blurred edge, and a gradient background; real: cell micrograph; noise slider for both). Initialisation: one circle, a grid of circles, or drawn. Sliders $\lambda$ (length), $\nu$, $\varepsilon$ of $\delta_\varepsilon$; data-weight ratio $\lambda_1/\lambda_2$ behind a "math layer" toggle. Live evolution with play / step / reset; side panels: $\phi$ map, current $c_1$, $c_2$ shown on the histogram, energy versus iteration (should decrease), and thresholding at $(c_1 + c_2)/2$ for comparison. Toggle "edge-based (`gac` speed) vs Chan–Vese" on the same image, so the morning and afternoon demos meet. Presets: "noise: edges fail, regions work", "λ = 0 is thresholding", "large λ: smooth but loses detail", "hole appears", "gradient background: a single mean is wrong", "bad start: local minimum".
 - By hand: the 8-pixel 1D example above for two splits and $\lambda = 0$ / $\lambda = 1$ (length = number of boundary points); sign of the speed bracket at a given pixel for given $c_1$, $c_2$.
 
 ### 5. (further reading, no unit) Where this leads
 
-- **Fronts that only grow** (moved): if $F > 0$ always, store the arrival time $T$, $|\nabla T|\,F = 1$. Taught as `fastmarching/` on the dynamic programming day (next in this chain: "fast marching is Dijkstra with an upwind update"); one pointer slide here, linked from reinitialisation (with $F = 1$, $T$ is the distance transform). Flooding from seeds is the watershed picture (day 10).
-- **3D**: the same equations for surfaces in volumes (CT, confocal stacks); 3D images are introduced in `volumes3d/` and surfaces extracted with marching cubes (3D elective). One slide.
+- **Fronts that only grow** (moved): if $F > 0$ always, store the arrival time $T$, $|\nabla T|\,F = 1$. Taught as `fastmarching/` on the dynamic programming day (next in this chain: "fast marching is Dijkstra with an upwind update"); one pointer slide here, linked from reinitialisation (with $F = 1$, $T$ is the distance transform). Flooding from seeds is the watershed picture (day 15).
+- **3D**: the same equations for surfaces in volumes (CT, confocal stacks); 3D images are introduced in `volumes3d/` and surfaces extracted with marching cubes (Part IX). One slide.
 
 ## Shared engineering
 
@@ -117,7 +119,7 @@ Four core units, about 1.5 h each including the exercise, plus one optional poin
 - Unit 2 is the densest (derivation, upwind, CFL, reinitialisation). Option (review-organisation §2.7): split it into `levelset-eq/` (equation, speeds, topology) and `levelset-num/` (upwind, CFL, reinitialisation), with unit 3 (`geodesic/`) shortened to make room. Unit 1 has gained time from dropping marching squares by hand, which may absorb some of unit 2. Decide after a first build.
 - How much numerics? Proposal: upwind and CFL shown in the demo and done once by hand in 1D, no proofs; the curvature time-step limit only mentioned. Is that enough, or too much for this course?
 - Geodesic active contours: include the advection term $\nabla g\cdot\nabla\phi$ (needs one more idea), or stop at the "braking balloon" $g(c - \varepsilon\kappa)$? **Decided (course map):** explicit snakes get one recall slide (the snakes day precedes this one).
-- **Decided (course map):** graph cuts (day 13) and watershed (day 10) come before this elective, so those slides are back-references; marching cubes is a separate elective (3D group), so the marching-squares slide is a pointer.
+- **Decided (course map):** graph cuts (day 27) and watershed (day 15) come before this day, so those slides are back-references; marching cubes is a separate day (3D group), so the marching-squares slide is a pointer.
 - Is `cell256.png` suitable for Chan–Vese, or should a fluorescence image (clear two-phase) be added?
 - **Decided:** fast marching moved to the dynamic programming day. Open: should the freed optional slot become a 3D unit (level sets in volumes, building on `volumes3d/`), or stay a pointer?
 - Programming language for the code parts is still open (see README).

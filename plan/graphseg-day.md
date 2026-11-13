@@ -2,12 +2,14 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
 
-**Course map (2026-11-13, "Queue, second batch"):** elective, group "Curves and energies";
-**entry after core day 13 (graph cuts)**. Hard prerequisites: day 13 (`seg-energy/`,
-`graphcut-seg/`, `ncut/`: pixel graphs, contrast weights, the graph Laplacian), day 10
-(watershed: `ws-landscape/`, `ws-flooding/`, `ws-gradient/`), day 9 (`label-connectivity/`:
-union–find). Soft prerequisites: `gmrf/` (Ising elective: the same Laplacian linear system with a
-data term), `kmeans/` (Gaussian mixtures elective), `morph-reconstruct/` (dynamics, h-minima).
+**Course map (2026-11-13, self-study restructure):** day 29 of 51, Part VI "Segmentation as optimisation". Hard prerequisites: Graph cuts (day 27), Watershed (day 15). Soft (see also): Ising model and Markov random fields (day 28), Gaussian mixtures (day 35). Source: `days.yml`.
+
+**Earlier placement (2026-11-13, "Queue, second batch"):** Part VI;
+**entry after day 27 (graph cuts)**. Hard prerequisites: day 27 (`seg-energy/`,
+`graphcut-seg/`, `ncut/`: pixel graphs, contrast weights, the graph Laplacian), day 15
+(watershed: `ws-landscape/`, `ws-flooding/`, `ws-gradient/`), day 14 (`label-connectivity/`:
+union–find). Soft prerequisites: `gmrf/` (Ising day: the same Laplacian linear system with a
+data term), `kmeans/` (Gaussian mixtures day), `morph-reconstruct/` (dynamics, h-minima).
 Independent of snakes, level sets, dynamic programming and splines. The day **owns**: the random
 walker, minimum spanning trees in segmentation (Kruskal, single linkage, Felzenszwalb–Huttenlocher),
 watershed as a minimum spanning forest, hierarchical segmentation (merge trees, ultrametric contour
@@ -25,7 +27,7 @@ After the day a student can:
 2. explain why the random walker gives **probabilities**, never islands without a seed (maximum
    principle), and where it fails (results depend on seed position; far from all seeds the
    probabilities fade towards an even split); compare it with graph cuts on the same seeds;
-3. build a **minimum spanning tree** with Kruskal's algorithm (union–find recalled from day 9),
+3. build a **minimum spanning tree** with Kruskal's algorithm (union–find recalled from day 14),
    explain why removing its heaviest edges is **single-linkage** segmentation, and why that
    **chains** through one weak link;
 4. run **Felzenszwalb–Huttenlocher** by hand on a 1D signal: merge two components only if the
@@ -49,9 +51,9 @@ After the day a student can:
    breaks.
 
 Why it fits this audience: everything is graphs, sorting, averages and one sparse linear system
-(the graph Laplacian they met as a quadratic form in `ncut/`). Day 13 left them with one
+(the graph Laplacian they met as a quadratic form in `ncut/`). Day 27 left them with one
 algorithm (max-flow) and one eigenvector; this day shows the other three classic graph tools
-(linear systems, spanning trees, hierarchies) and closes the loop with the watershed of day 10:
+(linear systems, spanning trees, hierarchies) and closes the loop with the watershed of day 15:
 graph cuts, random walker and watershed become one family that differs only in how it adds up
 edge weights. Kirchhoff's laws and "a harmonic function is the average of its neighbours" are
 physics/calculus they know.
@@ -60,7 +62,7 @@ physics/calculus they know.
 
 What the built units already teach (checked), and what this day recalls in one line:
 
-- **`ncut/`** (built, day 13): pixel graph with Gaussian affinities, $L = D - W$,
+- **`ncut/`** (built, day 27): pixel graph with Gaussian affinities, $L = D - W$,
   $\mathbf x^\top L\mathbf x = \tfrac12\sum w_{pq}(x_p - x_q)^2$ (math slide "the graph Laplacian"),
   Fiedler vector, min-cut vs normalized cut table (row "typical use: … superpixels"). Unit 1 starts
   from that quadratic form: "`ncut/` minimised it without seeds and needed an eigenvector; with
@@ -69,11 +71,11 @@ What the built units already teach (checked), and what this day recalls in one l
   (this day uses the **same** weights and the same σ, so the methods can be compared on one
   graph), seeds as hard constraints, the seeds slide "markers on the watershed day, seeds here",
   failure modes (shrinking bias, metrication). Recalled in units 1 and 3.
-- **`gmrf/`** (built, Ising elective, **not** a hard prerequisite): "quadratic smoothing = one
+- **`gmrf/`** (built, Ising day, **not** a hard prerequisite): "quadratic smoothing = one
   linear system with the graph Laplacian", $(I + \lambda L)\mathbf x = \mathbf y$. Unit 1 says in
   one line: "same matrix; the walker replaces the data term by clamped seeds" and gives the
   random walker *with priors* as that link. Students without `gmrf/` lose nothing.
-- **`label-connectivity/`** (built, day 9): union–find with the `unionfind` demo and its math slide
+- **`label-connectivity/`** (built, day 14): union–find with the `unionfind` demo and its math slide
   (nearly linear). Unit 2 recalls it in one slide: Kruskal *is* labelling with edges sorted by
   weight.
 - **`ws-flooding/`** (built): Meyer's priority-queue flooding, FIFO on plateaus, math slide
@@ -83,11 +85,11 @@ What the built units already teach (checked), and what this day recalls in one l
   generalises it; unit 3 explains leakage as "the max of a path ignores everything but one edge".
 - **`morph-reconstruct/`** (built): **dynamics** of an extremum (math slide) and h-extrema. Recalled
   in unit 4 as the "dynamics" attribute.
-- **k-means**: isodata = 1D 2-means in `otsu/` (core day 6); Lloyd's algorithm, objective and
-  k-means++ in `kmeans/` (Gaussian mixtures elective, may not have been taken). Unit 5 therefore
+- **k-means**: isodata = 1D 2-means in `otsu/` (day 12); Lloyd's algorithm, objective and
+  k-means++ in `kmeans/` (Gaussian mixtures day, may not have been taken). Unit 5 therefore
   re-states the two steps of k-means in **one recall slide** (assign to the nearest centre, move
   each centre to its mean), with pointers to both, and does not depend on k-means++ or the proof.
-- **CIELAB and ΔE** (`colour-perceptual/`, core day 7): SLIC's colour distance is a Lab distance
+- **CIELAB and ΔE** (`colour-perceptual/`, day 42): SLIC's colour distance is a Lab distance
   (one line).
 - **`gmm-images/`** (built): slide "Relatives: mean shift and superpixels" with the SLIC figure on
   the micrograph (243 superpixels). Unit 5 owns SLIC now; that slide stays as the short preview and
@@ -99,21 +101,21 @@ No prerequisite gap that needs new material elsewhere.
 
 | Plan / unit | What this day takes | What stays there |
 |---|---|---|
-| `ncut/` (day 13) | Nothing taught; the Laplacian quadratic form is recalled | Graph Laplacian, Fiedler vector, normalized cuts (owner). Its superpixel pointer line → `superpixels/` |
-| `graphcut-seg/` (day 13) | The **three-way** seeded comparison (sum / squares / max) and power watershed live in `ws-msf/` | The pairwise watershed vs graph-cut comparison on the seeds slide stays as is (day 13 is core and comes first) |
-| `plan/watershed-day.md` optional unit 5 `ws-graphs/` (**not built**) and the `floodgrid` `msf` mode (not built, `plan/build-issues.md`) | The whole unit: watershed as MSF, Meyer = Prim from all markers, watershed cuts (Cousty et al.), power watershed, the side-by-side with graph cuts. Built here as core unit `ws-msf/` with the `graphgrid` demo | Day 10 keeps everything it has; `ws-flooding/`'s shortest-path math slide gets a one-line forward pointer |
+| `ncut/` (day 27) | Nothing taught; the Laplacian quadratic form is recalled | Graph Laplacian, Fiedler vector, normalized cuts (owner). Its superpixel pointer line → `superpixels/` |
+| `graphcut-seg/` (day 27) | The **three-way** seeded comparison (sum / squares / max) and power watershed live in `ws-msf/` | The pairwise watershed vs graph-cut comparison on the seeds slide stays as is (day 27 comes first) |
+| `plan/watershed-day.md` optional unit 5 `ws-graphs/` (**not built**) and the `floodgrid` `msf` mode (not built, `plan/build-issues.md`) | The whole unit: watershed as MSF, Meyer = Prim from all markers, watershed cuts (Cousty et al.), power watershed, the side-by-side with graph cuts. Built here as core unit `ws-msf/` with the `graphgrid` demo | Day 15 keeps everything it has; `ws-flooding/`'s shortest-path math slide gets a one-line forward pointer |
 | `ws-gradient/` "Region merging: a hierarchy" | Hierarchies as a topic: merge trees, attributes, UCM, RAG merging (`merge-trees/`) | The slide stays as the preview (h-minima as one cut of a hierarchy), plus a pointer here |
 | `morph-reconstruct/` | Nothing taught; dynamics recalled as one attribute | Dynamics, h-extrema (owner) |
 | `label-connectivity/` | Nothing taught; union–find reused for Kruskal and FH | Union–find (owner) |
-| `kmeans/` (GMM elective) | Nothing taught; SLIC recalls the two steps in one slide | k-means as an algorithm (owner) |
+| `kmeans/` (GMM day) | Nothing taught; SLIC recalls the two steps in one slide | k-means as an algorithm (owner) |
 | `gmm-images/` slide "Relatives: mean shift and superpixels" | SLIC as a method (owner now) | Mean shift (one slide, stays there); the SLIC bullet becomes a preview with a pointer |
-| `gmrf/` (Ising elective) | Nothing; one-line link "same Laplacian system" | Quadratic smoothing, TV (owner) |
-| `livewire/`, `fastmarching/` (DP elective) | Nothing; one line in `ws-msf/`: Prim adds the cheapest **edge**, Dijkstra the cheapest **path sum** | Dijkstra, live-wire, fast marching (owner) |
-| `object-eval/`, `agreement/` (day 16) | Superpixel metrics (boundary recall, under-segmentation error, achievable segmentation accuracy) are defined in `superpixels/` | Object matching, F1/AP, boundary distances (owner); pointer for evaluating a whole hierarchy |
-| `instances/` (day 18) | Nothing taught; optional `multicut/` points to "network predicts boundaries → watershed/agglomeration" | Instance segmentation (owner) |
-| `pixelclass/` (day 14) | Nothing; one line in `superpixels/`: features per superpixel instead of per pixel | Feature stack, pixel classification (owner) |
+| `gmrf/` (Ising day) | Nothing; one-line link "same Laplacian system" | Quadratic smoothing, TV (owner) |
+| `livewire/`, `fastmarching/` (DP day) | Nothing; one line in `ws-msf/`: Prim adds the cheapest **edge**, Dijkstra the cheapest **path sum** | Dijkstra, live-wire, fast marching (owner) |
+| `object-eval/`, `agreement/` (day 37) | Superpixel metrics (boundary recall, under-segmentation error, achievable segmentation accuracy) are defined in `superpixels/` | Object matching, F1/AP, boundary distances (owner); pointer for evaluating a whole hierarchy |
+| `instances/` (day 39) | Nothing taught; optional `multicut/` points to "network predicts boundaries → watershed/agglomeration" | Instance segmentation (owner) |
+| `pixelclass/` (day 33) | Nothing; one line in `superpixels/`: features per superpixel instead of per pixel | Feature stack, pixel classification (owner) |
 
-Notation used throughout the day (stated on the first slide of each unit, consistent with day 13):
+Notation used throughout the day (stated on the first slide of each unit, consistent with day 27):
 **affinity** $w_{pq}$ (large = similar; graph cuts, random walker) and **dissimilarity**
 $d_{pq}$ (large = different; MST, FH, watershed). Image weights: $w_{pq} = \exp(-(I_p - I_q)^2/2\sigma^2)$,
 $d_{pq} = |I_p - I_q|$ (or the gradient landscape $\max(f_p, f_q)$ for watershed). λ is not used
@@ -122,9 +124,9 @@ convention).
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
-Five core units of about 75–80 min each including the exercise (they lean on day 13 and day 10, so
+Five core units of about 75–80 min each including the exercise (they lean on day 27 and day 15, so
 each starts further along than a fresh topic), plus one optional unit. Order: the random walker
-first (closest to day 13: same graph, same seeds, same Laplacian), then spanning trees (a new tool),
+first (closest to day 27: same graph, same seeds, same Laplacian), then spanning trees (a new tool),
 then watershed as a spanning forest (needs both: it closes the "three ways" comparison), then
 hierarchies (built from the merge order of units 2–3), then superpixels (uses units 2–4 as
 "other superpixel methods" and as the graph they feed). Every lecture's "About this lecture" slide
@@ -166,7 +168,7 @@ Concept layer (≈ 18 content slides, 4 math):
 - **Random walker with priors** (one slide): add a per-pixel pull towards each class from an
   intensity model (the data term of `seg-energy/`), weighted by λ. Same linear system with an
   extra diagonal; the link to `gmrf/`'s $(I + \lambda L)\mathbf x = \mathbf y$ in one line (for those who took
-  the Ising elective).
+  the Ising day).
 - **Random walker vs graph cut** on the same seeds (table + figure): both use $w_{pq}$; graph cut
   minimises the **sum of cut weights** over 0/1 labels (exact, hard labels, shrinking bias);
   the walker minimises the **sum of squared differences** over real values (exact, soft labels, no
@@ -397,7 +399,7 @@ Concept layer (≈ 17 content slides, 4 math):
   al. 2011, open question 3.)
 - **Speed**: MSF/watershed is near-linear (a sort or a bucket queue), the walker a linear system,
   graph cuts a max-flow: the reason watershed is the default first step on large 3D data.
-- Prim vs Dijkstra in one line: Prim adds the cheapest **edge**, Dijkstra (DP elective,
+- Prim vs Dijkstra in one line: Prim adds the cheapest **edge**, Dijkstra (DP day,
   `livewire/`) the cheapest **path sum**; replacing the sum by a max turns Dijkstra into the
   watershed (math slide of `ws-flooding/`).
 
@@ -714,7 +716,7 @@ New library files owned by this day (names checked: no collision with `demos/src
    built (`plan/build-issues.md`, together with the `floodgrid` `msf` mode). Its content
    (watershed as MSF, Meyer = Prim, watershed cuts, the graph-cut comparison, power watershed) is
    exactly this day's unit 3, and it is much stronger after the random walker and spanning trees
-   than as an optional tail of day 10. `plan/watershed-day.md` unit 5 then becomes a one-line
+   than as an optional tail of day 15. `plan/watershed-day.md` unit 5 then becomes a one-line
    pointer, and the `floodgrid` `msf` mode is dropped in favour of `graphgrid` (Prim from
    markers). Built-unit edit (later, not here): a forward pointer line in `ws-flooding/` (math slide
    "flooding is a shortest-path search") and in `ws-gradient/` (region-merging and leakage slides).
@@ -725,15 +727,15 @@ New library files owned by this day (names checked: no collision with `demos/src
    (`gmm-images/` keeps its "Relatives" slide as a preview, and mean shift; `kmeans/` keeps k-means).
    Built-unit edits (later): `ncut/` pointer line ("superpixels, SLIC, mean shift") → points to
    `superpixels/`; `gmm-images/` SLIC bullet → pointer; `graphcut-seg/` seeds slide → one line
-   "a third way, the random walker, and all three side by side: graph-based segmentation elective".
+   "a third way, the random walker, and all three side by side: graph-based segmentation day".
 3. **Sidebar placement**: in the group "Curves and energies" (as the course map says), **after
-   Ising/MRF**: it needs only day 13, but students who did `gmrf/` recognise the Laplacian system,
+   Ising/MRF**: it needs only day 27, but students who did `gmrf/` recognise the Laplacian system,
    and it is not part of the snakes → level sets → DP chain. Optionally rename the group to
    "Curves, graphs and energies", since this day has no curves. (Alternative: a group of its own,
    "Graphs", with this day only; not proposed, since one-day groups make the sidebar longer.)
 4. **Topic page "Segmentation"** (planned in the course map): add the random walker, FH, SLIC and
    hierarchies; the three-way seeded comparison (sum / squares / max) is a natural centre for that
-   page. **Prerequisite database**: hard = day 13 (`graphcut-seg/`, `ncut/`), day 10
+   page. **Prerequisite database**: hard = day 27 (`graphcut-seg/`, `ncut/`), day 15
    (`ws-flooding/`, `ws-gradient/`), `label-connectivity/`; soft = `gmrf/`, `kmeans/`,
    `morph-reconstruct/`, `colour-perceptual/`.
 
@@ -743,7 +745,7 @@ New library files owned by this day (names checked: no collision with `demos/src
    shorter unit (drop the metrics math and the "use them" tab from the lecture, keep it in the
    exercise); merge the RAG material of `merge-trees/` into `superpixels/`; or make
    `merge-trees/` optional. Proposal: keep five, since each unit is shorter than a fresh topic.
-2. **Order of units 1 and 2**: random walker first (proposal: continuity with day 13) or spanning
+2. **Order of units 1 and 2**: random walker first (proposal: continuity with day 27) or spanning
    trees first (Kruskal is simpler; then unit 3 directly after unit 2)? With the proposal, unit 3
    needs both and sits well after them.
 3. **Power watershed table**: check the exact $(p, q)$ table of Couprie et al. 2011 (which limits

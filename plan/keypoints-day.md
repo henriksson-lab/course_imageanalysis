@@ -2,9 +2,11 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
 
-**Course map (2026-11-13, "Queue, second batch"):** elective day, group "Detection" (Hough,
+**Course map (2026-11-13, self-study restructure):** day 24 of 51, Part V "Aligning images and motion". Hard prerequisites: Edges, blobs and ridges (day 2). Soft (see also): Hough transform (day 21), FFT registration (day 23), Point detection (day 20). Source: `days.yml`.
+
+**Earlier placement (2026-11-13, "Queue, second batch"):** Part IV (Hough,
 integral images, point detection, **keypoints**). Hard entry: Edges, blobs and ridges (day 2).
-Soft prerequisites: the Hough day's `ransac/` and FFT registration (day 12). Both are recalled
+Soft prerequisites: the Hough day's `ransac/` and FFT registration (day 23). Both are recalled
 so that this day stands alone. **Ownership:** this day becomes the owner of **feature
 matching**: keypoints across scale and rotation, local descriptors (gradient histograms and
 binary), matching (distances, ratio test, mutual nearest neighbours), and fitting a 2D
@@ -69,7 +71,7 @@ tiles with rotation, correlative light/EM overviews and photographs of specimens
 
 ## Prerequisite gap
 
-The day is entered after core day 2. Everything else is recalled, self-contained, in at most
+The day is entered after day 2. Everything else is recalled, self-contained, in at most
 one or two slides each.
 
 - **Harris/Förstner corners, the structure tensor, "interest points can be found again"**:
@@ -83,22 +85,22 @@ one or two slides each.
 - **The Hessian, trace and determinant**: `hessian/` (day 2). Recalled in one line for the
   edge-rejection test (a ridge has one large and one small curvature).
 - **Local maxima, sub-pixel peaks by a parabola**: `spot-filters/` and `spot-fit/` (the
-  point-detection elective, slide "Three-point rules"), possibly not taken. Unit 1 gives the 1D
+  point-detection day, slide "Three-point rules"), possibly not taken. Unit 1 gives the 1D
   three-point parabola in one slide (self-contained) and generalises it to 3D in the math layer.
-- **Moments, the intensity centroid**: `regionprops/` (labelling, core day 9, may come later).
+- **Moments, the intensity centroid**: `regionprops/` (labelling, day 14, may come later).
   Unit 2 needs only "the brightness-weighted centre of a patch" for the orientation of binary
   descriptors. One line, self-contained, with a pointer.
-- **NCC** (normalised cross-correlation): owned by `matching/` (FFT registration, core day 12,
+- **NCC** (normalised cross-correlation): owned by `matching/` (FFT registration, day 23,
   may come later). Unit 2 defines it in one slide as the simplest descriptor (the normalised
   patch) with a pointer, as `two-view/` already does.
-- **The Hungarian algorithm / one-to-one assignment**: `object-eval/` (evaluation, day 16) and
-  `track-linking/` (tracking elective). Unit 3 uses it in one line ("if every point may be used
+- **The Hungarian algorithm / one-to-one assignment**: `object-eval/` (evaluation, day 37) and
+  `track-linking/` (tracking day). Unit 3 uses it in one line ("if every point may be used
   only once, solve an assignment problem") with a pointer. It is not taught here.
-- **RANSAC**: owned by `ransac/` (Hough elective, same group, maybe not taken). Unit 4 has a
+- **RANSAC**: owned by `ransac/` (Hough day, same group, maybe not taken). Unit 4 has a
   two-slide recall (minimal sample → exact fit → count inliers → keep the best → refit;
   $N = \log(1-p)/\log(1-w^s)$) and embeds the built `ransac` demo with `data-preset="seventeen"`.
   The application to transforms between images, which `ransac/` "Where RANSAC is standard"
-  says "belongs to the planned Motion elective", is taught here.
+  says "belongs to the optical flow and tracking days", is taught here.
 - **Affine maps in homogeneous coordinates, inverse mapping, bilinear interpolation**:
   `images/` (day 1). Recalled in one line for warping image 2 onto image 1.
 - **The homography** (image of a plane, rotating camera; DLT from 4 pairs): owned by `cameras/`
@@ -107,11 +109,11 @@ one or two slides each.
   DLT rows, pointing to `cameras/` for the derivation and to `two-view/` for the "pure rotation
   → homography" argument.
 - **Procrustes** (closed-form similarity from point pairs): owned by `shape-models/` (snakes
-  elective). Unit 4 states the result in one line (centre, rotate by SVD, scale) and points
+  day). Unit 4 states the result in one line (centre, rotate by SVD, scale) and points
   there.
-- **Global alignment of a tile graph by least squares**: `stitching/` (day 12). Unit 4 recalls
+- **Global alignment of a tile graph by least squares**: `stitching/` (day 23). Unit 4 recalls
   it as "the same graph, now with rotations"; bundle adjustment: pointer to `sfm/`.
-- **k-means** (optional unit only): `kmeans/` (Gaussian-mixtures elective). One-slide
+- **k-means** (optional unit only): `kmeans/` (Gaussian-mixtures day). One-slide
   self-contained version in the optional unit.
 
 ## Overlaps with other plans and units (who owns what)
@@ -123,16 +125,16 @@ one or two slides each.
 | Hessian, trace, determinant | `hessian/` (day 2) | the curvature-ratio edge test (one slide + math) |
 | Determinant-of-Hessian with box filters (SURF-style) | integral images `box-filters/` | one-line pointer in unit 1 "other detectors" |
 | Spot detection, local maxima, three-point parabola | point detection `spot-filters/`, `spot-fit/` | self-contained 1D parabola; spots are blobs **without** a descriptor (one comparison line) |
-| Intensity centroid (first moments) | `regionprops/` (day 9) | one line (orientation of binary descriptors) |
-| NCC, template matching | `matching/` (day 12) | one-slide self-contained recall ("the normalised patch is the simplest descriptor") |
+| Intensity centroid (first moments) | `regionprops/` (day 14) | one line (orientation of binary descriptors) |
+| NCC, template matching | `matching/` (day 23) | one-slide self-contained recall ("the normalised patch is the simplest descriptor") |
 | **Keypoints across scale and rotation, orientation assignment, repeatability** | **this day**, unit 1 | — |
 | **Local descriptors: gradient-orientation histograms, binary descriptors, invariance by normalisation, descriptor distances** | **this day**, unit 2 | `two-view/` recalls in one slide; SVM day's unbuilt `detect-window/` (HOG) recalls the cell histogram from here |
 | **Matching: nearest neighbour, ratio test, mutual NN, one-to-one, match precision/recall, fast search** | **this day**, unit 3 (moves from `two-view/`) | `two-view/`, `sfm/` recall; tracking's `track-linking/` stays the owner of linking over time |
 | One-to-one assignment (Hungarian) | `object-eval/` (evaluation) | one-line use with a pointer |
-| RANSAC (algorithm, iteration count, vs Hough) | `ransac/` (Hough elective) | two-slide recall + demo; **application to 2D transforms taught here** |
+| RANSAC (algorithm, iteration count, vs Hough) | `ransac/` (Hough day) | two-slide recall + demo; **application to 2D transforms taught here** |
 | 2D transforms (affine, homogeneous coordinates, warping) | `images/` (day 1) | recall; the **hierarchy of models and their degrees of freedom** is taught here |
 | Homography: definition, DLT, plane/rotation geometry | `cameras/` (3D group) | self-contained concept + math slide, pointer |
-| Similarity from point pairs (Procrustes) | `shape-models/` (snakes elective) | one-line statement, pointer |
+| Similarity from point pairs (Procrustes) | `shape-models/` (snakes day) | one-line statement, pointer |
 | Translation by phase correlation, global tile alignment, drift | FFT registration (`phasecorr/`, `stitching/`) | comparison slide (intensity vs features), recall of global least squares |
 | Fundamental matrix, epipolar geometry, RANSAC on $F$, triangulation | `two-view/` (3D group) | pointer only ("matches → $F$ → depth") |
 | Bundle adjustment | `sfm/` | pointer only (global panorama refinement) |
@@ -374,7 +376,7 @@ Concept layer:
   gradients may even reverse sign; one line: orientation-only histograms ignoring the sign, or
   mutual information on intensities, pointer to `nonrigid-reg/`).
 - Pointers: the same cell histogram, computed densely over a window, is the HOG feature of
-  window detectors (SVM elective, `svm-day` plan) and was the input to many classifiers before
+  window detectors (SVM day, `svm-day` plan) and was the input to many classifiers before
   neural networks; learned descriptors (optional unit 5). Image libraries call the gradient
   histogram "SIFT descriptors" and the steered binary one "ORB" (one line, no other names).
 
@@ -497,7 +499,7 @@ Concept layer:
   divided cells: correct descriptors, wrong for the transform). The cure is geometry: unit 4.
 - **Speed** (one slide): brute force compares all pairs: $n_1n_2$ distances of length 128 (2000 ×
   2000 × 128 ≈ 5·10⁸ operations: a second in a browser, a few ms on a GPU, pointer to the GPU
-  elective). Faster: **search trees** (k-d trees split the space by coordinates; exact search
+  day). Faster: **search trees** (k-d trees split the space by coordinates; exact search
   degrades in high dimensions, so libraries use **approximate** nearest neighbours: a few
   percent of wrong neighbours for 100× speed), and for binary descriptors **hashing** on subsets
   of bits. Details in the optional unit.
@@ -778,9 +780,9 @@ listed for the integration pass):
    `matchRatio`, `crossCheck`) are provided by `lib/descriptors.ts` and `lib/featurematch.ts`.
    A later optional preset of `epipolar` could run on real matches from these libraries.
 2. **The application of RANSAC to transforms between images moves from the "planned Motion
-   elective" to this day** (unit 4). The Motion group was built without it (optical flow,
+   day" to this day** (unit 4). The Motion group was built without it (optical flow,
    tracking). `ransac/lec.qmd` "Where RANSAC is standard", first bullet: "This application
-   belongs to the planned Motion elective…" → link to `feature-alignment/`. RANSAC itself stays
+   belongs to the optical flow and tracking days…" → link to `feature-alignment/`. RANSAC itself stays
    owned by `ransac/`.
 3. **Course map, owners table**: add the row "Keypoints across scale and rotation, local
    descriptors (gradient histograms, binary), feature matching (ratio test, mutual NN), fitting
@@ -791,7 +793,7 @@ listed for the integration pass):
    descriptors → `keypoints/`, `descriptors/`); `scale-space/` "Where this leads" (the SIFT line →
    `keypoints/`); `stitching/` "Limits of a shift", bullet "Features instead of pixels" →
    `feature-alignment/`; `matching/` after the intensity-vs-landmark table ("Feature points and
-   how to match them: the edges day … and the Motion elective" → this day); `lucas-kanade/`
+   how to match them: the edges day … and the optical flow and tracking days" → this day); `lucas-kanade/`
    "tracking points as a pointer" may add "large motions: match keypoints (`feature-matching/`)".
 5. **Entry and sidebar**: keep the hard entry "after day 2" (all real prerequisites are on day 2),
    but list `ransac/` (Hough) and the FFT registration day as **soft** prerequisites in the
@@ -936,7 +938,7 @@ synthetic. A real overlapping photo pair or tile set would help (open question 3
 ## Open questions
 
 1. **Ownership** (reorganisation 1–3): does this day take feature matching from `two-view/`, and
-   the transform-fitting application of RANSAC from the never-written Motion elective? Proposed:
+   the transform-fitting application of RANSAC from the never-written optical flow and tracking days? Proposed:
    yes, with recalls there.
 2. **Group and order**: Detection (as the course map says; detection of points is the first half)
    or Part III "Aligning images" / the Motion group (the second half is registration)? Proposed:

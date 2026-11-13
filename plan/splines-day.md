@@ -2,7 +2,9 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
 
-**Course map (2026-11-12):** elective, group "Curves and energies" (the splines row, requested
+**Course map (2026-11-13, self-study restructure):** day 6 of 51, Part I "Images as numbers". Hard prerequisites: Images, filters and frequencies (day 1). Soft (see also): Deconvolution (day 5), Labelling (day 14). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part VI (the splines row, requested
 2026-11-12); **entry after Part I** (needs `images/`: interpolation, homogeneous coordinates;
 `kernels/`: convolution; `fourier/`: frequency response; `regularise/`: data + λ·penalty).
 Independent of the snakes → level sets → dynamic programming chain, but best taken before
@@ -57,7 +59,7 @@ What the built units already teach (checked), and what this day recalls in one l
   Casteljau is "lerp of lerps", like bilinear), unit 2 (homogeneous coordinates with a $w$ that
   is *not* 1, divide at the end), unit 4 (beyond bilinear). No projective transforms are taught
   in `images/`; the division by $w$ is introduced here from scratch (one slide), with a pointer
-  to `pipeline3d/` (3D graphics elective: "the same division as the perspective divide").
+  to `pipeline3d/` (3D graphics day: "the same division as the perspective divide").
 - **`kernels/`** (day 1): convolution of kernels combines them. Unit 2: box * box = triangle,
   * box * box = cubic B-spline (picture, no derivation needed).
 - **`fourier/`** (day 1): low-pass, aliasing, the frequency response of a kernel. Unit 4
@@ -82,14 +84,14 @@ spline surfaces, cubic B-spline image interpolation (prefilter), the free-form d
 
 | Day / unit | What stays there | What this day does |
 |---|---|---|
-| `images/` (day 1) | nearest, bilinear, inverse mapping, affine homogeneous coordinates | unit 4 goes beyond bilinear; **pending edit** to `images/lec.qmd` (interpolation slide): one line "cubic and B-spline interpolation: splines elective" |
+| `images/` (day 1) | nearest, bilinear, inverse mapping, affine homogeneous coordinates | unit 4 goes beyond bilinear; **pending edit** to `images/lec.qmd` (interpolation slide): one line "cubic and B-spline interpolation: splines day" |
 | `regularise/` (day 5), owner of continuous regularisation | data + λ·penalty, choosing λ | unit 3 recalls it; the smoothing spline is the 1D curve-fitting instance; λ is the weight of the penalty (convention) |
-| `gmrf/` (Ising elective) | quadratic first-difference smoothing on a grid, TV | unit 3 one line: "a second-difference penalty is the discrete bending energy; first differences (`gmrf/`) penalise slope, not bending" |
-| `orthogonal-moments/` (moments elective) | ill-conditioning of monomial bases (Gram matrix) | unit 1 pointer: "the other problem of high-degree polynomials: rounding (moments elective)"; Runge here is about the interpolant itself, even in exact arithmetic |
+| `gmrf/` (Ising day) | quadratic first-difference smoothing on a grid, TV | unit 3 one line: "a second-difference penalty is the discrete bending energy; first differences (`gmrf/`) penalise slope, not bending" |
+| `orthogonal-moments/` (moments day) | ill-conditioning of monomial bases (Gram matrix) | unit 1 pointer: "the other problem of high-degree polynomials: rounding (moments day)"; Runge here is about the interpolant itself, even in exact arithmetic |
 | `shape-features/` (labelling day) | perimeter estimators and their bias, form factor, **Fourier descriptors** (a smooth outline from low frequencies) | unit 3 recalls the bias; compares a smoothing spline (local) with truncated Fourier descriptors (global) in one slide; **pending edit**: pointer in its "Contour descriptors" slide |
-| `snakes/`, `snake-matrix/` (snakes elective) | the snake energy, the pentadiagonal matrix, forces | **spline snakes** stay a pointer in unit 4 (a snake whose unknowns are a few B-spline control points; smoothness built in). **Pending edit**: one bullet in `snakes/lec.qmd` "Not covered here, but close" |
+| `snakes/`, `snake-matrix/` (snakes day) | the snake energy, the pentadiagonal matrix, forces | **spline snakes** stay a pointer in unit 4 (a snake whose unknowns are a few B-spline control points; smoothness built in). **Pending edit**: one bullet in `snakes/lec.qmd` "Not covered here, but close" |
 | Optical flow day (`plan/opticalflow-day.md`, being planned), unit 4 `nonrigid-reg/` | the registration energy (similarity incl. mutual information + λ·bending of the deformation), its optimisation, multiresolution, the `ffdreg` demo and `lib/deform.ts` (`ffdDisplacement`, `jacobianDeterminant`, `registerFFD`) | unit 4 teaches the **B-spline FFD representation** (control grid, displacement field, locality, partition of unity, folding) with the hand-driven `ffd` demo; `nonrigid-reg/` keeps its short FFD recall slide and points here for B-splines in depth. `bspline3` moves from `lib/deform.ts` into `lib/spline.ts` (`deform.ts` re-exports it, as that plan already proposes). Thin-plate splines (pointed to from `nonrigid-reg/`): optional unit 6 here |
-| `pipeline3d/` (3D graphics elective) | $4\times4$ homogeneous matrices, the perspective divide | unit 2 points to it for "dividing by $w$"; NURBS surfaces (CAD) and subdivision surfaces get a one-line pointer from the optional unit |
+| `pipeline3d/` (3D graphics day) | $4\times4$ homogeneous matrices, the perspective divide | unit 2 points to it for "dividing by $w$"; NURBS surfaces (CAD) and subdivision surfaces get a one-line pointer from the optional unit |
 | `scale-space/` (edges day) | Gaussian pyramid | unit 4: one line: "B-spline pyramids exist (Unser); the Gaussian one is the course's" |
 | Dynamic programming, level sets | curves as optimal paths / zero levels | no overlap beyond a summary line ("three ways to represent a curve: parametric spline, implicit φ, pixel path") |
 
@@ -311,7 +313,7 @@ Concept layer:
   outline as a colour/comb: bumps and necks of a cell appear as curvature extrema.
 - Smoothing spline (local) vs truncated Fourier descriptors (global, `shape-features/`): a
   sharp corner rings in Fourier, stays local in the spline (one slide, side by side).
-- Where this leads (one line each): spline snakes (unit 4 pointer, snakes elective), kymograph
+- Where this leads (one line each): spline snakes (unit 4 pointer, snakes day), kymograph
   edges and growth curves (smooth then differentiate: velocity and acceleration of a boundary).
 
 Math layer:
@@ -407,12 +409,12 @@ Concept layer:
   registration = find the control-point displacements that make two images agree, with a
   smoothness penalty; coarse-to-fine by refining the control grid. Representation here,
   optimisation there.
-- **Pointer: spline snakes** (snakes elective): a snake whose unknowns are a few B-spline
+- **Pointer: spline snakes** (snakes day): a snake whose unknowns are a few B-spline
   control points instead of 100 beads: smoothness is built in (elasticity/rigidity terms can be
   dropped or reduced), fewer unknowns, curvature and normals exact. One picture.
 - Spline surfaces in 3D (one line): the same tensor product in 3D gives smooth volume
   interpolation and 3D FFD; NURBS surfaces are how engineering shapes are stored (pointer to
-  the 3D graphics elective: meshes are the other representation).
+  the 3D graphics day: meshes are the other representation).
 - Summary of the day: one table: degree / interpolating? / continuity / local? / what it is
   used for (nearest, bilinear, cubic convolution, cubic B-spline, smoothing spline, NURBS).
 
@@ -478,7 +480,7 @@ displacement is linear in the control displacements.
   points without changing the curve; render a spline by subdividing until the polygon is
   flat.
 - Interpolating subdivision (four-point scheme) vs approximating; pointer: subdivision
-  surfaces in 3D (Catmull–Clark, Loop) and the 3D graphics elective's meshes.
+  surfaces in 3D (Catmull–Clark, Loop) and the 3D graphics day's meshes.
 - **Demo `chaikin`** (new, small): a control polygon, buttons "cut once" / "reset", rule menu
   (Chaikin, cubic B-spline, four-point), overlay of the limit curve from `lib/spline.ts`.
 - By hand: two Chaikin steps on a square; show the points after one step lie on the
@@ -493,7 +495,7 @@ displacement is linear in the control displacements.
 - Landmark-based warping (pairs of corresponding points → a smooth warp), the contrast with
   the grid-based FFD of unit 4 (global vs local support, scattered vs grid control points), and
   the smoothing version (data + λ·bending, as in unit 3). Pointed to from `nonrigid-reg/`
-  (optical flow day) and `shape-models/` (snakes elective: Procrustes is the rigid part).
+  (optical flow day) and `shape-models/` (snakes day: Procrustes is the rigid part).
 - **Demo `tpswarp`** (new, small): the cell image with draggable landmark pairs; the warped
   image and the deformed grid; λ slider (exact vs smoothed); presets "affine only (3 points)",
   "one landmark moved", "crossing landmarks: folding".
@@ -520,7 +522,7 @@ displacement is linear in the control displacements.
   homogeneous 3D view; `lib/random.ts` (`gauss`) for seeded noise; `lib/snake.ts`
   (`Contour`, `resample`, `perimeter`, `normals`) for closed outlines, so spline outlines and
   snakes share one contour type; `lib/fft.ts` for the Fourier-descriptor comparison.
-- `lib/moments.ts` is not needed (Legendre is the moments elective's; `runge` uses Chebyshev
+- `lib/moments.ts` is not needed (Legendre is the moments day's; `runge` uses Chebyshev
   nodes only).
 
 **New lib files this day owns** (names checked against `demos/src/lib/`: no collisions):
@@ -535,7 +537,7 @@ displacement is linear in the control displacements.
   `thomas` / a cyclic tridiagonal solve); least-squares regression spline; penalised
   (P-spline) smoothing with second-difference penalty, hat-matrix trace and leave-one-out/GCV
   scores. Also the thin-plate radial basis and its linear system (optional unit 6). Shared by `runge`,
-  `casteljau`, `bsplinebasis`, `bsplinecurve`, `splinefit`, `splineoutline`, `chaikin`, `tpswarp`; later recalled by a spline snake (snakes elective) if built.
+  `casteljau`, `bsplinebasis`, `bsplinecurve`, `splinefit`, `splineoutline`, `chaikin`, `tpswarp`; later recalled by a spline snake (snakes day) if built.
 - `demos/src/lib/splineimage.ts` (no DOM): uniform B-spline kernels $\beta^0..\beta^3$, the
   cubic B-spline prefilter (causal + anti-causal recursion, mirror boundary), 2D coefficient
   computation, cubic B-spline sampling and its exact gradient at sub-pixel positions, the
@@ -610,7 +612,7 @@ Optional `subdivision/` and `thin-plate/` as self-study or a fifth slot.
    9 px drag) should use the same convention. If only one FFD demo is wanted, `ffd` could be
    `ffdreg` with `data-mode="manual"`; proposed: keep both (different questions).
 6. **Pending edits to built units** (cross-day pointers, one line each): `images/lec.qmd`
-   interpolation slide → "cubic and B-spline: splines elective"; `snakes/lec.qmd` "Not covered
+   interpolation slide → "cubic and B-spline: splines day"; `snakes/lec.qmd` "Not covered
    here, but close" → spline snakes; `shape-features/lec.qmd` "Contour descriptors" →
    smoothing-spline outlines; `regularise/lec.qmd` → "smoothing splines are the same pattern for
    curves"; `orthogonal-moments/lec.qmd` → Runge pointer; `pipeline3d/lec.qmd` → NURBS use the

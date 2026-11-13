@@ -1,0 +1,222 @@
+---
+title: "Topic: registration and alignment"
+subtitle: "Bringing two images, two frames or two shapes into register: every approach in the course, side by side"
+description: "Shifts, rigid and affine maps, homographies, splines and flow fields; intensities versus features; exhaustive, closed-form, robust and downhill search compared."
+---
+
+Alignment comes up on many days of this course: tiles to stitch, a drifting time-lapse, two
+stains of one section, the frames of a movie, outlines of hands, two photographs of a scene.
+This page puts the approaches next to each other. It does not teach them; follow the links to
+the units for that.
+
+## The question {#question}
+
+Two images show (partly) the same thing. Where does each point of one image lie in the other?
+The answer is a **transform**: a map from the coordinates of the *moving* image to those of the
+*fixed* one. Once you have it, you can resample the moving image onto the fixed grid
+([inverse mapping and interpolation](../images/lec.qmd)) and compare, overlay, average or
+subtract them.
+
+![A fixed image and a moving image that is turned by 8° and shifted by (10, −6) pixels, with noise. In the overlays, fixed is green and moving magenta: where they agree, the overlay is grey. The search on the right tried 121 angles from −15° to 15°, removed the rotation, found the remaining shift with phase correlation, and kept the angle with the highest peak: 8°. The root-mean-square grey-level difference over the overlap drops from 0.17 to 0.03 (the noise alone has a standard deviation of 0.03).](fig-reg-question.png){fig-alt="Five panels. Fixed: a blotchy grey texture. Moving: the same texture turned slightly and shifted, with black corners outside the image. Before: green and magenta overlay with colour fringes everywhere, RMS 0.17. After: a grey overlay with green only at the borders, RMS 0.03. A plot of peak height against the angle tried, from −15 to 15 degrees: noisy around 0.03, with a clear peak of 0.073 at 8 degrees."}
+
+Every registration method, whatever its name, makes three choices:
+
+1. **Which transforms are allowed?** A shift, a rotation, an affine map, a smooth deformation, a
+   vector for every pixel. More freedom fits more, including things it should not fit.
+2. **What counts as "aligned"?** The grey levels agree (sum of squared differences), they agree
+   up to brightness and contrast (correlation), one predicts the other (mutual information), or
+   a set of matched points land on each other.
+3. **How is the best transform found?** By trying every candidate, by a closed formula, by a
+   robust guess-and-check, or by walking downhill from a start.
+
+The rest of this page goes through the three choices, then compares the methods.
+
+## Which transforms? {#transforms}
+
+![The grey grid is the moving image; the blue grid shows where its points go. From left to right, each model allows more: translation (2 numbers), rigid (3: rotation and shift), similarity (4: plus scale), affine (6: also shear; parallel lines stay parallel), homography (8: straight lines stay straight; a plane seen at an angle), free-form spline deformation (2 numbers per control point; smooth), dense flow (2 numbers per pixel).](fig-reg-zoo.svg){fig-alt="Seven small panels, each a grey 5 by 5 grid and its blue image. Translation: the grid moved. Rigid: moved and turned. Similarity: turned and smaller. Affine: sheared into a parallelogram. Homography: a quadrilateral with converging sides. Free-form spline: grid lines gently wavy. Dense flow: grid lines locally wiggly."}
+
+Choose the **simplest model the physics allows**: a microscope stage moves (translation); a
+slide put back on the stage also turns (rigid); a different objective adds scale
+(similarity); a flat object photographed at an angle needs a homography; tissue that bends,
+grows or is cut into sections needs a smooth deformation; cells moving independently need a
+flow field or tracking. Each extra number is one more way to fit noise, or to "register away" a
+real change.
+
+Try the five parametric models on the same point pairs:
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="transformzoo" data-preset="more"></div>
+<script src="../demos/dist/transformzoo.js"></script>
+```
+
+Questions on this demo: [feature alignment exercise](../feature-alignment/exercise.qmd#explore-transformzoo).
+The models in detail: [affine maps and homogeneous coordinates](../images/lec.qmd), [the
+transform hierarchy and the homography](../feature-alignment/lec.qmd), [free-form
+deformation with splines](../spline-images/lec.qmd).
+
+## What counts as aligned? {#evidence}
+
+There are two kinds of evidence.
+
+- **Intensities**: compare all the pixels of the overlap. Needs nothing but the images; uses
+  every pixel, so it is precise; fails on empty or repetitive texture and, with the simple
+  scores, when the two images have different contrast.
+- **Features**: find distinctive points (corners, blobs, beads, landmarks) in both images, match
+  them, and fit the transform to the pairs. Copes with large offsets, rotation, small overlap
+  and occlusion; fails when there are too few distinctive points, or when repeated texture gives
+  wrong matches.
+
+For intensities, the score decides which differences between the images are allowed:
+
+![Top: three moving images compared with the same fixed texture. Bottom: their joint histograms (how often fixed grey level x occurs together with moving grey level y, logarithmic colour). Aligned: a thin diagonal line. Off by 4 pixels: a cloud. Aligned but with a different contrast (moving = 1 − fixed², as in another stain): a thin curved line. The squared difference calls the third case the worst of all, and correlation gives it a large negative value; mutual information sees the thin line and rates it almost as high as the aligned case (2.25 against 2.49 bits).](fig-reg-jointhist.png){fig-alt="Six panels in two rows. Top: the texture aligned; the texture shifted by 4 pixels; the texture with inverted, nonlinear contrast. Bottom, joint histograms: a thin diagonal (MI 2.49 bits, NCC +0.99, mean squared difference 0.0004); a broad elliptical cloud (MI 0.56, NCC +0.73, 0.0097); a thin falling curve (MI 2.25, NCC −0.96, 0.2013)."}
+
+| Score | Allows | Use when |
+|---|---|---|
+| sum of squared differences | nothing: same grey levels | same camera, same settings |
+| normalised cross-correlation | brightness and contrast change (linear) | illumination or exposure differ |
+| mutual information | any one-to-one relation between grey levels | different stains, channels or modalities |
+| matched points | anything between the points | features or landmarks can be found and matched |
+
+Scores in detail: [three scores](../matching/lec.qmd), [mutual information and the joint
+histogram](../nonrigid-reg/lec.qmd) (demo: [joint histogram](../nonrigid-reg/exercise.qmd#explore-jointhist)).
+Features in detail: [keypoints](../keypoints/lec.qmd), [descriptors](../descriptors/lec.qmd),
+[matching](../feature-matching/lec.qmd).
+
+## How is the best transform found? {#search}
+
+The score, as a function of the transform's numbers, is a landscape. The four ways of searching
+it in the course:
+
+- **Try everything.** For a shift, compute the score for every shift at once with the FFT
+  ([cross-correlation](../xcorr-fft/lec.qmd), [phase correlation](../phasecorr/lec.qmd)). Global
+  and fast, but only for shifts (other parameters: loop over them, as in the first figure).
+- **Solve a formula.** For matched points, the best rigid, similarity or affine transform is a
+  least-squares fit in closed form ([Procrustes](../shape-models/lec.qmd),
+  [fitting clean pairs](../feature-alignment/lec.qmd)).
+- **Guess and check.** With wrong matches among the right ones, least squares is pulled
+  away. [RANSAC](../ransac/lec.qmd) fits the transform to random minimal samples and keeps the
+  one most pairs agree with.
+- **Walk downhill.** From a start, change the parameters a little in the direction that improves
+  the score: [Lucas–Kanade](../lucas-kanade/lec.qmd), [Horn–Schunck](../horn-schunck/lec.qmd),
+  [free-form registration](../nonrigid-reg/lec.qmd). The only option for many parameters, but
+  it finds the *nearest* good alignment, not the best one.
+
+![Left: the normalised cross-correlation of two images for every shift within ±30 pixels: a broad hill with its top at the true shift (+). Middle: phase correlation of the same pair: one sharp peak at the same place. Right: correlation along one axis for a coarse texture (blobs about 6 pixels) and a fine one (1.2 pixels). A downhill search started anywhere inside the shaded basin climbs to the right answer: ±44 pixels for the coarse texture, only ±6 for the fine one.](fig-reg-landscape.png){fig-alt="Three panels. A smooth colour map of NCC over shifts dx and dy from −30 to 30 with one broad bright hill at dx −12, dy 7, marked with a red cross. The phase correlation map: noise everywhere and a single bright pixel at the cross. A line plot of NCC against shift from −60 to 60: a wide blue bump for the coarse texture with a shaded basin of ±44 pixels, and a narrow orange spike for the fine texture with a basin of ±6 pixels."}
+
+The basin explains two standard tricks. **Coarse to fine**: blur or shrink both images first, so
+fine texture turns into coarse texture and the basin widens; align there, then refine at full
+resolution ([pyramids for Lucas–Kanade](../lucas-kanade/lec.qmd)). **Rough first, fine
+after**: get the rough transform from something global (phase correlation, features + RANSAC),
+then refine with a local, downhill method.
+
+## Features and outliers {#features}
+
+![Keypoints found in the fixed image (left) and the turned and shifted moving image (right), matched by their descriptors. Of 91 matches, 72 are within 2 pixels of the true transform. RANSAC keeps exactly those 72 (green) and rejects the 19 wrong ones (red). Fitted to the 72, the rotation is 7.84° (true: 8°) and the points land within 0.29 pixels on average; a least-squares fit to all 91 gives 5.63° and an error of 2.5 pixels.](fig-reg-features.png){fig-alt="Two textures side by side, the right one turned and shifted. Yellow dots mark keypoints. Many nearly parallel green lines join matching points; 19 red lines cross at odd angles, joining wrong pairs."}
+
+A few wrong matches are normal (repeated texture, noise). Least squares gives every pair a vote
+in proportion to its squared error, so one far-off wrong pair pulls the fit away;
+[RANSAC](../ransac/lec.qmd) counts votes instead. The [feature alignment
+unit](../feature-alignment/lec.qmd) has the full pipeline (demo:
+[RANSAC on matches](../feature-alignment/exercise.qmd#explore)).
+
+## Side by side {#compare}
+
+| Approach | Transform | Evidence | Assumes | Cost | Fails when | Units |
+|---|---|---|---|---|---|---|
+| Template matching, sliding score | shift | intensities (SSD, NCC) | same size and orientation | every shift × every pixel | rotation, scale; repeated texture | [matching](../matching/lec.qmd) |
+| Cross-correlation with the FFT | shift | intensities | overlap with contrast; periodic images (or padding) | three FFTs | wrap-around without padding; broad peaks | [FFT correlation](../xcorr-fft/lec.qmd) |
+| Phase correlation, stitching | shift (sub-pixel), many tiles | intensities, phase only | enough overlap; translation only | three FFTs per pair | rotation, scale; noise at high frequencies; empty tiles | [phase correlation](../phasecorr/lec.qmd), [stitching](../stitching/lec.qmd) |
+| Procrustes | rigid, similarity | matched landmarks | the correspondences are known and correct | closed form (one small SVD) | wrong correspondences | [shape models](../shape-models/lec.qmd) |
+| Keypoints + RANSAC | rigid to homography | matched features | enough distinctive points; most matches right | detection + matching + a few hundred guesses | empty or repetitive images; different modalities | [keypoints](../keypoints/lec.qmd), [matching](../feature-matching/lec.qmd), [alignment](../feature-alignment/lec.qmd), [RANSAC](../ransac/lec.qmd) |
+| Lucas–Kanade | shift per window | intensities, brightness constancy | small motion; texture in the window | closed form per pixel (pyramid for large motion) | flat regions; edges (aperture problem); large motion | [flow constraint](../flow-constraint/lec.qmd), [Lucas–Kanade](../lucas-kanade/lec.qmd) |
+| Horn–Schunck | vector per pixel | intensities, brightness constancy | smooth motion everywhere | many iterations | motion boundaries are blurred; flat regions filled in unchecked | [Horn–Schunck](../horn-schunck/lec.qmd) |
+| Free-form (spline) registration | smooth deformation | SSD, NCC or mutual information | the deformation is smooth; a rough alignment first | an optimisation over many parameters | folding; "registers away" real change; local minima | [splines on images](../spline-images/lec.qmd), [non-rigid](../nonrigid-reg/lec.qmd) |
+| Tracking | one position per object and frame | detections | objects can be detected; motion is predictable | assignment per frame | dense crowds; fast motion; divisions | [linking](../track-linking/lec.qmd), [prediction](../track-predict/lec.qmd) |
+| Two views, structure from motion | camera poses + 3D points | matched features | a static scene with depth (parallax) | RANSAC + bundle adjustment | pure rotation, flat scenes, tiny baseline | [two views](../two-view/lec.qmd), [SfM](../sfm/lec.qmd) |
+
+## Motion: registration between frames {#motion}
+
+Optical flow is registration of two frames a moment apart, with the most freedom of all: one
+vector per pixel. Two things make it possible. Motion between frames is small, so the
+downhill search starts inside the basin; and neighbouring pixels move together, which supplies
+the information one pixel cannot: along an edge, only the motion *across* the edge can be seen
+(the [aperture problem](../flow-constraint/lec.qmd); demo:
+[the aperture](../flow-constraint/exercise.qmd#explore-aperture)). Lucas–Kanade assumes one
+motion per window, Horn–Schunck a smooth field, and non-rigid registration a smooth family of
+deformations that may be large and may change the contrast. [Tracking](../track-linking/lec.qmd)
+instead keeps the identity of objects, and is usually done *after* correcting the global drift
+([drift correction](../stitching/exercise.qmd#explore-drift)).
+
+## When no single transform exists {#parallax}
+
+A transform maps image to image. That works when the scene is flat (a section, a slide, a
+painting) or the camera only turns. In a 3D scene seen from two positions, near points shift
+more than far ones (parallax), and no 2D transform aligns everything. Then the geometry is
+between the *cameras*: each point in one image lies on a line in the other ([epipolar
+geometry](../two-view/lec.qmd)), and how far along that line gives its depth
+([stereo](../stereo/lec.qmd), [structure from motion](../sfm/lec.qmd)). The degenerate cases of
+that geometry are exactly the cases where a homography *does* explain the matches.
+
+## The math: one objective {#math}
+
+::: {.callout-note collapse="true" title="The math: dissimilarity + regularisation, over a family of transforms"}
+For images, registration solves
+$$
+T^\ast \;=\; \arg\min_{T \in \mathcal T}\; \mathcal D\big(I_{\text{fixed}},\; I_{\text{moving}} \circ T\big) \;+\; \lambda\, \mathcal R(T),
+$$
+and for matched points $p_i \leftrightarrow q_i$
+$$
+T^\ast \;=\; \arg\min_{T \in \mathcal T}\; \sum_i \rho\big(\lVert T(p_i) - q_i \rVert\big).
+$$
+
+- The family $\mathcal T$: shifts (2 parameters), rigid (3), similarity (4), affine (6),
+  homography (8), B-spline deformations (2 per control point), flow fields (2 per pixel).
+- The dissimilarity $\mathcal D$: $\sum (I_f - I_m\circ T)^2$; $-\text{NCC}$; $-\text{MI}$, where
+  $\text{MI} = H(I_f) + H(I_m\circ T) - H(I_f, I_m\circ T)$ from the joint histogram.
+- The regulariser $\mathcal R$: zero for parametric families (the family *is* the
+  regularisation); $\int \lVert\nabla \mathbf u\rVert^2$ for Horn–Schunck; bending energy or a
+  penalty on a negative Jacobian determinant for free-form deformations.
+- The robust loss $\rho$: $\rho(r) = r^2$ is least squares (closed form for rigid, similarity and
+  affine: Procrustes); RANSAC uses $\rho(r) = 0$ if $r < \varepsilon$, else 1, and searches by
+  random minimal samples.
+
+The solvers: exhaustive search (for shifts, all at once by the correlation theorem
+$\mathcal F^{-1}[\hat I_f^{\,*}\hat I_m]$, or phase correlation with the magnitude divided out);
+closed form (Procrustes via an SVD, the direct linear transform for homographies); Gauss–Newton
+on a linearisation $I_m(\mathbf x + \mathbf u) \approx I_m + \nabla I_m^{\top}\mathbf u$, which
+for one shift per window gives the Lucas–Kanade system with the structure tensor as its
+matrix. The linearisation is valid only for small $\mathbf u$: that is the basin of the figure
+above, and the reason for pyramids.
+:::
+
+## Checking the result {#checking}
+
+A registration always returns *some* transform. Check it:
+
+- **Look**: a two-colour overlay or a checkerboard of fixed and aligned moving image; edges
+  should continue across the squares.
+- **Measure on points you did not use**: held-out landmarks or beads, and their distance after
+  alignment ([applications and limits](../nonrigid-reg/lec.qmd)).
+- **Read the confidence**: the height and sharpness of a correlation peak, the number of RANSAC
+  inliers, the residual of the fit ([how much to trust a peak](../phasecorr/lec.qmd)).
+- **For deformations**: the Jacobian determinant must stay positive (no folding), and the
+  deformation should not be freer than the question allows.
+- **For motion**: the warping residual, or ground truth on simulated sequences
+  ([evaluating flow](../horn-schunck/lec.qmd)).
+
+## All units on this topic {#units}
+
+| Day | Units |
+|---|---|
+| 1 Images | [affine transforms, inverse mapping, interpolation](../images/lec.qmd) ([demo](../images/exercise.qmd#explore)) |
+| 6 Splines | [splines on images, free-form deformation](../spline-images/lec.qmd) ([demo](../spline-images/exercise.qmd#explore)) |
+| 21 Hough | [RANSAC](../ransac/lec.qmd) ([demo](../ransac/exercise.qmd#explore)) |
+| 23 FFT registration | [sliding and scoring](../matching/lec.qmd) ([demo](../matching/exercise.qmd#explore)) · [cross-correlation with the FFT](../xcorr-fft/lec.qmd) ([demo](../xcorr-fft/exercise.qmd#explore)) · [phase correlation](../phasecorr/lec.qmd) ([demo](../phasecorr/exercise.qmd#explore)) · [stitching](../stitching/lec.qmd) ([demo](../stitching/exercise.qmd#explore), [sub-pixel](../stitching/exercise.qmd#explore-subpixel), [drift](../stitching/exercise.qmd#explore-drift)) |
+| 24 Keypoints | [keypoints](../keypoints/lec.qmd) ([demo](../keypoints/exercise.qmd#explore)) · [descriptors](../descriptors/lec.qmd) ([demo](../descriptors/exercise.qmd#explore)) · [matching](../feature-matching/lec.qmd) ([demo](../feature-matching/exercise.qmd#explore)) · [from matches to a transform](../feature-alignment/lec.qmd) ([transform zoo](../feature-alignment/exercise.qmd#explore-transformzoo), [RANSAC on matches](../feature-alignment/exercise.qmd#explore)) |
+| 25 Optical flow | [brightness constancy, aperture](../flow-constraint/lec.qmd) ([demo](../flow-constraint/exercise.qmd#explore-aperture)) · [Lucas–Kanade](../lucas-kanade/lec.qmd) ([demo](../lucas-kanade/exercise.qmd#explore)) · [Horn–Schunck](../horn-schunck/lec.qmd) ([demo](../horn-schunck/exercise.qmd#explore)) · [non-rigid registration](../nonrigid-reg/lec.qmd) ([joint histogram](../nonrigid-reg/exercise.qmd#explore-jointhist), [free-form](../nonrigid-reg/exercise.qmd#explore-ffdreg)) |
+| 26 Tracking | [linking](../track-linking/lec.qmd) ([demo](../track-linking/exercise.qmd#explore)) · [motion models](../track-predict/lec.qmd) |
+| 30 Snakes | [Procrustes and shape models](../shape-models/lec.qmd) ([demo](../shape-models/exercise.qmd#explore-procrustes)) |
+| 49 Multiple views | [cameras](../cameras/lec.qmd) · [two views](../two-view/lec.qmd) ([demo](../two-view/exercise.qmd#explore)) · [stereo](../stereo/lec.qmd) · [structure from motion](../sfm/lec.qmd) ([demo](../sfm/exercise.qmd#explore)) |
+
+Related topic pages: [finding points](point-detection.qmd) (correlation peaks, keypoints), [eigenvectors](eigenvectors.qmd) (structure tensor, Procrustes, calibration), [energy minimisation](energy.qmd) (Horn–Schunck, regularised registration); [all topics](index.qmd).

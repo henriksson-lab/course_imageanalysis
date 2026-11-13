@@ -16,33 +16,33 @@ One unit, folder **`contrast/`** (lec, quiz, exercise with `#explore` sections).
 **Part I, day 3 "Bit depth and noise", as the fourth unit: directly after `highbit/`,
 before `floatingpoint/`.** The integrator places it in the sidebar.
 
-Why day 3 and not day 6 (before `histogram/`):
+Why day 3 and not day 12 (before `histogram/`):
 
 1. **It continues the last slides of `highbit/`.** That unit ends with "Showing 12–16 bits on
    an 8-bit screen: windows", the math slide "A LUT generalises this: any function from raw value
    to colour, stored as a table. The window is the linear LUT", and "Colour maps, HDR and tone
    mapping". This unit is exactly the next step: non-linear LUTs, then LUTs chosen by the data.
-   On day 6 the window/LUT story would be three days old.
+   On day 12 the window/LUT story would be three days old.
 2. **The message belongs where display is introduced.** `highbit/` already says "the window
    changes only the display; measure on the raw values". This unit turns that sentence into a
    table of what each transform keeps and destroys, *before* the students measure anything
-   (thresholds on day 6, measurements on day 11) and before `denoise/` (day 5) asks the same
+   (thresholds on day 12, measurements on day 16) and before `denoise/` (day 5) asks the same
    question for restored images (it can then recall this unit's table).
-3. **Day 6 is already about segmentation and has larger decks** (`histogram/` 15, `otsu/` 19,
+3. **Day 12 is already about segmentation and has larger decks** (`histogram/` 15, `otsu/` 19,
    `local-threshold/` 17, `seg-eval/` 15 slide headings); day 3's decks are smaller
    (`quantisation/` 9, `cameranoise/` 11, `highbit/` 15, `floatingpoint/` 13), so a fifth unit
    fits there with less strain (timetable below).
 4. **Earlier users benefit**: the log display of spectra (`fourier/`, recalled), gamma before
-   `rgb-linear/` (day 7) and `colour-display/`, CLAHE as a preprocessing step that pixel
+   `rgb-linear/` (day 42) and `colour-display/`, CLAHE as a preprocessing step that pixel
    classifiers and point detection mention, equalised patches in `texture-features/`.
 
-The cost: equalisation needs the **cumulative histogram**, which `histogram/` (day 6, owner of
+The cost: equalisation needs the **cumulative histogram**, which `histogram/` (day 12, owner of
 histograms) introduces today. This unit therefore introduces the cumulative histogram *as a
 mapping* (one concept slide), and `histogram/` recalls it in one line and keeps the percentile
 threshold. See "Proposed reorganisation". The histogram itself is used only as "counts per
 value", which `highbit/` (the `window16` histogram) and `cameranoise/` already use.
 
-Fallback if day 3 is judged too full: day 6 as the second unit, directly **after**
+Fallback if day 3 is judged too full: day 12 as the second unit, directly **after**
 `histogram/` (not before it: before it, this unit would have to teach the histogram, which
 `histogram/` owns). Everything below works there too, with the cumulative histogram recalled
 instead of introduced.
@@ -113,16 +113,16 @@ What the built units already teach (checked), and what this unit recalls in one 
 | Unit / plan | What this unit takes or teaches | What stays there |
 |---|---|---|
 | `highbit/` (built) | Point operations and LUTs in general, gamma/log as **contrast** curves, the display-vs-analysis table | Window/level, CT windows, auto-contrast percentiles, hi-lo LUT, HDR and tone mapping (its bullet gets a forward pointer: "log and gamma curves: next unit") |
-| `histogram/` (built, day 6) | The **cumulative histogram** is introduced here as the equalisation mapping | Histograms as distributions, bins, the percentile threshold (it recalls the cumulative histogram in one line and gains the link "a percentile threshold is a fixed threshold on the equalised image") |
-| `rgb-linear/` (built, day 7; owner of the sRGB transfer function) | The power law $v^\gamma$ as a **display/contrast** point operation, and "gamma changes ratios, so do not measure on it" | Gamma **encoding** for storage (sRGB curve with its linear knee), linear light, why blur/average in linear light; its "Gamma encoding" slide recalls "a power-law point operation (`contrast/`)" in one line |
-| `colour-display/` (built, day 7) | nothing new | Colour maps; its slide "Displaying a grey image is already a choice" (which recalls LUT and window from the bit-depth day) can add `contrast/` to the recall |
-| `box-filters/` (built, integral elective) | CLAHE as the **histogram-based** local contrast method | Local contrast normalisation $(I - m)/(s + \varepsilon)$ with box filters; one-line pointer each way ("two ways to make contrast local: per-tile curves (CLAHE) or local mean and SD") |
-| `local-threshold/` (built, day 6) | nothing | Background correction (divide/subtract) and local thresholds. CLAHE is **not** a background correction: one line here, so students do not confuse "make it look even" with "make it measurably even" |
+| `histogram/` (built, day 12) | The **cumulative histogram** is introduced here as the equalisation mapping | Histograms as distributions, bins, the percentile threshold (it recalls the cumulative histogram in one line and gains the link "a percentile threshold is a fixed threshold on the equalised image") |
+| `rgb-linear/` (built, day 42; owner of the sRGB transfer function) | The power law $v^\gamma$ as a **display/contrast** point operation, and "gamma changes ratios, so do not measure on it" | Gamma **encoding** for storage (sRGB curve with its linear knee), linear light, why blur/average in linear light; its "Gamma encoding" slide recalls "a power-law point operation (`contrast/`)" in one line |
+| `colour-display/` (built, day 42) | nothing new | Colour maps; its slide "Displaying a grey image is already a choice" (which recalls LUT and window from the bit-depth day) can add `contrast/` to the recall |
+| `box-filters/` (built, integral day) | CLAHE as the **histogram-based** local contrast method | Local contrast normalisation $(I - m)/(s + \varepsilon)$ with box filters; one-line pointer each way ("two ways to make contrast local: per-tile curves (CLAHE) or local mean and SD") |
+| `local-threshold/` (built, day 12) | nothing | Background correction (divide/subtract) and local thresholds. CLAHE is **not** a background correction: one line here, so students do not confuse "make it look even" with "make it measurably even" |
 | `denoise/` (built, day 5) | The first "what may you measure" table (point operations) | The table for restorations (flux, peaks, sizes); it can recall this unit in one line ("as with contrast transforms: …") |
-| `intensity-features/` (built, day 11) | Rule: never measure intensities on an equalised/CLAHE/matched image | Normalisation of **measurements** (plates, batches, robust z): the right place to normalise is the numbers, not the pixels. Pointer from here |
-| `texture-features/` (built, day 11) | Exact (rank) equalisation is defined here (math/optional) | Uses histogram-equalised patches for GLCM (a legitimate use: texture features should not depend on contrast); can point back here |
-| `stain-unmixing/` (built, unmixing elective) | Histogram matching of grey images | Stain normalisation between scanners (by stain vectors): one-line pointer "for colour slides, normalise stains, not histograms" |
-| `coloc/` (built, colocalisation elective) | "Monotone transforms keep ranks": Spearman unchanged, Pearson changed (one exercise) | Pearson/Spearman as colocalisation measures |
+| `intensity-features/` (built, day 16) | Rule: never measure intensities on an equalised/CLAHE/matched image | Normalisation of **measurements** (plates, batches, robust z): the right place to normalise is the numbers, not the pixels. Pointer from here |
+| `texture-features/` (built, day 16) | Exact (rank) equalisation is defined here (math/optional) | Uses histogram-equalised patches for GLCM (a legitimate use: texture features should not depend on contrast); can point back here |
+| `stain-unmixing/` (built, unmixing day) | Histogram matching of grey images | Stain normalisation between scanners (by stain vectors): one-line pointer "for colour slides, normalise stains, not histograms" |
+| `coloc/` (built, colocalisation day) | "Monotone transforms keep ranks": Spearman unchanged, Pearson changed (one exercise) | Pearson/Spearman as colocalisation measures |
 | `review-gaps.md` gap 7 (`integrity/`, unplaced) | The display-vs-data part and the demo name `displayvsdata` | Provenance, duplication detection, ethics, bias: still unplaced (open question 4) |
 
 ## The unit: `contrast/`
@@ -140,7 +140,7 @@ chosen by another image (matching) → what all of this does to measurements.
   do not matter, so the result is fully described by the curve. Examples as a gallery of curves
   with their results on the micrograph: identity, **negative** ($s = L - 1 - v$), **contrast
   stretch** (a window), **clipping**, a **threshold** (a step: the most extreme point operation,
-  forward pointer to day 6), a **sigmoid** (S-curve: more contrast in the middle, less at the
+  forward pointer to day 12), a **sigmoid** (S-curve: more contrast in the middle, less at the
   ends).
 - **Lookup tables**: an integer image has only $L$ possible values, so compute $T$ once per
   value and look the result up: 256 entries for 8 bits, 4096 for 12 bits, for any number of
@@ -155,7 +155,7 @@ chosen by another image (matching) → what all of this does to measurements.
   them, compresses the brights), γ > 1 does the reverse; γ = 1 is the identity; black and white
   stay fixed. One knob, a smooth curve. Numbers: with γ = 0.5, 0.04 → 0.2 and 0.81 → 0.9: the
   dark values are stretched 2.5×, the bright ones compressed to about 0.56× (the slopes).
-  Pointer: screens and image files use a gamma curve for storage (`rgb-linear/`, day 7); that is
+  Pointer: screens and image files use a gamma curve for storage (`rgb-linear/`, day 42); that is
   a different reason, and the colour day owns it.
 - **Log** $s = c\,\log(1 + v)$: **equal ratios become equal steps**. A 12-bit image shown with
   $c = 255/\ln 4096 \approx 30.7$: 10 → 74, 100 → 141, 1000 → 212, 4095 → 255, so every decade
@@ -549,7 +549,7 @@ of the day), or this unit's matching slides move to the exercise page.
 ## Proposed reorganisation
 
 1. **The cumulative histogram is introduced in `contrast/` (day 3), not in `histogram/`
-   (day 6).** Owners table in `plan/coursemap.md`: "Histograms, thresholds, Dice/ROC for
+   (day 12).** Owners table in `plan/coursemap.md`: "Histograms, thresholds, Dice/ROC for
    pixels → Thresholding" stays; add a row "Point operations and LUTs (beyond the window),
    gamma/log as contrast curves, histogram equalisation, CLAHE, histogram matching, display vs
    analysis for intensity transforms → `contrast/` (day 3)", with the note "the cumulative
@@ -581,7 +581,7 @@ of the day), or this unit's matching slides move to the exercise page.
 
 ## Open questions
 
-1. **Placement**: day 3 after `highbit/` (proposed) or day 6 after `histogram/` (fallback)? The
+1. **Placement**: day 3 after `highbit/` (proposed) or day 12 after `histogram/` (fallback)? The
    decision changes only who introduces the cumulative histogram and the recall lines.
 2. **Day 3 length** with five units: accept the tighter timetable, or make `floatingpoint/`
    self-study?

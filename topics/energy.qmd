@@ -1,0 +1,275 @@
+---
+title: "Energy minimisation"
+description: "Segmentation, denoising, deconvolution, contours, paths, flow and stereo written as one recipe: score every possible answer, then find the best. What each method scores, how it searches, and when the best score is the wrong answer."
+---
+
+A large part of this course solves problems in the same two steps. First, write down a number, the
+**energy**, that says how bad any candidate answer is. Then find the answer with the smallest energy.
+The candidate may be a labelling of the pixels, a denoised image, a curve, a path, a flow field or a
+depth map, and the search method changes with it. This page puts the methods side by side: what each
+one scores, how it finds the minimum, whether that minimum is the best one, and when the best one is
+still wrong. Each method is taught in its own unit; follow the links.
+
+The page is in two layers, like the units: ideas and pictures first, then one short collapsed
+callout, *The math*, that writes the shared recipe as formulas. You can skip it.
+
+## The question {#question}
+
+![A noisy line profile across a cell (samples 13–50) and a thin bright structure (samples 65–66), segmented into object (orange) and background (blue). A threshold halfway between the two levels gets 4 samples wrong and makes 11 boundaries. The labelling with the smallest energy, data + λ × (number of boundaries), computed exactly: at λ = 0.1 nothing is wrong and there are 4 boundaries; at λ = 0.4 the two-sample structure is gone. Black dots: wrong samples.](fig-en-profile.svg){fig-alt="A noisy profile of 80 samples with dashed object and background levels, and four colour strips below it: the truth, the threshold with four wrong single samples, the minimum at lambda 0.1 equal to the truth, and the minimum at lambda 0.4 in which the thin structure near sample 65 has become background."}
+
+Thresholding decides every pixel **on its own**. Noise makes single pixels jump to the wrong side,
+and the threshold cannot know that a lone object pixel in the middle of background is unlikely.
+
+Energy minimisation adds that knowledge as a **cost**. Each candidate answer pays for two things:
+
+- **disagreeing with the data** (a sample far from the level of its label), and
+- **being implausible** (here: every boundary between object and background costs λ).
+
+The best answer balances the two. In the figure, a lone wrong sample saves a little data cost but
+creates two boundaries; once λ is large enough (from 0.08 here) the specks are gone. But the thin
+structure is short too, and from λ = 0.16 it also costs more than it saves. That one figure already
+contains the whole topic: the recipe, the knob λ, an exact way to find the minimum (dynamic
+programming), and the way it fails.
+
+## The recipe: data + λ · prior {#recipe}
+
+The same two-part energy appears all over the course. Only the unknown and the two terms change.
+
+| Problem (unit) | The unknown | Data term: disagreeing with… | Prior term: penalises… |
+|---|---|---|---|
+| [Deconvolution](../deconv/lec.qmd), [regularisation](../regularise/lec.qmd) | the sharp image | the measured image, after blurring | roughness or large values (Tikhonov) |
+| [Quadratic smoothing, TV](../gmrf/lec.qmd), [TV flow](../tv-flow/lec.qmd) | the clean image | the noisy image | differences between neighbours (squared or absolute) |
+| [Sparsity](../sparsity/lec.qmd), [ISTA](../ista/lec.qmd) | coefficients in a basis | the image | the number or the sum of non-zero coefficients (ℓ1) |
+| [Smoothing splines](../spline-fit/lec.qmd) | a curve | the data points | bending |
+| [Segmentation energy](../seg-energy/lec.qmd), [graph cuts](../graphcut-seg/lec.qmd) | a label per pixel | an intensity model per label | neighbours with different labels (boundary length) |
+| [Ising denoising](../mrf-denoise/lec.qmd) | a binary image | the noisy binary image | the same |
+| [Random walker](../random-walker/lec.qmd) | a number per pixel | the seeds (fixed values) | differences across strong links |
+| [Snakes](../snakes/lec.qmd), [geodesic contours](../geodesic/lec.qmd) | a closed curve | weak edges under the curve | stretching and bending |
+| [Chan–Vese](../chanvese/lec.qmd) | a region (level set) | grey levels far from the region's mean | boundary length |
+| [Minimal paths](../dp-paths/lec.qmd), [live-wire](../livewire/lec.qmd) | a path | pixels that are not on an edge | (the path length itself) |
+| [Horn–Schunck flow](../horn-schunck/lec.qmd) | a vector per pixel | the brightness constancy constraint | differences between neighbouring vectors |
+| [Stereo](../stereo/lec.qmd) | a disparity per pixel | the matching cost | jumps in disparity |
+| [Neural networks](../backprop/lec.qmd) | the weights | the training labels (the loss) | large weights (weight decay), if any |
+
+Two things are worth noticing. The data term is a **model of the measurement** (blur, noise, an
+intensity per class), and the prior term is a **belief about the answer** (smooth, piecewise constant,
+sparse, short-boundaried). Choosing the energy is choosing those two beliefs, and the rest of the
+method only finds the minimum.
+
+## λ: the one knob {#lambda}
+
+![The same noisy profile (grey dots; dashed: the truth, a step, a ramp and a 4-sample peak) smoothed by minimising data + λ · prior, with a quadratic prior (top, blue) and a total-variation prior (bottom, orange), at three values of λ. Small λ leaves noise; large λ removes detail. The quadratic prior blurs the step and the peak at every λ; TV keeps the step sharp, turns the ramp into stairs and shrinks the peak. RMSE against the truth (noisy data: 0.29). The λ values of the two rows are on different scales.](fig-en-lambda.svg){fig-alt="Six panels of a noisy 1D profile with a fitted curve. Top row, quadratic prior at lambda 2, 20, 200: RMSE 0.19, 0.27, 0.39; the curve gets smoother and the step and the narrow peak disappear. Bottom row, total variation at lambda 0.3, 1.5, 8: RMSE 0.12, 0.16, 0.35; the step stays sharp, the ramp becomes a staircase, and at the largest lambda the peak is gone and the levels have moved towards each other."}
+
+Every energy on this page has a weight λ between the two terms, and λ decides the answer more than
+any other choice:
+
+- **λ too small**: the data win; the noise stays (top left: the quadratic smoother with λ = 2 still
+  wiggles).
+- **λ too large**: the prior wins; real detail goes. The narrow peak, 2 units high, is 0.30 high with
+  the quadratic prior at λ = 200 and 0.28 with TV at λ = 8.
+- **In between** there is a best λ, but it depends on the image, the noise and what you want to
+  measure. Here the best quadratic smoother reaches RMSE 0.18; the best TV, 0.11. The difference is the
+  *prior*, not the optimiser.
+
+How to choose λ without knowing the truth (the discrepancy principle, the L-curve, cross-validation)
+is the subject of [regularisation](../regularise/lec.qmd) and
+[smoothing splines](../spline-fit/lec.qmd). Iterative methods add a second knob that acts like λ: the
+**number of iterations**. Stopping early is a form of regularisation
+([regularisation](../regularise/lec.qmd), [Richardson–Lucy](../richardson-lucy/lec.qmd),
+[TV flow](../tv-flow/lec.qmd), where flow time plays the role of λ).
+
+## Finding the minimum {#optimisers}
+
+There are far too many candidates to try them all: a 100 × 100 binary image has $2^{10000}$
+labellings. Every method uses the **structure** of its energy to search cleverly. The course meets five
+families of search:
+
+| Search (units) | Works on | Finds | Cost | Needs | Fails when |
+|---|---|---|---|---|---|
+| **Solve a linear system** ([deconvolution](../deconv/lec.qmd), [quadratic smoothing](../gmrf/lec.qmd), [random walker](../random-walker/lec.qmd), [splines](../spline-fit/lec.qmd), the [semi-implicit snake step](../snake-matrix/lec.qmd)) | numbers, quadratic energy | the **global** minimum | one sparse solve, or one FFT for shift-invariant problems | squared terms only | edges get blurred: a squared penalty punishes big jumps too much |
+| **Dynamic programming** ([DP on paths](../dp-paths/lec.qmd), [polar boundaries](../polar-boundary/lec.qmd), [segmentation of a chain](../seg-energy/lec.qmd), [scanline stereo](../stereo/lec.qmd)) | labels on a chain or a tree | the **global** minimum | labels² × length | a chain or tree: each step talks only to the next | the problem has loops (a 2D grid); then rows are solved alone and disagree (streaks) |
+| **Shortest paths** ([live-wire](../livewire/lec.qmd), [fast marching](../fastmarching/lec.qmd)) | paths between two points | the **global** minimum | about one visit per pixel (with a priority queue) | non-negative costs | short-cuts through weak edges; the user must place the end points |
+| **Minimum cut** ([max-flow](../maxflow/lec.qmd), [graph cuts](../graphcut-seg/lec.qmd), [exact MAP](../mrf-denoise/lec.qmd)) | two labels per pixel, any grid | the **global** minimum | a max-flow, roughly linear in practice | pairwise terms that favour equal labels ("submodular") | more than two labels (then only approximate, by repeated cuts); the shrinking bias |
+| **Go downhill** ([snakes](../snakes/lec.qmd), [level sets](../levelset-eq/lec.qmd), [Chan–Vese](../chanvese/lec.qmd), [TV flow](../tv-flow/lec.qmd), [ISTA](../ista/lec.qmd), [Horn–Schunck](../horn-schunck/lec.qmd), [backpropagation](../backprop/lec.qmd)) | anything with a slope | the **nearest** minimum; global only if the energy is convex | many small steps; step size limited by stability | a gradient (or a sub-gradient) | non-convex energies: the start decides; stiff problems need tiny steps |
+| **Pixel by pixel, or random** ([ICM, annealing](../mrf-denoise/lec.qmd), [MCMC](../mcmc/lec.qmd)) | labels, any energy | ICM: a nearby minimum; annealing: close to the global one if cooled slowly | ICM: a few sweeps; annealing: thousands | only local energy differences | ICM stops early; annealing is slow |
+
+Read the "Finds" column against "Needs": the methods that guarantee the **global** minimum all
+demand a special structure (squares only, a chain, two labels with submodular terms). The method
+that accepts any energy, going downhill, guarantees only a local minimum. Much of the course's
+modelling is about bending a problem into a shape that an exact method can solve.
+
+## Convex, or not {#convex}
+
+![Left: a convex energy of two unknowns (two samples y = (1, −1) smoothed with a quadratic prior, λ = 2) drawn as contour lines. Gradient descent from three different starts always ends at the same point, the minimum at (0.2, −0.2). Right: the energy of a circular contour, as a function of its radius, on an image with a nucleus edge at radius 10 and a cell edge at radius 25. Descent from radius 6 or 14 ends at the nucleus edge (9.9); from 21 or 33, at the cell edge (24.9). Same energy, same method, different answers.](fig-en-landscape.svg){fig-alt="Left: elliptical contour lines with three descent paths from three corners that all meet at a black star near the centre. Right: an energy curve against radius from 0 to 40 with two valleys, at 10 and at 25; four coloured start points, two rolling into each valley."}
+
+An energy is **convex** if it has the shape of a bowl: no dents, no second valley. Then any downhill
+method reaches the global minimum, and the start does not matter. Quadratic smoothing, Tikhonov
+deconvolution, total variation, the ℓ1 penalty and the random walker are convex: their answers are
+unique and reproducible ([random walker](../random-walker/lec.qmd), [ISTA](../ista/lec.qmd)).
+
+Snakes, geodesic active contours and Chan–Vese are **not** convex. Their energy has a valley at
+every edge the contour could settle on, and the contour rolls into the nearest one: a snake
+started inside the nucleus finds the nucleus, one started outside the cell finds the cell
+([snakes](../snakes/lec.qmd), [capture range](../snake-matrix/lec.qmd),
+[Chan–Vese: holes and bad starts](../chanvese/lec.qmd)). Balloon forces, gradient vector flow and
+coarse-to-fine schemes are all ways of getting a better start or a wider valley.
+
+Non-convex is not always bad: a graph cut solves a non-convex labelling problem exactly, because
+labels on a grid have a structure (submodularity) that a cut can exploit. Convexity matters for
+**going downhill**, not for every method.
+
+## Exact or greedy: the same energy, two searches {#exact}
+
+![A binary test image (64 × 64) with a disc, a rectangle, a small square and a bar 2 pixels wide, with 20 % of the pixels flipped. Both results minimise the same energy (data cost ln 4 per pixel that disagrees with the noisy image, λ = 1 per pair of 4-neighbours with different labels). ICM, which changes one pixel at a time to its best label, stops after 5 sweeps at energy 1407 (3.5 % wrong). The minimum cut finds the exact minimum, energy 1365 (2.8 % wrong).](fig-en-icm-cut.png){fig-alt="Four binary images: the truth with four shapes; the noisy version full of salt-and-pepper noise; the ICM result, mostly clean but with remaining specks and holes; the minimum-cut result, cleaner, with the rectangle and disc intact and the thin bar partly broken."}
+
+The same energy, two search methods. ICM ([Bayesian denoising](../mrf-denoise/lec.qmd)) is
+greedy: each pixel takes the label that is best *given its neighbours as they are now*, and it stops
+as soon as no single change helps. That is a local minimum: a group of wrong pixels that would only be
+worth changing *together* stays wrong. The minimum cut ([max-flow](../maxflow/lec.qmd),
+[graph cuts](../graphcut-seg/lec.qmd)) considers all labellings at once and returns the lowest
+energy there is.
+
+In the figure the exact answer has the lower energy (1365 against 1407), and here also fewer wrong
+pixels. But the **true** image has energy 1413: higher than both. The model's best answer is not the
+truth, only the best compromise the model can express. A better optimiser cannot fix that; only a
+better energy can (next section).
+
+The same choice between exact and greedy appears on every day of Part VI: dynamic programming
+against a snake for a boundary ([polar boundaries](../polar-boundary/lec.qmd)), a cut against a level
+set for the Chan–Vese energy ([Chan–Vese](../chanvese/lec.qmd)), scanline DP against winner-take-all in
+[stereo](../stereo/lec.qmd).
+
+## Energy and probability {#probability}
+
+Every energy here can be read as a probability, and the reading explains where the terms come from.
+
+- **Energy = −log probability.** Low energy means probable. A sum of energies is a product of
+  probabilities: the data term is the probability of the measurement given the answer (the noise
+  model), and the prior term is the probability of the answer before measuring.
+- So the minimum of the energy is the **most probable answer given the data**, the MAP estimate
+  ([Ising model](../ising/lec.qmd), [Bayesian denoising](../mrf-denoise/lec.qmd),
+  [regularisation: a probabilistic reading](../regularise/lec.qmd)).
+- Each prior term is a belief about images. Squared differences say "neighbours differ by Gaussian
+  amounts"; absolute differences (TV) say "mostly equal, sometimes a jump"; the ℓ1 penalty says "most
+  coefficients are zero" ([quadratic smoothing and TV](../gmrf/lec.qmd),
+  [sparsity](../sparsity/lec.qmd)). Drawing **samples** from the prior shows what it believes
+  ([MCMC](../mcmc/lec.qmd)).
+- λ is then not arbitrary: it is the ratio of the noise level to the spread the prior allows. In the
+  binary example, a flip probability of 20 % gives the data cost ln(0.8/0.2) = ln 4 ≈ 1.39.
+
+The probabilistic reading also shows what the minimum leaves out: it is one answer, with no error
+bars. Sampling ([MCMC](../mcmc/lec.qmd)) and, much later, [diffusion priors](../diffusion-inverse/lec.qmd)
+give a whole distribution of answers instead.
+
+## When the minimum is the wrong answer {#fails}
+
+![The exact minimum (by minimum cut) of the binary-denoising energy for four values of λ, on the noisy image of the previous figure. λ = 0.3: nothing changes, because even a lone pixel saves only 4 × 0.3 = 1.2 by flipping, less than its data cost 1.39. λ = 1: clean (2.8 % wrong). λ = 2: the small square has vanished and only 36 % of the thin bar is left (3.1 % wrong). λ = 5: everything is background (23.8 % wrong, the share of object pixels in the truth).](fig-en-cut-lambda.png){fig-alt="Four binary images. Lambda 0.3: still full of noise. Lambda 1: clean shapes, the bar partly kept and the small square present. Lambda 2: disc and rectangle only, rounded corners, the square and most of the bar gone. Lambda 5: completely black."}
+
+Finding the exact minimum does not guarantee a good answer. The energy itself can be wrong:
+
+- **Shrinking bias.** A boundary term pays for length. Thin and small objects have a lot of boundary
+  for their area, so a larger λ removes them first, and rounds corners
+  ([graph cuts: failure modes](../graphcut-seg/lec.qmd)). The figure shows the same pattern as the
+  1D profile at the top of the page.
+- **The prior's own artefacts.** Squared penalties blur edges; TV turns ramps into stairs and lowers
+  the contrast of small features ([quadratic smoothing and TV](../gmrf/lec.qmd),
+  [TV flow](../tv-flow/lec.qmd)); ℓ1 shrinks every coefficient that it keeps
+  ([sparsity](../sparsity/lec.qmd)).
+- **A wrong data model.** If object and background have the same grey levels, no λ helps: only seeds
+  or a better model do ([graph cuts](../graphcut-seg/lec.qmd), [Chan–Vese](../chanvese/lec.qmd)).
+- **Grid artefacts.** With 4 neighbours a boundary is measured in city-block length, so cuts prefer
+  blocky shapes ([graph cuts](../graphcut-seg/lec.qmd)); level sets measure true length but find only a
+  local minimum ([Chan–Vese](../chanvese/lec.qmd)).
+- **λ is a choice**, and a measurement made on the result depends on it. Report it, and check that
+  your conclusion holds over a range of λ ([denoising and what you may measure](../denoise/lec.qmd)).
+
+## Try it {#try}
+
+**A labelling on a line** (from [segmentation as energy minimisation](../seg-energy/exercise.qmd#explore)).
+The exact minimum, by dynamic programming, for any λ. Move λ up from 0 and find where the specks go
+and where the thin structure is lost; the table shows how the data term and the boundary term trade.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="segchain" data-lambda="3"></div>
+<script src="../demos/dist/segchain.js"></script>
+```
+
+**Quadratic, Huber and TV priors** (from [quadratic smoothing and total variation](../gmrf/exercise.qmd#explore)).
+Choose a prior and λ; the readout splits the energy into its data and prior parts. Try the presets
+**TV staircases the ramp** and **TV shrinks the narrow peak**, then find the λ with the smallest error
+for each prior.
+
+```{=html}
+<div data-demo="mrf1d" data-preset="quad"></div>
+<script src="../demos/dist/mrf1d.js"></script>
+```
+
+More demos on the same theme:
+[the regularisation path](../regularise/exercise.qmd#explore),
+[interactive graph cut](../graphcut-seg/exercise.qmd#explore),
+[denoising a binary image](../mrf-denoise/exercise.qmd#explore) (ICM, annealing and the exact cut),
+[the random walker](../random-walker/exercise.qmd#explore),
+[a snake on an image](../snakes/exercise.qmd#explore),
+[Chan–Vese](../chanvese/exercise.qmd#explore),
+[the DP table step by step](../dp-paths/exercise.qmd#explore),
+[live-wire](../livewire/exercise.qmd#explore),
+[Horn–Schunck](../horn-schunck/exercise.qmd#explore),
+[stereo: the cost slice](../stereo/exercise.qmd#explore-slice) and
+[gradient descent on a landscape](../backprop/exercise.qmd#explore-gdescent).
+
+## The math {#math}
+
+::: {.callout-note collapse="true" title="The math: one recipe, five ways to minimise it"}
+**The recipe.** For an unknown $\mathbf x$ and data $\mathbf y$,
+$$
+E(\mathbf x) = D(\mathbf x; \mathbf y) + \lambda\,R(\mathbf x),
+\qquad
+\hat{\mathbf x} = \arg\min_{\mathbf x} E(\mathbf x).
+$$
+With $p(\mathbf y \mid \mathbf x) \propto e^{-D}$ and $p(\mathbf x) \propto e^{-\lambda R}$, Bayes' rule
+gives $p(\mathbf x \mid \mathbf y) \propto e^{-E(\mathbf x)}$: the minimiser is the MAP estimate.
+
+**Pairwise energies.** Most energies here are sums over pixels and neighbouring pairs,
+$$
+E(\mathbf x) = \sum_p D_p(x_p) + \lambda \sum_{p \sim q} V(x_p, x_q),
+$$
+with $V(a, b) = (a - b)^2$ (quadratic), $|a - b|$ (TV) or $[a \neq b]$ (Potts/Ising, labels).
+
+- **Quadratic $D$ and $V$**: $\nabla E = 0$ is linear, $(A^\top A + \lambda L)\,\mathbf x = A^\top\mathbf y$,
+  with $L$ the graph Laplacian. Convex, unique, one solve.
+- **Chain or tree**: the Bellman recursion
+  $C_i(\ell) = D_i(\ell) + \min_{\ell'}\big[C_{i-1}(\ell') + \lambda V(\ell', \ell)\big]$ is exact, cost
+  $O(nK^2)$ for $n$ nodes and $K$ labels.
+- **Two labels on any graph**: exact by a minimum $s$–$t$ cut when every pair term is submodular,
+  $V(0,0) + V(1,1) \le V(0,1) + V(1,0)$.
+- **Continuous, differentiable**: gradient descent $\mathbf x \leftarrow \mathbf x - \tau\nabla E$;
+  for a curve, the Euler–Lagrange equation turns $\nabla E$ into a force, and the evolution
+  $\partial_t \mathbf x = -\nabla E$ is a PDE (snakes, level sets, TV flow).
+- **Non-smooth convex** ($\ell_1$, TV): proximal steps, e.g. ISTA,
+  $\mathbf x \leftarrow \operatorname{soft}_{\tau\lambda}\big(\mathbf x - \tau\nabla D(\mathbf x)\big)$.
+
+**Convexity.** If $E$ is convex, every local minimum is global, and for strictly convex $E$ it is
+unique. Quadratic, TV and $\ell_1$ energies with a convex data term are convex; snake, geodesic and
+Chan–Vese energies (as functions of the curve) are not.
+:::
+
+## Where to read more {#units}
+
+In course order, the units where an energy is minimised:
+
+- Day 5: [linear deconvolution](../deconv/lec.qmd), [regularisation](../regularise/lec.qmd), [Richardson–Lucy](../richardson-lucy/lec.qmd); day 6: [smoothing splines](../spline-fit/lec.qmd)
+- Day 10: [total variation flow](../tv-flow/lec.qmd), [inpainting](../inpainting/lec.qmd); day 11: [sparsity and ℓ1](../sparsity/lec.qmd), [ISTA](../ista/lec.qmd), [compressed sensing](../compressed-sensing/lec.qmd)
+- Day 25: [Horn–Schunck](../horn-schunck/lec.qmd), [non-rigid registration](../nonrigid-reg/lec.qmd)
+- Day 27: [segmentation as energy minimisation](../seg-energy/lec.qmd), [maximum flow](../maxflow/lec.qmd), [graph-cut segmentation](../graphcut-seg/lec.qmd)
+- Day 28: [the Ising model](../ising/lec.qmd), [sampling and annealing](../mcmc/lec.qmd), [Bayesian denoising](../mrf-denoise/lec.qmd), [quadratic smoothing and TV](../gmrf/lec.qmd)
+- Day 29: [the random walker](../random-walker/lec.qmd)
+- Day 30: [snakes](../snakes/lec.qmd), [the snake as a linear system](../snake-matrix/lec.qmd), [active shape models](../asm/lec.qmd)
+- Day 31: [the level set equation](../levelset-eq/lec.qmd), [geodesic active contours](../geodesic/lec.qmd), [Chan–Vese](../chanvese/lec.qmd)
+- Day 32: [minimal paths by DP](../dp-paths/lec.qmd), [polar boundaries](../polar-boundary/lec.qmd), [live-wire](../livewire/lec.qmd), [fast marching](../fastmarching/lec.qmd)
+- Day 36: [loss, gradient descent and backpropagation](../backprop/lec.qmd)
+- Day 49: [stereo](../stereo/lec.qmd), [bundle adjustment](../sfm/lec.qmd)
+
+See also the other [topic pages](index.qmd), in particular [removing noise](denoising.qmd) and
+[segmentation](segmentation.qmd), which use many of these energies, and
+[eigenvectors in image analysis](eigenvectors.qmd): normalized cuts minimise a cut energy by an eigenvector.

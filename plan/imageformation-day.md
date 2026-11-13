@@ -3,7 +3,9 @@
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12;
 revised the same day after the course map made deconvolution its own day.
 
-Core day 4 of Part I (`plan/coursemap.md`), after *Images, filters, frequencies*
+**Course map (2026-11-13, self-study restructure):** day 4 of 51, Part I "Images as numbers". Hard prerequisites: Images, filters and frequencies (day 1). Soft (see also): Bit depth and noise (day 3), Edges, blobs and ridges (day 2). Source: `days.yml`.
+
+Day 4 of Part I (`plan/coursemap.md`), after *Images, filters, frequencies*
 (`images/`, `kernels/`, `fourier/`, `pca/`), *Edges, blobs and ridges* and *Bit depth and
 noise* (`quantisation/`, `cameranoise/`, `highbit/`, `floatingpoint/`). It is followed
 directly by the **deconvolution day** (`plan/deconvolution-day.md`), which owns every
@@ -57,7 +59,7 @@ Recall, don't re-teach: each item below gets at most one recall slide with a poi
 | Poisson shot noise, read noise, gain/offset, SNR, **PSNR** | `cameranoise/` (split from `quantisation/`, `review-organisation.md` §2.2) | Unit 1: noise is the last step of the forward model (one recall slide, no new definitions). Unit 3 uses the noise level to show the explosion of the inverse filter. Offset subtraction and flat-field are `cameranoise/`'s. |
 | Condition number, least squares, SVD | linear algebra (audience.md) | Unit 3 recalls in one line; the blur matrix is circulant, so its singular values are the OTF magnitudes |
 | Restoration: inverse filtering as a method, truncated inverse, Wiener, Tikhonov and regularisation in general, Richardson–Lucy, blind deconvolution, denoisers (incl. the median), what may be measured afterwards | **Deconvolution day** (`plan/deconvolution-day.md`, the next day) | Nothing taught here. Unit 3 shows only that the naive inverse fails and why, and ends with a forward pointer. See "Hand-over to the deconvolution day". |
-| Tomography as a forward model | Radon, elective (after Part I) | Unit 3 ends with a one-line forward pointer ("CT is another forward model: line integrals instead of a PSF"). The Radon plan recalls this day's ill-posedness slide; its cures (windowed ramp, semi-convergence) are recalled from the deconvolution day. |
+| Tomography as a forward model | Radon day (Part II) | Unit 3 ends with a one-line forward pointer ("CT is another forward model: line integrals instead of a PSF"). The Radon plan recalls this day's ill-posedness slide; its cures (windowed ramp, semi-convergence) are recalled from the deconvolution day. |
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
@@ -223,7 +225,7 @@ Concept layer:
   method details): restoration only works if we **add what we know** about the object and the
   noise (it is smooth, mostly piecewise constant, never negative; the noise has this size).
   Tomorrow: how to add it, and how to choose how much.
-- Forward pointer (one line): tomography (Radon elective) is another forward model, with
+- Forward pointer (one line): tomography (Radon day) is another forward model, with
   line integrals instead of a PSF; the same diagnosis applies.
 - **Demo `deconvlab`, `data-mode="inverse"`** (the demo is owned and specified by the
   deconvolution day; this mode shows only the naive inverse): object (Siemens star, beads +

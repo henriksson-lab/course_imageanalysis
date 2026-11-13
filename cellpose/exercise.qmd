@@ -1,0 +1,214 @@
+---
+title: "Exercise: flow fields to objects (Cellpose)"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute the **heat target** of a small cell by hand and read the arrows from it,
+- **follow a flow field** on a grid, find its sinks and group the pixels into objects,
+- compute the **flow error** of a mask and decide whether the flow check keeps it,
+- work out the **rescaling** for a given cell diameter and predict what a wrong diameter does,
+- predict the failures of the flow route (noise, shared fields, too few steps, wrong diameter or polarity) and find them with the real network,
+- *(math)* show why paths end at the source, why the exact target has one sink per cell, what happens between two opposite arrows, and how many steps are needed.
+
+Do the pen-and-paper part first, then the demos. The real network downloads about 13 MB once and then takes a few seconds per image: **predict before you press Run**.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Heat target | put 1 at the cell's source, then replace every pixel by the mean of itself and its neighbours **inside the cell**; repeat (default: 2 × (width + height) of the cell's box) |
+| Source | the cell pixel nearest the median of the cell's x and y coordinates |
+| Arrow | direction of the heat difference between the two neighbours (right minus left, below minus above; 0 outside the cell), scaled to length 1 |
+| What the network predicts | per pixel: two arrow components and a cell probability (a logit; threshold 0 = 50 %) |
+| Decoding | every pixel above the probability threshold moves one pixel along the arrow at its position, for a fixed number of steps (200 for cells of the training size, scaled with the diameter) |
+| Sinks and masks | count end points per pixel; peaks with more than 10 particles are seeds; pixels whose particle ended at the same seed form one mask |
+| Flow check | flow error = mean over the mask of the squared difference between predicted arrows and the mask's own target arrows; above the threshold (0.4) the mask is dropped |
+| Diameter | the image is rescaled by training diameter / cell diameter (cells: 30 px, nuclei: 17 px) before the network |
+
+## By hand
+
+**B1.** **The heat target in 1D.** A cell of 5 pixels in a row, source at pixel 3. One step = "add 1 at the source, then replace every pixel by the mean of itself and its neighbours inside the cell" (an end pixel has one neighbour inside, so it averages two values).
+(a) Do three steps. Write down the heat after each step.
+(b) Give the arrow (→, ← or none) at each pixel after step 3.
+(c) A cell of 11 pixels, source at pixel 6 (number the pixels 1 to 11). Which pixels still have heat 0 after 3 steps? Which pixels have no arrow yet? What does this tell you about the number of steps the target needs?
+
+**B2.** **Follow a field by hand.** Rows 0–4 from top to bottom, columns 0–4 from left to right; each step moves a particle one cell along the arrow of the cell it is in (· = no movement):
+
+```
+→  ←  ↓  ←  ←
+→  ↘  ↓  ↙  ←
+→  →  ·  ←  ←
+↗  ↑  ↑  ↘  ↓
+↗  ↑  ↑  →  ·
+```
+
+(a) Follow the particles that start at (0, 0), (4, 0) and (3, 3).
+(b) Group all 25 pixels by where they end. How many objects does the decoding produce?
+(c) The cell is really one round cell with its centre at (2, 2). Which objects are errors, and what kind? Change **one** arrow so that the top-left pair joins the centre.
+
+**B3.** **The flow check.** Four pixels of a mask. Predicted arrows: (1, 0), (0.8, 0.6), (0, 1), (−1, 0). Arrows recomputed from the mask: (1, 0), (1, 0), (0, 1), (1, 0).
+(a) Compute the squared difference at each pixel and the flow error (their mean). Is the mask kept at threshold 0.4?
+(b) The last predicted arrow is (0.6, 0.8) instead. Kept now?
+(c) Two unit arrows at angle θ have squared difference $2 - 2\cos\theta$. What average angle error does a flow error of 0.4 allow?
+
+**B4.** **The diameter.** The cell network was trained on cells 30 pixels across.
+(a) Your cells are 45 pixels across in a 600 × 450 image. By what factor is the image rescaled, and what size does the network see? How many Euler steps by default?
+(b) You type 15 instead of 45. What factor, image size and cell size does the network see? Predict the error, and the cost in pixels.
+(c) The nuclei network was trained at 17 pixels. Nuclei of 34 pixels in a 696 × 520 image: factor and size?
+
+**B5.** **One wrong arrow.** A 1D field on the 10 pixels of one cell (pixel 1 to 10; $+1$ = arrow to the right, $-1$ = to the left), with one wrong arrow at pixel 3:
+
+$$+1,\ +1,\ -1,\ +1,\ +1,\ -1,\ -1,\ -1,\ -1,\ -1$$
+
+(a) Follow the arrows from every pixel (one pixel per step) for 6 steps. Where does each pixel end?
+(b) List the sinks and the resulting objects. Which error does the wrong arrow cause?
+(c) What happens with the correct arrow at pixel 3?
+
+**B6.** **Predict.** Which is harder for the flow route: a C-shaped cell, or two round cells touching along a long edge? And for star-convex polygons ([previous unit](../stardist/lec.qmd))? Explain each from what the network has to predict.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Step 1: add 1 at pixel 3, then average: (0, 0.33, 0.33, 0.33, 0). Step 2: (0.17, 0.56, 0.67, 0.56, 0.17). Step 3: (0.36, 0.80, 0.93, 0.80, 0.36). For example pixel 1 in step 2 averages its own 0 and pixel 2's 0.33.
+(b) The arrow at a pixel points to the warmer neighbour: →, →, none (the sink), ←, ←. Pixel 1 compares pixel 2 (0.80) with "outside" (0): →.
+(c) After 3 steps the heat is (0, 0, 0.04, 0.22, 0.78, 0.93, 0.78, 0.22, 0.04, 0, 0): pixels 1, 2, 10 and 11 are still at 0. Pixels 2 and 10 already have an arrow (their inner neighbour is warm), but pixels 1 and 11 have two neighbours at 0: **no arrow**. Heat travels one pixel per step, so the target needs at least as many steps as the longest path from the source (here 5; all 11 pixels have heat from step 5). The default, 2 × (width + height) of the box, is generous.
+
+**B2.** (a) (0, 0) → (0, 1) → (0, 0) → …: the two arrows point at each other, the particle goes back and forth: a **spurious sink**. (4, 0) → (3, 1) → (2, 1) → (2, 2), and stays: the centre. (3, 3) → (4, 4), and stays: a second sink.
+(b) 19 pixels end at (2, 2), 4 at (4, 4) ((3, 3), (3, 4), (4, 3), (4, 4)), 2 oscillate in the top-left corner: **3 objects**.
+(c) One cell came out as three objects: the cell is **split** twice. The 4-pixel corner and the 2-pixel pair are the extra pieces (in practice the flow check or the size filter may drop them). One arrow fixes the corner pair: (0, 1) pointing → (then (0, 1) → (0, 2) → (1, 2) → (2, 2)), or (0, 1) pointing ↓, or (0, 0) pointing ↘; each gives 21 pixels at the centre and 4 at (4, 4). The bottom-right corner needs more than one change ((4, 4) is a sink of its own).
+
+**B3.** (a) Differences (0, 0), (−0.2, 0.6), (0, 0), (−2, 0): squared 0, 0.04 + 0.36 = 0.4, 0, 4. Mean $4.4 / 4 = 1.1 > 0.4$: **dropped**. (b) Last difference (−0.4, 0.8): squared 0.16 + 0.64 = 0.8; mean $1.2 / 4 = 0.3 \le 0.4$: **kept**. (c) $2 - 2\cos\theta = 0.4$ gives $\cos\theta = 0.8$, θ ≈ 37°: on average the predicted arrows may be off by about 37°. A single reversed arrow (θ = 180°) costs 4, as in (a).
+
+**B4.** (a) Factor 30/45 = 0.667: the network sees 400 × 300 pixels and cells of 30 pixels, as in training. Default steps $200 \cdot 45/30 = 300$. (b) Factor 30/15 = 2: the network sees 1200 × 900 pixels and cells of 90 pixels, three times the training size: each cell looks like a group of cells, so expect **splits** (extra sinks). The image has $2^2 = 4$ times the pixels of the original (9 times those of (a)), so the network takes about 4 times as long; and only 100 steps are used. (c) 17/34 = 0.5: 348 × 260 pixels.
+
+**B5.** (a) Pixel 1: 1 → 2 → 3 → 2 → 3 …; pixels 1, 2, 3 end going back and forth between 2 and 3. Pixel 4: 4 → 5 → 6 → 5 → 6 …; pixel 10: 10 → 9 → … → 6 → 5 → 6: pixels 4–10 all end between 5 and 6. (b) Two sinks, {2, 3} and {5, 6}. Objects: pixels 1–3 and pixels 4–10: the cell is **split** in two. (c) With $+1$ at pixel 3, pixels 1–3 continue to 4, 5, 6: one sink {5, 6}, one object. (The true sink also oscillates between two pixels with whole-pixel steps; exercise B9 shows why.)
+
+**B6.** For the flow route the C-shape is easy: the heat target bends with the cell, and one sink sits on its back. Two touching round cells are harder: along the contact the arrows must turn by 180° within one pixel (each side points to its own centre). If the network smooths across the contact, the two cells share one field and one sink: a **merge**; if the contact is predicted cleanly, they separate. For star-convex polygons it is the other way round: two touching round cells are two star-convex shapes with little overlap, so suppression keeps both; the C is not star-convex, so no polygon from one centre covers it: it is cut short or split.
+:::
+
+### Math questions
+
+**B7.** *(math)* Let $h$ be smooth in a cell $O$ with a single maximum, at the source $c$, and $\nabla h \ne 0$ elsewhere in $O$. Show that $h$ increases along every solution of $\dot{\mathbf x} = \nabla h/\|\nabla h\|$, and argue that every path that stays in $O$ ends at $c$.
+
+**B8.** *(math)* **Discrete maximum principle.** While heat is fed in at the source $c$ and spreads, every pixel away from the source is (a little) cooler than the mean of its in-cell neighbourhood $N(p) \cap O$ ($3 \times 3$, including $p$). Assume, on a connected cell $O$:
+$$h(p) \le \operatorname{mean}_{q \in N(p) \cap O} h(q) \quad \text{for every } p \ne c \qquad (\text{discrete subharmonic away from } c).$$
+(a) Show that the maximum of $h$ over $O$ is attained at $c$. (Use: a mean of numbers is at most their maximum, with equality only if all are equal.)
+(b) Show that if the inequality is strict at $p$, then $p$ has a strictly warmer neighbour, so the uphill arrow at $p$ is defined and $p$ is not a sink.
+(c) Why does this give one sink per cell for the exact target? Which pixels might break the assumption in the actual computation?
+
+**B9.** *(math)* **Two arrows pointing at each other.** In 1D, pixel 0 has the arrow $+1$, pixel 1 the arrow $-1$; between them the arrow is interpolated linearly, $v(x) = 1 - 2x$ for $0 \le x \le 1$.
+(a) Follow $x_{j+1} = x_j + \eta\, v(x_j)$ from $x_0 = 0$ with step $\eta = 1$. What happens?
+(b) The same with $\eta = 0.5$ and with $\eta = 0.25$. Where does the particle go?
+(c) Write $e_j = x_j - \tfrac12$ and show $e_{j+1} = (1 - 2\eta)\, e_j$. For which $\eta$ does the particle converge to the fixed point $x = \tfrac12$? Compute $\frac{dv}{dx}$ there and relate its sign to "a sink".
+
+**B10.** *(math)* **How many steps?** Each Euler step moves a particle at most one pixel (arrows of length 1, step 1).
+(a) Estimate the longest path in a disc of diameter $d$. How many steps are needed, and how does this compare with the default $200\,d/30$?
+(b) A C-shaped cell with centreline arc length $L$, source in the middle of the arc. Estimate the longest path. For the C of the flowtrack demo (radii 9 and 18 around its centre, opening 110°), compute $L$ and compare with the measured longest path of 28 steps.
+(c) Why must the number of steps scale with the diameter, while the network's input is rescaled to the training diameter anyway?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\frac{d}{dt}h(\mathbf x(t)) = \nabla h \cdot \dot{\mathbf x} = \nabla h \cdot \nabla h/\|\nabla h\| = \|\nabla h\| > 0$ away from $c$: $h$ strictly increases along the path. $h$ is bounded on $O$, so $h(\mathbf x(t))$ converges. The path moves at unit speed; if it stayed away from $c$, $\|\nabla h\|$ would be bounded below by some $m > 0$ there (continuity on a compact set without zeros), and $h$ would grow by at least $m$ per unit time without bound: a contradiction. The only zero of $\nabla h$ in $O$ is $c$, so the path ends at $c$. (With noise, $\mathbf v$ is no longer a gradient direction, and new zeros of $\mathbf v$, extra sinks, can appear.)
+
+**B8.** (a) Let $M = \max_O h$ and suppose $h(p) = M$ at some $p \neq c$. Then $M = h(p) \le$ the mean over $N(p) \cap O$, whose values are all $\le M$; so the mean is $M$ and every value in it is $M$: all in-cell neighbours of $p$ have value $M$. Take a path inside $O$ from $p$ to $c$ (the cell is connected). Every pixel on it before $c$ is $\ne c$, so the argument repeats along the path: each next pixel has value $M$, and finally $h(c) = M$. So the maximum is attained at $c$ (a maximum elsewhere forces a plateau reaching $c$). (b) If $h(p) <$ mean, not all values in the mean can be $\le h(p)$, so some neighbour $q$ has $h(q) > h(p)$: $p$ has an uphill direction, it is not a sink. (c) With strict inequality at every $p \ne c$, every pixel except the source has a warmer neighbour, and the source (fed in every step) is warmer than all its neighbours: following "uphill" can only stop at $c$, so there is exactly one sink per cell. In the actual computation the assumption fails right next to the source: those 8 pixels average in the source's extra heat and can be warmer than their own neighbourhood mean. But they have the source itself as a warmer neighbour, so (b)'s conclusion still holds. For the five shapes of the flowtrack demo this was checked pixel by pixel: no pixel except the source lacks a warmer neighbour.
+
+**B9.** (a) $\eta = 1$: $x_1 = 0 + 1 = 1$, $x_2 = 1 + (1 - 2) = 0$, …: it jumps back and forth between 0 and 1 forever (the integer-step oscillation of B2 and B5). (b) $\eta = 0.5$: $x_1 = 0.5$, and $v(0.5) = 0$: it stays at 0.5. $\eta = 0.25$: 0, 0.25, 0.375, 0.4375, 0.469, 0.484, 0.492, …: it converges to 0.5. (c) $x_{j+1} - \tfrac12 = x_j - \tfrac12 + \eta(1 - 2x_j) = e_j - 2\eta e_j = (1 - 2\eta)e_j$. It converges to $\tfrac12$ iff $|1 - 2\eta| < 1$, i.e. $0 < \eta < 1$ (fastest at $\eta = 0.5$); $\eta = 1$ gives $e_{j+1} = -e_j$, the oscillation. At $x = \tfrac12$, $v = 0$ and $\frac{dv}{dx} = -2 < 0$: the arrows on both sides point towards the point: in 2D, negative divergence $\nabla\cdot\mathbf v < 0$ marks a **sink** (positive divergence: a source, arrows pointing away). The end points of particles collect near such points, which is what the histogram of end points detects.
+
+**B10.** (a) The longest path runs from the rim to the centre: about $d/2$ steps. The default $200\,d/30 \approx 6.7\,d$ is about 13 times longer than needed for a disc: margin for slow arrows (shorter than 1 near the border or the sink), bends and irregular shapes. (b) From a tip to the source along the arc: about $L/2$ (plus up to half the width to get onto the arc). The demo's C: centreline radius $(9 + 18)/2 = 13.5$, angle $360° - 110° = 250°$: $L = 13.5 \cdot 250 \cdot \pi/180 \approx 58.9$ pixels, $L/2 \approx 29.5$; measured: 28 steps (the paths cut the inside of the bend slightly). (c) The network sees the rescaled image, but its arrows are resized back to the original image, and the particles move there, one pixel per step: in the original image a cell of diameter $d$ needs paths of length proportional to $d$.
+:::
+
+## Explore: following the arrows {#explore-flowtrack}
+
+A 48 × 48 grid with one or two cells (disc, C-shape, bent rod, two touching cells, dumbbell, or your own: **draw a cell** on panel 1). Panel 1: the training target, the heat after $k$ averaging steps (log colour scale) and the source (star). Panel 2: the "predicted" arrows: the exact target plus the errors you set (noise, blur, one shared field for touching cells, debris with random arrows), as colours and arrows. Panel 3: the particles after a chosen step (**play**). Panel 4: end points (red dots, size = number of particles), seeds (+), the masks, the flow error of each mask; masks dropped by the flow check are hatched; the true cells are outlined in yellow. Click panel 2 or 3 to follow one pixel. The readout counts sinks, masks and the final objects against the true cells (TP, FP, FN at IoU ≥ 0.5). **B2 grid** shows the field of exercise B2.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="flowtrack" data-preset="heat"></div>
+<script src="../demos/dist/flowtrack.js"></script>
+```
+
+**F1.** Preset **heat spreads** ($k = 10$). Where is the heat, and which pixels have an arrow? How many pixels end in the mask, and why is the C not found? Press **play** next to $k$: from about which $k$ is the C found? What does the default $k$ do?
+
+**F2.** Preset **arrows follow the bend**. Read where the clicked pixel at the upper tip ends, and compare with the source (star). Would the straight line from the tip to the source stay in the cell? Click a pixel on the lower arm and one in the hole's edge.
+
+**F3.** Preset **too few steps** (10 steps). Predict, then read: how many pixels end up in the mask, and where are the others? Find the smallest number of steps at which the whole C is in the mask. Then, at 10 steps, change the step length to 2 and to 0.5. Explain with B10.
+
+**F4.** Preset **noise: extra sink** (noise 0.35, flow check off). How many sinks and pieces, and how are they scored? Read the flow error of each piece. Now set the flow threshold to 0.4: what happens, and is that better or worse than the split? Then try noise 0.3, and noise 0.35 with blur 1.
+
+**F5.** Preset **flow check drops a bad mask**. What is the debris, what is its flow error, and what does the disc get? Raise the flow threshold until the debris survives. What is it counted as?
+
+**F6.** Preset **shared field: merge**. How many sinks and objects? Untick the shared field. Then, instead, set blur to 4: do the two cells merge? Explain the difference between a blurred field and one shared field.
+
+**F7.** Preset **B2 grid**. Check your answers to B2 by clicking the start cells, then **where does every cell end?**. Switch to **click: turn arrow** and find your one-arrow fix.
+
+**F8.** Choose **clear**, then **draw a cell**: a long snake or spiral. How many Euler steps does it need? Draw two cells that touch (two strokes): are they separated?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**F1.** After 10 steps only a spot around the source on the back of the C is warm (220 of the 528 pixels have heat); 247 pixels have an arrow (the rim of the warm region already sees a warmer neighbour), the arms none. Pixels without an arrow do not move, so their particles never reach the sink: the mask has 247 pixels, IoU below 0.5, scored FP 1 and FN 1. With $k = 20$, 522 pixels have an arrow and the C is found (TP 1); from $k = 23$ every pixel has heat. The default $k$ is 2 × (width + height) = 128 for this C: far more than needed.
+
+**F2.** The tip pixel (30, 12) ends at (13.5, 23.0), next to the source (14, 23); it follows the upper arm and the back of the C, within 1 pixel of the source after 24 steps. The straight line from the tip to the source crosses the hole (74 of 101 points on it lie outside the cell). Every clicked path stays inside the C; paths from the inner edge first move to the middle of the arm, then along it.
+
+**F3.** After 10 steps only 262 of the 528 pixels end in the seed region: the particles of the arms are still on their way, spread along the arms with too few per pixel to form a seed, and get no label. The mask is the back of the C (IoU below 0.5: FP 1, FN 1). At 15 steps 382 pixels (TP), at 25 steps 523, from **30 steps** all 528. The longest path in this C is 28 steps (B10: half the arc, about 29.5). Step length 2 at 10 steps: 497 pixels (the particles travel 20 pixels); step length 0.5: 131 pixels. What matters is the distance travelled, steps × step length.
+
+**F4.** Two sinks; the C comes out in two pieces of 168 and 358 pixels (526 pixels in all). The large piece overlaps the C with IoU above 0.5 (TP 1), the small one is FP 1: a **split**. Flow errors 1.46 (small piece) and 0.92 (large piece): each piece's arrows point to the other sink or across its own shape, not to its own centre. With threshold 0.4 both pieces are dropped: 0 objects, FN 1. The flow check turns a split into a miss: one error (FN) instead of two (FP plus a truncated TP), but the cell is gone. Noise 0.3: one sink, flow error 0.08, the C is found. Noise 0.35 with blur 1: one sink again (error 0.18): the blur averages the noise away inside the arms, which are wider than the blur.
+
+**F5.** The debris is a blob in the top-left corner (not a cell) with random arrows. It forms its own mask with flow error 1.30: hatched, dropped. The disc's error is 0.00. At a threshold above 1.30 (e.g. 1.35) the debris survives as a second object: FP 1.
+
+**F6.** One sink, one object: the two cells are merged (TP 1 for the larger overlap, FN 1). Without the shared field: two sinks, two cells. With blur 4 the two cells stay separate (flow errors 0.26 each): blurring shortens and turns the arrows near the contact, but on each side they still point mostly to their own centre. One shared field is the target of the **union**: every arrow points to a single source, so there is nothing left to separate.
+
+**F7.** (0, 0) and (0, 1) go back and forth; (4, 0) runs to (2, 2); (3, 3) to (4, 4). Grouping: 19 cells end at (2, 2), 4 at (4, 4), 2 between (0, 0) and (0, 1): 3 objects. Turning (0, 1) to → (or ↓), or (0, 0) to ↘, gives 21 and 4.
+
+**F8.** A long snake needs about half its length in steps (the source sits near its middle); the automatic $k$ grows with the bounding box, so the target is fine, but with too few Euler steps the ends are lost as in F3. Two strokes are two cells with their own sources; if they touch, they are separated as long as the shared field is off (each has its own target), and merged with it on.
+:::
+
+## Explore: Cellpose on real images {#explore}
+
+First a warm-up with the simulated network output of the [previous day](../instances/exercise.qmd#explore): 14 cells (round and oval cells, three touching pairs, a long rod, a C-shaped cell, a bent cell, two dim cells), the flow route.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="instancemaps" data-preset="flows"></div>
+<script src="../demos/dist/instancemaps.js"></script>
+```
+
+**E1.** Preset **flows follow the bend**, then **animate**. Click a pixel in the C and in the bent cell: describe the paths. Then preset **noisy flows: many sinks** (noise 0.7): how many objects, and which cells are split? Add blur 1.5: better or worse?
+
+Now the real network. Cellpose 3 runs in this browser (Rust compiled to WebAssembly, in parallel workers): the **cyto3** network for cells and the **nuclei** network, about 13 MB each, downloaded once. Choose a sample (four with ground truth: *nuclei*, *dense*, *small*, *tissue*) or your own image (it stays in your browser). Views: **Input** (after channel choice and percentile normalisation), **Flows**, **Cell probability**, **Tracking** (click pixels to follow them), **Masks**, **Flow check**. The readout gives the network size and time, the number of sinks, masks and cells, and for samples with ground truth F1, TP, FP and FN at IoU ≥ 0.5. On a page opened as a local file the network cannot load; the static views are in the lecture.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="cellposenet" data-sample="cells" data-view="flows"></div>
+<script src="../demos/dist/cellposenet.js"></script>
+```
+
+**E2.** Sample **cells** (cytoplasm green, nuclei blue). Before you run: in the **Flows** view, which colour do you expect at the **top** of each cell, and at the bottom? (Hint: the arrows point to the centre, and the demo's caption explains the colours.) Run, and check. Then **Tracking**: click three pixels in one cell, including one at the tip of a protrusion. Read the numbers of sinks, masks and cells.
+
+**E3.** Preset **Only 10 steps**. Predict: more or fewer cells? Larger or smaller masks? Run and read the sinks, masks, removed masks, cells and median diameter; look at the **Flow check** view. Then choose **No flow check** (still 10 steps). Explain with F3.
+
+**E4.** Back to **Defaults**, then **No flow check**, then flow threshold 0.2 and 0.8. How many masks are removed each time? Look at the removed masks in the **Flow check** view: what do they look like?
+
+**E5.** Sample **nuclei** (with ground truth). Note F1, TP, FP, FN at the default diameter 29. Predict, then try diameter 15 and 58 (half and double), and then 8 and 100. Explain with the rescaling (B4). Finally, on the **cells** sample, set the diameter to 15, run, and press **Estimate diameter**: what does it suggest? (It needs the cell network's size model; the nuclei network has none.)
+
+**E6.** Sample **small**: set the cell probability threshold to −2 and to +2. Before you look: which errors should change, misses of dim nuclei (FN) or specks (FP)? Read the number of tracked pixels, the masks removed by the flow check, the median diameter, and TP, FP, FN.
+
+**E7.** **Failure hunt.** (a) Sample **tissue** with and without **invert**: F1 and where the masks are. (b) Sample **dense** (ground truth): tick "show ground-truth outlines" in the Masks view and find one merge and one split; explain each from the Flows view. (c) Your own image: find one split or one merge and explain it.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** The particles of every cell run to one sink in its middle. A path started in the C follows the arc around to the centre of the C; in the bent cell it follows the bend; it never leaves the cell. **Noisy flows** (noise 0.7): 22 objects, TP 12, FP 10, FN 2, F1 0.67: the round cell at the top, the rod and the C are split (3 S). Where noisy arrows point at each other, spurious sinks appear. With blur 1.5 it gets worse: 27 objects, F1 0.59; blurring the vector field mixes the flows of neighbouring cells and shortens the arrows near the borders, making more places where arrows cancel. (The flowtrack demo's noise is smoother and blur helps there, F4: whether blur helps depends on how the noise compares with the cells' size.)
+
+**E2.** Above the centre the arrows point down: cyan; below the centre they point up: red; right of the centre (arrows pointing left): violet; left of it: yellow-green. Each cell is a colour wheel around its centre, and a long protrusion has one colour along its length (all arrows point back to the cell body). In Tracking, a pixel at the tip of a protrusion travels the whole protrusion and then into the body; all three end at the same red sink. Readout (defaults): network on 467 × 349, 6 tiles, about 5 s on 4 workers; 82 806 pixels tracked for 200 steps; 105 sinks, 105 masks, the flow check removes 3: **102 cells**, median diameter 29.1 px.
+
+**E3.** 164 sinks with seeds (instead of 105) and 160 masks; the flow check removes 59: **101 cells**, median diameter 24.5 px (instead of 29.1). Without the flow check: 154 cells, median diameter 21.3. The particles of the long protrusions stop halfway and pile up along the way; these piles become extra seeds, so cells break into a body and pieces of protrusions (splits). The pieces have arrows that do not match their own shape, so the flow check drops most of them, and what remains are smaller masks: the cell bodies. The count looks normal (101), but the masks are wrong: always look at the masks, not only at the count.
+
+**E4.** Defaults: 105 masks, 3 removed, 102 cells. No flow check: 0 removed, 104 cells (one mask falls under the minimum size). Threshold 0.2: 6 removed, 99 cells; 0.8: 2 removed, 103 cells. The flow errors are small for almost all masks (median 0.05, 90 % below 0.16); the three removed ones (red in the Flow check view) are small fragments at or near the image border, with errors 1.02, 0.87 and 0.58: cells cut by the border, whose arrows point to a centre outside the image. At 0.2 the check also removes three irregular real cells with errors just above 0.2: a strict threshold costs real cells.
+
+**E5.** Default diameter 29 (network on 407 × 304, 6 tiles): 107 cells, **F1 0.921** (TP 93, FP 14, FN 2). Diameter 15 (788 × 589, 20 tiles, about 13 s): 109 cells, F1 0.892 (91, 18, 4): more splits. Diameter 58 (203 × 152, one tile): 96 cells, F1 0.953 (91, 5, 4): fewer false positives here; most of the default's FP are large nuclei split in two, which a coarser view keeps whole. Diameter 8 (1479 × 1105, 63 tiles, much slower): 143 masks, the flow check removes 49, 94 cells, F1 0.836 (79, 15, 16): the nuclei look like 2–4 times their training size and break up. Diameter 100 (118 × 88): only 7 cells, F1 0.137 (7, 0, 88): nuclei of 5 network pixels are not recognised at all. So the network tolerates about a factor of 2 either way (its training images were randomly rescaled), not more. Estimate diameter on the cells sample: the network is run at diameter 30 and its style vector gives about **30.4 px**, so the slider goes back to 30 and the result is the default one.
+
+**E6.** Pixels tracked: 5614 at −2, 4579 at 0, 3721 at +2. Masks: 40, 36 and 35; removed by the flow check: 7, 3 and 2; 33 cells each time. Median diameter: 14.0, 13.0 and 12.2 px. F1: 0.957 (TP 33, FP 0, FN 3) at −2 and at 0; 0.928 (32, 1, 4) at +2. On this image the threshold mostly moves the **borders**: −2 gives fatter masks and a few extra fragments of background, which the flow check removes; +2 gives thinner masks, and one nucleus shrinks below IoU 0.5 (an FN plus an FP). The three missed nuclei stay missed at −2: lowering the threshold does not recover them here.
+
+**E7.** (a) Inverted (the default for this sample): 70 cells, F1 0.871 (TP 61, FP 9, FN 9). Not inverted: the nuclei network sees dark nuclei on a bright background, the opposite of its training data; 48 masks, 25 removed by the flow check, 23 kept, all on the light **gaps between** nuclei: F1 0.000. A generalist still has a domain; polarity is the user's job. (b) Dense (313 nuclei): 301 cells, F1 0.958 (TP 294, FP 7, FN 19); the readout's errors include about 5 merges and 2 splits (measured from the overlap table). A merge shows as one colour wheel spanning two touching nuclei (no reversal of the colours at the contact); a split as two wheels inside one nucleus, typically an elongated or dividing one. (c) Depends on your image; the explanation is always in the Flows view (two wheels in one object, or one wheel over two).
+:::
+
+## Where this leads
+
+The flow route turns the pixel map into a decoding that follows bends; its weak points are touching cells with weak contact and the cell size. The [next unit](../yolo/lec.qmd) leaves pixel maps behind: **detectors** predict a list of boxes directly, one pass over the image, and need suppression instead of following arrows. The [comparison unit](../cellnets-compare/lec.qmd) then runs the flow route, star-convex polygons and the classical pipeline on the same annotated images.

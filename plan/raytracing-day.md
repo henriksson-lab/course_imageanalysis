@@ -2,10 +2,12 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "3D" (row "3D: ray tracing", requested
+**Course map (2026-11-13, self-study restructure):** day 50 of 51, Part IX "3D and computing". Hard prerequisites: 3D graphics (day 48). Soft (see also): Colour (day 42), Deconvolution (day 5), How GPUs work (day 51). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part IX (row "3D: ray tracing", requested
 2026-11-12); entry after the **3D graphics** day (`plan/graphics3d-day.md`: `pipeline3d/`,
 `rasterise/`, `gpuformats/`, `volrender/`), which itself comes after marching cubes. Runs in
-parallel with the planned **GPU** day (group "Computing: GPUs") and the planned **geometry from
+parallel with the planned **GPU** day (Part IX) and the planned **geometry from
 images** day; both are linked, neither is required.
 
 **Notation** (fixed with the built 3D units): rays $\mathbf r(t) = \mathbf o + t\,\mathbf d$
@@ -640,7 +642,7 @@ microscopy-heavy cohort.
   network if `learned-restoration/` is ever built), or is the joint bilateral enough?
 - Spectral rendering (dispersion in the 3D path tracer) and participating media (fog,
   tissue scattering) are left out of the demos; one line each. Revisit if the
-  fluorescence/tissue electives want Monte Carlo photon transport.
+  fluorescence/tissue days want Monte Carlo photon transport.
 - Programming exercises (write a 100-line ray tracer) are not in this plan; the language for
   code examples is still open (README). Nothing here depends on them.
 

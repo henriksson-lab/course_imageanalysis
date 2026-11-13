@@ -1,7 +1,9 @@
 # Plan: a day on deconvolution and restoration
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
-**Course map (2026-11-12):** core day 5 of 18, Part I, directly after
+**Course map (2026-11-13, self-study restructure):** day 5 of 51, Part I "Images as numbers". Hard prerequisites: Image formation (day 4), Bit depth and noise (day 3). Soft (see also): none. Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** day 5 of 51, Part I, directly after
 day 4 *Image formation* (`plan/imageformation-day.md`) and before Part II (thresholding).
 Built from units 3–4 of the earlier combined image formation plan, extended.
 
@@ -11,8 +13,8 @@ Tikhonov, **regularisation of inverse problems in general** (data term + λ·pen
 in practice, blind deconvolution, PSF mismatch, restoration artefacts, the classical
 **denoiser comparison** and **what may be measured after restoration**. It does not own the
 forward model, the PSF/OTF or the diagnosis "inversion is ill-posed" (image formation), noise
-models (`cameranoise/`), TV and MRF priors (Ising elective, `gmrf/`), sparsity and wavelet
-shrinkage (wavelets elective), or learned and generative restoration (modern deep learning,
+models (`cameranoise/`), TV and MRF priors (Ising day, `gmrf/`), sparsity and wavelet
+shrinkage (wavelets day), or learned and generative restoration (modern deep learning,
 `genrestore`).
 
 ## Goal of the day
@@ -48,8 +50,8 @@ Why it fits this audience: it is the payoff of Part I. The forward model of day 
 linear map that the Fourier transform diagonalises; restoration is solving a badly
 conditioned linear system, and regularisation is the textbook fix, readable through the
 SVD they know. Richardson–Lucy adds one piece of probability (the Poisson likelihood of
-`cameranoise/`). The data + λ·penalty pattern met here returns on the graph-cut day and in
-four electives.
+`cameranoise/`). The data + λ·penalty pattern met here returns on the graph-cut day and on
+four later days.
 
 ## Prerequisites and overlaps
 
@@ -63,14 +65,14 @@ Recall, don't re-teach: each item below gets at most one recall slide with a poi
 | Convolution, Laplacian kernel, border rules | `kernels/` (day 1) | Laplacian as the roughness penalty (unit 1); "wrap" border rule as the cause of FFT border ringing (one line) |
 | SVD, least squares, normal equations | linear algebra (audience.md) | Unit 2 recalls in one line; filter factors are the new part |
 | PCA | `pca/` (day 1) | Not needed; no recall |
-| Energy = data term + λ·smoothness for **labels** | Graph cuts `seg-energy/` (day 13) | This day is the course's first data + λ·penalty (continuous unknowns). `seg-energy/` recalls it: "the same form, but each pixel takes one of two labels". λ is the regularisation weight (course convention). |
-| Total variation, MRF priors | Ising/MRF elective (`gmrf/`, owns TV) | Unit 2: one concept slide (TV keeps steps, staircases ramps) and a 1D demo option; no algorithm. Pointer to the elective. |
-| Sparsity prior, wavelet shrinkage | Wavelets elective (`shrinkage/`) | Unit 2: one line ("a penalty on coefficients in a basis") in the priors slide; unit 4 one line in the denoiser comparison |
-| Iterative reconstruction, SIRT semi-convergence, MLEM | Radon elective | Radon unit 4 recalls units 2–3 here (early stopping, MLEM = RL with the projector). Here: one forward-pointer line. |
-| Linear unmixing, least squares with a mixing matrix | Spectral unmixing elective | Not needed. Stain "colour deconvolution" is unrelated despite the name: one sentence in unit 1's notes. |
+| Energy = data term + λ·smoothness for **labels** | Graph cuts `seg-energy/` (day 27) | This day is the course's first data + λ·penalty (continuous unknowns). `seg-energy/` recalls it: "the same form, but each pixel takes one of two labels". λ is the regularisation weight (course convention). |
+| Total variation, MRF priors | Ising/MRF day (`gmrf/`, owns TV) | Unit 2: one concept slide (TV keeps steps, staircases ramps) and a 1D demo option; no algorithm. Pointer to the day. |
+| Sparsity prior, wavelet shrinkage | Wavelets day (`shrinkage/`) | Unit 2: one line ("a penalty on coefficients in a basis") in the priors slide; unit 4 one line in the denoiser comparison |
+| Iterative reconstruction, SIRT semi-convergence, MLEM | Radon day | Radon unit 4 recalls units 2–3 here (early stopping, MLEM = RL with the projector). Here: one forward-pointer line. |
+| Linear unmixing, least squares with a mixing matrix | Spectral unmixing day | Not needed. Stain "colour deconvolution" is unrelated despite the name: one sentence in unit 1's notes. |
 | Median / rank filters | Morphology (rank filters as the family between min and max) | Unit 4 introduces the median as a **denoiser** (one slide); morphology places it among the rank filters, thresholding recalls it. See open questions. |
 | Learned denoising, generative restoration, hallucination | Modern deep learning (`genrestore`, optional `learned-restoration/`) | Unit 4: one pointer slide, no names ("networks trained on noisy/clean pairs now beat all of these; they can invent structure"). Wiener from unit 1 is the honest baseline in `genrestore`. |
-| Object-level evaluation, statistics of measurements | Evaluation and statistics (day 16) | Unit 4's "what may be measured" is about restoration only; one forward pointer |
+| Object-level evaluation, statistics of measurements | Evaluation and statistics (day 37) | Unit 4's "what may be measured" is about restoration only; one forward pointer |
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
 
@@ -115,7 +117,7 @@ Concept layer:
 - Teacher note (not on a slide): simulating and inverting with the same discrete PSF is the
   "inverse crime" and flatters every method; the demo simulates the blur at twice the
   resolution and with a slightly different PSF in the "realistic" presets. Also in the
-  notes: stain "colour deconvolution" (unmixing elective) is unrelated despite the name.
+  notes: stain "colour deconvolution" (unmixing day) is unrelated despite the name.
 - **Demo `deconvlab`** (new, main demo; also embedded on day 4 with
   `data-mode="inverse"`): object (synthetic cell phantom as truth, cell micrograph,
   Siemens star, beads + edges), true PSF (Gaussian σ / Airy NA / motion, from `lib/psf.ts`),
@@ -158,13 +160,13 @@ Concept layer:
   expect". The data term says how the image was made (the forward model, the noise); the
   penalty says what we know about the object; λ says how much we trust each. The same
   pattern returns on the graph-cut day (labels instead of intensities), in tomography, in
-  unmixing and in the electives on MRFs and wavelets.
+  unmixing and in the days on MRFs and wavelets.
 - **What the penalty can say** (one slide, a 1D step-and-ramp profile restored with each):
   small values (energy); smooth (roughness, Tikhonov); **never negative** (a constraint, not
   a penalty: photons are not negative); **mostly piecewise constant** (total variation:
   penalise the size of jumps, not their square, so a sharp step costs no more than a ramp;
   keeps edges, turns ramps into staircases, shrinks small bright spots; owner: Ising
-  elective); **few non-zero coefficients in a basis** (sparsity, wavelets elective). The
+  day); **few non-zero coefficients in a basis** (sparsity, wavelets day). The
   prior is a modelling choice: choose it from what the object is, and expect it to impose
   itself where the data are weak.
 - **Choosing λ** (the question every student asks):
@@ -190,7 +192,7 @@ Concept layer:
   weak (high, noisy) ones last. Stopping after $k$ steps is a filter whose roll-off moves
   with $k$: **the number of iterations plays the role of λ**. Error to the truth: first
   falls, then rises (**semi-convergence**); the data fit keeps improving. Prepares unit 3
-  (Richardson–Lucy) and is recalled by the Radon elective (SIRT).
+  (Richardson–Lucy) and is recalled by the Radon day (SIRT).
 - **A probabilistic reading** (one concept slide): data term = "how likely are these data
   if this were the object" (noise model); penalty = "how likely is this object before
   looking" (prior). The regularised solution is the **most probable object** given both.
@@ -269,7 +271,7 @@ Concept layer:
   bright objects, **speckling** (noise turned into bright dots) after many iterations,
   **halos** from a wrong PSF, **border** artefacts, axial **smearing** from the missing cone.
 - Forward pointer (one line): for emission tomography the same algorithm with the projector
-  instead of the PSF is MLEM (Radon elective).
+  instead of the PSF is MLEM (Radon day).
 - **Demo `rlsteps`** (new, main demo), modes via `data-mode`:
   - `2d` (default): object (beads of brightness 1:4 next to an edge, Siemens star, cell
     phantom), PSF (Gaussian / Airy), photons (Poisson, seeded), background, PSF used:
@@ -327,7 +329,7 @@ Concept layer:
   - **non-local means**: average pixels whose whole *patch* looks similar, wherever they
     are: best on repetitive structure, can smear unique fine detail;
   - **TV and wavelet shrinkage** (one line each, recall unit 2; pointers to the Ising and
-    wavelets electives).
+    wavelets days).
 - The **method noise** check: noisy − denoised should look like pure noise; structure in it
   (an edge, a filament) means the filter removed signal. Poisson noise depends on the
   signal: either use a method that knows it (RL, Poisson data terms) or stabilise the
@@ -357,7 +359,7 @@ Concept layer:
   a repeated texture), noise type (Gaussian σ / Poisson photons / salt-and-pepper), method
   (Gaussian σ / median radius / bilateral $\sigma_s$, $\sigma_r$ / non-local means patch,
   search window, $h$ / Wiener with PSF = point / TV λ, if `lib/smooth.ts` from the Ising
-  elective exists). Panels: noisy, denoised, method noise (noisy − denoised), error vs
+  day exists). Panels: noisy, denoised, method noise (noisy − denoised), error vs
   truth; a line profile across the step and the thin line; readout PSNR. Two-up mode to
   compare two methods on the same noise. Presets: "Gaussian blurs the step", "salt and
   pepper: median wins", "median eats the thin line", "bilateral keeps edges", "bilateral at
@@ -443,7 +445,7 @@ then `## Explore {#explore}` with the demo and 4–6 concrete questions. Example
 - `demos/src/lib/denoise.ts` (new, owner: this day): Gaussian (from `lib/imageops.ts`),
   median (histogram-based for small integer radii), bilateral, non-local means (per-offset
   formulation with box sums from `lib/integral.ts`, so the cost is search window × pixels,
-  not × patch size). 2D TV denoising is taken from `lib/smooth.ts` (owner: Ising elective)
+  not × patch size). 2D TV denoising is taken from `lib/smooth.ts` (owner: Ising day)
   if it exists; otherwise the TV option is hidden.
 - Reuse: `lib/imageops.ts` `loadGrey()`; `lib/random.ts` (`rng`, `gauss`, `poisson`);
   `lib/metrics.ts` (RMSE, PSNR with explicit peak); `lib/plot.ts` (line plots, log axes,

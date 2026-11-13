@@ -1,8 +1,10 @@
 # Plan: a day on optical flow (and non-rigid registration)
 
 Internal working doc (plan/ is not rendered). Status: core units 1–4 built 2026-11-13 (see "Build notes" at the end); optional unit 5 not built.
-**Course map (2026-11-12):** elective, group **"Motion"** (should-have), entry after **FFT
-registration (day 12)**. First day of the group; the tracking day (same group, not yet planned)
+**Course map (2026-11-13, self-study restructure):** day 25 of 51, Part V "Aligning images and motion". Hard prerequisites: Edges, blobs and ridges (day 2), FFT registration (day 23). Soft (see also): Deconvolution (day 5), Splines and NURBS (day 6). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part V (should-have), entry after **FFT
+registration (day 23)**. First day of the group; the tracking day (same group, not yet planned)
 comes after labelling and the point-detection day and may follow this one. This day also holds
 **non-rigid registration** as one unit (the course map left "related unit or day" open: unit 4
 here; see open questions).
@@ -12,7 +14,7 @@ and Schunck's α² is written λ); the flow is $(u, v)$ in pixels per frame; the
 "frame 1 / frame 2" (FFT registration said "image A / image B"; for registration in unit 4 the
 "fixed" and the "moving" image); $I_x, I_y, I_t$ are the derivatives in $x$, $y$ and time;
 "window" is the local neighbourhood of Lucas–Kanade (the edges day's integration scale ρ), and
-"taper" stays reserved for Hann weighting (day 12).
+"taper" stays reserved for Hann weighting (day 23).
 
 ## Goal of the day
 
@@ -56,38 +58,38 @@ streaming, kymographs of transport) are exactly what the biology-oriented studen
 
 ## Prerequisite gap
 
-All needed core days come before day 12, so the elective needs nothing new from Parts IV–V.
+All needed days come before day 23, so the day needs nothing new from Parts IV–V.
 
 - **Gradient as a difference of neighbours, Gaussian derivatives** (`canny/`, day 2): recalled
   in one line in unit 1.
 - **The structure tensor** $J = G_\rho * (\nabla I\,\nabla I^\top)$, its eigenvalues, coherence,
   Harris/Shi–Tomasi corners (`structure-tensor/`, day 2): unit 2 recalls it in **one slide** and
   then shows that Lucas–Kanade's matrix **is** $J$ (the built unit's "Interest points" slide
-  already says "the motion elective builds on this").
+  already says "the optical flow and tracking days builds on this").
 - **Gaussian pyramid** (`scale-space/`, day 2; owner): recalled in one line in unit 2 (blur, then
   downsample by 2). Not re-taught.
 - **Warping with inverse mapping and bilinear interpolation** (`images/`, day 1): recalled in
   unit 2 (warp frame 2 towards frame 1 by the current flow estimate) and unit 4 (apply a
   deformation field). One line each.
-- **Least squares / normal equations** (linear algebra; used in `stitching/` math, day 12):
+- **Least squares / normal equations** (linear algebra; used in `stitching/` math, day 23):
   recalled in the unit 2 math slide.
 - **Regularisation: data + λ·penalty, choosing λ, early stopping** (`regularise/`, day 5; owner
   of regularisation with continuous unknowns): unit 3 recalls "the pattern" slide and the
   roughness penalty row of its table; Horn–Schunck is that pattern with a vector field as the
-  unknown. Quadratic vs total-variation smoothing of a field: `gmrf/` (Ising elective) as a
-  pointer only, since that elective may not have been taken.
+  unknown. Quadratic vs total-variation smoothing of a field: `gmrf/` (Ising day) as a
+  pointer only, since that day may not have been taken.
 - **Rigid shifts, phase correlation, block-wise motion estimation** (`phasecorr/`,
-  `stitching/`, day 12): this day starts where `stitching/`'s "Limits: rigid only" slide stops.
+  `stitching/`, day 23): this day starts where `stitching/`'s "Limits: rigid only" slide stops.
   Unit 1 recalls "one shift for the whole image"; PIV (optional unit 5) is phase correlation per
   window.
-- **Gradient descent** ("walk downhill"): owned by `backprop/` (day 15), which may come later
-  than this elective. Unit 4 explains it self-contained in one concept slide (a ball on the
+- **Gradient descent** ("walk downhill"): owned by `backprop/` (day 36), which may come later
+  than this day. Unit 4 explains it self-contained in one concept slide (a ball on the
   similarity landscape) with a forward pointer, as `snakes/` does.
-- **Entropy** of a histogram (`entropy/`, compression elective; may not have been taken) and the
-  **two-channel scatter plot / joint histogram** (`coloc/`, day 11): unit 4 defines entropy in
+- **Entropy** of a histogram (`entropy/`, compression day; may not have been taken) and the
+  **two-channel scatter plot / joint histogram** (`coloc/`, day 16): unit 4 defines entropy in
   one slide self-contained ("how many yes/no questions to guess the value") and recalls the
   scatter plot from `coloc/`.
-- **B-splines** (splines elective, requested, not yet planned; course map "Ownership changes":
+- **B-splines** (splines day, requested, not yet planned; course map "Ownership changes":
   the splines day owns spline theory and non-rigid registration recalls it): unit 4 shows the
   cubic B-spline only as "a smooth bump per control point" with a pointer; nothing depends on
   the splines day.
@@ -100,17 +102,17 @@ All needed core days come before day 12, so the elective needs nothing new from 
 | Structure tensor, Harris/Shi–Tomasi corners, orientation and coherence | edges day, `structure-tensor/` | unit 2 recall slide; the LK matrix is $J$, the "good features to track" are its min-eigenvalue maxima: one slide, no re-derivation. 1D flow as kymograph orientation (unit 1) uses the space–time structure tensor in words, pointer to the doubled-angle slide |
 | Gaussian pyramid, scale space | edges day, `scale-space/` | unit 2 recall, used for coarse-to-fine |
 | Warping, bilinear interpolation, affine maps, homogeneous coordinates | `images/` | units 2 and 4 recall |
-| Rigid translation by correlation; NCC; template matching; sub-pixel peaks; drift correction; one-line PIV mention | FFT registration, `matching/`, `phasecorr/`, `stitching/` | NCC as a similarity measure is **recalled** in unit 4 (owner day 12); rigid pre-alignment before non-rigid = day 12's tools; optional unit 5's PIV is windowed phase correlation (recall `phasecorr/`, sub-pixel from `stitching/`) |
+| Rigid translation by correlation; NCC; template matching; sub-pixel peaks; drift correction; one-line PIV mention | FFT registration, `matching/`, `phasecorr/`, `stitching/` | NCC as a similarity measure is **recalled** in unit 4 (owner day 23); rigid pre-alignment before non-rigid = day 23's tools; optional unit 5's PIV is windowed phase correlation (recall `phasecorr/`, sub-pixel from `stitching/`) |
 | Regularisation of inverse problems (data + λ·penalty, λ choice, early stopping) | deconvolution, `regularise/` | unit 3: Horn–Schunck as that pattern; unit 4: bending energy as the penalty. Recall, not re-derived |
 | Energy minimisation over labels; data + λ·smoothness | graph cuts, `seg-energy/` | one-line pointer in unit 3 (same structure, labels vs continuous vectors) |
-| Quadratic vs TV smoothing (GMRF), robust penalties | Ising elective, `gmrf/` | unit 3: robust penalty for sharp motion boundaries as a pointer + demo toggle, not taught |
-| Spline theory: B-spline basis, Cox–de Boor, knots | splines elective (not yet planned) | unit 4 recalls the cubic B-spline as a bump with values ⅙, ⅔, ⅙; pointer. When the splines day is planned it may take the FFD demo as an application (course map: "free-form-deformation non-rigid registration" listed under its image uses) |
-| Landmark registration (Procrustes), thin-plate splines | snakes elective, `shape-models/` (Procrustes) | unit 4 contrast slide: landmark-based vs intensity-based non-rigid; thin-plate splines as a pointer (splines elective) |
-| Mutual information as a similarity measure; joint histogram for registration | **this day** (proposed; no current owner) | unit 4. Entropy itself: `entropy/` (compression elective) recalled if taken; self-contained definition here |
-| Joint histogram / scatter plot of two channels | `coloc/` (day 11; moves to the colocalisation day per "Ownership changes") | unit 4 recall: "the coloc scatter plot, now used to *align*, not to measure overlap" |
-| Gradient descent | `backprop/` (day 15) | unit 4: one self-contained slide, forward pointer |
+| Quadratic vs TV smoothing (GMRF), robust penalties | Ising day, `gmrf/` | unit 3: robust penalty for sharp motion boundaries as a pointer + demo toggle, not taught |
+| Spline theory: B-spline basis, Cox–de Boor, knots | splines day (not yet planned) | unit 4 recalls the cubic B-spline as a bump with values ⅙, ⅔, ⅙; pointer. When the splines day is planned it may take the FFD demo as an application (course map: "free-form-deformation non-rigid registration" listed under its image uses) |
+| Landmark registration (Procrustes), thin-plate splines | snakes day, `shape-models/` (Procrustes) | unit 4 contrast slide: landmark-based vs intensity-based non-rigid; thin-plate splines as a pointer (splines day) |
+| Mutual information as a similarity measure; joint histogram for registration | **this day** (proposed; no current owner) | unit 4. Entropy itself: `entropy/` (compression day) recalled if taken; self-contained definition here |
+| Joint histogram / scatter plot of two channels | `coloc/` (day 16; moves to the colocalisation day per "Ownership changes") | unit 4 recall: "the coloc scatter plot, now used to *align*, not to measure overlap" |
+| Gradient descent | `backprop/` (day 36) | unit 4: one self-contained slide, forward pointer |
 | Feature tracking (KLT: track Shi–Tomasi corners by LK), linking detections, Kalman, lineages, MSD | tracking day (Motion group, not yet planned) | unit 2 ends with one pointer slide: "LK at corners = tracking points; linking objects over time is the tracking day" |
-| Learned flow (correlation volumes + recurrent refinement), learned registration | modern deep learning day (day 18) | one pointer line in unit 3 summary ("networks trained on synthetic flow; same evaluation by EPE") |
+| Learned flow (correlation volumes + recurrent refinement), learned registration | modern deep learning day (day 39) | one pointer line in unit 3 summary ("networks trained on synthetic flow; same evaluation by EPE") |
 | Topic page "Registration and alignment" (planned) | topic pages | this day supplies the non-rigid and flow entries |
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -124,7 +126,7 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
 ### 1. `flow-constraint/`: Motion between frames: brightness constancy and the aperture problem
 
 - Motivation with pictures (time-lapse, honest captions): a migrating cell sheet in a wound
-  assay, cytoplasmic streaming, a beating heart tube, a drifting-and-deforming tissue. Day 12
+  assay, cytoplasmic streaming, a beating heart tube, a drifting-and-deforming tissue. Day 23
   found **one** shift for the whole image; here every pixel gets its own vector: a **flow field**.
 - **Showing a flow field**: arrows (subsampled; length = speed), the **colour wheel** (hue =
   direction, saturation/brightness = speed, with the wheel as legend), the speed map. One slide
@@ -228,7 +230,7 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
   the motion is $\mathbf u / 2^\ell$, initialise level $\ell - 1$ with $2\mathbf u_\ell$. Failure:
   coarse levels blur away small objects moving differently from their surroundings.
 - **Block matching** for comparison (one slide): try shifts per window and keep the best score
-  (day 12's NCC/phase correlation per window, = PIV, optional unit 5): robust to large motion,
+  (day 23's NCC/phase correlation per window, = PIV, optional unit 5): robust to large motion,
   integer unless sub-pixel fitted, slow; LK: sub-pixel, fast, small motion only.
 - Pointer slide: tracking sparse points with LK at Shi–Tomasi corners (feature tracking); linking
   objects over time and lineages: the tracking day.
@@ -282,9 +284,9 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
 - **Sharp motion boundaries**: the squared penalty hates jumps, so it blurs the boundary between
   a moving cell and the static background. Robust penalties (TV / Charbonnier: pay for the size of
   the jump, not its square) keep boundaries (pointer: `regularise/` table row "total variation",
-  `gmrf/` on the Ising elective); a robust data term ignores pixels where brightness constancy
+  `gmrf/` on the Ising day); a robust data term ignores pixels where brightness constancy
   fails. Modern variational flow = robust data + robust smoothness + coarse-to-fine + warping;
-  learned flow networks (pointer, day 18) are trained on synthetic sequences and evaluated the
+  learned flow networks (pointer, day 39) are trained on synthetic sequences and evaluated the
   same way.
 - **LK vs HS** table: local vs global; sparse + confidence vs dense; window size vs λ; fast
   closed form vs iterations; both need small motion (pyramids for both).
@@ -329,14 +331,14 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
   registration aligns images that may differ a lot (two time points far apart, two animals to an
   atlas, a live image to a fixed-and-stained one, two stains on serial sections). Same output: a
   **deformation field** (a vector per pixel), but found by optimisation of a similarity score
-  over a smooth family of deformations. Pipeline: rigid/affine first (day 12, `images/`), then
+  over a smooth family of deformations. Pipeline: rigid/affine first (day 23, `images/`), then
   non-rigid.
 - **A smooth family: free-form deformation.** Put a coarse **grid of control points** over the
   image; each control point carries a displacement; the displacement of any pixel is a smooth
   blend of the nearby control points (each control point = a smooth bump, the cubic B-spline, 4
   control points wide in each direction). Grid spacing = how local the deformation can be;
   moving one control point changes only a local patch. Pointer: B-splines in depth on the splines
-  elective; landmarks + thin-plate splines as the landmark-based alternative (Procrustes for the
+  day; landmarks + thin-plate splines as the landmark-based alternative (Procrustes for the
   rigid part: `shape-models/`).
 - **The math: B-spline FFD** {.math}: $\mathbf d(\mathbf x) = \sum_{k,l} \mathbf c_{kl}\,\beta^3\!\big(\tfrac{x}{\Delta} - k\big)\,\beta^3\!\big(\tfrac{y}{\Delta} - l\big)$,
   $\beta^3(t) = \tfrac23 - t^2 + \tfrac12|t|^3$ for $|t| < 1$, $\tfrac16(2 - |t|)^3$ for
@@ -353,11 +355,11 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
   (recall the `coloc/` scatter plot): for each pixel, plot (value in fixed, value in moving).
   Aligned images give a **tight** pattern; misaligned a **cloud**.
   - **SSD**: the pattern should be the diagonal (same contrast; e.g. two frames of a time-lapse).
-  - **NCC** (owner day 12, recall): the pattern should be a straight line (gain and offset).
+  - **NCC** (owner day 23, recall): the pattern should be a straight line (gain and offset).
   - **Mutual information**: the pattern should be **any** tight pattern (inverted contrast, two
     stains, two modalities, a non-monotone mapping). MI measures how much knowing one image's
     value tells you about the other's. Entropy in one slide: the number of yes/no questions
-    needed to guess a value (recall `entropy/` if the compression elective was taken).
+    needed to guess a value (recall `entropy/` if the compression day was taken).
   - Pitfalls of MI: needs enough pixels per histogram bin (bin count trade-off), sensitive to the
     overlap size (normalised MI as the fix: pointer), local optima.
 - **The math: mutual information** {.math}: $p(a, b)$ from the normalised joint histogram,
@@ -426,7 +428,7 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
   automatically with the structure tensor in $x$–$t$ (recall unit 1). Pitfall: motion not along
   the line is invisible (the aperture problem again).
 - **Integrating flow**: following a point through a sequence by chaining flows accumulates
-  error (as day 12's "register to the previous frame"); pathlines vs streamlines (one line).
+  error (as day 23's "register to the previous frame"); pathlines vs streamlines (one line).
   Pointer: the tracking day for objects.
 - **The math: divergence and curl** {.math}: $\nabla\cdot\mathbf u = u_x + v_y$,
   $\omega = v_x - u_y$; for a rotation $\mathbf u = \Omega(-y, x)$: div 0, curl $2\Omega$; for an
@@ -453,7 +455,7 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
     matrix and confidence (LK's right-hand side needs $G_\rho*(I_xI_t)$, $G_\rho*(I_yI_t)$:
     computed in `lib/flow.ts` with `gaussianBlur`, not by changing `structureTensor`).
   - `lib/linalg.ts`: `eigSym2`, `inv2`/`det2` for per-pixel 2×2 solves and the ellipse.
-  - `lib/registration.ts` (owner day 12): `correlate2d`, `findPeaks`, `peakRatio`,
+  - `lib/registration.ts` (owner day 23): `correlate2d`, `findPeaks`, `peakRatio`,
     `parabolaPeak2d`, `hann`/`taper2d` for PIV windows; `fourierShift2d` for exact sub-pixel
     test translations.
   - `lib/histogram.ts`: `histogram2d` for the joint histogram; `lib/entropy.ts`:
@@ -512,7 +514,7 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
   micrograph and `lib/synth.ts`. Real time-lapses would help (open question).
 - Follow `demos/README.md`: no network, fixed seeds, presets + reset, keyboard back to reveal.js,
   static figure in each deck/exercise as the print fallback; every demo on `demos.qmd` and the
-  sidebar (a new elective section "Motion" → "Optical flow").
+  sidebar (a new section "Motion" → "Optical flow").
 
 ## Suggested timetable
 
@@ -543,7 +545,7 @@ with `Solutions (math)`. Folder names checked against the repo: none exist yet.
 - **Pending edits to built units** (cross-links): `structure-tensor/` "Interest points" and
   "Uses" slides → point to `lucas-kanade/`; `stitching/` "Limits: rigid only" slide → point to
   `flow-constraint/` and `nonrigid-reg/`; `scale-space/` pyramid slide → "used for coarse-to-fine
-  flow" (one line); `regularise/` "The pattern" slide's "returns … in the electives" → name
+  flow" (one line); `regularise/` "The pattern" slide's "returns … in the later days" → name
   Horn–Schunck; `coloc/` scatter plot → forward pointer to `jointhist`.
 - **Real data**: a licensed time-lapse (migrating cell sheet or cytoplasmic streaming) and a
   pair for multimodal registration (e.g. live/fixed or two stains) would make `lkflow`/`piv` and

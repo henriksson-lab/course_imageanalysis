@@ -1,8 +1,10 @@
 # Plan: a day on FRET (Förster resonance energy transfer)
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
-**Course map (2026-11-12):** elective, group "Fluorescence quantification" (colocalisation,
-**FRET**, FLIM); entry after core day 7 (colour); the spectral unmixing elective
+**Course map (2026-11-13, self-study restructure):** day 45 of 51, Part VIII "Colour and fluorescence". Hard prerequisites: Colour (day 42). Soft (see also): Spectral unmixing (day 43), Measurements (day 16), FFT registration (day 23). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part VIII (colocalisation,
+**FRET**, FLIM); entry after day 42 (colour); the spectral unmixing day
 (`crosstalk/` in particular) helps but is not required. Ownership change from the course map
 applied: **FRET bleed-through correction builds on the unmixing day's crosstalk unit (recall)**.
 The FLIM day (planned in parallel) owns lifetimes, phasors and FLIM-FRET; this day points to it.
@@ -64,21 +66,21 @@ counts $N$.
   **excitation (absorption) spectrum** next to the emission spectrum (the unmixing day used
   emission only) and on quantum yield as "the fraction of excited molecules that emit".
 - **Bleed-through, the mixing matrix, single-stained controls, slope through the origin,
-  under/over-compensation**: owned by `crosstalk/` (spectral unmixing elective). Unit 2 recalls
+  under/over-compensation**: owned by `crosstalk/` (spectral unmixing day). Unit 2 recalls
   it in **one** slide plus a two-line "if you have not taken the unmixing day" box (a channel
   sees the band; a control measures a column; the slope through the origin estimates it), so
-  the day stands alone after day 7.
+  the day stands alone after day 42.
 - **Least squares, condition number** (`lsunmix/`): recalled in one bullet for spectral FRET
   (optional unit) and for "subtraction amplifies noise".
 - **Poisson shot noise, read noise, offset, SNR**: `cameranoise/` (day 3), recalled in one line
   each; the ratio-noise material builds on "variance = mean" for photon counts.
-- **Background subtraction before a ratio**: `intensity-features/` (measurements day 11) has the
-  slide "a ratio of two means cancels gain but not offset". Day 11 may not have been taken
-  (entry is after day 7), so unit 4 restates it in one slide with a back-reference.
-- **Colour maps, lightness, diverging maps**: `colour-display/` (day 7); used for ratio and
+- **Background subtraction before a ratio**: `intensity-features/` (measurements day 16) has the
+  slide "a ratio of two means cancels gain but not offset". Day 16 may not have been taken
+  (entry is after day 42), so unit 4 restates it in one slide with a back-reference.
+- **Colour maps, lightness, diverging maps**: `colour-display/` (day 42); used for ratio and
   efficiency maps and for the intensity-modulated display (hue = ratio, lightness = intensity).
 - **Image alignment** (channel shift, a cell that moved between two images): owned by FFT
-  registration (day 12, `phasecorr/`); a pointer here ("align before dividing"), since day 12
+  registration (day 23, `phasecorr/`); a pointer here ("align before dividing"), since day 23
   may come later.
 - **Denoising before measuring** (`denoise/`, "what may be measured"): smoothing/binning before
   a ratio is allowed because both channels get the same linear filter; one-line recall.
@@ -98,7 +100,7 @@ counts $N$.
 | Offset/gain and ratios of intensities | `intensity-features/` | Restated in one slide (background before ratio) with a back-reference |
 | Image alignment | FFT registration (`phasecorr/`) | Pointer |
 | Colour maps, display | `colour-display/` | Used for ratio maps; the intensity-modulated display is taught here (one slide) |
-| Thresholding a mask | Thresholding (day 6) | Used for the ratio mask (one line) |
+| Thresholding a mask | Thresholding (day 12) | Used for the ratio mask (one line) |
 | Photobleaching kinetics | (no owner) | Taught here as much as needed: an exponential loss per exposure; a control region measures it |
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -379,7 +381,7 @@ Concept layer:
 - **Background before dividing** (restated from `intensity-features/`): an offset does not
   cancel; $(A + b)/(D + b)$ moves towards 1. Example: $A = 100$, $D = 400$, $b = 50$ → 0.33
   instead of 0.25. Outside the cell both channels are background: the ratio of two noise values
-  is meaningless (and explodes) → **mask** with a threshold on the sum (day 6, one line).
+  is meaningless (and explodes) → **mask** with a threshold on the sum (day 12, one line).
 - **Bleed-through floor**: donor bleed-through adds $d$ to the ratio at zero FRET; it does not
   change the shape of the response but shifts $R_\text{min}$ (one line; calibration absorbs it).
 - **Display**: a ratio map in a colour map, with the dim (unreliable) pixels shown dark:
@@ -554,7 +556,7 @@ appears as positive covariance in the formula.
   here). Fluorophore names may label shapes that resemble them ("cyan donor, yellow acceptor") as
   examples only. A real three-image FRET data set and a real ratiometric time-lapse with a clear
   licence would make units 2 and 4 honest (principle 4): open question.
-- Every demo also goes on `demos.qmd`; the sidebar gets a "Fluorescence quantification" elective
+- Every demo also goes on `demos.qmd`; the sidebar gets a "Fluorescence quantification"
   section with "FRET" under it (and the colocalisation and FLIM days beside it).
 
 ## Suggested timetable
@@ -585,7 +587,7 @@ appears as positive covariance in the formula.
    unmixing unit 1 required for unit 2".
 5. **Pending edits in built units** (not done here): `endmembers/` non-linear mixing bullet →
    pointer to this day; `crosstalk/` "must compensate first (… ratios, FRET)" → link to
-   `sensitised-emission/`; `coloc/` "a planned fluorescence-quantification elective" → link once
+   `sensitised-emission/`; `coloc/` "a planned fluorescence-quantification day" → link once
    the group exists; `intensity-features/` ratio slide → forward pointer to `ratiometric/`.
 6. **Real data**: a three-image FRET set with donor-only, acceptor-only and fusion controls, and a
    ratiometric time-lapse, both with licences (same search as the unmixing day's lambda stack).

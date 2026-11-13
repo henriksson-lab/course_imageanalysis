@@ -1,19 +1,32 @@
 // The model behind the graphcut demo: test images, seed strokes, data costs from seeds,
 // and one call that segments. No DOM: also used to compute the numbers quoted in the
 // exercise solutions.
+//
+// Images are square, side n (N = 128 by default; the demo also offers 256 and 512). Presets
+// and the synthetic image are defined at 128 x 128 and scaled to other sizes.
+// `Segmenter` caches what does not change between updates (the neighbour graph per size and
+// neighbourhood, the contrast weights per image and sigma, the max-flow graph of the solver),
+// so painting a seed recomputes only the intensity model, the t-links and the max flow.
 import { rng } from "../lib/ui";
-import { gridEdges, contrastWeights, solveSeg, thresholdLabels, segEnergy, SegProblem, SegResult, EnergySplit, Nbhd } from "../lib/graph";
+import { gridEdges, contrastWeights, solveSeg, thresholdLabels, segEnergy, SegProblem, SegResult, EnergySplit, Nbhd, GridEdges } from "../lib/graph";
 
 export const N = 128;
+export const SIZES = [128, 256, 512];
 export const NOISE_SEED = 11;
 
-/** Synthetic test image: a bright disk with a thin arm (3 px wide) on a dark background. */
-export function synthImage(): Float64Array {
-  const I = new Float64Array(N * N);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const disk = (x - 52) ** 2 + (y - 64) ** 2 <= 30 * 30;
-    const arm = x >= 80 && x <= 116 && y >= 63 && y <= 65;
-    I[y * N + x] = disk || arm ? 170 : 80;
+/** Side of a square image stored row by row. */
+export const sideOf = (I: ArrayLike<number>): number => Math.round(Math.sqrt(I.length));
+
+/** Synthetic test image: a bright disk with a thin arm (3 px wide at 128 x 128) on a dark
+ *  background; at other sizes the same shapes scaled by n / 128. */
+export function synthImage(n = N): Float64Array {
+  const I = new Float64Array(n * n), f = N / n;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    // pixel centres in 128-pixel units (at n = 128 exactly the integer coordinates)
+    const X = n === N ? x : (x + 0.5) * f - 0.5, Y = n === N ? y : (y + 0.5) * f - 0.5;
+    const disk = (X - 52) ** 2 + (Y - 64) ** 2 <= 30 * 30;
+    const arm = X >= 79.5 && X <= 116.5 && Y >= 62.5 && Y <= 65.5;
+    I[y * n + x] = disk || arm ? 170 : 80;
   }
   return I;
 }
@@ -39,11 +52,12 @@ export function addNoise(I: ArrayLike<number>, sd: number): Float64Array {
 /** A seed stroke: a polyline in pixel coordinates, label 1 (object) or -1 (background). */
 export interface Stroke { label: 1 | -1; pts: [number, number][]; r?: number }
 
-/** Paint a disk of radius r at (x, y) into the seed map (label 0 erases). */
+/** Paint a disk of radius r at (x, y) into the n x n seed map (label 0 erases). */
 export function paintDisk(seeds: Int8Array, x: number, y: number, r: number, label: number): void {
-  for (let yy = Math.max(0, Math.floor(y - r)); yy <= Math.min(N - 1, Math.ceil(y + r)); yy++)
-    for (let xx = Math.max(0, Math.floor(x - r)); xx <= Math.min(N - 1, Math.ceil(x + r)); xx++)
-      if ((xx - x) ** 2 + (yy - y) ** 2 <= r * r) seeds[yy * N + xx] = label;
+  const n = sideOf(seeds);
+  for (let yy = Math.max(0, Math.floor(y - r)); yy <= Math.min(n - 1, Math.ceil(y + r)); yy++)
+    for (let xx = Math.max(0, Math.floor(x - r)); xx <= Math.min(n - 1, Math.ceil(x + r)); xx++)
+      if ((xx - x) ** 2 + (yy - y) ** 2 <= r * r) seeds[yy * n + xx] = label;
 }
 
 /** Paint a line segment with a round brush. */
@@ -52,14 +66,49 @@ export function paintLine(seeds: Int8Array, x0: number, y0: number, x1: number, 
   for (let k = 0; k <= steps; k++) paintDisk(seeds, x0 + (x1 - x0) * k / steps, y0 + (y1 - y0) * k / steps, r, label);
 }
 
-export function rasterize(strokes: Stroke[]): Int8Array {
-  const seeds = new Int8Array(N * N);
+/** Seed map of side n from strokes given in 128-pixel coordinates (scaled, with the brush). */
+export function rasterize(strokes: Stroke[], n = N): Int8Array {
+  const seeds = new Int8Array(n * n), f = n / N;
+  const sc = (p: [number, number]): [number, number] => (n === N ? p : [(p[0] + 0.5) * f - 0.5, (p[1] + 0.5) * f - 0.5]);
   for (const s of strokes) {
-    const r = s.r ?? 2;
-    if (s.pts.length === 1) paintDisk(seeds, s.pts[0][0], s.pts[0][1], r, s.label);
-    for (let k = 1; k < s.pts.length; k++) paintLine(seeds, ...s.pts[k - 1], ...s.pts[k], r, s.label);
+    const r = (s.r ?? 2) * f;
+    if (s.pts.length === 1) paintDisk(seeds, ...sc(s.pts[0]), r, s.label);
+    for (let k = 1; k < s.pts.length; k++) paintLine(seeds, ...sc(s.pts[k - 1]), ...sc(s.pts[k]), r, s.label);
   }
   return seeds;
+}
+
+/** Nearest-neighbour resampling of a seed map to side n (when the image size changes). */
+export function resampleSeeds(seeds: Int8Array, n: number): Int8Array {
+  const m = sideOf(seeds);
+  if (m === n) return seeds.slice();
+  const out = new Int8Array(n * n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++)
+    out[y * n + x] = seeds[Math.min(m - 1, Math.floor((y + 0.5) * m / n)) * m + Math.min(m - 1, Math.floor((x + 0.5) * m / n))];
+  return out;
+}
+
+/** Area-average (n < m) or bilinear (n > m) resampling of a square grey image to side n. */
+export function resampleImage(I: ArrayLike<number>, n: number): Float64Array {
+  const m = sideOf(I);
+  const out = new Float64Array(n * n);
+  if (m === n) { out.set(I as ArrayLike<number>); return out; }
+  if (m % n === 0) {
+    const k = m / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      let s = 0;
+      for (let dy = 0; dy < k; dy++) for (let dx = 0; dx < k; dx++) s += I[(y * k + dy) * m + x * k + dx];
+      out[y * n + x] = s / (k * k);
+    }
+    return out;
+  }
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const fy = Math.min(m - 1, Math.max(0, (y + 0.5) * m / n - 0.5)), fx = Math.min(m - 1, Math.max(0, (x + 0.5) * m / n - 0.5));
+    const y0 = Math.floor(fy), x0 = Math.floor(fx), y1 = Math.min(m - 1, y0 + 1), x1 = Math.min(m - 1, x0 + 1);
+    const ay = fy - y0, ax = fx - x0;
+    out[y * n + x] = (1 - ay) * ((1 - ax) * I[y0 * m + x0] + ax * I[y0 * m + x1]) + ay * ((1 - ax) * I[y1 * m + x0] + ax * I[y1 * m + x1]);
+  }
+  return out;
 }
 
 export type DataModel = "gauss" | "hist";
@@ -105,19 +154,57 @@ export interface Settings { lambda: number; sigma: number; nbhd: Nbhd; model: Da
 
 export interface Segmentation {
   ok: boolean; info: string;
-  cut: SegResult; thr: Uint8Array; thrEnergy: EnergySplit; ms: number;
+  cut: SegResult; thr: Uint8Array; thrEnergy: EnergySplit;
+  ms: number;        // the whole update
+  solveMs: number;   // of which the graph and the max flow
 }
 
-/** Graph-cut segmentation of an N x N image with seeds, and the thresholded (lambda = 0) result. */
+/** A max-flow solver for SegProblem: lib/graph.ts solveSeg (TypeScript), or the Wasm GridCut. */
+export type Solver = (P: SegProblem) => { L: Uint8Array; flow: number };
+
+const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
+
+/** Segmentation with caches: the neighbour graph per (size, neighbourhood), the contrast
+ *  weights per (image, size, neighbourhood, sigma). The solver keeps its own graph. */
+export class Segmenter {
+  private edges = new Map<string, GridEdges>();
+  private wKey = ""; private wImg: ArrayLike<number> | null = null; private w: Float64Array | null = null;
+  constructor(public solver: Solver = solveSeg) {}
+
+  gridEdges(n: number, nbhd: Nbhd): GridEdges {
+    const k = `${n}/${nbhd}`;
+    let E = this.edges.get(k);
+    if (!E) { E = gridEdges(n, n, nbhd); this.edges.set(k, E); }
+    return E;
+  }
+
+  weights(I: ArrayLike<number>, E: GridEdges, n: number, nbhd: Nbhd, sigma: number): Float64Array {
+    const k = `${n}/${nbhd}/${sigma}`;
+    if (this.wImg !== I || this.wKey !== k || !this.w) { this.w = contrastWeights(I, E, sigma); this.wImg = I; this.wKey = k; }
+    return this.w;
+  }
+
+  segment(I: ArrayLike<number>, seeds: Int8Array, s: Settings): Segmentation {
+    const t0 = now();
+    const n = sideOf(I);
+    const c = seedCosts(I, seeds, s.model);
+    const E = this.gridEdges(n, s.nbhd);
+    const P: SegProblem = { n: n * n, D0: c.D0, D1: c.D1, E, w: this.weights(I, E, n, s.nbhd, s.sigma), lambda: s.lambda, seeds };
+    const t1 = now();
+    let cut: SegResult;
+    if (c.ok) { const r = this.solver(P); cut = { L: r.L, flow: r.flow, energy: segEnergy(P, r.L) }; }
+    else cut = { L: new Uint8Array(n * n), flow: 0, energy: segEnergy(P, new Uint8Array(n * n)) };
+    const t2 = now();
+    const thr = thresholdLabels(P);
+    const thrEnergy = segEnergy(P, thr);
+    return { ok: c.ok, info: c.info, cut, thr, thrEnergy, ms: now() - t0, solveMs: t2 - t1 };
+  }
+}
+
+/** Graph-cut segmentation of a square image with seeds (TypeScript max flow, no caching), and
+ *  the thresholded (lambda = 0) result. */
 export function segment(I: ArrayLike<number>, seeds: Int8Array, s: Settings): Segmentation {
-  const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
-  const c = seedCosts(I, seeds, s.model);
-  const E = gridEdges(N, N, s.nbhd);
-  const P: SegProblem = { n: N * N, D0: c.D0, D1: c.D1, E, w: contrastWeights(I, E, s.sigma), lambda: s.lambda, seeds };
-  const cut = c.ok ? solveSeg(P) : { L: new Uint8Array(N * N), flow: 0, energy: segEnergy(P, new Uint8Array(N * N)) };
-  const thr = thresholdLabels(P);
-  const t1 = typeof performance !== "undefined" ? performance.now() : Date.now();
-  return { ok: c.ok, info: c.info, cut, thr, thrEnergy: segEnergy(P, thr), ms: t1 - t0 };
+  return new Segmenter().segment(I, seeds, s);
 }
 
 export interface Preset {
@@ -153,6 +240,6 @@ export const PRESETS: Preset[] = [
 ];
 
 /** True labels of the synthetic image (for counting wrong pixels). */
-export function synthTruth(): Uint8Array {
-  return Uint8Array.from(synthImage(), v => (v > 125 ? 1 : 0));
+export function synthTruth(n = N): Uint8Array {
+  return Uint8Array.from(synthImage(n), v => (v > 125 ? 1 : 0));
 }

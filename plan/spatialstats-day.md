@@ -2,14 +2,16 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
 Follows `plan/coursemap.md`, section "Queue, second batch" (requested 2026-11-13): **Spatial
-statistics of objects**, elective group **"Objects"** (with skeletons and moments). **Entry
-after:** day 9 (Labelling: objects and their centroids) and the point-detection day (spots and
-sub-pixel positions). This plan proposes to move the entry to **day 11 (Measurements)**, whose
+statistics of objects**, Part III (with skeletons and moments). **Entry
+after:** day 14 (Labelling: objects and their centroids) and the point-detection day (spots and
+sub-pixel positions). This plan proposes to move the entry to **day 16 (Measurements)**, whose
 `relations/` unit already teaches the Poisson nearest-neighbour law and Clark–Evans (see
 "Proposed reorganisation"). This day **owns** point-pattern statistics: complete spatial
 randomness (CSR) as the null model, quadrat counts, the G, F and J functions, Ripley's K and L,
 the pair-correlation function g, edge corrections, Monte Carlo envelopes and global tests,
 multitype (cross) functions and the two null models for them, and inhomogeneous intensity.
+
+**Course map (2026-11-13, self-study restructure):** day 19 of 51, Part III "From pixels to objects". Hard prerequisites: Measurements (day 16). Soft (see also): Point detection (day 20), Evaluation and statistics (day 37), Colocalisation (day 44). Source: `days.yml`.
 
 ## Goal of the day
 
@@ -64,39 +66,39 @@ random points would give", which makes the day unusually uniform: one idea, five
 
 What the built units already teach, and what this day recalls in one slide or one line:
 
-- **`relations/`** (day 11, built): three definitions of "neighbour", Voronoi neighbours by
+- **`relations/`** (day 16, built): three definitions of "neighbour", Voronoi neighbours by
   expansion, the nearest-neighbour distance histogram against the Poisson curve, **Clark–Evans**
   $R$ (with its demo numbers: clustered 0.73, random 1.11, regular 1.86), the math slide "The
   Poisson nearest neighbour" ($P(D > r) = e^{-\rho\pi r^2}$, $E[D] = 1/(2\sqrt\rho)$), and a
   border slide (guard zone of 24 px in the `neighbours` demo). Unit 2 starts **from** that slide:
   G is the CDF of exactly that histogram, and Clark–Evans is G summarised by one number. The
   notation changes from ρ (relations) to λ (the spatial-statistics convention); one line says
-  so. If the entry stays at day 9, unit 2 must restate the law in one concept slide and one
+  so. If the entry stays at day 14, unit 2 must restate the law in one concept slide and one
   math slide (it is short).
-- **`label-measure/`** (day 9): border objects and the unbiased counting frame. Unit 2's edge
+- **`label-measure/`** (day 14): border objects and the unbiased counting frame. Unit 2's edge
   corrections are the same worry for **distances** instead of counts; one recall line.
-- **`regionprops/`** (day 9): centroids. **`spot-filters/`, `spot-threshold/`, `spot-fit/`**
+- **`regionprops/`** (day 14): centroids. **`spot-filters/`, `spot-threshold/`, `spot-fit/`**
   (point detection): spot positions with sub-pixel precision. **`spot-crowd/`**: two spots
   closer than about the PSF width merge into one. Unit 1 recalls all of it in one slide ("where
   the points come from") and turns the merging into a pattern artefact (missing short
   distances = apparent regularity).
-- **`morph-openclose/`** (day 8): the distance transform. Used for the distance from each point
+- **`morph-openclose/`** (day 13): the distance transform. Used for the distance from each point
   to the window border (border correction) and for F (distance from every pixel to the nearest
   point = the distance transform of the point image). One line each.
-- **`coloc-null/`** (colocalisation elective): randomisation, the permutation p-value, "blocks,
+- **`coloc-null/`** (colocalisation day): randomisation, the permutation p-value, "blocks,
   not pixels". **`coloc-objects/`**: the chance level $1 - e^{-\rho_B\pi d^2}$, relocation of
   spots inside the cell mask, the cross-K function (one concept slide, one math slide, no edge
   correction) with a 39-relocation envelope. Unit 5 generalises; if a student has done the
   colocalisation day, the cross-L tab of `colocobjects` is a familiar picture. Not required.
-- **`replicates/`** (day 16, built): the p-value by simulation, the unit of replication,
-  pseudoreplication, multiple comparisons (Bonferroni, Benjamini–Hochberg). Day 16 comes **after**
-  this elective in the core order, so unit 4 introduces the Monte Carlo p-value from scratch in
+- **`replicates/`** (day 37, built): the p-value by simulation, the unit of replication,
+  pseudoreplication, multiple comparisons (Bonferroni, Benjamini–Hochberg). Day 37 comes **after**
+  this day in the course order, so unit 4 introduces the Monte Carlo p-value from scratch in
   the concept layer (it is the simplest possible null-by-simulation, one slide) and points
-  forward to `replicates/` for the experiment-level statistics; a student who did day 16 first
+  forward to `replicates/` for the experiment-level statistics; a student who did day 37 first
   reads it as a recall.
-- **`leakage/`** (day 16): spatial autocorrelation of pixels. One line in unit 4: "points in one
+- **`leakage/`** (day 37): spatial autocorrelation of pixels. One line in unit 4: "points in one
   image are not independent observations of the treatment, for the same reason".
-- **`track-analysis/`** (tracking elective): the MSD compared with a random walk is the same
+- **`track-analysis/`** (tracking day): the MSD compared with a random walk is the same
   logic in time (null model = pure diffusion). One pointer line in unit 4's summary.
 - **Probability**: the Poisson distribution is recalled from `cameranoise/` (photon counts) with
   the same picture ("rare independent events in a region"); the binomial is from audience
@@ -684,8 +686,8 @@ Optional unit 6 as self-study or a second half-day.
 1. **Five core units in one day** is full. Fallbacks in order: merge unit 2 into units 1 and 3
    (G/F/J as three slides at the end of unit 1, edge corrections only in unit 3); shorten the
    inhomogeneous part of unit 5 to two slides; make the mark connection function a pointer.
-2. **Entry point**: day 11 (`relations/` has the Poisson NN law, Clark–Evans and the border
-   slide) instead of day 9. Proposal below; if rejected, unit 2 restates the law.
+2. **Entry point**: day 16 (`relations/` has the Poisson NN law, Clark–Evans and the border
+   slide) instead of day 14. Proposal below; if rejected, unit 2 restates the law.
 3. **Unit names**: `point-patterns/`, `nn-functions/`, `ripley-k/`, `envelopes/`,
    `marked-patterns/`, optional `point-clusters/`; all checked against existing folders and
    demo names (`csrplay`, `gfj`, `ripleyk`, `envelopetest`, `celltypes`, `clusterfit` are free;
@@ -723,10 +725,10 @@ Optional unit 6 as self-study or a second half-day.
    day's optional `coloc-points/`** here (unit 5 and unit 3 cover it in general);
    `coloc-points/` keeps coordinate-based colocalisation per localisation and the 3D chromatic
    shift, and points to this day for the functions. Nothing built changes.
-3. **Entry after day 11 (Measurements), not day 9 (Labelling)**: unit 2 builds directly on
+3. **Entry after day 16 (Measurements), not day 14 (Labelling)**: unit 2 builds directly on
    `relations/` (NN histogram, Poisson law, Clark–Evans, guard zone), and the day's inputs are
-   the per-object tables of days 9–11. The point-detection day stays a soft prerequisite (one
-   recall slide); the evaluation day (16) is a soft forward link (unit 4 is self-contained and
+   the per-object tables of days 14–16. The point-detection day stays a soft prerequisite (one
+   recall slide); the evaluation day (37) is a soft forward link (unit 4 is self-contained and
    points to `replicates/`). Group stays "Objects".
 4. **Library consolidation**: `crossK`, `crossLminusR`, `envelope` from `lib/coloc.ts` move into
    the new `lib/pointpattern.ts`, with re-exports in `lib/coloc.ts` (no behavioural change to

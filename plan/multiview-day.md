@@ -2,7 +2,9 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
 
-**Course map (2026-11-12):** elective, group "3D", the row "3D: geometry from images"
+**Course map (2026-11-13, self-study restructure):** day 49 of 51, Part IX "3D and computing". Hard prerequisites: 3D graphics (day 48). Soft (see also): Keypoints and descriptors (day 24), Hough transform (day 21), FFT registration (day 23). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part IX, the row "3D: geometry from images"
 (requested 2026-11-12). Entry after the 3D graphics day (`plan/graphics3d-day.md`), which
 itself comes after marching cubes and Part I. **Ownership change applied here (course map,
 "Ownership changes"):** this day owns **stereo**; the dynamic programming day's optional
@@ -62,7 +64,7 @@ modern 3D capture.
 
 ## Prerequisite gap
 
-The 3D group is entered after Part I, so the core days after Part I (thresholding onwards)
+The 3D group is entered after Part I, so the days after Part I (thresholding onwards)
 may not have been taken. Everything used from them is recalled self-contained in one slide.
 
 - **Homogeneous coordinates, affine transforms, inverse mapping, bilinear interpolation**:
@@ -76,23 +78,23 @@ may not have been taken. Everything used from them is recalled self-contained in
   `volrender/` (3D graphics day, unit 4) and premultiplied "over" (`gpuformats/`). Unit 5
   recalls them in one slide each and does not re-derive them.
 - **Interest points (Harris/Förstner corners), DoG blobs over scales**: `structure-tensor/`
-  and `scale-space/` (edges day, core day 2). Unit 2 recalls "corners can be found again".
-- **NCC** (normalised cross-correlation): owned by FFT registration (`matching/`, core day
+  and `scale-space/` (edges day, day 2). Unit 2 recalls "corners can be found again".
+- **NCC** (normalised cross-correlation): owned by FFT registration (`matching/`, day
   12), which may come later. Units 2 and 3 give a one-slide self-contained definition with the
   pointer.
-- **RANSAC**: owned by the Hough day (`ransac/`, elective "Detection"), which may not have
+- **RANSAC**: owned by the Hough day (`ransac/`, Part IV), which may not have
   been taken. Unit 2 has a two-slide recall (guess and check; $N = \log(1-p)/\log(1-w^s)$)
   and embeds the built `ransac` demo with `data-preset="seventeen"`.
 - **Least squares** (normal equations): linear algebra (audience.md). The built
   `stitching/` math slide "least squares on a graph" (tile positions from pairwise shifts) is
-  the linear little sibling of bundle adjustment; unit 4 points to it if day 12 was taken.
+  the linear little sibling of bundle adjustment; unit 4 points to it if day 23 was taken.
 - **Gradient descent, a small neural network**: neural networks day (`neuralnet/`,
-  `backprop/`, core day 15), possibly not yet taken. Unit 5 says in one slide what it needs
+  `backprop/`, day 36), possibly not yet taken. Unit 5 says in one slide what it needs
   ("a flexible function with many parameters, fitted by walking downhill on the error") and
-  the flatland demo uses a voxel grid instead of a network, so nothing depends on day 15.
-- **Defocus PSF**: `psf/` (image formation, core day 4), slide "Other blurs, other PSFs".
+  the flatland demo uses a voxel grid instead of a network, so nothing depends on day 36.
+- **Defocus PSF**: `psf/` (image formation, day 4), slide "Other blurs, other PSFs".
   The optional `depth-focus/` unit recalls it.
-- **Dynamic programming on a path**: `dp-paths/` (elective "Curves and energies"), maybe not
+- **Dynamic programming on a path**: `dp-paths/` (Part VI), maybe not
   taken. Unit 3's scanline slide explains the table in three lines and points there.
 
 ## Overlaps / who owns what
@@ -102,24 +104,24 @@ may not have been taken. Everything used from them is recalled self-contained in
 | 2D homogeneous coordinates, affine, inverse mapping | `images/` (day 1) | recall |
 | $4\times4$ pipeline, look-at, perspective matrix, rays from pixels | `pipeline3d/` (3D graphics) | recall; unit 1 adds the vision form $K[R\mid\mathbf t]$ and the comparison |
 | Pinhole intrinsics/extrinsics, lens distortion, calibration (DLT, planar calibration), reprojection error | **this day**, unit 1 | — |
-| Homography (the image of a plane; 4 points; DLT) | **this day**, unit 1 (needed for planar calibration, rectification and plane sweep) | Motion elective (planned; panoramas, feature-based registration) recalls it; `ransac/` "Where RANSAC is standard" points here |
+| Homography (the image of a plane; 4 points; DLT) | **this day**, unit 1 (needed for planar calibration, rectification and plane sweep) | optical flow and tracking days (planned; panoramas, feature-based registration) recalls it; `ransac/` "Where RANSAC is standard" points here |
 | Interest points | `structure-tensor/`, `scale-space/` (edges day) | recall |
-| **Matching interest points between images** (patch descriptors, nearest neighbour, ratio test, cross-check) | **this day**, unit 2 (two slides; proposed, see open questions) | Motion elective recalls; `structure-tensor/` "Interest points" names descriptors in one line |
-| NCC, template matching | FFT registration `matching/` (day 12) | one-slide self-contained recall |
+| **Matching interest points between images** (patch descriptors, nearest neighbour, ratio test, cross-check) | **this day**, unit 2 (two slides; proposed, see open questions) | optical flow and tracking days recalls; `structure-tensor/` "Interest points" names descriptors in one line |
+| NCC, template matching | FFT registration `matching/` (day 23) | one-slide self-contained recall |
 | RANSAC (algorithm, iteration count, vs Hough) | Hough day `ransac/` | recall; the application to $F$ is here |
 | Epipolar geometry, $E$, $F$, eight-point, triangulation | **this day**, unit 2 | — |
 | **Stereo**: rectification, disparity → depth, matching costs, cost aggregation, scanline DP and semi-global matching | **this day**, unit 3 (course map ownership change) | dynprog `dtw/`: its "scanline stereo" slides and the `dtw` `data-mode="stereo"` become a one-slide pointer here; graph cuts `graphcut-seg/` "same construction in stereo" line points here |
 | DP on a monotone path, `lib/dp.ts` | dynprog (`dp-paths/`) | used by unit 3's scanline aggregation |
-| Graph cuts, α-expansion | graph cuts (day 13) | unit 3: one-line pointer (stereo as multi-label energy) |
+| Graph cuts, α-expansion | graph cuts (day 27) | unit 3: one-line pointer (stereo as multi-label energy) |
 | Least squares on a graph (global tile alignment) | FFT registration `stitching/` | unit 4: recall as the linear special case |
-| Structure from motion, bundle adjustment, gauge freedom | **this day**, unit 4 | Motion elective (non-rigid/feature registration) and the planned tracking day may recall |
+| Structure from motion, bundle adjustment, gauge freedom | **this day**, unit 4 | optical flow and tracking days (non-rigid/feature registration) and the planned tracking day may recall |
 | Multi-view stereo (plane sweep, photo-consistency) | **this day**, unit 4 (concept) and unit 5 (`flatland` sweep mode) | — |
 | Emission–absorption, compositing, opacity correction | `volrender/` (3D graphics) | unit 5 recalls: NeRF = DVR with a learned field; splatting = sorted "over" |
-| Neural radiance fields, 3D Gaussian splatting | **this day**, unit 5 | modern deep learning (day 18) may point here; ray tracing elective (planned) contrasts rasterisation/splatting/ray marching |
-| Gradient descent, MLPs | neural networks (day 15) | unit 5: one-slide self-contained version |
+| Neural radiance fields, 3D Gaussian splatting | **this day**, unit 5 | modern deep learning (day 39) may point here; ray tracing day (planned) contrasts rasterisation/splatting/ray marching |
+| Gradient descent, MLPs | neural networks (day 36) | unit 5: one-slide self-contained version |
 | Defocus PSF | image formation `psf/` | optional `depth-focus/` recalls |
 | Focus measures (local variance of the Laplacian), extended depth of field | **this day**, optional `depth-focus/` | point-detection and deconvolution days may point here |
-| Laplacian, local variance | `kernels/` (day 1), integral images elective (`localStats`) | used in `depth-focus/` |
+| Laplacian, local variance | `kernels/` (day 1), integral images day (`localStats`) | used in `depth-focus/` |
 
 **Pending edits to other plans and built units** (not made by this plan; listed for the
 integration pass):
@@ -127,7 +129,7 @@ integration pass):
 - `plan/dynprog-day.md` unit 6 `dtw/`: replace the "Scanline stereo" bullet and the
   `data-mode="stereo"` demo mode by a one-slide application pointer to `stereo/` here
   (open question there is thereby decided: keep one slide, no demo mode).
-- `pipeline3d/lec.qmd` "From pixels back to rays": "an elective of its own" → link to
+- `pipeline3d/lec.qmd` "From pixels back to rays": "a day of its own" → link to
   `cameras/`.
 - `ransac/lec.qmd` "Where RANSAC is standard": the two-view bullet links to `two-view/`; the
   homography bullet mentions that the homography is taught in `cameras/`.
@@ -396,7 +398,7 @@ The math:
   along the baseline: $H = K_\text{new}R_\text{rect}R^\top K^{-1}$ (pure rotation of a camera is
   a homography, from unit 2's degenerate case).
 - *Costs*: $\mathrm{SAD}$, $\mathrm{NCC}$, census as Hamming distance of bit strings; window sums
-  in $O(1)$ per pixel with integral images (pointer to the integral-images elective, or one line).
+  in $O(1)$ per pixel with integral images (pointer to the integral-images day, or one line).
 - *Scanline DP / SGM*: $L_r(\mathbf p, d) = C(\mathbf p, d) + \min\big(L_r(\mathbf p - \mathbf r, d),\, L_r(\mathbf p - \mathbf r, d \pm 1) + P_1,\, \min_k L_r(\mathbf p - \mathbf r, k) + P_2\big) - \min_k L_r(\mathbf p - \mathbf r, k)$;
   $S = \sum_r L_r$; winner-take-all on $S$. $P_1$, $P_2$ play the role of λ (small and large
   jumps).
@@ -744,7 +746,7 @@ and `radiance-fields/` taught 15:45–16:45 after a 45-min unit 4.
   adjustment are the foundations it stands on. Proposed: optional but recommended, with the
   timetable variant above; alternatively a fifth half-day.
 - **Ownership of matching interest points (descriptors, ratio test) and of the homography**:
-  proposed for this day (the Motion elective is not planned yet, and this day needs both).
+  proposed for this day (the optical flow and tracking days is not planned yet, and this day needs both).
   Add both to the course map's owners table, or give them to the Motion day and recall here?
 - **Feature detection beyond corners**: the edges day names scale-invariant keypoints in one
   line. Do we need a "keypoints across scale and rotation" slide here, or is the corner + patch

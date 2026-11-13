@@ -1,10 +1,12 @@
 # Plan: a day on fluorescence lifetime imaging (FLIM)
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
-**Course map (2026-11-12):** elective, group "Fluorescence quantification" (colocalisation, FRET,
-FLIM); entry after core day 7 (colour). What it needs from the core: Part I (`fourier/`,
-`cameranoise/`, `psf/`, `illposed/`, `deconv/`, `richardson-lucy/`, `denoise/`) and day 7's
-`colour-display/`. The spectral unmixing elective helps (units 2 and 4 recall it), but it is not
+**Course map (2026-11-13, self-study restructure):** day 46 of 51, Part VIII "Colour and fluorescence". Hard prerequisites: Bit depth and noise (day 3). Soft (see also): Deconvolution (day 5), Spectral unmixing (day 43). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part VIII (colocalisation, FRET,
+FLIM); entry after day 42 (colour). What it needs from earlier days: Part I (`fourier/`,
+`cameranoise/`, `psf/`, `illposed/`, `deconv/`, `richardson-lucy/`, `denoise/`) and day 42's
+`colour-display/`. The spectral unmixing day helps (units 2 and 4 recall it), but it is not
 required. Per the course map's "Ownership changes", **this day owns phasors**: the unmixing
 day's optional `phasor/` unit (not built) becomes a recall of this day.
 
@@ -57,7 +59,7 @@ vs amplitude fraction $\alpha_i$. Times in ns, frequencies in MHz.
 
 ## Prerequisite gap
 
-What the core already teaches (checked in the built units) and what this day recalls in one line:
+What earlier days already teach (checked in the built units) and what this day recalls in one line:
 
 - **Exponentials, integrals, means of a distribution**: calculus (audience.md). The exponential
   distribution of waiting times is new; taught in unit 1 with a picture (a constant chance per
@@ -71,7 +73,7 @@ What the core already teaches (checked in the built units) and what this day rec
   dividing by the IRF's phasor at *one low* frequency is safe.
 - **The Poisson log-likelihood** (`richardson-lucy/`, "The math: RL from the Poisson likelihood"):
   unit 2 reuses exactly that likelihood, now with a few parameters instead of a whole image.
-  Maximum likelihood as an idea is taught on the GMM elective (`gaussian-mixture/`) but this day
+  Maximum likelihood as an idea is taught on the GMM day (`gaussian-mixture/`) but this day
   does not depend on it: one concept slide ("the parameters that make the observed counts most
   probable") is enough.
 - **Fourier coefficient as a projection; convolution theorem; waves are eigenvectors of
@@ -83,7 +85,7 @@ What the core already teaches (checked in the built units) and what this day rec
   Unit 2 teaches it in words (start, linearise, step, repeat; local minima) with the details in the
   math layer. See open question 3 (ownership, since point detection and localisation will fit
   Gaussians too).
-- **Linear least squares / NNLS / simplex** (`lsunmix/`, `endmembers/`, unmixing elective): used
+- **Linear least squares / NNLS / simplex** (`lsunmix/`, `endmembers/`, unmixing day): used
   for global analysis (unit 2) and the three-component triangle (unit 4); one recall slide each,
   self-contained for students who did not take the unmixing day (least squares is linear algebra).
 - **Colour maps and merges** (`colour-display/`): lifetime images are shown as hue = lifetime,
@@ -101,14 +103,14 @@ others:
 | Day / unit | Relation |
 |---|---|
 | Spectral unmixing (`endmembers/`, the unbuilt optional `phasor/`) | **Ownership change applied:** this day teaches phasors (unit 3). The unmixing day's optional spectral-phasor unit becomes a one-slide recall in `endmembers/` ("the spectral phasor is the phasor of the FLIM day applied to a spectrum: mixtures on lines, three dyes in a triangle"), or, if it is ever built, a short optional unit named **`spectral-phasor/`** (the folder name `phasor/` is taken here; open question 1) that imports `lib/phasor.ts`. Here: global analysis is "unmixing in time" (unit 2), the phasor triangle is the simplex of `endmembers/` (unit 4); both are recalls with pointers. |
-| FRET (same elective group; `plan/fret-day.md`, planned in parallel) | Agreed split with that plan: the **FRET day owns Förster theory** ($E(r)$, $R_0$, the $r^{-6}$ law, κ²) and intensity methods (sensitised emission with bleed-through/cross-excitation correction recalling `crosstalk/`, acceptor photobleaching, ratiometric sensors), and puts the rate picture $E = 1 - \tau_{DA}/\tau_D$ in its unit 1 math layer as the bridge; its unit 3 points here. **This day owns lifetime-based FRET** (unit 4): it recalls $E(r)$ and $R_0$ in one concept slide (a recall, not re-taught; enough for a student who takes FLIM without FRET) and reuses `lib/fret.ts` (open question 2). |
+| FRET (same part; `plan/fret-day.md`, planned in parallel) | Agreed split with that plan: the **FRET day owns Förster theory** ($E(r)$, $R_0$, the $r^{-6}$ law, κ²) and intensity methods (sensitised emission with bleed-through/cross-excitation correction recalling `crosstalk/`, acceptor photobleaching, ratiometric sensors), and puts the rate picture $E = 1 - \tau_{DA}/\tau_D$ in its unit 1 math layer as the bridge; its unit 3 points here. **This day owns lifetime-based FRET** (unit 4): it recalls $E(r)$ and $R_0$ in one concept slide (a recall, not re-taught; enough for a student who takes FLIM without FRET) and reuses `lib/fret.ts` (open question 2). |
 | Colocalisation (same group; takes over `coloc/`) | One bullet in unit 4: colocalisation says "in the same diffraction-limited pixel", FRET/FLIM says "within ~10 nm". The `coloc/` notes already point forward to this group. |
 | Deconvolution (day 5) | Owns ill-posed inverse problems and the Poisson likelihood of RL. This day recalls both; it does not re-derive regularisation. "Fit through the forward model" (reconvolution) is the time-axis version of the same lesson. |
 | Fourier (`fourier/`, day 1) | Owns the DFT, Fourier series, convolution theorem. Recalled; the phasor is $c_1$ of a periodic decay, normalised by $c_0$. |
 | Camera noise (`cameranoise/`, day 3) | Owns Poisson noise and SNR. Recalled. Single-photon counting detectors (no read noise, dead time) are new here, one slide. |
 | Colour display (`colour-display/`) | Owns colour maps and merges; recalled for lifetime–intensity images. |
-| GMM elective (`gaussian-mixture/`, `em/`) | Owns maximum likelihood and EM in general. Pointer only: fitting a bi-exponential to photon arrival times is a two-component mixture of exponential distributions, and EM would work (one bullet in unit 2's math layer). |
-| Evaluation and statistics (day 16) | Owns replicates and statistics of measurements: per-cell mean lifetimes are compared like any other measurement (one bullet, unit 4). |
+| GMM day (`gaussian-mixture/`, `em/`) | Owns maximum likelihood and EM in general. Pointer only: fitting a bi-exponential to photon arrival times is a two-component mixture of exponential distributions, and EM would work (one bullet in unit 2's math layer). |
+| Evaluation and statistics (day 37) | Owns replicates and statistics of measurements: per-cell mean lifetimes are compared like any other measurement (one bullet, unit 4). |
 | Measurements (`intensity-features/`) | Per-object mean lifetime / fraction bound becomes a column of the feature table (one bullet). |
 | Point detection (`plan/pointdetection-day.md`, planned in parallel; takes over `localisation/`) | It teaches Gaussian fitting by least squares and Poisson ML with Gauss–Newton/LM in its math layer, and the Cramér–Rao bound for positions. Same ideas, different model: whichever day comes first teaches nonlinear fitting in full, the other recalls it in one slide. The generic optimiser should be one file, `lib/nlfit.ts` (owned here), with that plan's `lib/spotfit.ts` calling it (open question 3). |
 
@@ -116,7 +118,7 @@ others:
 
 Four core units of about 1.5 h each including the exercise, plus one optional unit. Folder names
 checked against the built site (`_quarto.yml`): `lifetime/`, `decayfit/`, `phasor/`,
-`flim-fret/`; optional `flim-more/`. Sidebar: a new elective section "Fluorescence
+`flim-fret/`; optional `flim-more/`. Sidebar: a new section "Fluorescence
 quantification" → "FLIM" with these four units, after the colocalisation and FRET days when they
 exist.
 
@@ -253,7 +255,7 @@ Concept layer:
 - Checking a fit: residuals weighted by $\sqrt{\mu_j}$ should look like noise without structure; a
   wavy residual means a missing component (the residual map of `lsunmix/` in time).
 - Pointer: learned estimators (a network trained on simulated decays) exist and are fast; they
-  inherit the photon limit and the biases of their training data (one line, link to day 15).
+  inherit the photon limit and the biases of their training data (one line, link to day 36).
 
 Math layer:
 
@@ -274,7 +276,7 @@ Math layer:
 - *Global analysis* as variable projection: for fixed lifetimes the amplitudes are the linear
   least-squares (or NNLS) solution; only the few lifetimes are fitted non-linearly.
 - *Mixture view* (pointer): a bi-exponential arrival-time density is a two-component mixture;
-  EM from the GMM elective would fit it photon by photon.
+  EM from the GMM day would fit it photon by photon.
 
 **Demo `decayfit`** (new, main demo of the unit): left, one simulated histogram (log axis) with
 the fitted model and the IRF, and below it the weighted residuals; right, the cost landscape as a
@@ -452,7 +454,7 @@ Concept layer:
   four or more components need more harmonics or spectral channels (optional unit).
 - From pixels to a result: segment cells (thresholding/watershed of the intensity image), report
   per cell the mean lifetime or fraction bound with the photon count, compare cells and
-  experiments with the statistics of day 16 (pointer), and show the phasor histogram per
+  experiments with the statistics of day 37 (pointer), and show the phasor histogram per
   condition.
 
 Math layer:
@@ -513,7 +515,7 @@ fraction from the amplitude fraction; (h) solve the 3×3 barycentric system for 
   wide-field time-gated and modulated cameras vs scanning single-photon counting, as concepts
   (no instrument or product names).
 - **Learned lifetime estimation**: networks trained on simulated decays (and their failure
-  outside the training range), pointer to days 15 and 18.
+  outside the training range), pointer to days 36 and 39.
 - **Demo**: `phasorplot` with `data-harmonics="2"` (two phasor planes side by side) and
   `fretphasor` with the rising-component preset; no new demo.
 
@@ -636,8 +638,8 @@ Demos and speed:
 4. **Is unit 3 too dense** (frequency domain + phasor + mixtures + calibration + noise)? Fallback:
    move calibration details and the binning correction to `flim-more/`, keep frequency domain to
    two slides plus the `modulation` demo.
-5. **Order within the elective group**: colocalisation → FRET → FLIM is natural (FLIM-FRET builds
-   on FRET), but FLIM must stand alone after day 7. The plan assumes nothing from the other two
+5. **Order within the part**: colocalisation → FRET → FLIM is natural (FLIM-FRET builds
+   on FRET), but FLIM must stand alone after day 42. The plan assumes nothing from the other two
    days.
 6. **Real data** (principle 4): a real TCSPC FLIM image (e.g. a FRET biosensor or label-free NADH)
    with a clear licence, plus its IRF or a reference measurement; public FLIM datasets exist, the

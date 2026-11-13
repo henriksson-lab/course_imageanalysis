@@ -2,8 +2,10 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "3D" (marching cubes → 3D graphics); entry after
-Part I (core day 4), and after the marching-cubes day inside the group. Edits from the three
+**Course map (2026-11-13, self-study restructure):** day 48 of 51, Part IX "3D and computing". Hard prerequisites: Marching cubes (day 47). Soft (see also): Colour (day 42), Bit depth and noise (day 3). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part IX (marching cubes → 3D graphics); entry after
+Part I (day 4), and after the marching-cubes day inside the group. Edits from the three
 reviews applied 2026-11-12: `rasterise/` and `shading/` merged into one unit; the built
 `gpuformats/` unit moved here from the bit-depth day as unit 3 (textures, filtering,
 mipmaps, premultiplied alpha); "volumes as data" (world ↔ voxel affine, oblique slices)
@@ -45,8 +47,8 @@ marching cubes) is looked at through one of these two pipelines.
   unit 1 of the marching-cubes day, which comes first in the 3D group (decided). Unit 4 here
   opens with a one-slide recall.
 - **Colour** is used as RGB triples in $[0, 1]$; colour spaces, gamma and colour maps are
-  owned by the colour day (day 7, core). Bit depth, integer types and floating point are
-  owned by the bit-depth day (day 3, core: `quantisation/`, `cameranoise/`, `highbit/`,
+  owned by the colour day (day 42). Bit depth, integer types and floating point are
+  owned by the bit-depth day (day 3: `quantisation/`, `cameranoise/`, `highbit/`,
   `floatingpoint/`); stride and endianness stay in `highbit/` and are recalled in unit 3.
 - **Sampling and aliasing** (Part 1, Fourier unit) is assumed for the texture-minification
   and ray-step-size points; one-line recall.
@@ -61,14 +63,14 @@ marching cubes) is looked at through one of these two pipelines.
 | 4×4 matrices, camera, projection, perspective divide | **this day**, unit 1 | marching cubes `marchingcubes/`: one-line pointer |
 | Rasterisation, z-buffer, culling, clipping | **this day**, unit 2 | — |
 | Lambert / Phong / Blinn–Phong, flat vs Gouraud vs per-pixel, inverse-transpose normals | **this day**, unit 2 | marching cubes: recall + pointer |
-| Texture formats, hardware filtering, mipmaps and their memory, premultiplied alpha and compositing | **this day**, unit 3 (`gpuformats/`, built, moved from the bit-depth day) | `volrender/` compositing recalls unit 3; integral images elective (mipmaps vs summed-area tables): pointer |
+| Texture formats, hardware filtering, mipmaps and their memory, premultiplied alpha and compositing | **this day**, unit 3 (`gpuformats/`, built, moved from the bit-depth day) | `volrender/` compositing recalls unit 3; integral images day (mipmaps vs summed-area tables): pointer |
 | Row stride, endianness, "an image is a row of bytes" | bit-depth day `highbit/` (day 3) | unit 3: recall |
 | Normals **from the image gradient** $-\nabla I/\lVert\nabla I\rVert$, anisotropic spacing in the gradient | marching cubes `marchingcubes/` | this day unit 4 (isosurface ray casting) points there |
 | Isosurface extraction (marching squares/cubes/tetrahedra), measurement | marching cubes | this day unit 4: pointer |
 | 3D images: stacks, spacing, world ↔ voxel affine, trilinear, orthogonal and oblique slices, first MIP | marching cubes `volumes3d/` (unit 1, shared) | this day unit 4: recall; MIP/MinIP/AIP as rendering and DVR are owned here |
-| Colour spaces, gamma, sRGB, colour maps | colour day (day 7) | units 3 and 4: pointer |
+| Colour spaces, gamma, sRGB, colour maps | colour day (day 42) | units 3 and 4: pointer |
 | Floating point, bit depth | bit-depth day (day 3) | units 2 and 3: pointers (depth precision, float textures) |
-| Line integral of attenuation, Beer–Lambert | radon elective | unit 4 generalises it to emission–absorption |
+| Line integral of attenuation, Beer–Lambert | radon day | unit 4 generalises it to emission–absorption |
 | 2D affine, inverse mapping, bilinear | `images/` (day 1) | this day: recall, extend to 3D |
 
 **Decided (review-organisation §2.3–2.4):** the marching-cubes day folds its former
@@ -215,7 +217,7 @@ The built unit moves here unchanged in substance (review-organisation §2.2–2.
 "3D graphics gets `gpuformats/`"). Its first three slides (a row of bytes, stride,
 endianness, "where is a pixel?") stay as a short section of `highbit/` on the bit-depth day
 (day 3) and become a one-slide recall here. Sidebar: the `gpuformats/` block moves from the
-bit-depth part to this elective.
+bit-depth part to this day.
 
 - Recall (day 3, `highbit/`): an image is a row of bytes; stride; endianness; integer vs
   normalised vs float storage.
@@ -223,7 +225,7 @@ bit-depth part to this elective.
   and single floats), **packed formats** (bits shared out, e.g. 10-10-10-2), and the built
   **`texformats`** demo ("the same data in different formats").
 - **sRGB storage** (more codes for the dark; the GPU decodes before filtering): storage only
-  here, the reason for the curve is the colour day's (day 7), one-line recall.
+  here, the reason for the curve is the colour day's (day 42), one-line recall.
 - **Texture mapping and filtering in hardware**: per-vertex $(u, v)$ interpolated
   perspective-correctly (unit 2), then sampled nearest or **bilinear** (`images/`).
   Magnification blocks or blurs; **minification aliases** (recall `fourier/` sampling).
@@ -233,7 +235,7 @@ bit-depth part to this elective.
   filtering as a mention. **Memory**: width × height × bytes per texel, and the math slide
   "mipmaps cost a third" ($\sum 4^{-k} = 4/3$). Compressed block formats in one line.
   Pointer: the Gaussian pyramid of the edges day (day 2) is the same idea with a better
-  filter; summed-area tables (integral-images elective) are the alternative to mipmaps.
+  filter; summed-area tables (integral-images day) are the alternative to mipmaps.
 - **Premultiplied alpha** and the "over" operator (Porter–Duff), with the math slide
   "compositing and filtering with alpha": filtering straight alpha leaks colour from
   invisible pixels. This is the compositing that `volrender/` (unit 4) uses along a ray.
@@ -255,7 +257,7 @@ bit-depth part to this elective.
   rays; perspective: through the eye, built with the unit 1 matrices inverted). Sample at steps
   $\Delta s$ with trilinear interpolation. **MIP** = maximum along the ray (vessels, bright spots,
   standard in microscopy and angiography; loses depth, needs rotation to read); **MinIP** (airways);
-  **average / sum** ≈ an X-ray (Beer–Lambert, owned by the radon elective; the link back to how CT data are
+  **average / sum** ≈ an X-ray (Beer–Lambert, owned by the radon day; the link back to how CT data are
   acquired).
 - **Direct volume rendering**. A **transfer function** maps a value to colour $c(v)$ and opacity
   (extinction) $\tau(v)$, which is where the user's choice "what to see" lives. Gentle physics: along
@@ -271,7 +273,7 @@ bit-depth part to this elective.
   Step size vs aliasing (wood-grain artefacts; recall sampling). Pre- vs post-classification
   (interpolate values then apply the transfer function, or the reverse): picture only.
   Shading in DVR with the gradient as normal: pointer to the marching-cubes day
-  (`marchingcubes/`, gradient normals). Absorption along a ray is the radon elective's
+  (`marchingcubes/`, gradient normals). Absorption along a ray is the radon day's
   Beer–Lambert line integral (owner there); emission–absorption generalises it.
 - **Isosurfaces two ways**: **ray casting** (march until the sample crosses $c$, refine the
   crossing by linear interpolation between the two samples: the same $t$ as marching squares,
@@ -404,7 +406,7 @@ bit-depth part to this elective.
   merged into `rasterise/` (derivations kept, breadth cut, as recommended here); `gpuformats/`
   joined as unit 3, so the day has two polygon units, one texture unit and one voxel unit.
   Review-gaps also suggested reducing units 1–3 to one overview unit; not applied, since the
-  course map makes this whole day an elective.
+  course map makes this whole day a day.
 - **Decided:** the marching-cubes rendering unit is folded into its `marchingcubes/` and
   `surface-measure/` units (no separate "Normals from the image" unit).
 - `gl3d.ts`: WebGL2 for all 3D demos. Decided 2026-11-12; the marching-cubes plan is updated.

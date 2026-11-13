@@ -2,31 +2,33 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** core day 11 of 18, Part II "From pixels to objects" (its last
-day). Order: day 10 watershed → this → day 12 FFT registration. Edits from the three
-reviews applied 2026-11-12: `shape-features/` moved to the labelling day (day 9);
+**Course map (2026-11-13, self-study restructure):** day 16 of 51, Part III "From pixels to objects". Hard prerequisites: Labelling (day 14). Soft (see also): Morphology (day 13), Bit depth and noise (day 3). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** day 16 of 51, Part II "From pixels to objects" (its last
+day). Order: day 15 watershed → this → day 23 FFT registration. Edits from the three
+reviews applied 2026-11-12: `shape-features/` moved to the labelling day (day 14);
 `relations-coloc/` split into `relations/` and `coloc/`; optional `features-use/`
 dissolved (units/normalisation/aggregation → end of `intensity-features/`; classifying
-feature tables → random forests day 14, `forest-objects/`; statistics of measurements →
-evaluation day 16).
+feature tables → random forests day 33, `forest-objects/`; statistics of measurements →
+evaluation day 37).
 
 ## Goal of the day
 
 After the day a student can:
 
-1. read a per-object **measurement table** as produced by common tools, say for each common column what it measures, in which **units**, and what it is sensitive to (resolution, perimeter estimator, segmentation error, background, border); the size and shape columns are recalled from the labelling day (day 9, `regionprops/`, `shape-features/`);
+1. read a per-object **measurement table** as produced by common tools, say for each common column what it measures, in which **units**, and what it is sensitive to (resolution, perimeter estimator, segmentation error, background, border); the size and shape columns are recalled from the labelling day (day 14, `regionprops/`, `shape-features/`);
 2. compute **intensity** descriptors of an object (integrated, mean, median, quartiles, MAD, edge intensity, **mass displacement**, a **radial distribution** in normalised rings) and say which ones change under a background offset or a one-pixel mask error;
 3. build a **grey-level co-occurrence matrix** for a tiny patch and compute the main **Haralick** features from it, and explain the choices of distance, angle and number of grey levels;
 4. compute **neighbour** and **parent–child** measurements (number of neighbours, percent touching, nearest-neighbour distance, children per parent) and recognise how the definition of "neighbour" changes the answer;
 5. compute **colocalisation** coefficients of two channels (Pearson, Manders M1/M2 with thresholds), and recognise the classic pitfalls (background, missing thresholds, bleed-through, resolution);
-6. turn per-object features into something usable: physical units, normalisation and per-image / per-well aggregation (classification of feature tables: day 14; statistics of measurements and replicates: day 16).
+6. turn per-object features into something usable: physical units, normalisation and per-image / per-well aggregation (classification of feature tables: day 33; statistics of measurements and replicates: day 37).
 
 Why it fits this audience: every feature is a sum, a ratio, a maximum or a small
 matrix computed over a set of pixels; the statistics (mean, variance, median, Pearson
 correlation) are ones they already know, now applied to pixels. The new parts are
 **combinatorial** (the co-occurrence matrix, the neighbour graph) and statistical
 (colocalisation as a 2D histogram). The geometric descriptors (convex hull, calipers)
-were taught on day 9. The day is deliberately a practical
+were taught on day 14. The day is deliberately a practical
 **catalogue**: theory of individual measures lives on other days and is recalled here
 in one line with a pointer.
 
@@ -36,7 +38,7 @@ This day owns the practical **catalogue of common per-object measures** and how 
 them (definitions as the tools implement them, naming, units, pitfalls, aggregation).
 It does not re-derive measures whose theory another day owns:
 
-- **Labelling** (day 9, `plan/labelling-day.md`): owns, in `regionprops/`, area, centroid,
+- **Labelling** (day 14, `plan/labelling-day.md`): owns, in `regionprops/`, area, centroid,
   bounding box and extent, the **perimeter estimators and their bias**, central moments
   and the second-moment matrix $S$ → orientation, eccentricity, equivalent ellipse axes,
   and the **Euler number**; in `shape-features/` (moved there from this day) convex hull,
@@ -47,50 +49,50 @@ It does not re-derive measures whose theory another day owns:
   catalogue slide** at the start of unit 1 (with the tool naming of the teacher table
   below); no re-derivation. The `regionfilter` demo there is the "filter by a feature"
   demo; this day does not duplicate it.
-- **Moments** (elective, `plan/moments-day.md`): owns Hu invariants, Zernike moments and
+- **Moments** (`plan/moments-day.md`): owns Hu invariants, Zernike moments and
   moment features. One catalogue row here ("rotation-invariant shape codes; moments
-  elective"), no derivation; the concept layer never depends on it.
-- **Skeletons** (elective, `plan/skeleton-day.md`): owns skeleton length, branch counts,
+  day"), no derivation; the concept layer never depends on it.
+- **Skeletons** (`plan/skeleton-day.md`): owns skeleton length, branch counts,
   Sholl analysis, tortuosity and radius along a centre line. Catalogue row only, marked
-  "(elective)".
-- **Morphology** (day 8, `plan/morphology-day.md`): owns granulometry and the pattern spectrum
+  with a pointer.
+- **Morphology** (day 13, `plan/morphology-day.md`): owns granulometry and the pattern spectrum
   (`morph-openclose/`, demo `granulo`). CellProfiler's `MeasureGranularity` and
   blockflow's granularity rows (survival/loss fraction per radius) are the per-image /
   per-object version: a catalogue row in unit 2 next to texture, with a pointer. The
   edge band for edge intensity (unit 1) is an erosion: one-line recall. Also owns the
   **distance transform** $\mathrm{DT}$ (`lib/distance.ts`), used here for radial bins and
   "expand until adjacent".
-- **Thresholding** (day 6, `plan/thresholding-day.md`): owns pixel-level segmentation
+- **Thresholding** (day 12, `plan/thresholding-day.md`): owns pixel-level segmentation
   **evaluation** (Dice, Jaccard, ROC). Here only the converse question is asked: how much
   does a feature change when the segmentation is slightly wrong (unit 1 presets). Its
   histogram helper is reused for intensity distributions. Manders thresholds and
   Costes' automatic threshold (unit 4) are thresholds on a 2D scatter plot; one-line
   back-reference to Otsu, not re-derived.
-- **Evaluation and statistics** (day 16, `plan/evaluation-day.md`): owns object-level
+- **Evaluation and statistics** (day 37, `plan/evaluation-day.md`): owns object-level
   evaluation and the **statistics of measurements** (unit of replication, cells vs
   replicates as $n$, effect sizes, multiple testing over many features, measurement bias).
   This day ends with a one-line forward pointer there.
-- **Random forests** (day 14): classification of feature tables (`forest-objects/`),
+- **Random forests** (day 33): classification of feature tables (`forest-objects/`),
   train/test, overfitting and feature selection. One-line forward pointer.
 - **Bit depth and noise** (day 3, `plan/bitdepth-day.md`): owns how intensities are stored
   (12/16-bit, rescaling, saturation, offset). Here: integrated and mean intensity are in
   **whatever units the file stored**, CellProfiler rescales to $[0, 1]$ by the container
   range (so a 12-bit image in uint16 gives "mean intensity 0.03"), and saturated pixels
   bias max, mean and integrated intensity. One slide in unit 2 with a pointer.
-- **Colour** (day 7, `plan/colour-day.md`): owns colour spaces. Colocalisation here works
+- **Colour** (day 42, `plan/colour-day.md`): owns colour spaces. Colocalisation here works
   on two **fluorescence channels** (or two stain concentration images); spectral
   **bleed-through** is named as a colocalisation artefact with a pointer to the spectral
-  unmixing elective (`plan/unmixing-day.md`, which also owns stain deconvolution).
+  unmixing day (`plan/unmixing-day.md`, which also owns stain deconvolution).
 - **Image formation** (day 4): the PSF sets the resolution limit used in unit 4 ("same
   diffraction spot") and the small-object bias of size measures; one-line recall.
 - **PCA** (`pca/`, day 1): one line where redundant features are discussed.
-- **Entropy** (compression elective owns it): the Haralick entropy gets one line
+- **Entropy** (compression day owns it): the Haralick entropy gets one line
   ("expected surprise of a pixel pair").
 - **3D**: stacks, voxel spacing $(\Delta x, \Delta y, \Delta z)$, anisotropy: pointer to
-  `volumes3d/` (marching-cubes elective).
+  `volumes3d/` (marching-cubes day).
 
-Links to other days: every segmentation day (thresholding day 6, watershed day 10, graph
-cuts day 13, networks days 15 and 18, level sets as an elective) ends in a label image,
+Links to other days: every segmentation day (thresholding day 12, watershed day 15, graph
+cuts day 27, networks days 36 and 39, level sets as a day) ends in a label image,
 and this day is what is done with it next.
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -105,11 +107,11 @@ in CellProfiler and in blockflow (see the naming table below).
 
 ### 1. `intensity-features/`: Intensity inside an object
 
-- **Opening recall** (one catalogue slide, pointer to day 9 `regionprops/` and
+- **Opening recall** (one catalogue slide, pointer to day 14 `regionprops/` and
   `shape-features/`): the size and shape rows of the table (area, perimeter and its bias,
   extent, axis lengths $4\sqrt{\lambda_{1,2}}$ of $S$, eccentricity, Euler number, convex area,
   solidity, form factor, the compactness name collision, Feret, inscribed radius), with
-  their tool names; moments (Hu/Zernike) and skeleton rows marked "(elective)". Then the
+  their tool names; moments (Hu/Zernike) and skeleton rows with a pointer to their day. Then the
   question of this day: what else is in the table?
 - Picture first: five cells with the same mask and the same total signal but different
   distributions (uniform, bright rim, one bright spot off-centre, punctate, gradient).
@@ -127,17 +129,17 @@ in CellProfiler and in blockflow (see the naming table below).
   object (gap, then band) and subtract (blockflow composes this from ring labels).
   Pointer to day 3 (bit depth) for stored units and rescaling.
 - **Edge intensity**: the same statistics on the object's boundary band (object minus its
-  erosion by one pixel; recall from day 8). Ratio edge/mean distinguishes rim
+  erosion by one pixel; recall from day 13). Ratio edge/mean distinguishes rim
   staining (membrane) from filled staining.
 - **Intensity-weighted centroid** $\bar{\mathbf x}_I = \sum I(\mathbf x)\mathbf x / \sum I$
   vs geometric centroid; **mass displacement** = their distance (in µm). Large when the
   signal is polarised (one bright spot off-centre); 0 by symmetry for uniform and
   rim-stained discs. One line: it is the first intensity moment, i.e. the intensity
-  version of the region moments of day 9.
+  version of the region moments of day 14.
 - **Radial distribution** (CellProfiler `MeasureObjectIntensityDistribution`): divide
   the object into $n$ rings by **normalised distance** $\rho = d_c/(d_c + d_e)$ from the
   centre ($d_c$ = distance to the centre point, $d_e$ = distance to the edge, from the
-  distance transform $\mathrm{DT}$, day 8), so rings follow the object's shape instead of being circles.
+  distance transform $\mathrm{DT}$, day 13), so rings follow the object's shape instead of being circles.
   Per ring $k$: **FracAtD** = fraction of the total intensity in ring $k$; **MeanFrac** =
   FracAtD divided by the fraction of the object's pixels in ring $k$ (1 = uniform, >1 =
   enriched); **RadialCV** = coefficient of variation of the ring's intensity across
@@ -155,9 +157,9 @@ in CellProfiler and in blockflow (see the naming table below).
   wells, robust z with median and MAD; plate and batch effects (row/column gradients) in
   one picture; **redundancy** (area, perimeter, equivalent diameter, convex area and max
   Feret are strongly correlated: pick one per block, or PCA, recall `pca/` day 1).
-  Forward pointers, one line each: classifying objects from the table is day 14
+  Forward pointers, one line each: classifying objects from the table is day 33
   (`forest-objects/`); turning the numbers into a claim (replicates, effect sizes,
-  multiple testing) is day 16.
+  multiple testing) is day 37.
 - **Demo `intensityfeat`** (new): one synthetic cell (seeded, 160×160, a mask with an
   editable outline from `lib/shapes.ts` or a disc/ellipse), intensity pattern chosen from
   uniform / rim / off-centre spot / punctate / gradient, sliders for background offset,
@@ -196,7 +198,7 @@ in CellProfiler and in blockflow (see the naming table below).
 - Features as statistics of $p$ (each computed by hand in the exercise):
   **contrast** $\sum (i-j)^2 p$ (mass away from the diagonal), **homogeneity / inverse
   difference moment** $\sum p/(1 + (i-j)^2)$, **ASM** $\sum p^2$ and **energy** $\sqrt{\text{ASM}}$
-  (uniformity), **entropy** $-\sum p\log p$ (one line: expected surprise of a pixel pair; entropy is owned by the compression elective), **correlation**
+  (uniformity), **entropy** $-\sum p\log p$ (one line: expected surprise of a pixel pair; entropy is owned by the compression day), **correlation**
   $\sum (i-\mu_i)(j-\mu_j)p / (\sigma_i\sigma_j)$ (Pearson correlation of a pixel with its
   neighbour: the autocorrelation at lag $\mathbf d$, recall `fourier/`, day 1). Name the rest
   of Haralick's 13–14 (sum/difference averages, variances and entropies, information
@@ -214,8 +216,8 @@ in CellProfiler and in blockflow (see the naming table below).
   and frequency selective; link to the Fourier day: a Gaussian window times a complex
   exponential), **local binary patterns** (8 neighbours thresholded at the centre → an
   8-bit code, histogram of codes, rotation-invariant uniform patterns), and
-  **granularity** (opening spectrum; owned by day 8, CellProfiler
-  `MeasureGranularity`). Forward pointer: network embeddings as learned texture features (days 15 and 18).
+  **granularity** (opening spectrum; owned by day 13, CellProfiler
+  `MeasureGranularity`). Forward pointer: network embeddings as learned texture features (days 36 and 39).
 - **Demo `glcm`** (new): left, a texture patch (synthetic, seeded: oriented stripes with
   angle and period sliders, checkerboard, white noise, smoothed noise with a correlation
   length slider, blobs, the "same histogram" permuted pair; real: crops of `cell256.png`
@@ -244,11 +246,11 @@ in CellProfiler and in blockflow (see the naming table below).
   boundary, 4/8-connectivity), **within distance $r$** (boundaries or centroids closer
   than $r$), **expand until adjacent** (grow every object into the background up to the
   midline between objects, i.e. a Voronoi tessellation of the objects via the distance
-  transform $\mathrm{DT}$, day 8; the same picture as watershed, day 10). Per object:
+  transform $\mathrm{DT}$, day 13; the same picture as watershed, day 15). Per object:
   **number of neighbours**, **percent touching** (fraction of the boundary pixels adjacent to another object), **first and
   second closest** object and their distances, **angle between** the two closest
-  neighbours. The **neighbour graph** (objects as nodes; link to day 9's region
-  adjacency, and forward to the graphs of day 13). Population summaries: the
+  neighbours. The **neighbour graph** (objects as nodes; link to day 14's region
+  adjacency, and forward to the graphs of day 27). Population summaries: the
   nearest-neighbour-distance histogram compared with a random (Poisson) pattern of the
   same density (Clark–Evans ratio $R = \bar d_{\text{obs}} / (0.5/\sqrt{\rho})$: < 1
   clustered, > 1 regular). Edge effect: objects near the image border have fewer
@@ -260,7 +262,7 @@ in CellProfiler and in blockflow (see the naming table below).
   outside any parent and children overlapping two parents are explicit cases. Per-parent
   aggregation of child features (mean, sum, count) is how "spots per nucleus" columns
   are made. Overlap as a relation: overlap fraction of A and of B, Jaccard (pointer to
-  day 6's evaluation; object matching by IoU is day 16).
+  day 12's evaluation; object matching by IoU is day 37).
 - **Demo `neighbours`** (new): a seeded synthetic population of 30–80 cells (nuclei as
   ellipses from `lib/shapes.ts` with density and clustering sliders: Poisson, clustered,
   regular), cell bodies by expansion from the nuclei, and spots inside some nuclei.
@@ -300,7 +302,7 @@ in CellProfiler and in blockflow (see the naming table below).
     (CellProfiler) in one line.
   - Controls: shift one channel by a few pixels (or scramble blocks: Costes'
     randomisation test) and see $r$ drop to the chance level; chromatic misalignment,
-    bleed-through (pointer to the spectral unmixing elective), resolution (two proteins in
+    bleed-through (pointer to the spectral unmixing day), resolution (two proteins in
     the same 200 nm diffraction spot "colocalise" at any distance below it; recall the PSF
     from day 4). Pointer:
     object-based colocalisation (fraction of spots in A whose centroid lies in an object
@@ -349,7 +351,7 @@ per measurement.
 | Inscribed / mean radius | `MaximumRadius`, `MeanRadius`, `MedianRadius` | radius rows: `max`, `mean`, `median` (exact per-label distance field, or a shared approximation) | |
 | Enclosing circle | — | `min_enclosing_circle_radius`, enclosing sphere `radius` | blockflow only |
 | Euler number | `EulerNumber` | topology: `euler_number`, `components`, `tunnels`, `cavities` | 3D: components − tunnels + cavities |
-| Hu / Zernike | `Zernike_n_m` | Hu, weighted Hu, Zernike, 3D Zernike rows | moments elective |
+| Hu / Zernike | `Zernike_n_m` | Hu, weighted Hu, Zernike, 3D Zernike rows | moments day |
 | Integrated, mean, min, max | Intensity: `IntegratedIntensity`, `MeanIntensity`, `MinIntensity`, `MaxIntensity` | intensity: `sum`, `mean`, `min`, `max` | "integrated" = sum |
 | Std, quartiles, median, MAD | `StdIntensity`, `LowerQuartileIntensity`, `MedianIntensity`, `UpperQuartileIntensity`, `MADIntensity` | distribution: `quartile_1`, `median`, `quartile_3`, `std_dev`, `mad`, percentiles; statistics: `std_dev`, `coefficient_of_variation` | |
 | Edge intensity | `IntegratedIntensityEdge`, `MeanIntensityEdge`, … | not a named family (composable: measure a boundary/ring label image, `ring_labels_into`) | |
@@ -376,7 +378,7 @@ per measurement.
   median/quartiles/MAD by sorting per object), edge band (erosion from `lib/morph.ts`),
   weighted centroid and mass displacement, radial bins (normalised distance from two
   distance transforms), local background ring, robust z-scores and per-well aggregation.
-  Zernike/Hu columns optional via `lib/moments.ts` (moments elective).
+  Zernike/Hu columns optional via `lib/moments.ts` (moments day).
 - `demos/src/lib/glcm.ts` (new): quantisation (range, levels), GLCM for an offset within
   a mask, symmetrise/normalise, the Haralick features (all 13 for the table, with the
   alternative definitions flagged), LBP codes and histogram.
@@ -428,7 +430,7 @@ per measurement.
   labelling day; `relations-coloc/` split into `relations/` and `coloc/` (colocalisation
   stays core, as recommended here); `features-use/` dissolved. Review-gaps gap 4 proposed
   making `features-use/` core with a "from measurements to conclusions" half; the course
-  map gives the statistics of measurements to the evaluation day (day 16), so only units,
+  map gives the statistics of measurements to the evaluation day (day 37), so only units,
   normalisation and aggregation stay here. If texture is too long, shorten it to GLCM
   only.
 - **Decided:** `shapefeat` is `data-mode="features"` of the labelling day's `moments`
@@ -444,7 +446,7 @@ per measurement.
   cytoplasm under a licence that allows redistribution (Broad Bioimage Benchmark
   Collection sets such as BBBC022 Cell Painting are candidates; check licence per set).
 - **Decided:** no 3D unit here. 3D images (stacks, spacing, anisotropy) are `volumes3d/`
-  and surface measures are `surface-measure/`, both on the marching-cubes elective; this
+  and surface measures are `surface-measure/`, both on the marching-cubes day; this
   day has a pointer only.
 - Programming language for the exercise code is still open (see README); units contain
   no code sections.

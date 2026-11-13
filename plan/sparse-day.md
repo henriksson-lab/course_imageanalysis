@@ -3,12 +3,14 @@
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-13.
 Follows `plan/coursemap.md`, section "Queue, second batch" (**Sparse representations**: sparsity in
 a basis, L1 vs L2, compressed sensing, sparse coding and dictionary learning, uses in
-denoising/inpainting/deconvolution and fast MRI). Elective, group **Transforms**, entry after
+denoising/inpainting/deconvolution and fast MRI). Part II (transforms and reconstruction), entry after
 **Wavelets**. This day **owns** (proposed, see "Proposed reorganisation"): the ℓ0/ℓ1/ℓ2 penalties
 and the geometry of the lasso, soft thresholding as the **proximal step** of ℓ1 in a general
 (non-orthonormal) problem, **ISTA/FISTA** and **greedy pursuit (OMP)**, **compressed sensing**
 (incoherence, recovery guarantees in words, the phase transition), **CS-MRI**, and **sparse coding
 / dictionary learning** (MOD, K-SVD, patch-based restoration).
+
+**Course map (2026-11-13, self-study restructure):** day 11 of 51, Part II "Transforms and reconstruction". Hard prerequisites: Wavelets (day 7), Deconvolution (day 5). Soft (see also): Image compression (day 8), Radon transform and tomography (day 9), Ising model and Markov random fields (day 28). Source: `days.yml`.
 
 ## Goal of the day
 
@@ -53,7 +55,7 @@ compressed sensing is an underdetermined system $A\mathbf x = \mathbf y$ (null s
 `illposed/` and `algebraic-recon/`) with a prior that picks one solution; K-SVD is an SVD. It is
 also the day that ties together the "data + λ·penalty" thread of the course (deconvolution,
 graph cuts, Ising/TV, tomography) under one non-quadratic penalty, and it is the classical
-ancestor of the learned priors of the diffusion elective.
+ancestor of the learned priors of the diffusion day.
 
 ## Prerequisite gap
 
@@ -74,25 +76,25 @@ line:
 - **`fourier/` (day 1)**: the DFT as a change of basis, aliasing, the `fourier2d` "keep largest"
   mode. Units 3–4 recall aliasing in one slide each. MRI needs no physics beyond one concept slide
   "the scanner measures Fourier coefficients of the object, one line of k-space at a time".
-- **`illposed/`, `deconv/`, `regularise/` (core days 4–5)**: forward model, null space,
+- **`illposed/`, `deconv/`, `regularise/` (days 4–5)**: forward model, null space,
   data + λ·penalty, Landweber iterations and early stopping, filter factors, MAP reading (Laplace
   prior = ℓ1, one line on the `regularise/` MAP slide). This day **recalls** the pattern in one slide
   and adds a non-quadratic penalty, a new solver and a new kind of forward operator
   (undersampling). ISTA's gradient step **is** the Landweber step of `regularise/`.
-- **`gmrf/` (Ising elective, owns TV)**: TV keeps steps, staircases ramps. Here TV is recalled in
+- **`gmrf/` (Ising day, owns TV)**: TV keeps steps, staircases ramps. Here TV is recalled in
   one slide as **analysis sparsity** (ℓ1 of the gradient) next to **synthesis sparsity** (ℓ1 of
   coefficients). Not a prerequisite; the slide stands alone.
-- **`algebraic-recon/` (Radon elective)**: few-view CT with non-negativity + TV (30 views, RMSE
+- **`algebraic-recon/` (Radon day)**: few-view CT with non-negativity + TV (30 views, RMSE
   0.081 FBP vs 0.020 TV). Recalled in unit 3 as "you have already seen compressed sensing work"
   (soft prerequisite).
-- **`pca/` (day 1)** and **`kmeans/` (Gaussian-mixture elective)**: unit 5 recalls PCA in one line
+- **`pca/` (day 1)** and **`kmeans/` (Gaussian-mixture day)**: unit 5 recalls PCA in one line
   (orthogonal atoms, all used) and **teaches k-means in one concept slide** as "a dictionary where
-  each patch uses exactly one atom", because `kmeans/` is an elective and may not have been taken.
+  each patch uses exactly one atom", because `kmeans/` is a day and may not have been taken.
 - **`denoise/` (day 5)**: Gaussian, median, bilateral, **non-local means** (patch similarity),
   method noise. Unit 5's comparison reuses these as baselines (`lib/denoise.ts`).
 - **`cameranoise/` (day 3)**: noise σ and PSNR. Recalled in one line.
-- **`neuralnet/` (day 15)**: gradient descent and step size. Recalled in one line in unit 2 (not a
-  prerequisite; the elective can be taken after Part I). Learned ISTA and convolutional sparse
+- **`neuralnet/` (day 36)**: gradient descent and step size. Recalled in one line in unit 2 (not a
+  prerequisite; the day can be taken after Part I). Learned ISTA and convolutional sparse
   coding are pointers only.
 
 Nothing needs to be taught here that a prerequisite day should own.
@@ -108,7 +110,7 @@ Nothing needs to be taught here that a prerequisite day should own.
 | Deconvolution `denoise/` (built) | nothing | The classical denoiser comparison and NL-means; unit 5 uses `lib/denoise.ts` NL-means as the baseline |
 | Ising `gmrf/` (built, owns TV) | nothing | TV; recalled here as analysis-ℓ1 in one slide, and as the TV option in `csmri` and `sparserestore` (via `lib/smooth.ts` `tv2d`) |
 | Radon `algebraic-recon/` (built) | nothing | Few-view CT with TV; recalled in unit 3 as an instance of compressed sensing |
-| Diffusion elective `diffusion-inverse/` (built) | nothing | Learned priors for inverse problems, inpainting by diffusion, hallucination. Unit 4 and 5 end with a pointer: "sparsity is a hand-made prior; a diffusion model is a learned one" |
+| Diffusion day `diffusion-inverse/` (built) | nothing | Learned priors for inverse problems, inpainting by diffusion, hallucination. Unit 4 and 5 end with a pointer: "sparsity is a hand-made prior; a diffusion model is a learned one" |
 | Queued **Edge-preserving smoothing and PDEs** day (not planned) | Inpainting **as a sparse inverse problem** (masked forward operator; fixed basis in unit 2, patch dictionary in unit 5) | Diffusion-based and exemplar-based inpainting, TV flow, bilateral/NL-means in depth. See "Proposed reorganisation" |
 | Spectral unmixing `endmembers/` (built) | nothing | Non-negative unmixing; sparse unmixing named in one line in unit 1's "where sparsity appears" slide |
 | Neural networks `cnn/` (built) | nothing | Convolutional filters; unit 5 pointer: learned dictionary atoms look like first-layer CNN filters and Gabor/edge detectors (Olshausen & Field) |
@@ -537,7 +539,7 @@ Concept layer (about 22 content slides, 4 math):
 - **Costs and limits** (text slide): learning is slow (OMP on tens of thousands of patches per
   iteration); patch size limits the structures (larger holes than a patch cannot be filled); the
   dictionary learnt on one image type may hallucinate its structures into another (a mild version
-  of the learned-prior warning of the diffusion elective); texture with no repetition is lost.
+  of the learned-prior warning of the diffusion day); texture with no repetition is lost.
 - **Summary of the day** slide (concept only): one table "penalty / solver / what it buys / what it
   destroys" for ℓ2, ℓ1 in a fixed basis, TV, ℓ1 in a learned dictionary.
 
@@ -701,7 +703,7 @@ exercise page, and move the 2D restoration part of unit 2 (`sparserestore`) into
    learning → Sparse representations"*; the wavelets day keeps **wavelet shrinkage** (orthonormal
    basis, its own ℓ1 math slide) as the first, special case. Effect on built units: one forward
    pointer line in `shrinkage/` ("A third view" slide), `regularise/` ("What the penalty can say":
-   "few non-zero coefficients in a basis → sparse representations elective"), `denoise/` (the
+   "few non-zero coefficients in a basis → sparse representations day"), `denoise/` (the
    ℓ1-vs-ℓ2 line) and `algebraic-recon/` (priors slide: "this is compressed sensing"). No content
    moves out of built units.
 2. **Sidebar position inside "Transforms".** Entry stays "after Wavelets" (hard prerequisites:
@@ -718,7 +720,7 @@ exercise page, and move the 2D restoration part of unit 2 (`sparserestore`) into
    a small **Inpainting** section there (sparse, PDE, diffusion-model inpainting from
    `diffusion-inverse/`).
 4. **K-means as a dependency.** Unit 5 teaches k-means in one slide rather than requiring the
-   Gaussian-mixture elective (`kmeans/`), so the prerequisite map lists `kmeans/` as soft only.
+   Gaussian-mixture day (`kmeans/`), so the prerequisite map lists `kmeans/` as soft only.
 
 ## Open questions
 

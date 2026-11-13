@@ -24,7 +24,7 @@ format:
 
 - A semantic mask is **not** a set of objects: touching cells come out as one blob.
 - A network has no fixed number of outputs, so it predicts a **map that makes separation easy**, and a classical step makes the objects.
-- Four such maps: a **boundary class**, a **distance map**, **star-convex polygons**, **flow fields**; what each one gets wrong.
+- Four such maps: a **boundary class**, a **distance map**, **star-convex polygons**, **flow fields**; the first two in detail here, star-convex polygons and flows on the next day.
 - Detection (boxes) as another output, and **panoptic** segmentation.
 
 *Slides titled **The math** give the formulas and proofs; the ideas are complete without them.*
@@ -37,7 +37,7 @@ This unit builds on the U-Net unit of the neural networks day (pixel probabiliti
 
 :::: {.columns}
 ::: {.column width="56%"}
-The U-Net unit of the neural networks day: a probability "nucleus" per pixel, thresholded to a mask. Its "touching nuclei merge" preset: two touching nuclei become **one** connected blob.
+The [U-Net unit](../unet/lec.qmd) of the neural networks day: a probability "nucleus" per pixel, thresholded to a mask. Its "touching nuclei merge" preset: two touching nuclei become **one** connected blob.
 
 - **Semantic** segmentation: a class per pixel ("nucleus", "background").
 - **Instance** segmentation: an object identity per pixel ("nucleus 7").
@@ -66,7 +66,7 @@ The question for every method: *which map, and which classical step?*
 ::: {.column width="52%"}
 Train with **three** classes: background, cell interior, cell **boundary** (a thin ring around every cell, also between touching cells).
 
-- Label the connected **interiors** (the labelling day), then grow each one back over its boundary pixels.
+- Label the connected **interiors** (the [labelling day](../label-connectivity/lec.qmd)), then grow each one back over its boundary pixels.
 - Touching cells are separated by the boundary class between them.
 - Fails when the boundary is **missed in one place**: a one-pixel bridge connects two interiors and they merge. Thin structures are hard to predict, especially exactly where two cells touch.
 :::
@@ -81,7 +81,7 @@ Train with **three** classes: background, cell interior, cell **boundary** (a th
 ::: {.column width="52%"}
 Train the network to predict, for every cell pixel, its **distance to the cell's border** (scaled to 1 at the centre of each cell).
 
-- Then exactly the watershed day's pipeline: threshold for the mask, **h-maxima** as markers, flood $-D$ inside the mask.
+- Then exactly the [watershed day](../ws-distance/lec.qmd)'s pipeline: threshold for the mask, **h-maxima** as markers, flood $-D$ inside the mask.
 - Better than the distance transform of a mask: the network has seen the **image**, so it can put a deep neck between two cells even where the mask has none.
 - Fails on **elongated** cells: the distance has a long flat ridge, and small errors make several peaks on it: one cell is **split**.
 :::
@@ -89,6 +89,15 @@ Train the network to predict, for every cell pixel, its **distance to the cell's
 ![](fig-distance.png){fig-alt="Distance route with noise 0.2 and h = 0.1: the noisy distance map has several peaks along the rod and the C-shaped cell; watershed splits them (marked S): 20 objects for 14 cells." width="100%"}
 :::
 ::::
+
+## The math: the four targets {.math}
+
+Cell $O$, pixel $p \in O$:
+
+- **Boundary class**: $p$ is boundary if one of its 4 neighbours is not in $O$; loss: cross-entropy over the 3 classes.
+- **Distance**: $D(p) = \min_{q \notin O}\|p - q\| \,/\, \max_{p' \in O}\min_{q \notin O}\|p' - q\|$; loss: squared or absolute error.
+- **Star-convex rays**: the distance from $p$ to the border of $O$ along each of $n$ fixed directions; definitions and star-convexity in the [StarDist unit](../stardist/lec.qmd).
+- **Flows**: unit arrows along the gradient of heat diffused inside $O$; the heat target and following the flow in the [Cellpose unit](../cellpose/lec.qmd).
 
 ## Try it: four maps on one image
 
@@ -99,70 +108,38 @@ Train the network to predict, for every cell pixel, its **distance to the cell's
 ```
 
 ::: notes
-Simulated network output: the exact target of the chosen route, plus the error sliders. Tour: "semantic mask merges": 11 objects for 14 cells, three merges (M). "boundary: gaps merge": with contact bias 0.5 the boundary class fades exactly where cells touch: the same three merges. "distance separates": same contact bias, the distance route finds all 14. "elongated: oversplit": noise 0.2 and h = 0.1: the rod splits into 3, the C-shaped cell into 5 (S). Raise h to 0.3: all 14 again. Point at the map panel each time: the errors are visible in the map before they are visible in the labels.
+Simulated network output: the exact target of the chosen route, plus the error sliders. Tour: "semantic mask merges": 11 objects for 14 cells, three merges (M). "boundary: gaps merge": with contact bias 0.5 the boundary class fades exactly where cells touch: the same three merges. "distance separates": same contact bias, the distance route finds all 14. "elongated: oversplit": noise 0.2 and h = 0.1: the rod splits into 3, the C-shaped cell into 5 (S). Raise h to 0.3: all 14 again. Point at the map panel each time: the errors are visible in the map before they are visible in the labels. The route selector also offers star-convex polygons and flows, with their presets (C-shape, flows, noisy flows); they are toured on the next day (StarDist, Cellpose).
 :::
 
 ## Route 3: star-convex polygons
 
 :::: {.columns}
 ::: {.column width="52%"}
-For **every** pixel, the network predicts an **objectness** (how central the pixel is in its cell) and the distances to the border along $n$ fixed rays (e.g. 32 directions).
+- Each pixel proposes a **polygon** for "its" cell from predicted distances to the border along fixed rays.
+- **Suppression** keeps one polygon per object (the rule of the [next unit](../detection/lec.qmd)).
+- Fails **by construction** on shapes that are not star-convex, such as a C-shaped cell.
 
-- Each pixel thus proposes a **polygon** for "its" cell; pixels near the centre propose good ones.
-- Overlapping proposals are pruned by **non-maximum suppression**: keep the best, delete those that overlap it by more than $t$, repeat (next unit).
-- Works well for round and oval nuclei. Fails **by construction** on shapes that are not star-convex: a C-shaped or kidney-shaped cell has no point from which all of its border is visible along straight rays.
+In detail, with real networks: [Networks for cells and objects: star-convex polygons](../stardist/lec.qmd).
 :::
 ::: {.column width="48%"}
 ![](fig-star.png){fig-alt="Star-convex route: the objectness map with the 32 rays and polygon (red) of a pixel in the C-shaped cell; the polygon covers only part of the C, and the C ends up split into two objects (S)." width="100%"}
 :::
 ::::
 
-## The math: the four targets {.math .smaller}
-
-Cell $O$, pixel $p \in O$:
-
-- **Boundary class**: $p$ is boundary if one of its 4 neighbours is not in $O$; loss: cross-entropy over the 3 classes.
-- **Distance**: $D(p) = \min_{q \notin O}\|p - q\| \,/\, \max_{p' \in O}\min_{q \notin O}\|p' - q\|$; loss: squared or absolute error.
-- **Star-convex rays**: $\mathbf u_k = (\cos\tfrac{2\pi k}{n}, \sin\tfrac{2\pi k}{n})$, $r_k(p) = \max\{r : p + s\,\mathbf u_k \in O \ \ \forall s \in [0, r]\}$; objectness = $D(p)$.
-- $O$ is **star-convex** with respect to $c$ if the segment from $c$ to every point of $O$ lies in $O$; then the ray distances from $c$ describe $O$ exactly (up to the angular sampling). Every convex set is star-convex with respect to each of its points.
-- **Flows** (next slides): $\mathbf v(p) = \nabla h(p)/\|\nabla h(p)\|$; loss: squared error on $\mathbf v$.
-
 ## Route 4: flow fields
 
 :::: {.columns}
 ::: {.column width="60%"}
-For every cell pixel, the network predicts a small **arrow** pointing along a path **inside** the cell towards its centre.
+- Each cell pixel gets a small **arrow** along a path **inside** the cell towards its centre (from heat diffused inside the cell).
+- Every pixel follows the arrows; pixels that end in the same **sink** form one object. The paths bend, so C-shaped and bent cells stay whole.
+- Fails when the arrows are **noisy**: extra sinks split a cell.
 
-- Training targets: put a heat source at the cell's centre and let heat **diffuse inside the cell only**; the arrows point uphill in temperature. The paths bend around corners, so they follow a C-shape or a bent cell.
-- To segment: every pixel follows the arrows for a number of steps. Pixels that end in the same **sink** form one object.
-- Handles long, bent, irregular cells. Fails when the predicted arrows are **noisy** (spurious sinks: splits) or when two touching cells share one smooth field (merge).
+In detail, with real networks: [Networks for cells and objects: flow fields](../cellpose/lec.qmd).
 :::
 ::: {.column width="40%"}
 ![](fig-cflow.svg){fig-alt="A C-shaped cell with its flow target: blue arrows along the gradient of heat diffused from a source in the cell (red star). Five particle paths (orange) start at the two ends and the middle of the C, follow the arrows around the bend inside the cell, and all end at the star." width="100%"}
 :::
 ::::
-
-## The math: following the flow {.math}
-
-Heat target: $h$ solves the diffusion (heat) equation inside $O$ with a source at the centre $c$ and no flow through the border; in practice $h \leftarrow$ average of its neighbours in $O$, plus 1 at $c$, repeated. Flow $\mathbf v = \nabla h/\|\nabla h\|$.
-
-Following the flow = Euler steps of the ODE $\dot{\mathbf x} = \mathbf v(\mathbf x)$:
-
-$$\mathbf x_{j+1} = \mathbf x_j + \eta\,\mathbf v(\mathbf x_j), \qquad \eta = 1 \text{ pixel}.$$
-
-Along the path $\frac{d}{dt}h(\mathbf x(t)) = \nabla h \cdot \mathbf v = \|\nabla h\| > 0$: $h$ only increases, so a path can only end at a maximum of $h$. If $h$ has a single maximum in $O$ (the source), every path ends there: one sink per cell. Noise in $\mathbf v$ can create extra fixed points (sinks) where the arrows point at each other.
-
-## Try it: flows follow the bend
-
-```{=html}
-<link rel="stylesheet" href="../demos/dist/demo.css">
-<div data-demo="instancemaps" data-preset="flows"></div>
-<script src="../demos/dist/instancemaps.js"></script>
-```
-
-::: notes
-"flows follow the bend": all 14 cells, including the C-shape and the bent cell. Press "animate": the particles (white) run to their sinks. Click a pixel of the C on the map: its path bends around the arc. Then "C-shape: no polygon fits": the clicked pixel's 32 rays and polygon (red) cover only part of the C; the C is split into 2 (S), F1 0.97. Set rays n to 8: 19 objects. "noisy flows: many sinks": noise 0.7 gives 22 objects, splits in the rod, C and a round cell. Finally "contact bias: merges" on the distance route: 11 objects, three merges; switch route to flows: 12 objects.
-:::
 
 ## Choosing a route
 
@@ -173,7 +150,9 @@ Along the path $\frac{d}{dt}h(\mathbf x(t)) = \nabla h \cdot \mathbf v = \|\nabl
 | long, bent, irregular (bacteria, cytoplasm, neurites) | flows | splits where the field is noisy |
 | very crowded tissue | distance, star-convex, flows | merges when the contacts are weak |
 
-Whatever the route: **look at the predicted map**, not only at the final labels. Errors in the map turn into object errors (merges, splits, missed dim cells) that the evaluation day's matching counts.
+Star-convex polygons and flows in detail: [StarDist](../stardist/lec.qmd), [Cellpose](../cellpose/lec.qmd).
+
+Whatever the route: **look at the predicted map**, not only at the final labels. Errors in the map turn into object errors (merges, splits, missed dim cells) that the [evaluation day](../object-eval/lec.qmd)'s matching counts.
 
 ## Detection: objects as a list
 
@@ -182,7 +161,7 @@ Whatever the route: **look at the predicted map**, not only at the final labels.
 The other big family predicts a **list** of objects instead of a map: a **box** and a score per object, optionally a small mask inside each box ("detect, then segment inside the box").
 
 - A box is 4 numbers; good for counting, tracking and cropping; poor for long diagonal objects.
-- The detector proposes many overlapping boxes, removed by non-maximum suppression: the **next unit**.
+- The detector proposes many overlapping boxes, removed by non-maximum suppression: the [**next unit**](../detection/lec.qmd).
 - Star-convex polygons are the same idea with a polygon instead of a box.
 :::
 ::: {.column width="44%"}
@@ -200,7 +179,7 @@ Tissue example: nuclei are things (counted, measured one by one); stroma, lumen 
 
 ## The math: panoptic quality {.math}
 
-Match predicted and true segments one to one at IoU $> 0.5$ (the evaluation day's matching: above 0.5 the matching is unique). With TP matched pairs, FP unmatched predictions, FN unmatched truths:
+Match predicted and true segments one to one at IoU $> 0.5$ (the [evaluation day](../object-eval/lec.qmd)'s matching: above 0.5 the matching is unique). With TP matched pairs, FP unmatched predictions, FN unmatched truths:
 
 $$\mathrm{PQ} = \underbrace{\frac{\sum_{(p,g) \in TP}\mathrm{IoU}(p,g)}{|TP|}}_{\text{segmentation quality SQ}} \times \underbrace{\frac{|TP|}{|TP| + \tfrac12|FP| + \tfrac12|FN|}}_{\text{recognition quality RQ} \,=\, F_1}$$
 
@@ -208,7 +187,7 @@ Example: 3 matches with IoU 0.9, 0.8, 0.7, one FP and two FN: SQ = 0.8, RQ = 3/4
 
 ## Recall: counting the errors
 
-From the evaluation day: match predicted to true objects one to one at IoU $\ge \tau$ (here $\tau = 0.5$), count TP, FP, FN objects; F1 $= 2\,TP/(2\,TP + FP + FN)$; **matching accuracy** $= TP/(TP + FP + FN)$; a **merge** is a predicted object covering two true ones, a **split** a true object covered by two predictions.
+From the [evaluation day](../object-eval/lec.qmd): match predicted to true objects one to one at IoU $\ge \tau$ (here $\tau = 0.5$), count TP, FP, FN objects; F1 $= 2\,TP/(2\,TP + FP + FN)$; **matching accuracy** $= TP/(TP + FP + FN)$; a **merge** is a predicted object covering two true ones, a **split** a true object covered by two predictions.
 
 The demo shows these numbers for every route and every error setting.
 
@@ -217,6 +196,6 @@ The demo shows these numbers for every route and every error setting.
 - A semantic mask is not a set of objects; instance segmentation needs a map **plus** a classical step.
 - **Boundary class** + labelling: one missed boundary pixel merges two cells.
 - **Distance map** + watershed: separates round touching cells; oversplits long ones.
-- **Star-convex polygons** + suppression: great for round nuclei; cannot describe a C-shape.
-- **Flows** followed to their sinks: follow bends; noisy flows make extra sinks.
+- **Star-convex polygons**: round nuclei, not C-shapes ([next day](../stardist/lec.qmd)).
+- **Flows**: follow bends; noise splits ([next day](../cellpose/lec.qmd)).
 - **Panoptic** = things with identities + stuff with classes. Always look at the predicted map.

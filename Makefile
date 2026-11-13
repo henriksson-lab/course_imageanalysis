@@ -1,4 +1,4 @@
-.PHONY: all render preview clean gitadd help demos typecheck test
+.PHONY: all render preview clean gitadd help demos typecheck test wasm models check-prereqs sidebar check check-links check-console
 
 # Default: render the site, then stage every source file in git.
 all: render gitadd
@@ -40,11 +40,49 @@ TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts \
   demos/test/flim-test.ts demos/test/multiview-test.ts demos/test/raytracing-test.ts \
   demos/test/diffusion-test.ts demos/test/splines-test.ts demos/test/gpus-test.ts \
   demos/test/contrast-test.ts demos/test/spatialstats-test.ts demos/test/graphseg-test.ts \
-  demos/test/keypoints-test.ts demos/test/pdesmooth-test.ts demos/test/sparse-test.ts
+  demos/test/keypoints-test.ts demos/test/pdesmooth-test.ts demos/test/sparse-test.ts \
+  demos/test/ncut-test.ts demos/test/coursegraph-test.ts \
+  demos/test/stardist-test.ts demos/test/cellpose-test.ts demos/test/yolo-test.ts \
+  demos/test/sam-test.ts demos/test/cellnets-compare-test.ts \
+  demos/test/wasm-test.ts demos/test/maxflow-wasm-test.ts demos/test/stardist-wasm-test.ts \
+  demos/test/cellpose-wasm-test.ts demos/test/yolo-wasm-test.ts demos/test/sam-wasm-test.ts
 test:
 	@for t in $(TESTS); do echo "== $$t"; \
 	  js=$$(node_modules/.bin/esbuild $$t --bundle --platform=node --log-level=warning) && printf '%s\n' "$$js" | node || exit 1; \
 	done
+
+# The course structure database days.yml (parts, days, units, prerequisites):
+# check-prereqs validates it (folders exist, prerequisites exist, no cycles, the order
+# respects hard prerequisites, the sidebar is current); sidebar regenerates the sidebar
+# in _quarto.yml and the part colours in styles.css from it.
+check-prereqs:
+	python3 tools/days.py check
+
+sidebar:
+	python3 tools/days.py sidebar
+
+# Checks of the rendered site (docs/): broken local links, anchors and resources; then every
+# page in headless Chrome for console errors (uncaught exceptions, console.error, failed loads).
+# Run after make render. check-console takes JOBS=n and WAIT=seconds per page.
+check: check-links check-console
+
+check-links:
+	python3 tools/check/links.py docs
+
+check-console:
+	tools/check/console.sh
+
+# Rust -> WebAssembly crates demos/wasm/<name>/ -> demos/dist/wasm/<name>/ (wasm-bindgen glue
+# + .wasm; git-ignored, CI builds it). Needs cargo, the wasm32-unknown-unknown target and
+# wasm-bindgen-cli (version pinned in the crates). See demos/README.md, "WebAssembly".
+wasm:
+	demos/wasm/build.sh
+
+# Model checkpoints and sample images (tools/models/manifest.json): downloads cached in
+# .cache/models/, converted files in demos/dist/models/ (both git-ignored; CI deploys them).
+# MODELS_ARGS=--all also fetches disabled entries (e.g. Cellpose-SAM, 1.2 GB).
+models:
+	python3 tools/models/fetch.py $(MODELS_ARGS)
 
 # Remove the rendered site, the built demos and Quarto's cache.
 clean:
@@ -63,5 +101,10 @@ help:
 	@echo "  make demos     build the interactive demos into demos/dist/ (needs npm i once)"
 	@echo "  make typecheck type-check the demo TypeScript sources"
 	@echo "  make test      run the correctness tests of the demo algorithms"
+	@echo "  make wasm      build the Rust/WebAssembly crates into demos/dist/wasm/"
+	@echo "  make models    fetch and convert model weights and sample images into demos/dist/models/"
+	@echo "  make check-prereqs  validate days.yml (prerequisites, order, sidebar current)"
+	@echo "  make sidebar   regenerate the sidebar in _quarto.yml from days.yml"
+	@echo "  make check     check the rendered site: links and anchors, then browser console errors"
 	@echo "  make gitadd    stage all source files in git"
 	@echo "  make clean     remove docs/, demos/dist/ and .quarto/"

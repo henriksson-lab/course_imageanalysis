@@ -1,0 +1,261 @@
+---
+title: "Topic: finding points"
+description: "Spots, blobs, peaks of a correlation, votes in an accumulator: one question asked on many days of the course, compared side by side."
+---
+
+**Where are the small bright things, how many are there, and exactly where is each one?** The
+question comes up on many days of this course, often under another name. A fluorescent spot,
+a blob of unknown size, the shift between two images, a line in a Hough accumulator and a
+keypoint all come down to one task: **find the peaks of some map, keep the real ones, and say
+where they are to a fraction of a pixel**.
+
+This page puts those approaches side by side. It explains what each one assumes, what it costs
+and when it fails, and links to the units where each is taught. Read the plain text for the ideas.
+The one **The math** box near the end ties the approaches together, and you can skip it.
+
+::: {.callout-tip title="If you only want spot detection"}
+Do the [point detection day](../spot-filters/lec.qmd) (four units). Before it you need
+[filtering](../kernels/lec.qmd) and [scale space](../scale-space/lec.qmd). The
+[camera noise](../cameranoise/lec.qmd) and [PSF](../psf/lec.qmd) units help too. After it come
+[object matching and F1](../object-eval/lec.qmd) and [linking spots into tracks](../track-linking/lec.qmd).
+:::
+
+## The question in plain words {#question}
+
+A point-like object (a single molecule, a vesicle, a bead, a star) is smaller than what the
+microscope can resolve. Its image is therefore a copy of the **point spread function**, a blob
+a few pixels wide, sitting on a background and buried in noise. To find it we have to answer
+four separate questions:
+
+1. **Where could a spot be?** Make the spots stand out from noise and background.
+2. **Which candidates are real?** Choose a threshold. Every threshold lets some noise through
+   and misses some dim spots.
+3. **Exactly where is each one?** The brightest pixel is only good to ± half a pixel, and the
+   spot's other pixels hold more information than that.
+4. **How good is the list?** Compare it with the truth, one point against one point.
+
+![The same four steps on a 1D profile with six spots (computed in `tools/figs/topics-point-detection/`). Step 1: a zero-mean filter of the spot's width turns each spot into a peak and cancels the sloping background. Step 2: local maxima give 20 candidates. Step 3: a threshold of 4 × the noise of the filtered profile keeps exactly the 6 spots. Step 4: fitting a spot model to the raw pixels places them. The errors are −0.04 and 0.28 px for the close pair in the zoom, and 0.77 px for the dimmest spot (pixel 108).](fig-pd-recipe.svg){fig-alt="Three stacked plots. Top: a noisy raw profile of 200 pixels rising from about 20 to 70 with a bump, six spots marked by green lines. Middle: the zero-mean filtered profile with grey dots at 20 local maxima, a red dashed threshold line at 8, and six circled maxima above it. Bottom: a zoom on pixels 54 to 80 with grey bars, the true positions of two spots in green and the fitted positions as red dashed lines almost on top of them."}
+
+## One recipe, many days {#one-recipe}
+
+Look closely and the same recipe appears on many days of the course: build a **response map**
+whose peaks are the things you want, take its **local maxima**, keep those above a
+**threshold**, **refine** each peak to sub-pixel precision, and **evaluate** the list against the truth.
+What changes from day to day is what the map is and what a peak means.
+
+![Four response maps from four different days, each with its peaks circled. From left: a filtered spot image (a peak is a spot); the scale-normalised Laplacian at the centre of three discs against the filter scale (the peaks sit at σ = 2.21, 4.19 and 7.11 px for radii 3, 6 and 10, close to r/√2 = 2.12, 4.24 and 7.07); the phase correlation of two shifted crops of a micrograph (a peak of height 0.85 at the shift Δy = 9, Δx = −5; the next highest value is 0.03); the Hough accumulator of a set of edge points (two peaks, two lines).](fig-pd-maps.png){fig-alt="Four panels. 1: a filtered image with bright spots, each circled. 2: three curves of the normalised Laplacian response against sigma for discs of radius 3, 6 and 10, each with a dot at its maximum. 3: a dark phase correlation surface with one bright pixel circled at shift x = -5, y = 9. 4: a Hough accumulator of sinusoidal bands with two circled crossings."}
+
+| Day / unit | What is a "point" | The response map | What the peak gives |
+|---|---|---|---|
+| [Finding spots](../spot-filters/lec.qmd) | a diffraction-limited spot | the image filtered with the spot shape (Gaussian, LoG/DoG, à trous) | position $(x, y)$ |
+| [Scale space, blobs](../scale-space/lec.qmd) | a round blob of unknown size | scale-normalised LoG in $(x, y, \sigma)$ | position and size |
+| [The Hessian](../hessian/lec.qmd) | a blob, as opposed to a ridge or saddle | the two curvatures (eigenvalues) per pixel | position and shape type |
+| [Top-hat](../morph-grey/lec.qmd), [h-maxima](../morph-reconstruct/lec.qmd) | a peak that rises above its surroundings | the image minus its opening; the height above the saddle | regional maxima, chosen by height |
+| [Keypoints](../keypoints/lec.qmd) | a corner or blob that can be found again | DoG pyramid, corner score | position, scale, orientation |
+| [Template matching](../matching/lec.qmd) | a copy of a template | normalised cross-correlation | where the template fits |
+| [Phase correlation](../phasecorr/lec.qmd), [stitching](../stitching/lec.qmd) | the shift between two images | the whitened cross-correlation | shift, to sub-pixel |
+| [Hough lines](../hough-lines/lec.qmd), [circles](../hough-circles/lec.qmd) | a line or circle | votes in parameter space | $(\theta, \rho)$ or centre and radius |
+| [Boosted detectors](../viola-jones/lec.qmd) | a face (or object) in a window | classifier score per window and scale | window position and size |
+| [Boxes](../detection/lec.qmd) | an object | box scores, or a heat map of centres | a box per object, after suppression |
+| [Sub-pixel localisation](../spot-fit/lec.qmd) | a single molecule | the fit of a PSF model | position to ~10 nm, with an error bar |
+
+The rest of this page follows the recipe step by step and compares the choices at each step.
+
+## Step 1: make the spots stand out {#response}
+
+Noise alone has a local maximum every few pixels, so the raw image is a poor map. A filter of the
+spot's own shape collects the spot's light from all of its pixels and averages the noise away.
+This is the **matched filter**: it gains about a factor $\sqrt{\pi}\,\sigma/\text{pixel}$ in SNR. For a spot of
+σ = 1 px that is 1.8×, worth about three times the exposure time ([spot-filters, B2](../spot-filters/exercise.qmd)).
+
+The trouble is the **background**. A plain Gaussian sums to 1, so a bright background region
+raises the response there as much as a spot does. Filters that **sum to zero** (zero-mean
+Gaussian, LoG, DoG, à trous detail levels) ignore a constant or sloping background.
+
+![Uneven background (a slope and a bright patch; 45 spots, noise 10), three filters with the same threshold of 5 × the noise of each filter's output and the same 5 × 5 maxima window. Green: matched to a true spot within 2 px; red: false. The Gaussian, which sums to 1, finds 29 spots and 60 false ones, most of them on the bright side. The LoG finds 39 with none false. A top-hat before the Gaussian finds 39 with one false.](fig-pd-background.png){fig-alt="Four panels. The synthetic image with spots on a background that is brighter towards the right and in a large patch. The Gaussian-filtered image with many red false detections along the right edge and in the bright patch. The LoG-filtered image, a flat grey texture with green circles on the spots only. The top-hat-plus-Gaussian image, similar, with green circles and one red."}
+
+| Approach | Assumes | Costs | Fails when | Taught in |
+|---|---|---|---|---|
+| raw local maxima | spots brighter than every noise pixel | nothing | almost always: noise has a maximum every few pixels | [spot-filters](../spot-filters/lec.qmd) |
+| Gaussian (matched filter) | known spot width, **flat** background | one separable blur | uneven background (false spots); a filter too wide merges close spots | [spot-filters](../spot-filters/lec.qmd), [kernels](../kernels/lec.qmd) |
+| zero-mean Gaussian, LoG, DoG | known width; background smooth over the filter | one or two blurs | background curved at the spot's own scale; spots closer than about 2σ | [spot-filters](../spot-filters/lec.qmd), [scale-space](../scale-space/lec.qmd) |
+| top-hat, then Gaussian | background wider than the structuring element | min and max filters | objects as large as the element; an element too small erodes spots | [morph-grey](../morph-grey/lec.qmd) |
+| à trous multiscale product | spots live in a few dyadic scales; noise is white | a few smoothings with holes | spot sizes between the levels; dense clusters | [spot-filters](../spot-filters/lec.qmd) |
+| LoG over many σ (blobs) | round blobs of **unknown** size | one filtered image per scale | elongated or touching blobs; sizes outside the scale range | [scale-space](../scale-space/lec.qmd), [keypoints](../keypoints/lec.qmd) |
+| Hessian determinant | blobs are curved both ways, ridges only one way | second derivatives per scale | noise (second derivatives amplify it); one scale per pass | [hessian](../hessian/lec.qmd) |
+| learned heat map | training images like the test images | labelled data, training, a network | new microscope, new density, new background: domain shift | [detection](../detection/lec.qmd) |
+
+**Choosing the width.** All of these filters have a size. Make it about the spot's own size σ (the
+PSF). A filter that is too narrow leaves the noise; one that is too wide merges close spots and
+drowns dim ones. When the size is unknown, search over scales, as the blob detectors do. Their
+peaks in σ give the size: a disc of radius $r$ responds most at σ ≈ $r/\sqrt 2$.
+
+### Try it {#try-response}
+
+The point detection day's main demo: 80 spots on an uneven background. Switch between the
+presets and filters and watch the green (true), red (false) and yellow (missed) marks.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="spotdetect" data-preset="uneven" data-presets="flat,uneven,unevenlog,atrous,window,dense"></div>
+<script src="../demos/dist/spotdetect.js"></script>
+```
+
+The same demo with questions is in the [spot-filters exercise](../spot-filters/exercise.qmd#explore).
+In 1D: [spots in 1D](../spot-filters/exercise.qmd#explore-peaks1d). Blobs over scales:
+[scale-space demo](../scale-space/exercise.qmd#explore).
+
+## Step 2: one candidate per peak {#candidates}
+
+A **local maximum** is a pixel at least as large as everything in a window of radius $r$ around it.
+The window decides how close two real points may be:
+
+- **too small**: a noisy spot gets two candidates;
+- **too large**: a dim spot next to a bright one is swallowed.
+
+Other days use the same step under other names. The Hough day calls it **non-maximum suppression in the
+accumulator**. The modern deep learning day uses **box NMS**, which removes boxes that overlap a
+higher-scoring box ([detection](../detection/lec.qmd)). **h-maxima** select peaks by their **height above
+the saddle** to a higher peak, whatever the distance ([morph-reconstruct](../morph-reconstruct/lec.qmd)).
+The keypoint detector looks for maxima in **three** dimensions $(x, y, \sigma)$
+([keypoints](../keypoints/lec.qmd)).
+
+| Rule | Keeps a peak if… | Good for | Fails when |
+|---|---|---|---|
+| local maximum, radius $r$ | it is the largest within $r$ | spots with a known minimum spacing | spacing varies; plateaus need a tie rule |
+| h-maxima | it rises $h$ above the saddle to any higher peak | peaks of varying spacing | $h$ is in intensity units, not noise units |
+| greedy box NMS | no higher-scoring box overlaps it by more than a set IoU | objects with extent | two real objects overlap more than the set limit |
+| maxima in scale space | it beats its 26 neighbours in $(x, y, \sigma)$ | blobs of unknown size | elongated structures (respond along their length) |
+
+## Step 3: which peaks are real? {#threshold}
+
+A threshold must be stated **in units of the noise** of the response map, or it means nothing. Two steps are needed:
+
+1. **Estimate the noise** from the image itself. The median absolute deviation of fine differences
+   is robust to the spots ([spot-threshold](../spot-threshold/lec.qmd), [wavelet shrinkage](../shrinkage/lec.qmd)).
+2. **Carry it through the filter**: a filter changes the noise level by a known factor, the
+   root of the sum of its squared weights.
+
+The surprise is how many false spots a "3 sigma" rule lets through. Smoothed noise has thousands
+of local maxima per image (4 898 per 512 × 512 image here), and a maximum is higher than a typical
+pixel. Multiplying the number of maxima by the 0.13 % tail probability of a Gaussian therefore
+underestimates the false spots by a factor of about 15 at k = 3.
+
+![False spots per 512 × 512 image of pure noise, smoothed with a Gaussian of σ = 1.5 px, against the threshold k in noise units (20 seeded images). Measured: 103 at k = 3, 3.8 at k = 4, 0.1 at k = 5. The naive estimate (maxima × tail probability) predicts 6.6 at k = 3.](fig-pd-falsespots.svg){fig-alt="A semi-log plot of false spots per image against k from 2.5 to 5. The measured curve falls from about 370 to 0.1; the naive estimate lies about one decade below it. A dotted red line marks one false spot per image, crossed by the measured curve at about k = 4.2."}
+
+So choose $k$ from the **number of false spots per image you can accept**. With Poisson noise the
+noise grows with the brightness, so one threshold cannot serve the whole image. Use a variance-stabilising
+transform first, or a threshold that depends on the local mean ([spot-threshold](../spot-threshold/lec.qmd)).
+
+The same reasoning applies elsewhere. A Hough peak needs more votes than clutter gives by chance
+([hough-lines](../hough-lines/lec.qmd)). A phase correlation peak needs to stand out from the noise
+floor of the surface ([phasecorr: how much to trust a peak](../phasecorr/lec.qmd)). A boosted detector
+tests hundreds of thousands of windows per image, so even a tiny false-positive rate per window
+gives false detections ([viola-jones](../viola-jones/lec.qmd)).
+
+## Step 4: exactly where? {#subpixel}
+
+The brightest pixel is good to ± half a pixel. Using the neighbouring pixels gets far better than
+that, and the methods differ in what they assume about the peak's shape.
+
+![Error of four sub-pixel estimates for a noise-free spot of σ = 1 px, against its true position inside the pixel. Brightest pixel: up to 0.49 px. Centroid of the 3 × 3 window: up to 0.24 px, always pulled towards the pixel centre. Parabola through three samples: up to 0.044 px (pixel locking). Parabola through the logarithms (exact for a Gaussian): no error without noise and background.](fig-pd-subpixel.svg){fig-alt="Error against true sub-pixel position from -0.5 to 0.5. The brightest-pixel estimate is a sawtooth from +0.49 to -0.49. The centroid is a straight line from +0.24 to -0.24. The parabola is a small S-shaped curve within ±0.044. The log-parabola lies on zero."}
+
+| Method | Assumes | Costs | Fails when | Taught in |
+|---|---|---|---|---|
+| brightest pixel | nothing | nothing | always ±0.5 px | [spot-fit](../spot-fit/lec.qmd) |
+| centroid | background removed; small window | a weighted mean | background left in pulls it to the window centre | [spot-fit](../spot-fit/lec.qmd), [stitching](../stitching/lec.qmd) |
+| three-point parabola | the peak is locally quadratic | three samples per axis | biased towards whole pixels ("pixel locking") | [stitching](../stitching/lec.qmd), [keypoints](../keypoints/lec.qmd) |
+| parabola of the logarithm | the peak is Gaussian | three samples per axis | background not subtracted; noise in the low samples | [spot-fit](../spot-fit/lec.qmd) |
+| least-squares fit of a PSF + background | a correct spot model | an iterative fit per spot | overlapping spots; wrong PSF model | [spot-fit](../spot-fit/lec.qmd) |
+| maximum likelihood (Poisson) | photon counts and a correct model | an iterative fit | the same, but reaches the best possible precision | [spot-fit](../spot-fit/lec.qmd) |
+
+**How precise can it get?** A spot built from $N$ photons with PSF width $s$ can be located to about
+$s/\sqrt N$. With 1 000 photons and $s$ = 100 nm that is about 3 nm, far below the diffraction limit of
+about 250 nm. Localisation microscopy is built on this. Resolution (telling **two** points apart,
+[resolution](../resolution/lec.qmd)) and precision (placing **one** point,
+[spot-fit](../spot-fit/lec.qmd)) are different questions. Background photons and large pixels make
+the precision worse, and they dominate for dim spots, as the 0.77 px error of the dimmest spot in the
+first figure shows.
+
+## Step 5: crowded points, and is the list any good? {#evaluate}
+
+When two spots are closer than about twice their width they merge into one peak, and no threshold
+can split them. The options are to fit one model and two models and compare them, to deconvolve
+first, to treat the image as a sparse sum of PSFs, or to switch on only a few molecules at a time
+([spot-crowd](../spot-crowd/lec.qmd)).
+
+To **evaluate** a detector, match each detection to at most one true point within a distance gate.
+Then report **two kinds of error separately**: detection (precision, recall, F1) and localisation
+(the error of the matched pairs). Optimal matching can beat greedy matching when points are dense.
+The same logic, with IoU in place of distance, scores objects ([object-eval](../object-eval/lec.qmd))
+and boxes ([detection](../detection/lec.qmd)).
+
+| Question | Tool | Taught in |
+|---|---|---|
+| which detection belongs to which true point? | one-to-one matching within a gate (assignment) | [spot-crowd](../spot-crowd/lec.qmd), [object-eval](../object-eval/lec.qmd) |
+| how many found, how many invented? | precision, recall, F1 at a threshold; the threshold sweep | [spot-crowd](../spot-crowd/lec.qmd), [seg-eval](../seg-eval/lec.qmd) |
+| how well placed? | RMSE of matched pairs (truncated by the gate) | [spot-crowd](../spot-crowd/lec.qmd) |
+| is a point pattern clustered? | nearest-neighbour distances, Ripley's K | [point-patterns](../point-patterns/lec.qmd), [ripley-k](../ripley-k/lec.qmd) |
+| which spot is which over time? | linking detections into tracks | [track-linking](../track-linking/lec.qmd) |
+
+## All approaches at a glance {#summary}
+
+| Approach | Best when | Assumes | Main cost | Main failure |
+|---|---|---|---|---|
+| matched / zero-mean filter + maxima | spots of known size | one PSF, white noise, smooth background | one blur | merges close spots; uneven background (if not zero-mean) |
+| scale-space LoG / DoG | blobs of unknown size | round blobs | one blur per scale | elongated or touching blobs |
+| morphology (top-hat, h-maxima) | uneven background; peaks of varying spacing | shape of the background or a height $h$ | min/max filters, reconstruction | parameters in intensity units, not noise units |
+| correlation peaks (template, phase) | finding a shift or a known pattern | the pattern is a copy (shifted, maybe scaled) | FFTs | rotation, scale change, repeating patterns (several peaks) |
+| Hough voting | lines, circles, shapes from edge points | a parametric shape | one accumulator cell per parameter combination | many parameters; clutter |
+| PSF fitting | precision matters (localisation) | a correct PSF model | an iterative fit per spot | overlapping spots; wrong model |
+| learned detectors | complex objects, many training images | test images like the training images | labels and training | domain shift; confident errors |
+
+::: {.callout-note collapse="true" title="The math: detection is correlation, refinement is a parabola"}
+**Every response map is a correlation with a template.** Model a patch as $I(\mathbf x) = A\,p(\mathbf x - \mathbf x_0) + n(\mathbf x)$
+with white Gaussian noise of variance $\sigma_n^2$. The log-likelihood ratio of "a spot of shape $p$ at $\mathbf x_0$" against
+"no spot", maximised over the amplitude $A$, is
+
+$$\Lambda(\mathbf x_0) = \frac{\big(\sum_{\mathbf x} p(\mathbf x - \mathbf x_0)\,I(\mathbf x)\big)^2}{2\sigma_n^2\sum_{\mathbf x} p^2},$$
+
+a monotone function of the correlation $(p \star I)(\mathbf x_0)$. So the best detector of a known shape is: correlate with the shape, take
+maxima, threshold. With an unknown constant background, replace $p$ by $p - \bar p$ (zero mean). The same structure appears elsewhere:
+
+| Map | Template $p$ | Image $I$ |
+|---|---|---|
+| spot filter | the PSF | the image |
+| template matching | the template (normalised) | the image |
+| phase correlation | the other image, whitened ($|\hat p| = 1$ per frequency) | the image, whitened |
+| Hough transform | the shape, in parameter space | the edge map |
+
+**The threshold** is a statement about the noise of the map: the filtered noise has standard deviation $\sigma_n\sqrt{\sum_k w_k^2}$, and a
+threshold $k$ in these units sets the false-alarm rate. For maxima of smoothed noise the expected number above $u$ is about
+$A\,u\,e^{-u^2/2}/\big(2\sigma_f^2(2\pi)^{3/2}\big)$ ([spot-threshold](../spot-threshold/lec.qmd)).
+
+**Sub-pixel refinement** fits a parabola to three samples $L_{-1}, L_0, L_1$ around the peak. Its vertex is at
+
+$$\delta = \frac{L_{-1} - L_{1}}{2\,(L_{-1} - 2L_0 + L_{1})}.$$
+
+On the raw values this is the three-point parabola. On $L = \log I$ it is exact for a Gaussian peak, because the logarithm of a Gaussian
+is a parabola. In 3D (keypoints in $x, y, \sigma$) the same fit is a quadratic through the 3 × 3 × 3 cube. Under Poisson noise the
+best precision of any unbiased estimate is $\mathrm{Var}(\hat x_0) \ge s^2/N$ (Cramér–Rao, [spot-fit](../spot-fit/lec.qmd)).
+:::
+
+## Demos on this topic {#demos}
+
+| Demo | What it shows |
+|---|---|
+| [Spots in 1D](../spot-filters/exercise.qmd#explore-peaks1d) | filter width, window, close pairs |
+| [Spot detection](../spot-filters/exercise.qmd#explore) | filters against background, à trous, maxima window |
+| [How many false spots?](../spot-threshold/exercise.qmd#explore) | thresholds in noise units, false spots per image |
+| [Localising one spot](../spot-fit/exercise.qmd#explore) | centroid, parabola, fit; precision against photons |
+| [Two spots](../spot-crowd/exercise.qmd#explore-crowdfit) and [evaluating a detector](../spot-crowd/exercise.qmd#explore) | merging, matching, F1 |
+| [Blobs over scales](../scale-space/exercise.qmd#explore) | scale-normalised LoG, size from scale |
+| [The Hessian per pixel](../hessian/exercise.qmd#explore) | blob, ridge, saddle |
+| [Top-hat on an uneven background](../morph-grey/exercise.qmd#explore) | background removal by morphology |
+| [Reconstruction on images](../morph-reconstruct/exercise.qmd#explore) | h-maxima |
+| [Two points on a pixel grid](../resolution/exercise.qmd#explore-twopoints) | resolving against localising |
+| [Phase correlation](../phasecorr/exercise.qmd#explore) and [sub-pixel estimates](../stitching/exercise.qmd#explore-subpixel) | a shift as a peak |
+| [Line detection](../hough-lines/exercise.qmd#explore) and [circle detection](../hough-circles/exercise.qmd#explore) | peaks of votes |
+| [The DoG pyramid](../keypoints/exercise.qmd#explore-dogpyramid) | maxima in $(x, y, \sigma)$, refinement |
+| [Boxes and suppression](../detection/exercise.qmd#explore) | NMS on boxes |
+| [Linking two frames](../track-linking/exercise.qmd#explore-linkpairs) | from detections to tracks |

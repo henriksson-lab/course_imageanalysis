@@ -1,7 +1,9 @@
 # Plan: a day on mathematical morphology
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
-**Course map (2026-11-12):** core day 8 of 18, Part II "From pixels to objects". Order: day 7 (colour) → this → day 9 (labelling). **Owner of the distance transform** (course map; moved here from the watershed plan, review-ordering C2).
+**Course map (2026-11-13, self-study restructure):** day 13 of 51, Part III "From pixels to objects". Hard prerequisites: Thresholding (day 12). Soft (see also): none. Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** day 13 of 51, Part II "From pixels to objects". Order: day 42 (colour) → this → day 14 (labelling). **Owner of the distance transform** (course map; moved here from the watershed plan, review-ordering C2).
 
 ## Goal of the day
 
@@ -28,11 +30,11 @@ window, but take the min or max instead of the weighted sum".
   Recall in one slide; the border question returns with a twist (erosion needs
   "outside = foreground" or "outside = background" to be chosen, and the choice
   visibly matters).
-- **Binary images / thresholding** are taught on day 6 (`plan/thresholding-day.md`).
+- **Binary images / thresholding** are taught on day 12 (`plan/thresholding-day.md`).
   Unit 1 opens with a one-line recall (threshold → 0/1 mask, foreground = 1), with noise
   specks and gaps as the motivation for the day. Top-hat background correction is owned
-  here (unit 3); day 6's unit 3 had a forward pointer to it. The **median filter** was
-  met on day 6 (one slide there); unit 3 here places it among the rank filters.
+  here (unit 3); day 12's unit 3 had a forward pointer to it. The **median filter** was
+  met on day 12 (one slide there); unit 3 here places it among the rank filters.
 - **Connected components** (4- vs 8-connectivity) are needed here only as a picture: in
   unit 1 (cross vs square SE) and in unit 4 (reconstruction floods one component). Labelling as an algorithm, and
   everything done with labels, is its own day, directly after this one
@@ -41,24 +43,24 @@ window, but take the min or max instead of the weighted sum".
   watershed day.
 - **Distance transform**: **defined here** (unit 2): $\mathrm{DT}(p) = \min_{q \notin A}\|p - q\|$,
   a picture, the city-block DT by hand, the two-pass chamfer algorithm in the math layer,
-  exact Euclidean DT named. The watershed day (9), skeleton elective, measurements (day 11),
-  dynprog elective ("chamfer is DP") and level sets (SDF) recall it. Symbol $\mathrm{DT}$
-  (course convention; $D_p$ is the data term on day 13).
+  exact Euclidean DT named. The watershed day (15), skeleton day, measurements (day 16),
+  dynprog day ("chamfer is DP") and level sets (SDF) recall it. Symbol $\mathrm{DT}$
+  (course convention; $D_p$ is the data term on day 27).
 - **Set notation** (union, intersection, complement, translate $A_x$, reflection
   $\check B = \{-b\}$): one slide, with a pixel-grid picture for each.
 
 ## Links to other days
 
-- **Labelling** (day 9, `plan/labelling-day.md`, the next day): a connected component is the
+- **Labelling** (day 14, `plan/labelling-day.md`, the next day): a connected component is the
   reconstruction of the mask from a single pixel (one line in unit 4, developed there).
   The labelling day uses this day's opening, fill holes and clear border to clean masks
   before measuring.
-- **Skeletons** (elective "Objects", `plan/skeleton-day.md`, entry after day 9): hit-or-miss,
+- **Skeletons** (`plan/skeleton-day.md`, entry after day 14): hit-or-miss,
   thinning, medial axis and skeleton analysis all live there. It builds on this day's
   erosion, opening (Lantuéjoul's formula) and the distance-transform link of unit 2;
   one pointer slide at the end of unit 2 ("the centres of the largest discs that fit
-  form the skeleton: see the skeleton elective").
-- **Watershed** (day 10, `plan/watershed-day.md`) relies on this day for the *definitions* of
+  form the skeleton: see the skeleton day").
+- **Watershed** (day 15, `plan/watershed-day.md`) relies on this day for the *definitions* of
   **morphological reconstruction**, **h-minima** (fill every basin by $h$ = reconstruction
   by erosion of $f + h$ above $f$), **regional minima**, **minima imposition** for
   marker-controlled watershed, **fill holes** (applied to a mask before the
@@ -70,11 +72,11 @@ window, but take the min or max instead of the weighted sum".
   this day's reconstruction code rather than re-implementing it.
 - **Distance transform**: erosion/dilation by a Euclidean disc of radius $r$ = threshold
   of $\mathrm{DT}$ (unit 2). This day owns `lib/distance.ts`; the watershed day uses it.
-- **Level sets** (elective): dilation by a disc of radius $r$ = the front moved outwards by
+- **Level sets**: dilation by a disc of radius $r$ = the front moved outwards by
   $F = 1$ for time $r$ (the zero level of the SDF shifted by $r$). One slide in unit 2.
-- **Graph cuts** (day 13): opening/closing of a noisy threshold as the cheap, local alternative
+- **Graph cuts** (day 27): opening/closing of a noisy threshold as the cheap, local alternative
   to a smoothness term; same test image so results can be compared (unit 2, one forward-pointer slide).
-- **Marching cubes** (3D elective; 3D images in its `volumes3d/` unit): all operators carry over to 3D with a ball as SE; a closing of a
+- **Marching cubes** (Part IX; 3D images in its `volumes3d/` unit): all operators carry over to 3D with a ball as SE; a closing of a
   segmented stack before surface extraction removes tiny handles and cavities (one
   sentence in unit 1).
 
@@ -157,8 +159,8 @@ to `plan/labelling-day.md`.)
   Digital caveat: chessboard distance ↔ square SE, city-block ↔ diamond (cross iterated).
 - Pointer (one slide): the centres of the largest discs that fit inside $A$ form its
   skeleton, the ridges of $\mathrm{DT}$; hit-or-miss, thinning and skeletons are the skeleton
-  elective (`plan/skeleton-day.md`).
-- Forward pointer to graph cuts (day 13): opening/closing of a noisy threshold vs an energy with a
+  day (`plan/skeleton-day.md`).
+- Forward pointer to graph cuts (day 27): opening/closing of a noisy threshold vs an energy with a
   smoothness term on the same image (one slide, side by side).
 - **Demo**: reuse `morphgrid` with `data-mode="openclose"` (presets: "opening removes
   the speck", "closing fills the gap", "open∘close ≠ close∘open", "apply twice: nothing
@@ -195,7 +197,7 @@ to `plan/labelling-day.md`.)
   Compared with Sobel from `kernels/`: no sign, thicker, but no direction preference and
   no ringing.
 - Rank filters as the family between: min, median, max over the same window (the median,
-  met on day 6, removes salt-and-pepper noise that the min or max alone cannot). Link to
+  met on day 12, removes salt-and-pepper noise that the min or max alone cannot). Link to
   `kernels/`: nonlinear filters with the same window.
 - Pointer: the max-plus algebra (dilation is a "convolution" with max for sum and $+$
   for product); no convolution theorem, but the slope transform as further reading.
@@ -235,13 +237,13 @@ to `plan/labelling-day.md`.)
   **fill holes** $\big(R_{A^c}(A^c \cap \text{frame})\big)^c$ (the background that cannot be
   reached from the image edge is a hole).
 - One line: the connected component containing $p$ is $R_A(\{p\})$; labelling all
-  components efficiently is the next day (day 9, `plan/labelling-day.md`).
+  components efficiently is the next day (day 14, `plan/labelling-day.md`).
 - Grey-level reconstruction: same definition with min/max. **h-maxima**
   $\mathrm{HMAX}_h(f) = R_f(f - h)$: every peak lowered by $h$, peaks of height (dynamic)
   $< h$ flattened away; the domes $f - \mathrm{HMAX}_h(f)$; **regional maxima** = plateaus
   with all neighbours lower; **extended maxima** = regional maxima of $\mathrm{HMAX}_h$
   (markers for the nuclei). **h-minima** dual: $R^\varepsilon_f(f + h)$, basins
-  shallower than $h$ filled; this is exactly what the watershed day (day 10) uses.
+  shallower than $h$ filled; this is exactly what the watershed day (day 15) uses.
 - **Minima imposition**: given a marker image, $f_m = 0$ on markers and $\max f$
   elsewhere; $R^\varepsilon_{(f + 1) \wedge f_m}(f_m)$ keeps $f$'s shape but has regional
   minima only at the markers. This is how "marker-controlled watershed" is computed;
@@ -358,7 +360,7 @@ to `plan/labelling-day.md`.)
   exercise), or the grey-level unit is shortened to top-hat only. Moving labelling out
   of unit 4 already frees about 20 min there.
 - ~~Skeletons and hit-or-miss: optional or core?~~ Decided 2026-11-12: **their own day**
-  (`plan/skeleton-day.md`, now an elective in group "Objects"), including hit-or-miss;
+  (`plan/skeleton-day.md`, now a day in group "Objects"), including hit-or-miss;
   this day keeps one pointer slide.
 - How much algebra: properties only (proposal), or also adjunction and the lattice view
   (openings as the general "increasing, anti-extensive, idempotent" operators)?
@@ -370,7 +372,7 @@ to `plan/labelling-day.md`.)
 - ~~Where is connected-components labelling taught as an algorithm?~~ Decided
   2026-11-12: its **own day, directly after this one** (`plan/labelling-day.md`); here
   only the one-line link "component = reconstruction from one pixel".
-- 3D morphology: one sentence (proposal), with a pointer to `volumes3d/` (3D elective).
+- 3D morphology: one sentence (proposal), with a pointer to `volumes3d/` (Part IX).
 - Programming language for any code parts is still open (see README).
 
 ## References

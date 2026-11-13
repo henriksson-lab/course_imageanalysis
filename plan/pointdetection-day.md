@@ -1,7 +1,9 @@
 # Plan: a day on point (spot) detection
 
 Internal working doc (plan/ is not rendered). Status: draft 2026-11-12; **core units 1–4 built 2026-11-13** (see "Build notes" at the end); optional unit 5 not built.
-**Course map (2026-11-12):** elective, group **"Detection"** (with Hough and integral images),
+**Course map (2026-11-13, self-study restructure):** day 20 of 51, Part IV "Detecting points, lines and features". Hard prerequisites: Edges, blobs and ridges (day 2). Soft (see also): Bit depth and noise (day 3), Image formation (day 4), Morphology (day 13), Evaluation and statistics (day 37). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part IV (with Hough and integral images),
 entry after **day 2, Edges, blobs and ridges**. In practice it works best after day 4 (image
 formation), because units 2 and 3 lean on `cameranoise/` (day 3) and `psf/` (day 4); see
 open question 1. It is a prerequisite of the planned **tracking** day (Motion group: "tracking
@@ -69,13 +71,13 @@ single molecules, particle tracking).
 - **Least squares** (linear algebra; `stitching/`'s global solve and `lsunmix/` are the nearest
   course pictures): unit 3 uses normal equations and one Gauss–Newton step; the concept layer
   needs only "adjust the parameters until the model looks like the data".
-- **Matching, F1, AP** (day 16, `object-eval/`): if taken after day 16 this is a recall; if
+- **Matching, F1, AP** (day 37, `object-eval/`): if taken after day 37 this is a recall; if
   taken before, unit 4 has two self-contained concept slides on one-to-one matching (see
-  overlaps). **Multiple testing** (day 16, `replicates/`): one-line pointer in unit 2 ("many
+  overlaps). **Multiple testing** (day 37, `replicates/`): one-line pointer in unit 2 ("many
   maxima = many tests").
-- **Morphological maximum filter / h-maxima** (day 8, `morph-grey/`, `morph-reconstruct/`): used
+- **Morphological maximum filter / h-maxima** (day 13, `morph-grey/`, `morph-reconstruct/`): used
   as named pictures only ("the maximum filter"; "h-maxima: keep peaks by height, not by window");
-  works before day 8 because the concept is a window maximum.
+  works before day 13 because the concept is a window maximum.
 
 ## Overlaps / who owns what
 
@@ -91,7 +93,7 @@ point detections by distance-gated matching. Everything below is recalled in at 
 | Image formation `localisation/` (optional, **not built**) | The fitting part: centroid vs Gaussian least squares vs maximum likelihood, precision ≈ $\sigma/\sqrt N$, the effect of background and pixel size, and the demo idea `localise` (becomes the *precision* tab of `spotfit`, unit 3). Localisation microscopy (switching molecules on a few at a time) becomes this day's optional unit 5 `smlm/` | One slide in `resolution/` or `illposed/`: "a single point can be *localised* far better than it can be *resolved*; see the point-detection day". SIM stays an image-formation pointer. **Proposed ownership change** (open question 2) |
 | FFT registration `stitching/` (built: parabolic peak, centroid, upsampled DFT, pixel locking, drift in localisation microscopy) | Nothing re-taught. Unit 3 recalls the parabola and pixel locking in one slide and adds what is new for spots: the log-parabola is exact for a Gaussian, and fitting the model to all pixels beats any three-point rule | Sub-pixel peaks of correlation surfaces, the `subpixel` demo, drift correction. `smlm/` recalls `drift` |
 | Hough (`hough-lines/`, `hough-circles/`): accumulator peaks, NMS in parameter space | Nothing. Unit 1's "same operation everywhere" slide shows an accumulator next to a spot image | Voting, accumulators, their peak finding |
-| Evaluation `object-eval/` (owner: object matching, assignment, F1, AP, naming trap) | **Matching points by distance** (a gate radius instead of an IoU threshold) and the **localisation error** of matched pairs are new here; one-to-one matching, greedy vs optimal, F1 and AP are recalled (one slide) or, before day 16, stated in two concept slides without the math layer, which stays in `object-eval/` | IoU, the assignment math, uniqueness above 0.5, AP definitions, the naming trap |
+| Evaluation `object-eval/` (owner: object matching, assignment, F1, AP, naming trap) | **Matching points by distance** (a gate radius instead of an IoU threshold) and the **localisation error** of matched pairs are new here; one-to-one matching, greedy vs optimal, F1 and AP are recalled (one slide) or, before day 37, stated in two concept slides without the math layer, which stays in `object-eval/` | IoU, the assignment math, uniqueness above 0.5, AP definitions, the naming trap |
 | Modern deep learning `detection/` (built: boxes, greedy box NMS, heat-map/centre-point detection) | Nothing. One line: "a network can learn the filter (a heat map), but the maxima, NMS, threshold and matching are this day's" | Boxes, anchors, box NMS, learned detectors |
 | Morphology `morph-reconstruct/` (h-maxima), `morph-grey/` (top-hat) | Nothing. h-maxima named as the prominence-based alternative to the window rule; white top-hat as a background remover | Both operators |
 | Deconvolution (owner of regularised inverse problems) | Nothing. One line in unit 4: "spots as a sparse sum of PSFs" is a regularised inverse problem with a sparsity penalty (pointer to deconvolution and wavelet sparsity) | Regularisation |
@@ -136,7 +138,7 @@ Concept layer:
   band-pass images $w_1, w_2, \dots$ (a DoG stack, recall). Noise lives mainly in $w_1$, spots of
   1–2 px in $w_2$–$w_3$, background in the last blur. Threshold each $w_j$ at $k\hat\sigma_j$ and
   **multiply** the kept scales: spots persist across scales, noise does not. Robust to uneven
-  background by construction. The wavelet view is a pointer to the wavelets elective.
+  background by construction. The wavelet view is a pointer to the wavelets day.
 - **Local maxima**: a pixel is a candidate if it is **the largest in its window** (radius $r$).
   Implementation as a picture: compare the image with its **maximum filter** (grey dilation,
   morphology day) and keep the pixels where they are equal. Worked on a 5×5 patch.
@@ -147,7 +149,7 @@ Concept layer:
   surrounding saddle, independent of distance.
 - **Same operation everywhere** (one slide, the topic-page picture): NMS across an edge (Canny,
   day 2), maxima in $(x, y, \sigma)$ (blobs, day 2), peaks of a Hough accumulator, of a
-  phase-correlation surface (day 12), greedy NMS of boxes (deep-learning detectors). Only the
+  phase-correlation surface (day 23), greedy NMS of boxes (deep-learning detectors). Only the
   neighbourhood and the score differ.
 - Failure modes, each a demo preset: uneven background with a plain Gaussian filter; filter too
   narrow (noise maxima) or too wide (close spots merge, dim spots drown); window too small
@@ -600,7 +602,7 @@ matching or plotting.
 1. **Entry point**: the course map says "after Edges, blobs and ridges (day 2)". Units 2 and 3
    lean on `cameranoise/` (day 3) and `psf/`/`resolution/` (day 4); the plan makes those recalls
    self-contained, but the day is better after day 4. Proposal: keep day 2 as the formal entry,
-   add "recommended after day 4" to the electives table.
+   add "recommended after day 4" to the later days table.
 2. **Ownership changes** (to add to `plan/coursemap.md`, "Ownership changes", when accepted):
    (a) à trous spot detection moves from wavelets' unbuilt optional `cwt/` to unit 1 here; `cwt/`
    keeps the transform and the scalogram and recalls spot detection; (b) image formation's unbuilt
@@ -609,9 +611,9 @@ matching or plotting.
    `localise` demo becomes `spotfit`'s *precision* tab; (c) the owners table gains a row for spot
    detection (see overlaps); (d) `object-eval/` keeps matching; point matching by distance is
    taught here.
-3. **Matching before day 16**: is a two-slide self-contained matching story in unit 4 acceptable
-   (the owner rule allows a recall slide, not teaching)? Proposal: yes, because the elective can
-   come before day 16; the math stays in `object-eval/`.
+3. **Matching before day 37**: is a two-slide self-contained matching story in unit 4 acceptable
+   (the owner rule allows a recall slide, not teaching)? Proposal: yes, because the day can
+   come before day 37; the math stays in `object-eval/`.
 4. **Unit 4 density**: crowded spots and evaluation in one unit is full. Fallbacks in order:
    move model selection (RSS penalty) to the math layer only; drop F1-vs-density from the lecture
    (keep it in the demo); or split into `spot-crowd/` + `spot-eval/` (the day then has five core

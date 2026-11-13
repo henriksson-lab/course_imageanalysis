@@ -2,7 +2,9 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "Curves and energies" (snakes → level sets → dynamic programming; Ising/MRF); entry after core day 13 (graph cuts). Last day of its chain: after snakes and level sets. Unit order: `dp-paths/`, `polar-boundary/`, `livewire/`, `fastmarching/` (moved from the level set day); `seamcarve/` and `dtw/` optional.
+**Course map (2026-11-13, self-study restructure):** day 32 of 51, Part VI "Segmentation as optimisation". Hard prerequisites: Graph cuts (day 27). Soft (see also): Snakes and active shape models (day 30), Morphology (day 13), Watershed (day 15). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part VI (snakes → level sets → dynamic programming; Ising/MRF); entry after day 27 (graph cuts). Last day of its chain: after snakes and level sets. Unit order: `dp-paths/`, `polar-boundary/`, `livewire/`, `fastmarching/` (moved from the level set day); `seamcarve/` and `dtw/` optional.
 
 ## Goal of the day
 
@@ -27,28 +29,28 @@ interpolation from *Images & geometric transforms*. The day shows what makes a p
   Unit 1 counts operations explicitly ($3^{n}$ vs $3nm$ with numbers: a 256×256 image
   has about $10^{124}$ monotone paths, more than the ~$10^{80}$ atoms in the universe) rather than relying on
   complexity notation.
-- **Graphs** (nodes, edges, weights): defined on the graph-cut day (day 13). Unit 3
+- **Graphs** (nodes, edges, weights): defined on the graph-cut day (day 27). Unit 3
   recalls the definition in two lines.
 - **Gradient magnitude** (Sobel) and **bilinear interpolation**: covered in `kernels/`
   and `images/` (day 1). They are recalled in one slide each where used.
-- **Level set equation and snakes**: the two previous days of this elective chain;
+- **Level set equation and snakes**: the two previous days of this chain of days;
   unit 4 (fast marching) and unit 2 (DP snake) recall them.
 - No probability is needed, except in the optional Viterbi remark (pointer only).
 
 ## Links to other days
 
-- **Graph cuts** (day 13, `plan/graphcut-day.md`): its unit 1 demo `segchain` already solves a
+- **Graph cuts** (day 27, `plan/graphcut-day.md`): its unit 1 demo `segchain` already solves a
   two-label 1D chain energy exactly by DP (Viterbi, `demos/src/segchain/dp.ts`). This
   day **reuses** it as the "states per column" example in unit 1 (embedded as is, one
   slide, no new demo) and names the general idea: DP is exact on chains and trees, and
   graph cuts are exact on 2D grids for binary submodular energies. The polar boundary
   in unit 2 is exactly a chain (one radius per angle) and makes the contrast concrete.
-- **Distance transform** (owned by morphology, day 8; watershed day 10 recalls it):
+- **Distance transform** (owned by morphology, day 13; watershed day 15 recalls it):
   the two-pass chamfer transform is a DP. Each pass is a Bellman recursion over a scan
   order, and one pass is not enough because the shortest path may need to go "against"
   the scan. One slide in unit 1 and a bridge to unit 3 (Dijkstra drops the fixed
   order). It reuses `lib/distance.ts`, and the algorithm is not taught again here.
-- **Watershed** (day 10): Dijkstra and flooding use the same priority
+- **Watershed** (day 15): Dijkstra and flooding use the same priority
   queue (`lib/pqueue.ts`). Live-wire minimises the **sum** of costs along a path, while
   watershed minimises the **maximum** (one slide in unit 3, same picture).
 - **Level sets** (`plan/levelsets-day.md`, previous in this chain): fast marching moved
@@ -59,7 +61,7 @@ interpolation from *Images & geometric transforms*. The day shows what makes a p
   day owns the parametric snake energy (Kass et al.). This day shows only **DP
   optimisation of a snake** (Amini et al.) as an application in unit 2. The snake
   energy is quoted, not derived, with a pointer to that day.
-- **Skeletons** (skeleton elective, group "Objects"): length along a centreline between
+- **Skeletons** (skeleton day, Part III): length along a centreline between
   two points is a minimal path. The live-wire demo has a "measure along a neurite"
   preset that uses the cost "low on the skeleton" (the synthetic neurite tree from
   `lib/imageops.ts`).
@@ -134,7 +136,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
       the middle copy (usually closes; not guaranteed optimal).
 - Where it fails: non-star-shaped objects (a kidney shape seen from a bad centre), a
   wrong centre, and a brighter neighbouring edge on the same ray. Remedies: centre from
-  a seed click or from the distance-transform peak (day 8), an annulus limit
+  a seed click or from the distance-transform peak (day 13), an annulus limit
   $r_{\min} \le r \le r_{\max}$, or iterate (new centre = centroid of the result).
 - Contrast: graph cuts optimise a 2D labelling, level sets descend locally and change
   topology, while polar DP is a **global optimum** within a restricted shape family.
@@ -187,7 +189,7 @@ Four core units, about 1.5 h each including the exercise, plus two optional unit
 - Same tree, other uses: minimal-path **length along a neurite** between two points
   (skeleton link). With cost 1 per step the tree gives the distance transform from a
   point (exact for the graph metric). Watershed minimises the maximum instead of the
-  sum (one slide, recall of day 10), and fast marching is the continuous version (unit 4).
+  sum (one slide, recall of day 15), and fast marching is the continuous version (unit 4).
 - **Demo `dpgrid`** in `data-mode="dijkstra"`: the same grid with 4-neighbour moves in
   every direction. *Step* finalises the smallest node in the queue, which is shown as a
   sorted list beside the grid, and updates its neighbours. Finalised cells are shaded
@@ -220,7 +222,7 @@ It completes the day's arc: grid DP → polar DP → Dijkstra/live-wire → fast
 - **Arrival time** $T(x, y)$ of a front moving outward with speed $F > 0$:
   $|\nabla T|\,F = 1$ (the Eikonal equation), or with cost $P = 1/F$:
   $|\nabla T| = P$. With $P = 1$, $T$ is the Euclidean distance transform (owned by
-  morphology, day 8). Recall from the level set day (previous in this chain): the same
+  morphology, day 13). Recall from the level set day (previous in this chain): the same
   front as $\phi_t + F|\nabla\phi| = 0$ when $F$ never changes sign.
 - **Fast marching** (Sethian 1996) = Dijkstra with an **upwind update**: a pixel's value
   is computed from its already-final neighbours by solving a small quadratic
@@ -230,7 +232,7 @@ It completes the day's arc: grid DP → polar DP → Dijkstra/live-wire → fast
 - Minimal paths: backtrack by **gradient descent on $T$** (continuous, sub-pixel) instead
   of following pointers. Geodesic active contours (level set day) are the local version
   of this global minimal path; live-wire (unit 3) is the discrete one.
-- Flooding from seeds with the "maximum" instead of the "sum" is watershed (day 10):
+- Flooding from seeds with the "maximum" instead of the "sum" is watershed (day 15):
   one slide, recall only.
 - **Demo `fastmarch`** (new; replaces the level set plan's `curveflow`
   `data-mode="arrival"`, now built here on `lib/shortestpath.ts`): the same images as
@@ -320,7 +322,7 @@ editing, not analysis); kept complete so it can be taught as an extra.
   the pointers and the path. An instrumented variant records each cell's candidates and
   choice for `dpgrid`. Used by `dpgrid`, `seamcarve`, `polarseg`, `dtw`. This day owns
   `lib/dp.ts`, which also holds chain Viterbi / forward–backward (used by the Ising
-  elective; no forward–backward in `lib/smooth.ts`). `segchain/dp.ts` may keep its file.
+  day; no forward–backward in `lib/smooth.ts`). `segchain/dp.ts` may keep its file.
 - `demos/src/lib/shortestpath.ts` (new): Dijkstra on an implicit grid graph (4/8
   neighbours from `lib/graph.ts` `gridEdges`, or computed on the fly for 256×256),
   with vertex or edge costs, returning distances and the predecessor array. An

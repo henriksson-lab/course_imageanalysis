@@ -2,7 +2,9 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "Transforms" (wavelets → compression; Radon); entry after Part I (core day 4). Second day of its chain: comes after the wavelets day.
+**Course map (2026-11-13, self-study restructure):** day 8 of 51, Part II "Transforms and reconstruction". Hard prerequisites: Wavelets (day 7). Soft (see also): Bit depth and noise (day 3), Colour (day 42), Moments (day 18). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part II (wavelets → compression; Radon); entry after Part I (day 4). Second day of its chain: comes after the wavelets day.
 
 ## Goal of the day
 
@@ -27,13 +29,13 @@ done on an 8-pixel row before the demo does it on 256×256.
 ## Prerequisite gap / overlaps
 
 - **Fourier** (day 1, `fourier/`): the lecture says the DFT is a change of basis, and its `fourier2d` demo has a *keep largest x%* mode with the note "most of the variation is in very few coefficients, which is why JPEG works" (exercise E2: 3% of the coefficients keep 81% of the variation). **Split:** `fourier/` keeps the observation (sparsity in a frequency basis); this day explains *why* it becomes a codec: blocks, the DCT instead of the DFT, quantisation instead of truncation, and entropy coding of what is left. Unit 3 starts from that demo in one line and **extends it** (a `data-basis` option, see unit 3) rather than writing a new whole-image transform demo; `lib/fft.ts` (moved from `fourier2d/fft.ts`) is reused for the fast DCT. Periodic extension / leakage is owned by a `fourier/` slide; unit 3's "why not the DFT" recalls it and adds only the mirrored extension.
-- **Colour** (day 7, `rgb-linear/`): owns the YCbCr matrix, opponent channels and **chroma subsampling** (4:2:0), with the `colourmatrix` demo. Here they are one recall slide in unit 4 ("step 1 of JPEG: Y′CbCr and 4:2:0, day 7") and a 4:4:4 / 4:2:0 toggle in the `jpeg` demo that calls the same `lib/colour.ts`. This day **owns the rest of JPEG** (DCT, quantisation tables, zigzag, entropy coding) (the colour plan's "JPEG DCT has no home" question is stale).
-- **Bit depth and noise** (day 3, `plan/bitdepth-day.md`): `quantisation/` owns quantisation of pixel values (step $\Delta$, uniform error with variance $\Delta^2/12$, ~6 dB per bit). Unit 4 reuses that result for DCT coefficients without re-deriving it (an orthonormal transform carries the error variance unchanged into the image). Unit 5 lists which formats store 12/16-bit and float data (baseline JPEG is 8-bit only; PNG 16-bit; TIFF 8/16/32-bit and float; JPEG 2000 up to 38 bits; JPEG-XL up to 32-bit float; lossless JPEG (1992) 2–16 bits, used in DICOM). This answers the bit-depth plan's (now stale) open question on compressed formats; GPU block formats (BC/ASTC) stay a one-liner in `gpuformats/` (3D graphics elective). **Noise models, MSE, SNR and PSNR** are owned by `cameranoise/` (day 3); unit 4 recalls PSNR in one line and teaches only SSIM and "metrics can disagree".
-- **Wavelets** (`plan/wavelets-day.md`, previous day of this elective chain): owns Haar, multiresolution, filter banks, the 2D DWT, lifting and wavelet denoising. Here **JPEG 2000 is an application only** (unit 5): the codec pipeline, embedded bit-plane coding, and the reversible integer 5/3 wavelet via lifting as a one-slide recall of wavelets unit 6. The wavelet transform itself is recalled, not taught; subbands named LL / H / V / D as there.
-- **PCA** (owned by day 1, `pca/`: 2D cloud, covariance $S$, eigenvectors; `autoencoder/` on day 17 adds "PCA = linear autoencoder"): unit 3 uses PCA on 8×8 patches as the KLT, with a one-slide recall of `pca/`'s 2D picture. Eigen-solver from `lib/linalg.ts`.
-- **Moments** (elective, `plan/moments-day.md` unit 3): truncating an orthogonal (Legendre) basis is the best least-squares approximation, with "moments as image compression" as an aside. Same argument as energy compaction here; a one-line cross-reference in unit 3.
-- **Thresholding / labelling** (days 6 and 9): the measurement demo in unit 5 counts spots with a threshold and connected components from `lib/threshold.ts` and `lib/label.ts`; nothing is re-taught. Matching detected to true spots uses the object-level matching of the evaluation day (15), recalled in one line.
-- **Entropy** is owned by this day (unit 1). Earlier core days use it in one line with a pointer here: random forests (day 14, Gini as the main split criterion, entropy as "expected surprise") and measurements (day 11, Haralick entropy); cross-entropy on the neural networks day (14).
+- **Colour** (day 42, `rgb-linear/`): owns the YCbCr matrix, opponent channels and **chroma subsampling** (4:2:0), with the `colourmatrix` demo. Here they are one recall slide in unit 4 ("step 1 of JPEG: Y′CbCr and 4:2:0, day 42") and a 4:4:4 / 4:2:0 toggle in the `jpeg` demo that calls the same `lib/colour.ts`. This day **owns the rest of JPEG** (DCT, quantisation tables, zigzag, entropy coding) (the colour plan's "JPEG DCT has no home" question is stale).
+- **Bit depth and noise** (day 3, `plan/bitdepth-day.md`): `quantisation/` owns quantisation of pixel values (step $\Delta$, uniform error with variance $\Delta^2/12$, ~6 dB per bit). Unit 4 reuses that result for DCT coefficients without re-deriving it (an orthonormal transform carries the error variance unchanged into the image). Unit 5 lists which formats store 12/16-bit and float data (baseline JPEG is 8-bit only; PNG 16-bit; TIFF 8/16/32-bit and float; JPEG 2000 up to 38 bits; JPEG-XL up to 32-bit float; lossless JPEG (1992) 2–16 bits, used in DICOM). This answers the bit-depth plan's (now stale) open question on compressed formats; GPU block formats (BC/ASTC) stay a one-liner in `gpuformats/` (3D graphics day). **Noise models, MSE, SNR and PSNR** are owned by `cameranoise/` (day 3); unit 4 recalls PSNR in one line and teaches only SSIM and "metrics can disagree".
+- **Wavelets** (`plan/wavelets-day.md`, previous day of this chain of days): owns Haar, multiresolution, filter banks, the 2D DWT, lifting and wavelet denoising. Here **JPEG 2000 is an application only** (unit 5): the codec pipeline, embedded bit-plane coding, and the reversible integer 5/3 wavelet via lifting as a one-slide recall of wavelets unit 6. The wavelet transform itself is recalled, not taught; subbands named LL / H / V / D as there.
+- **PCA** (owned by day 1, `pca/`: 2D cloud, covariance $S$, eigenvectors; `autoencoder/` on day 38 adds "PCA = linear autoencoder"): unit 3 uses PCA on 8×8 patches as the KLT, with a one-slide recall of `pca/`'s 2D picture. Eigen-solver from `lib/linalg.ts`.
+- **Moments** (`plan/moments-day.md` unit 3): truncating an orthogonal (Legendre) basis is the best least-squares approximation, with "moments as image compression" as an aside. Same argument as energy compaction here; a one-line cross-reference in unit 3.
+- **Thresholding / labelling** (days 12 and 14): the measurement demo in unit 5 counts spots with a threshold and connected components from `lib/threshold.ts` and `lib/label.ts`; nothing is re-taught. Matching detected to true spots uses the object-level matching of the evaluation day (37), recalled in one line.
+- **Entropy** is owned by this day (unit 1). Earlier days use it in one line with a pointer here: random forests (day 33, Gini as the main split criterion, entropy as "expected surprise") and measurements (day 16, Haralick entropy); cross-entropy on the neural networks day (36).
 - **Probability**: $\log_2$, expectations and histograms as probability estimates are assumed. Information as $-\log_2 p$ is new and gets the slow treatment (coins and dice before images).
 
 ## Units (one folder each: lec, quiz, exercise with #explore)
@@ -77,7 +79,7 @@ Five core units (unit 2 trimmed to about 45 min, unit 5 made core per review-org
 ### 4. `jpeg/`: The JPEG pipeline, artefacts and quality metrics
 
 - The pipeline, one slide each, on one block of the cell image:
-  1. **Colour**: Y′CbCr and 4:2:0 subsampling (recall; owned by day 7).
+  1. **Colour**: Y′CbCr and 4:2:0 subsampling (recall; owned by day 42).
   2. Level shift ($-128$) and **8×8 blocks**.
   3. **DCT** (unit 3).
   4. **Quantisation**: $q_{uv} = \mathrm{round}(c_{uv} / Q_{uv})$ with the standard luminance table (small steps at low frequency, large at high: the psychovisual redundancy as a matrix). **Quality factor** scales the table (IJG formula: $s = 5000/q$ for $q < 50$, $200 - 2q$ otherwise). This is the only lossy step after subsampling.
@@ -131,7 +133,7 @@ Core since the course map reviews (review-organisation §2.9, review-gaps over-w
 - **Decided (reviews, consistent with the course map):** unit 5 is core; unit 2 trimmed (LZ77/LZW to one slide, `lzstep` dropped). Check after a first build that unit 3 fits in one hour.
 - Arithmetic coding: idea only (current plan) or a full worked interval example? It is the coder actually used by JPEG 2000, JPEG-XL and video codecs.
 - **Decided (course map):** PCA is owned by day 1 `pca/`; unit 3 recalls its slide.
-- Colour: run the `jpeg` demo in colour by default (`lib/colour.ts` exists from day 7) or greyscale with colour as a toggle?
+- Colour: run the `jpeg` demo in colour by default (`lib/colour.ts` exists from day 42) or greyscale with colour as a toggle?
 - Is a real file download (writing an actual `.jpg`/`.png` via `toBlob` for the student to open elsewhere) wanted, or only size readouts? It needs no network either way.
 - Which colour photograph and which real fluorescence image (with licence) to use besides the synthetic ones?
 - Video compression (motion compensation, temporal prediction) is out of scope; is a one-slide pointer wanted for time-lapse data?

@@ -37,6 +37,12 @@ In a `.qmd` (slide or page), one raw HTML block:
 ## Rules
 
 - No network: no CDN libraries, no `fetch`. Plain DOM + SVG/canvas.
+  **One exception:** demos that run a trained network (StarDist, Cellpose, YOLO, SAM) or a
+  large Wasm module load those files **same-origin** from the course site
+  (`demos/dist/models/`, `demos/dist/wasm/`), lazily, with a progress bar, cached in the
+  browser's Cache API, and only through `lib/wasm.ts`. Never a third-party host. Such a demo
+  shows a clear message when the page is opened as a local file (`file://`), and its page
+  keeps a static figure as the fallback.
 - Fixed random seeds (`rng(seed)` from `lib/ui.ts`), so a recording is reproducible.
 - Give the keyboard back to reveal.js: use the `slider`/`button`/`checkbox` helpers,
   which blur themselves; never bind arrow keys or space.
@@ -56,11 +62,61 @@ In a `.qmd` (slide or page), one raw HTML block:
 - Keep the Rust part small and numeric: plain functions over flat arrays
   (`&[f32]`, `&mut [f32]`, `&[u8]`), no DOM or UI in Rust. UI, presets and drawing
   stay in TypeScript, which calls the Wasm function.
-- Layout: `demos/wasm/<name>/` as a Cargo crate (`crate-type = ["cdylib"]`, target
-  `wasm32-unknown-unknown`), built to a `.wasm` file that the demo imports. The
-  `.wasm` bytes are inlined into the demo bundle (esbuild `--loader:.wasm=binary`)
-  and instantiated with `WebAssembly.instantiate(bytes)`: no `fetch`, so it still
-  works from `file://`.
 - Keep a TypeScript reference implementation of the same function, and test that
   the Wasm and TypeScript versions agree on small inputs.
-- Toolchain (once): `rustup target add wasm32-unknown-unknown`.
+
+## WebAssembly (Rust crates)
+
+- **Layout.** One Cargo crate per module in `demos/wasm/<name>/` (`crate-type = ["cdylib"]`,
+  dependency `wasm-bindgen = "=<CLI version>"`, release profile `opt-level = "s"`, `lto`,
+  `panic = "abort"`; commit its `Cargo.lock`). Example: `demos/wasm/hello/`.
+- **Build.** `make wasm` (= `demos/wasm/build.sh [name …]`) compiles each crate for
+  `wasm32-unknown-unknown` (shared target dir `demos/wasm/target/`), runs
+  `wasm-bindgen --target web` and writes `demos/dist/wasm/<name>/<name>.js` (glue),
+  `<name>.d.ts` (types) and `<name>_bg.wasm`, plus `demos/dist/wasm/index.json` (bytes and
+  sha256 per module, the cache version). `demos/dist/wasm/` is **git-ignored**; CI builds it.
+  `demos/build.sh` builds the crates a demo imports first when their output is missing or stale.
+  Run `make wasm` before `make typecheck` (the types of the glue come from the build).
+- **Toolchain (once).** `rustup target add wasm32-unknown-unknown` and
+  `cargo install wasm-bindgen-cli --version <the version pinned in the crates> --locked`
+  (the build stops with this hint when they differ). `wasm-opt` is used when installed.
+- **Using a module in a demo.** Always bundle the glue statically, then choose how the bytes
+  arrive:
+  - *Inlined* (small modules, up to a few hundred kB; works from `file://`):
+    ```ts
+    import * as glue from "../../dist/wasm/maxflow/maxflow.js";
+    import wasm from "../../dist/wasm/maxflow/maxflow_bg.wasm";   // bytes (binary loader)
+    import { instantiateInline } from "../lib/wasm";
+    await instantiateInline(glue, wasm);   // async: Chrome refuses sync compiles > 4 kB
+    glue.maxflow(...);
+    ```
+  - *Fetched* (large modules): `await loadWasm(glue, "stardist", { onProgress })` fetches
+    `demos/dist/wasm/stardist/stardist_bg.wasm` same-origin (Cache API, keyed on its sha256).
+  The glue keeps one instance per page; instantiate once, at start-up. An inlined module ends
+  up inside the committed `demos/dist/<demo>.js`, so it works on any copy of the site; a
+  fetched module or model exists only on the site deployed by CI (and locally after
+  `make wasm` / `make models`; `quarto render` copies them into `docs/demos/dist/`, where
+  they are git-ignored too).
+- Keep the Rust side numeric (flat arrays in, flat arrays out); wrap a library crate (e.g. the
+  henriksson-lab ports) behind a few such functions.
+- **Tests.** `demos/test/wasm-test.ts` (in `make test`) loads the built glue in node and
+  compares with TypeScript references; it skips with a message when `make wasm` has not run
+  (`WASM_REQUIRED=1`, as in CI, makes that a failure). Each crate may have a browser check page
+  `demos/wasm/<name>/example/{index.html,main.ts}`, built to
+  `demos/dist/wasm/<name>/example/` (e.g. `/demos/dist/wasm/hello/example/?mode=inline`).
+
+## Models and sample images
+
+- `tools/models/manifest.json` lists the checkpoints and public microscopy images (URL, file,
+  bytes, sha256, credit, what loads it, conversion steps); `make models`
+  (= `python3 tools/models/fetch.py`) downloads into `.cache/models/` and writes the converted
+  files (safetensors in f16, PNG images, 16-bit label PNGs) into `demos/dist/models/` with an
+  `index.json` (key = path under `models/`, bytes, sha256, credit). Both directories are
+  **git-ignored**; the deploy workflow (`.github/workflows/deploy.yml`) runs the same script
+  and publishes them. Details: `tools/models/README.md`.
+- In a demo: `const bytes = await loadModelFile("yolo/yolo11n-coco.safetensors", { onProgress })`
+  (from `lib/wasm.ts`), with `loadStatus(parent, "Loading network")` as the progress bar and
+  `isFileProtocol()` / `fileProtocolMessage()` for the `file://` case. Show the image credit
+  (`index.json` has it) next to a sample image.
+- Size budget: the whole site must stay well under GitHub Pages' ~1 GB (CI fails above
+  950 MB). Currently about 110 MB of models and images.

@@ -2,8 +2,10 @@
 
 Internal working doc (plan/ is not rendered). Status: draft for discussion, 2026-11-12.
 
-**Course map (2026-11-12):** elective, group "3D" (marching cubes → 3D graphics); entry after
-Part I (core day 4). First day of the group, so it owns the course's **3D-images unit**
+**Course map (2026-11-13, self-study restructure):** day 47 of 51, Part IX "3D and computing". Hard prerequisites: Images, filters and frequencies (day 1). Soft (see also): Thresholding (day 12), Labelling (day 14), Level sets (day 31). Source: `days.yml`.
+
+**Earlier placement (2026-11-12):** Part IX (marching cubes → 3D graphics); entry after
+Part I (day 4). First day of the group, so it owns the course's **3D-images unit**
 `volumes3d/` (unit 1), which the 3D-graphics day and the 3D pointers of labelling, morphology,
 skeleton, measurements, FFT registration and moments recall. Edits from the three reviews
 applied 2026-11-12: new unit 1 `volumes3d/`; `isocontour/` keeps marching squares, the
@@ -32,23 +34,23 @@ central differences / Sobel** (`kernels/`).
   images**: stacks of slices, voxel spacing, why $\Delta z$ is usually larger than $\Delta x$
   in microscopy (the elongated PSF of day 4, one-line recall), the voxel ↔ world affine, and
   how to look at a volume (slices, MIP) before we surface it.
-- Segmentation is not needed: an isosurface of the grey-level image *is* a threshold (day 6
+- Segmentation is not needed: an isosurface of the grey-level image *is* a threshold (day 12
   if taken, otherwise one slide) with sub-voxel boundaries. Binary or label images from
-  other days (thresholding day 6, watershed day 10, graph cuts day 13, level sets elective)
-  are covered in unit 4 as "surfacing a segmentation"; this elective can run before them, so
+  other days (thresholding day 12, watershed day 15, graph cuts day 27, level sets day)
+  are covered in unit 4 as "surfacing a segmentation"; this day can run before them, so
   unit 4 phrases them as pointers.
 - **Trilinear** interpolation is one line from bilinear (interpolate in $x$, $y$, then $z$),
   taught in unit 1. The **divergence theorem** may be rusty: the 2D version is the shoelace
-  formula (owned by the labelling day, day 9, `shape-features/`; one-line recall, with the
-  formula restated in unit 2 for groups taking this elective before day 9), then the 3D
+  formula (owned by the labelling day, day 14, `shape-features/`; one-line recall, with the
+  formula restated in unit 2 for groups taking this day before day 14), then the 3D
   version in unit 4.
 
-**Connections to other days.** *Level sets* (elective, Curves group): the level-set
+**Connections to other days.** *Level sets* (Curves group): the level-set
 function $\varphi$ is evolved on a grid and the segmentation is its zero contour, drawn and
 measured with exactly marching squares/cubes at $c = 0$ (`lib/marching.ts` is shared; the
 level-set day draws contours with it and does not teach marching squares by hand); a signed
-distance function is the ideal input for marching cubes (unit 4). *Watershed* (day 10) and
-*graph cuts* (day 13) produce label images; turning a label into a surface is unit 4.
+distance function is the ideal input for marching cubes (unit 4). *Watershed* (day 15) and
+*graph cuts* (day 27) produce label images; turning a label into a surface is unit 4.
 *3D graphics* (next in this group): projection, rasterisation and shading in full; here they
 are one-slide pointers.
 
@@ -75,7 +77,7 @@ Four core units, about 1.5 h each including the exercise, plus one optional unit
   isotropic voxels** (and how 3D registration would resample).
 - **Anisotropy in practice**: an isotropic Gaussian in index space is anisotropic in the
   world; use $\sigma$ per axis in physical units. Connectivity in 3D (6/18/26) is recalled
-  from day 9.
+  from day 14.
 - **A first MIP** (maximum along $z$): what it hides: overlaps (two nuclei at different depths
   merge), wrong areas and counts, no depth. Rule: measure in 3D, not on the MIP; 2D
   segmentation slice by slice vs 3D segmentation (one slide). Rendering projections and
@@ -100,7 +102,7 @@ Four core units, about 1.5 h each including the exercise, plus one optional unit
 - Where on the edge: linear interpolation, $t = (c - I_a)/(I_b - I_a)$. Compare with "midpoint" (blocky, the contour of a thresholded image).
 - Neighbouring cells share an edge, hence the same crossing point: the contour is closed and consistent without any global step. "Marching" = visit the cells independently (embarrassingly parallel).
 - **Saddle cases** (5 and 10: diagonal corners above): two valid contours. The bilinear interpolant (from *Images as arrays*) inside the cell has hyperbolic level sets; its saddle value is $f^\ast = (I_{00}I_{11} - I_{10}I_{01})/(I_{00} + I_{11} - I_{10} - I_{01})$. **Asymptotic decider** (Nielson & Hamann 1991): if $f^\ast > c$ the above-$c$ corners are connected. Fixed rule ("always separate") is also consistent in 2D, but may give the wrong topology.
-- Measure from the contour: length (sum of segment lengths) and enclosed area by the **shoelace formula** $A = \tfrac12\sum_i (x_i y_{i+1} - x_{i+1} y_i)$ (recalled from day 9 `shape-features/`, its owner; a sum of 2×2 determinants; the 2D preview of unit 4's divergence theorem).
+- Measure from the contour: length (sum of segment lengths) and enclosed area by the **shoelace formula** $A = \tfrac12\sum_i (x_i y_{i+1} - x_{i+1} y_i)$ (recalled from day 14 `shape-features/`, its owner; a sum of 2×2 determinants; the 2D preview of unit 4's divergence theorem).
 - **Demo `marchsquares`** (new, small): an 8×8 grid of corner values shown as numbers/grey squares. Click a corner to toggle it above/below, or drag up/down to change its value; slider for $c$. Each cell shows its case index and its line segments; toggles: *midpoint / linear interpolation*, saddle rule *separate / join / asymptotic decider*, *show bilinear interpolant* (the cell background shaded with the true interpolant and its exact hyperbolic level curve, so the line segment visibly approximates it). Clicking a cell shows the arithmetic: bits, case, $t$ on each crossed edge, and for a saddle $f^\ast$ vs $c$. Presets: "one bump", "all 16 cases", "saddle: the decider joins", "saddle: the decider separates", "midpoint vs linear".
 - **Demo `isocontour`** (new; uses the histogram + threshold slider shell of the thresholding day): the 128×128 micrograph crop and a synthetic image (blobs with noise and a thin neck). Slider for $c$ (shown on a histogram), Gaussian blur $\sigma$, noise; marching-squares contours overlaid on the image; readouts: number of contours, total length, enclosed area (shoelace) vs pixel count above $c$. Presets: "noise gives many tiny contours", "blur first", "two blobs merge as $c$ drops".
 - By hand: a 4×4 grid of values with $c = 5$: classify the 9 cells, interpolate the crossing points, draw the contour; one cell is a saddle: compute $f^\ast$ and decide. Derive $t$ from the straight line through $(0, I_a)$ and $(1, I_b)$.
@@ -124,9 +126,9 @@ Four core units, about 1.5 h each including the exercise, plus one optional unit
 - Voxel-based alternatives: volume = voxel count × voxel volume (fine); area = count of exposed voxel faces (**wrong**: about 1.5× too large for a sphere, for any resolution; in 2D the pixel-edge perimeter of a disk is $4/\pi \approx 1.27\times$ too long). Marching cubes area converges to the true area as the voxels shrink.
 - **Anisotropic spacing** (folded in from the former `isosurface-render/`): vertex positions *and* the gradient must use $\Delta z$ (recall `volumes3d/`); forgetting it in the gradient tilts the normals, forgetting it in positions biases area and volume. **Slice planes** through the volume with the 2D contour drawn on them: a slice of an isosurface is an isocontour (link back to unit 2).
 - **Topology check**: Euler characteristic $\chi = V - E + F = 2 - 2g$ per closed component (sphere 2, torus 0); boundary edges = cracks.
-- **Choosing $c$**: a blurred step edge between levels $a$ and $b$ crosses $(a+b)/2$ at the true edge (symmetric blur), so the half-way value is the natural choice; on curved, small objects the blur still biases size (the partial-volume effect). Volume vs $c$ curve: flat plateau = robust, steep = the measurement is mostly a choice of $c$. Otsu / minimum-error from the histogram: taught on day 6 (`plan/thresholding-day.md`, unit 2 `otsu/`); one-line pointer.
+- **Choosing $c$**: a blurred step edge between levels $a$ and $b$ crosses $(a+b)/2$ at the true edge (symmetric blur), so the half-way value is the natural choice; on curved, small objects the blur still biases size (the partial-volume effect). Volume vs $c$ curve: flat plateau = robust, steep = the measurement is mostly a choice of $c$. Otsu / minimum-error from the histogram: taught on day 12 (`plan/thresholding-day.md`, unit 2 `otsu/`); one-line pointer.
 - **Smoothing before extraction**: Gaussian blur of the volume (removes noise, rounds corners, shrinks thin structures) vs smoothing the mesh afterwards (Laplacian smoothing shrinks; Taubin's two-step smoothing does not, mention only).
-- **Surfacing a segmentation** (connection to watershed day 10, graph cuts day 13, level sets elective): a 0/1 mask at $c = 0.5$ puts every vertex at an edge midpoint: terraces and staircase normals. Remedies: blur the mask slightly before extraction, or use a signed distance function (what level-set methods carry around; its zero level set is sub-voxel accurate). Label images: one surface per label; neighbouring labels give two surfaces with a gap or overlap (multi-label methods: pointer only).
+- **Surfacing a segmentation** (connection to watershed day 15, graph cuts day 27, level sets day): a 0/1 mask at $c = 0.5$ puts every vertex at an edge midpoint: terraces and staircase normals. Remedies: blur the mask slightly before extraction, or use a signed distance function (what level-set methods carry around; its zero level set is sub-voxel accurate). Label images: one surface per label; neighbouring labels give two surfaces with a gap or overlap (multi-label methods: pointer only).
 - **Mesh size**: number of triangles ∝ area / voxel area; a 512³ CT bone surface is millions of triangles. Shared vertices (about 2 triangles per vertex) vs triangle soup (3 vertices per triangle). **Decimation**: vertex clustering (snap vertices to a coarser grid, merge, drop degenerate triangles; simple, implemented in the demo) and edge collapse with quadric error metrics (Garland & Heckbert 1997, the standard; mention only). Watch area and volume as the triangle count drops.
 - **Demo `meshmeasure`** (new): left, a 2D panel: a disk/ellipse digitised at a resolution slider, with pixel-edge perimeter, marching-squares perimeter and the true value; right, the same for a sphere in 3D (voxel-face area, MC area, true area; voxel-count volume, MC volume), and a small convergence plot (relative error vs voxel size, log–log) that fills in as the resolution changes. A second tab, *iso-value*: volume vs $c$ curve for a blurred sphere and for the real stack, with the current $c$ marked. A third tab, *decimate*: the `marchcubes` view with a vertex-clustering cell-size slider and triangle count / area / volume readouts; input *grey-level* vs *binary mask* vs *blurred mask*. Presets: "voxel faces overestimate area", "MC converges", "a plateau in volume vs c", "terraces from a binary mask", "decimate 10×". (If this is too much for one demo, split off `decimate` and reuse the `marchcubes` renderer with `data-mode="decimate"`.)
 - By hand: one bright voxel (value 1) in a zero background, $c = 0.5$: marching cubes gives an **octahedron** with vertices at distance 0.5 from the centre. Compute its area ($\sqrt3 \approx 1.73$) and volume ($1/6$, by the determinant formula) and compare with the voxel count (1) and the voxel faces (6). What $c$ makes the octahedron volume equal 1? Then the perimeter of a digitised disk of radius 3 by pixel edges vs the true $2\pi r$.
@@ -140,7 +142,7 @@ Four core units, about 1.5 h each including the exercise, plus one optional unit
 ## Shared engineering
 
 - `demos/src/lib/volume.ts` (**owned by this day**): a `Volume` type (`Float32Array` stored $(z, y, x)$, dims, spacing $(\Delta x, \Delta y, \Delta z)$, a `voxelToWorld` $4\times4$ with spacing as its diagonal special case); synthetic generators (spheres/metaballs, torus, ellipsoid, the anisotropic nuclei stack for `volumes3d/`, noise with `rng`/`gauss` from `lib/random.ts`); separable 3D Gaussian blur with per-axis $\sigma$ in physical units; central-difference gradient; trilinear sampling; oblique reslicing and resampling to isotropic on the CPU (reference for tests); MIP along an axis; padding with background; loading a stack from a PNG slice atlas.
-- `demos/src/lib/marching.ts` (**owned by this day**; the only marching-squares implementation in the course, also used by the level-set elective, so there is no `lib/contour.ts`): marching squares (with saddle rule option), marching cubes, marching tetrahedra (5/6 split), and the **generated** triangle table: built at load time from the face rule (marching squares on the 6 faces, chain loops, fan-triangulate), with a class index (case → representative + rotation) for `mccube`. Edge-indexed vertex sharing so meshes are indexed. Optional surface nets for unit 5. One implementation used by `marchsquares`, `isocontour`, `mccube`, `marchcubes`, `meshmeasure`, and the level-set demos.
+- `demos/src/lib/marching.ts` (**owned by this day**; the only marching-squares implementation in the course, also used by the level-set day, so there is no `lib/contour.ts`): marching squares (with saddle rule option), marching cubes, marching tetrahedra (5/6 split), and the **generated** triangle table: built at load time from the face rule (marching squares on the 6 faces, chain loops, fan-triangulate), with a class index (case → representative + rotation) for `mccube`. Edge-indexed vertex sharing so meshes are indexed. Optional surface nets for unit 5. One implementation used by `marchsquares`, `isocontour`, `mccube`, `marchcubes`, `meshmeasure`, and the level-set demos.
 - `demos/src/lib/mesh.ts` (**owned by this day**): face/vertex normals, area, signed volume, boundary edges, connected components, Euler characteristic, vertex-clustering decimation, Laplacian smoothing.
 - `demos/src/lib/gl3d.ts` (+ a tiny `mat4.ts`; **owned by the 3D-graphics day**, whose subject is rendering; first written here because this day comes first in the group, to that day's spec): minimal WebGL2 renderer (WebGL2 for all 3D demos; decided 2026-11-12) written in the repo (one shader: Lambert + Blinn–Phong, flat or smooth normals, wireframe overlay via barycentric coordinates, a slice-plane quad with a texture), orbit rotation by pointer drag and buttons for standard views (no keyboard: arrow keys belong to reveal.js). All 3D demos in the course use this renderer (decided 2026-11-12); if WebGL is unavailable, show a static figure and a short note instead of a canvas fallback. Pointer coordinates via `getBoundingClientRect` because reveal.js scales slides with a CSS transform; `devicePixelRatio`-aware canvas. Browsers cap live WebGL contexts (~16): create the context only while the slide/section is visible (IntersectionObserver) and release it on leave.
 - `volview` and `lib/volrender.ts` (owned by the 3D-graphics day): unit 1 embeds `volview` with `data-mode="volumes3d"` (slices, oblique plane, MIP); first built here if this day is built first.
@@ -165,8 +167,8 @@ Four core units, about 1.5 h each including the exercise, plus one optional unit
 - How deep into ambiguity: face ambiguity and the asymptotic decider as core (my recommendation), MC33 / interior ambiguity as a picture only?
 - Generate the triangle table in code (recommended: it teaches the face-rule idea and avoids a 256-row copied table with its own licence/provenance), or use a published table?
 - ~~3D rendering: WebGL vs canvas?~~ Decided: WebGL (`lib/gl3d.ts`) for all 3D demos.
-- **Decided:** the course's "3D images" unit is `volumes3d/`, unit 1 of this day (review-gaps gap 8 proposed `volumes/` "after `images/` or at the start of the marching-cubes day"; the course map keeps 3D as an elective, so it lives here and core days point to it).
-- **Decided (course map):** this elective may run any time after Part I, so watershed (day 10), graph cuts (day 13) and the level-set elective may still be ahead; unit 4 phrases them as pointers. Otsu is day 6's.
+- **Decided:** the course's "3D images" unit is `volumes3d/`, unit 1 of this day (review-gaps gap 8 proposed `volumes/` "after `images/` or at the start of the marching-cubes day"; the course map keeps 3D as a day, so it lives here and days point to it).
+- **Decided (course map):** this day may run any time after Part I, so watershed (day 15), graph cuts (day 27) and the level-set day may still be ahead; unit 4 phrases them as pointers. Otsu is day 12's.
 - Programming exercises (e.g. running marching cubes on a stack and measuring it in R/Python) are left out of this plan for now; whether to add them, and in which language, is open (see README). The demos and by-hand exercises do not depend on it.
 
 ## References
