@@ -38,7 +38,9 @@ TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts \
   demos/test/pointdetection-test.ts demos/test/opticalflow-test.ts \
   demos/test/tracking-test.ts demos/test/colocalisation-test.ts demos/test/fret-test.ts \
   demos/test/flim-test.ts demos/test/multiview-test.ts demos/test/raytracing-test.ts \
-  demos/test/diffusion-test.ts demos/test/splines-test.ts demos/test/gpus-test.ts
+  demos/test/diffusion-test.ts demos/test/splines-test.ts demos/test/gpus-test.ts \
+  demos/test/contrast-test.ts demos/test/spatialstats-test.ts demos/test/graphseg-test.ts \
+  demos/test/keypoints-test.ts demos/test/pdesmooth-test.ts demos/test/sparse-test.ts
 test:
 	@for t in $(TESTS); do echo "== $$t"; \
 	  js=$$(node_modules/.bin/esbuild $$t --bundle --platform=node --log-level=warning) && printf '%s\n' "$$js" | node || exit 1; \

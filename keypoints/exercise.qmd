@@ -1,0 +1,161 @@
+---
+title: "Exercise: keypoints across scale"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- say why a corner is a good interest point and why one fixed σ fails under zoom,
+- place a keypoint in the **octave pyramid** and do the octave bookkeeping,
+- **refine** a candidate with the three-point rule and apply the **edge test**,
+- find the **orientation** of a keypoint from a histogram of gradient directions,
+- measure a detector by its **repeatability**,
+- *(math)* derive scale covariance, the sub-pixel offset and the edge criterion.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Keypoint | $(x, y, \sigma, \theta)$: position, scale, orientation, a small coordinate frame |
+| DoG | $D = L(\cdot; k\sigma) - L(\cdot; \sigma) \approx (k - 1)\sigma^2\nabla^2 L$, scale-normalised |
+| Octave | blur in steps $k = 2^{1/S}$; $S + 3$ blurred images, $S + 2$ DoGs, extrema on the $S$ inner levels; then halve the size |
+| σ of a level | $\sigma_0\,2^{o + \ell/S}$ in original pixels (octave $o$, level $\ell$); here $\sigma_0 = 1.6$ |
+| Refinement | parabola through three samples: offset $\hat h = \dfrac{D_{-1} - D_{+1}}{2(D_{-1} - 2D_0 + D_{+1})}$ |
+| Edge test | keep if $\det > 0$ and $\operatorname{tr}^2/\det < (r + 1)^2/r$ (12.1 for $r = 10$) |
+| Orientation | 36 bins of 10°; the highest peak; a second keypoint for every other peak ≥ 80 % |
+| Repeatability | fraction of points in the common region found again within ε px at a matching scale |
+
+## By hand
+
+**A1.** Harris response $R = \det J - 0.05\,(\operatorname{tr} J)^2$ for (a) $J = \mathrm{diag}(10, 0.1)$, (b) $\mathrm{diag}(10, 8)$, (c) $\mathrm{diag}(0.1, 0.1)$. Which is a corner, an edge, flat? Now the image is zoomed 3×, and a corner whose tip was rounded with a radius of 2 px now has a radius of 6 px, larger than the 3-px window. What do the gradients in the window look like now, and what does Harris report?
+
+**A2.** A blob is detected at σ = 2.4 px in image 1 and at σ = 6.0 px in image 2. What is the zoom between the images? With $S = 3$ and $\sigma_0 = 1.6$, in which octave and at which (continuous) level is each found?
+
+**A3.** Octave bookkeeping, $S = 3$, $\sigma_0 = 1.6$. (a) List the σ of the six blurred images of octave 0 and say which DoG levels can hold extrema. (b) How many pixels do the blurred images of 4 octaves of a 512 × 512 image hold in total? And if the first octave is computed on the 2× upsampled image?
+
+**A4.** DoG samples 0.6, 1.0, 0.8 at $x = -1, 0, 1$. Find the sub-pixel offset of the peak and its refined value.
+
+**A5.** Edge test with $r = 10$. For each 2 × 2 Hessian of $D$ ($[D_{xx}, D_{xy}; D_{xy}, D_{yy}]$) compute $\operatorname{tr}^2/\det$ and decide: (a) $\mathrm{diag}(-4, -3)$; (b) $\mathrm{diag}(-10, -0.5)$; (c) $\mathrm{diag}(3, -2)$; (d) $[-6, 2; 2, -1]$. Sketch where each could lie in an image.
+
+**A6.** Eight gradients around a keypoint, as (magnitude, direction): (3, 42°), (2, 47°), (1, 130°), (2.5, 44°), (1.5, 222°), (2, 225°), (2.6, 228°), (0.5, 300°). Fill a 36-bin histogram (bin $b$ = $[10b, 10b + 10)$°, no Gaussian weight, no smoothing). Which orientations does the detector output? What happens when 30° is added to every direction?
+
+**A7.** Predict. Keypoints are detected on (a) a uniformly grey wall, (b) a brick wall, (c) a strongly defocused photograph of (b). Which requirement (repeatable, distinctive) fails in each case?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**A1.** (a) $1 - 0.05 \cdot 10.1^2 = -4.1$: edge. (b) $80 - 0.05 \cdot 18^2 = 63.8$: corner. (c) $0.01 - 0.05 \cdot 0.04 = 0.008$: flat. After the 3× zoom the window lies inside the rounded tip: the gradients in it point nearly the same way (the boundary is a gently curving line on the scale of the window), so $J$ has one large and one small eigenvalue and $R < 0$: Harris reports an edge, and the corner is lost.
+
+**A2.** Zoom $6.0/2.4 = 2.5$. σ = 2.4: $3\log_2(2.4/1.6) = 1.75$ levels above $\sigma_0$: octave 0, level 1.75 (between the levels 2.02 and 2.54). σ = 6.0: $3\log_2(6.0/1.6) = 5.72$: octave 1, level 2.72.
+
+**A3.** (a) 1.60, 2.02, 2.54, 3.20, 4.03, 5.08; five DoGs, extrema on levels 1, 2, 3 (σ 2.02, 2.54, 3.20). (b) $6 \cdot 512^2 \cdot (1 + \tfrac14 + \tfrac1{16} + \tfrac1{64}) = 6 \cdot 262\,144 \cdot 1.328 = 2\,088\,960$ pixels; with the upsampled first octave ($1024^2$) $8\,355\,840$, four times as many.
+
+**A4.** $\hat h = (0.6 - 0.8)/(2(0.6 - 2 + 0.8)) = -0.2/(-1.2) = +0.17$ px; value $D + \tfrac12 D_x\hat h = 1.0 + \tfrac12 \cdot 0.1 \cdot 0.167 = 1.008$, with $D_x = (0.8 - 0.6)/2 = 0.1$.
+
+**A5.** (a) $49/12 = 4.1 < 12.1$: keep (a blob). (b) $110.25/5 = 22.1$: reject (a ridge or a line: strong curvature across, little along). (c) $\det = -6 < 0$: a saddle, reject (e.g. between two blobs). (d) $\operatorname{tr} = -7$, $\det = 6 - 4 = 2$: $49/2 = 24.5$: reject, an oblique ridge.
+
+**A6.** Bin 40–49°: $3 + 2 + 2.5 = 7.5$; bin 220–229°: $1.5 + 2 + 2.6 = 6.1$; bin 130–139°: 1; bin 300–309°: 0.5. $6.1/7.5 = 0.81 \ge 0.8$: **two keypoints**, near 45° and 225°. Adding 30° moves the votes to the bins 70–79° and 250–259°: the same two keypoints with orientations turned by 30°, as they should be.
+
+**A7.** (a) Nothing repeatable: no structure, only noise extrema (removed by the contrast test). (b) Repeatable (corners and blobs of bricks) but not distinctive: every brick looks alike. (c) Blurred: small structures vanish, only large-scale blobs remain, and their scale and position are less precise; fewer and less repeatable points.
+:::
+
+### Math questions
+
+**B8.** *(math)* Let $I_2(\mathbf x) = I_1(\mathbf x/s)$. Show that $\sigma^2\nabla^2 L_2(\mathbf x; \sigma) = (\sigma/s)^2\nabla^2 L_1(\mathbf x/s; \sigma/s)$, so that extrema move from $(\mathbf x, \sigma)$ to $(s\mathbf x, s\sigma)$. Show that the raw $\nabla^2 L$ does not have this property.
+
+**B9.** *(math)* From $D(\mathbf x_0 + \mathbf h) \approx D + \nabla D^\top\mathbf h + \tfrac12\mathbf h^\top\mathcal H\mathbf h$ derive the offset $\hat{\mathbf h} = -\mathcal H^{-1}\nabla D$ and the peak value $D + \tfrac12\nabla D^\top\hat{\mathbf h}$. Check the 1D formula of the Background table.
+
+**B10.** *(math)* Show that $f(r) = (r + 1)^2/r$ is increasing for $r > 1$, so that "$\operatorname{tr}^2/\det < (r_0 + 1)^2/r_0$" is the same as "curvature ratio below $r_0$".
+
+**B11.** *(math)* Why $S + 3$ blurred images per octave? Show that blurring $L_i$ with $\sigma_i\sqrt{k^2 - 1}$ gives $L_{i+1}$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** $L_2(\mathbf x; \sigma) = \int G_\sigma(\mathbf x - \mathbf u) I_1(\mathbf u/s)\,d\mathbf u$; substitute $\mathbf u = s\mathbf v$: $= \int s^2 G_\sigma(\mathbf x - s\mathbf v) I_1(\mathbf v)\,d\mathbf v = \int G_{\sigma/s}(\mathbf x/s - \mathbf v) I_1(\mathbf v)\,d\mathbf v = L_1(\mathbf x/s; \sigma/s)$, since $s^2G_\sigma(s\mathbf w) = G_{\sigma/s}(\mathbf w)$ in 2D. Each derivative in $\mathbf x$ gives a factor $1/s$: $\nabla^2 L_2 = s^{-2}\nabla^2L_1$; multiplying by $\sigma^2 = s^2(\sigma/s)^2$ gives the claim. So $F_2(\mathbf x, \sigma) = F_1(\mathbf x/s, \sigma/s)$ for $F = \sigma^2\nabla^2L$, and an extremum of $F_1$ at $(\mathbf x_1, \sigma_1)$ is one of $F_2$ at $(s\mathbf x_1, s\sigma_1)$. Without $\sigma^2$: $\nabla^2L_2(\mathbf x; \sigma) = s^{-2}\nabla^2L_1(\mathbf x/s; \sigma/s)$ — the same function up to the constant $s^{-2}$ in position, but for a fixed point the maximum over σ of $|\nabla^2L|$ is not where the normalised one is: $|\nabla^2L|$ decreases like $\sigma^{-2}$ for large σ, so its extremum over σ is pulled to the smallest σ, independent of the blob size.
+
+**B9.** $\partial/\partial\mathbf h$: $\nabla D + \mathcal H\mathbf h = 0 \Rightarrow \hat{\mathbf h} = -\mathcal H^{-1}\nabla D$. Insert: $D + \nabla D^\top\hat{\mathbf h} + \tfrac12\hat{\mathbf h}^\top\mathcal H\hat{\mathbf h} = D + \nabla D^\top\hat{\mathbf h} - \tfrac12\hat{\mathbf h}^\top\nabla D = D + \tfrac12\nabla D^\top\hat{\mathbf h}$. 1D: $D' = (D_{+1} - D_{-1})/2$, $D'' = D_{+1} - 2D_0 + D_{-1}$, $\hat h = -D'/D'' = (D_{-1} - D_{+1})/(2(D_{-1} - 2D_0 + D_{+1}))$.
+
+**B10.** $f(r) = r + 2 + 1/r$, $f'(r) = 1 - 1/r^2 > 0$ for $r > 1$. Since $f(r) = f(1/r)$, take $r \ge 1$ as the ratio of the larger to the smaller curvature; then $\operatorname{tr}^2/\det = f(r) < f(r_0) \iff r < r_0$.
+
+**B11.** Extrema need DoGs on both sides, so to search $S$ levels we need $S + 2$ DoGs, i.e. $S + 3$ blurred images. Blurring with $\sigma_a$ and then $\sigma_b$ is one blur with $\sqrt{\sigma_a^2 + \sigma_b^2}$ (variances add). So $\sigma_i^2 + \sigma_i^2(k^2 - 1) = k^2\sigma_i^2 = \sigma_{i+1}^2$.
+:::
+
+## Explore: the DoG pyramid {#explore-dogpyramid}
+
+A 192 × 192 test image: discs and squares of three sizes, bright and dark, on a gentle ramp, a long bright bar whose brightness varies along it, and noise (or a crop of the micrograph). Left: the DoGs of every octave (or, ticked, the blurred images); **step** builds them one level at a time. Middle: the selected level, large, with its candidates (green = kept, orange = edge, blue × = too weak, grey × = unstable). Click a candidate for its 3 × 3 × 3 neighbourhood, offset, refined $(x, y, \sigma)$ and the edge test.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="dogpyramid" data-preset="octave"></div>
+<script src="../demos/dist/dogpyramid.js"></script>
+```
+
+**D1.** Preset **one octave, three levels**. How many octaves does the pyramid have and what are their sizes? Press **all** and read the number of candidates in each stage. What is σ of DoG level 1 in octave 0, and of level 1 in octave 1?
+
+**D2.** Preset **the bar gives edge candidates** (edge test off). How many candidates lie on the bar? Click one: what is its $\operatorname{tr}^2/\det$? Now preset **edge test removes them**. What happens to them, and how many keypoints remain in total?
+
+**D3.** Preset **contrast threshold vs noise** (noise 6, threshold 1). Count the kept keypoints, then raise the threshold to 3 and to 5. Which keypoints disappear first?
+
+**D4.** Set $S$ = 1, 2, 3, 4, 5 in turn (preset **S = 1** starts at 1). How many keypoints are kept? Which of the image's blobs are missing at $S = 1$, and why?
+
+**D5.** Preset **refinement: sub-pixel offset**. Read the offset and the refined position of the selected candidate. In which unit is the offset, and what is it in original pixels?
+
+**D6.** Tick **upsample the first octave**. How many octaves now, and what new keypoints appear?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** Five octaves: 192², 96², 48², 24², 12². Default settings: 24 candidates; 2 unstable, 2 too weak, 9 on an edge, 11 kept. Level 1 of octave 0: σ = 1.6 · 2^{1/3} = 2.02; level 1 of octave 1: 4.03 (twice as large: one octave up).
+
+**D2.** Five candidates along the bar on level 1 of octave 0 (at x ≈ 26, 47, 68, 110, 152, where its brightness peaks), with $\operatorname{tr}^2/\det$ between 19 and 42. With $r = 10$ the limit is 12.1, so all five are rejected as edges. With the edge test off, 20 keypoints are kept; with it, 11.
+
+**D3.** Noise 6, threshold 1: 17 kept (and 4 too weak); threshold 3: 16; threshold 5: 14. The weakest responses disappear first: click the remaining candidates and compare their $|\hat D|$ with the threshold. Noise extrema have small $|D|$; at noise 6 most of them are already removed as unstable or as edges.
+
+**D4.** Kept: $S = 1$: 10, $S = 2$: 10, $S = 3$: 11, $S = 4$: 15, $S = 5$: 13. At $S = 1$ the three small discs of radius 3 (at (30, 32), (96, 92) and (160, 150), σ ≈ 2) are missing: with one step per octave the levels are a factor 2 apart (σ = 1.6, 3.2, …), the blobs' response peaks between two levels, and the coarse sampling in scale does not show a clear extremum there. Larger S samples scale more finely (and costs more blurs); $S = 4$ and 5 also find some corners of the squares.
+
+**D5.** The selected candidate (octave 2, level 1) has the offset $(+0.46, +0.07, +0.24)$: in samples of its octave, where one sample is 4 original pixels. So the position moves by about 1.8 original pixels; the refined position is (149.83, 92.27) px with σ = 8.51.
+
+**D6.** Six octaves (the first one 384²). 16 keypoints, six of them new and small (σ ≈ 1.0–1.5): on the small dark square, at the dark disc at (100, 160), and four on the brightest stretches of the bar. These structures are too small for the first octave of the original image.
+:::
+
+## Explore: repeatability {#explore}
+
+View 1 is a synthetic scene (or the micrograph, upsampled 2×); view 2 is the same scene under a known zoom and rotation, optionally with a perspective **tilt**, a lighting change, blur and noise. The 200 strongest keypoints of four detectors: Harris at one σ, multi-scale Harris, DoG and FAST. In view 1, green = found again in view 2 (within ε px, at a matching scale), red = not; grey = outside the region seen by view 2 (dashed). The plot fills in, in the background, the repeatability against zoom (or angle) for the current detector. Click a keypoint of view 1 to see where it should be in view 2.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="repeatability" data-preset="zoom"></div>
+<script src="../demos/dist/repeatability.js"></script>
+```
+
+**E1.** Preset **zoom 2×: Harris (one σ) loses the points** (zoom 2.2). Read the repeatability. Switch to DoG, FAST and multi-scale Harris. Which detectors keep their points?
+
+**E2.** Tab **against zoom**: let the curves fill in for Harris (one σ) and for DoG. Between which zooms does each stay above 80 %?
+
+**E3.** Preset **rotation: all detectors fine** (40°). Read the repeatability of all four detectors. Why does rotation hurt none of them much?
+
+**E4.** Preset **tilt 50°**. What happens to DoG? Why does a tilt hurt a detector that handles zoom and rotation?
+
+**E5.** Preset **gain and offset: no effect** (gain 1.5, offset −30), then preset **blur** (σ = 2). Compare the repeatability of the four detectors. Which one suffers most from blur?
+
+**E6.** Preset **FAST is fast**. Compare the detection time of the four detectors (readout). Why is FAST cheap?
+
+**E7.** Preset **the micrograph**. Does DoG find enough repeatable points? Where?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** At zoom 2.2: Harris (one σ) 31 % (4 of 13 in the common region), FAST 29 % (2 of 7); DoG 81 % (25 of 31), multi-scale Harris 80 % (8 of 10). The detectors with a scale keep their points. (The common region is small at this zoom, so the counts are small.)
+
+**E2.** Harris (one σ): about 99 % at zoom 1, 81 % at 1.6, 47 % at 2, 18 % at 2.5 and 0 at 3; below 1 it also falls (about 64 % at 0.5). It is above 80 % only between about 0.8 and 1.6. DoG stays above 80 % from 0.4 to 2 (81–92 %), then 70 % at 2.5 and 50 % at 3.
+
+**E3.** At 40°: Harris (one σ) 92 %, multi-scale Harris 85 %, DoG 81 %, FAST 91 %. The detectors are built from rotation-invariant quantities: the eigenvalues of the structure tensor, the Laplacian, a ring of pixels. Only resampling the rotated image changes them a little.
+
+**E4.** DoG falls to 48 % (Harris one σ 80 %, FAST 85 %). A tilt squeezes the image in one direction: round blobs become ellipses with different sizes along the two axes, so the scale measured by DoG no longer follows a single zoom and the scale test fails; corner detectors without a scale test lose fewer points here.
+
+**E5.** Gain 1.5 and offset −30 at 20°: Harris 97 %, multi-scale Harris 83 %, DoG 88 %, FAST 89 %, essentially the values without the lighting change (97, 82, 86, 94 %): the detectors use differences and relative thresholds. Blur σ = 2: Harris 70 %, DoG 81 %, FAST 76 %, but multi-scale Harris only 20 %: blur makes small structures larger, so its scale selection picks other scales and the scale test fails.
+
+**E6.** The times depend on the computer; FAST is several times faster than Harris and much faster than the multi-scale detectors. It only compares 16 pixel values with the centre per pixel, with no filtering at all.
+
+**E7.** Yes: at zoom 1.6 and 30°, DoG finds 37 of the 44 points in the common region again (84 %; Harris one σ 86 %, FAST 93 %, multi-scale Harris 62 %), mostly on the dark granules and the edges of the nucleus; the smooth background gives few. (The micrograph is a 256² image upsampled 2×, so its finest scales are missing, and this zoom is still moderate.)
+:::
+
+## Where this leads
+
+The keypoint is a frame $(x, y, \sigma, \theta)$. The next unit reads the window **in that frame** and turns it into a vector: [describing a keypoint](../descriptors/lec.qmd). Then [matching](../feature-matching/lec.qmd) and [fitting a transform](../feature-alignment/lec.qmd). The same detector on every frame of a movie gives features to track ([Lucas–Kanade](../lucas-kanade/lec.qmd) follows them over small motions).

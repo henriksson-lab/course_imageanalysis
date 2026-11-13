@@ -1,0 +1,113 @@
+---
+title: "Exercise: superpixels"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute SLIC distances by hand and predict the effect of the **compactness** $m$,
+- count the work of SLIC against plain k-means,
+- compute **boundary recall**, **under-segmentation error** and **achievable accuracy** on a small example,
+- predict what superpixels do on flat, textured and thin structures, and what a superpixel graph saves,
+- *(math)* show the SLIC update step, why monotonicity can fail, and why achievable accuracy is an upper bound.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Grid spacing | $S = \sqrt{N/K}$ for $N$ pixels and $K$ superpixels |
+| SLIC distance | $D^2 = d_c^2 + (m\,d_s/S)^2$: $d_c$ colour (or grey) difference, $d_s$ distance in pixels, $m$ compactness |
+| SLIC iteration | each centre assigns the pixels in its $2S \times 2S$ window that are nearer to it than to any other covering centre; each centre moves to the mean (colour, $x$, $y$) of its pixels |
+| Connectivity | keep the largest piece of each label; orphan pieces join a neighbour |
+| Boundary recall | fraction of the true boundary that has a superpixel boundary nearby (in B3: exactly on it) |
+| Under-segmentation error | $\frac1N\sum_{s}\sum_{r}\min(\lvert s \cap r\rvert, \lvert s \setminus r\rvert)$ over superpixels $s$ and the true regions $r$ they overlap |
+| Achievable accuracy | $\frac1N\sum_s \max_r \lvert s \cap r\rvert$: every superpixel labelled with its majority region |
+
+## By hand
+
+**B1.** A grey pixel $p$ with $I = 50$ at $(4, 4)$; centre A: $I = 52$ at $(0, 0)$; centre B: $I = 70$ at $(6, 4)$; $S = 8$.
+(a) Compute $D^2$ to both centres for $m = 10$. Which centre wins? (b) The same for $m = 40$. (c) At which $m$ does $p$ switch?
+
+**B2.** $N = 65\,536$, $K = 256$. (a) What are $S$ and the window size? (b) How many distances does plain k-means compute per iteration? How many does SLIC compute (about)? (c) What changes for $K = 1024$?
+
+**B3.** An $8 \times 8$ image; the true object is the $4 \times 4$ square in rows 3–6 and columns 4–7 (counting from 1); the rest is background. The superpixels are the four $4 \times 4$ quadrants of the image.
+(a) Achievable accuracy: give each quadrant its majority label. What fraction of pixels is right, and what happens to the object?
+(b) Under-segmentation error.
+(c) Boundary recall, counting the 16 unit edges of the object's outline and asking which of them lie on a quadrant boundary.
+(d) Shift the quadrant boundaries so that the superpixels are rows 1–2 / 3–6 / 7–8 times columns 1–3 / 4–7 / 8 (9 superpixels). Recompute (a)–(c).
+
+**B4.** **Predict.** What do SLIC superpixels look like (a) on a perfectly flat region? (b) On a strongly textured region, with small and with large $m$? (c) With $K$ so small that $S$ is larger than the objects?
+
+**B5.** A $256 \times 256$ image is replaced by 500 superpixels, each with about 6 neighbours. (a) How many nodes and edges does each graph have (4-neighbour pixel graph)? (b) A max-flow on the pixel graph takes 80 ms. Very roughly, what would you expect on the superpixel graph, and what must you add to it?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) A: $d_c^2 = 4$, $d_s^2 = 16 + 16 = 32$: $D^2 = 4 + (10/8)^2 \cdot 32 = 4 + 50 = 54$. B: $d_c^2 = 400$, $d_s^2 = 4$: $400 + 1.5625 \cdot 4 = 406.25$. A wins (similar grey level). (b) $(40/8)^2 = 25$: A $4 + 800 = 804$, B $400 + 100 = 500$: B wins (closer). (c) $4 + 32m^2/64 = 400 + 4m^2/64 \Rightarrow 28m^2/64 = 396 \Rightarrow m^2 = 905.1$, $m \approx 30.1$.
+
+**B2.** (a) $S = \sqrt{65\,536/256} = 16$; window $32 \times 32$. (b) k-means: $65\,536 \cdot 256 = 16\,777\,216$ distances. SLIC: each centre visits $32^2 = 1024$ pixels, $256 \cdot 1024 = 262\,144 = 4N$: 64 times fewer. (c) $S = 8$, windows $16 \times 16$: SLIC still $1024 \cdot 256 = 4N$; k-means 4 times more, 67 million.
+
+**B3.** (a) Each quadrant contains 16 pixels; the object overlaps the four quadrants with 2, 6, 2 and 6 pixels. Every quadrant's majority is background: $14 + 10 + 14 + 10 = 48$ right, accuracy $48/64 = 0.75$. The object is lost entirely; no method that labels whole quadrants can find it.
+(b) Top-left: object 2 → $\min(2, 14) = 2$, background 14 → $\min(14, 2) = 2$: 4. Top-right: $\min(6, 10) + \min(10, 6) = 12$. Bottom-left 4, bottom-right 12. Total 32, error $32/64 = 0.5$.
+(c) The object's outline runs between rows 2|3 and 6|7 and between columns 3|4 and 7|8; the quadrant boundaries run between rows 4|5 and columns 4|5. No outline edge lies on them: recall 0/16 = 0.
+(d) The middle superpixel (rows 3–6 × columns 4–7) is exactly the object; every other superpixel is pure background. Accuracy 1, error 0, recall 16/16 = 1. The same number of pixels per superpixel matters less than where the boundaries are.
+
+**B4.** (a) A regular grid of near-squares (or hexagons): with no colour differences only position counts; the boundaries carry no information. (b) Small $m$: ragged superpixels that follow the texture and may split it arbitrarily; large $m$: regular cells that ignore the texture (good if the texture is one region). (c) Superpixels straddle object boundaries; small objects get no superpixel; achievable accuracy and boundary recall drop.
+
+**B5.** (a) Pixels: 65 536 nodes, $2 \cdot 256 \cdot 255 = 130\,560$ edges. Superpixels: 500 nodes, about $500 \cdot 6/2 = 1500$ edges: about 130 times fewer nodes and 87 times fewer edges. (b) Max-flow time grows faster than linearly with the graph, so well under a millisecond in principle; in practice graph building dominates (the demo measures a few to tens of ms). But the superpixels themselves must be computed first (SLIC: tens of ms per 10 iterations at this size), and the graph cut can only be as good as the superpixels.
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that for fixed assignments the SLIC update (mean in colour and position) minimises $\sum_{p \in C_k} D^2(p, \mathbf c_k)$.
+
+**B7.** *(math)* The k-means proof of monotonicity has two steps: the update step lowers the objective, and the assignment step lowers it again. Explain which step can fail in SLIC and why. Describe a situation in which the objective increases.
+
+**B8.** *(math)* Prove that the achievable segmentation accuracy is an upper bound for the pixel accuracy of every labelling that is constant on each superpixel.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** With $\mathbf c = (\mathbf f, \mathbf x)$: $\sum_p D^2 = \sum_p\lVert\mathbf f_p - \mathbf f\rVert^2 + \frac{m^2}{S^2}\sum_p\lVert\mathbf x_p - \mathbf x\rVert^2$. Both sums are convex quadratics in separate variables; setting the gradients to zero gives $\mathbf f = \text{mean}(\mathbf f_p)$, $\mathbf x = \text{mean}(\mathbf x_p)$. The weight $m^2/S^2 > 0$ scales the second sum but not its minimiser.
+
+**B7.** The update step still lowers $J$ (B6). The assignment step lowers $J$ in k-means because each pixel can choose the nearest of **all** centres, in particular its old one, so its distance cannot grow. In SLIC a pixel can only choose among centres whose windows cover it, and the windows move with the centres. If a pixel near the edge of its centre's window is left outside after the centre moves (pulled away by its other pixels), it must take another covering centre, possibly much farther away in colour: its $D^2$ rises, and if no other pixel compensates, $J$ rises. (If no window covers it at all, it is unassigned until a clean-up step.)
+
+**B8.** For a labelling constant on each superpixel, superpixel $s$ with label $\ell_s$ contributes $|s \cap r_{\ell_s}|$ correct pixels (the pixels of $s$ whose true region is $\ell_s$). This is at most $\max_r |s \cap r|$. Summing over superpixels and dividing by $N$: accuracy $\le \frac1N\sum_s\max_r|s \cap r|$ = ASA, with equality for the majority labelling.
+:::
+
+## Explore: SLIC {#explore}
+
+A $256 \times 256$ image: a synthetic **colour scene**, a **grey scene** with texture, a faint step, a thin dark line and a ramp (both with ground truth), or the micrograph. The left panel shows the superpixel boundaries and the centres (red); the **iterations** slider replays the k-means iterations (0 = the grid start); click a superpixel to see its centre's $2S \times 2S$ window. The right panel shows each superpixel in its mean colour, or (**use them**) a graph cut with fixed seeds on the pixel graph and on the superpixel graph. Grey levels are scaled to 0–100 (like lightness), so $m$ means the same for grey and colour images. The readout gives the metrics on the test scenes.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="slic" data-preset="grid"></div>
+<script src="../demos/dist/slic.js"></script>
+```
+
+**S1.** Preset **grid start** ($K = 100$). What is $S$? Step through the iterations: after how many do the superpixels stop changing visibly? Click a superpixel and watch its window move.
+
+**S2.** Presets **m small**, then **m large** ($K = 200$), and the default $m = 20$ (reset and set $K = 200$). Compare the shapes and the three metrics.
+
+**S3.** Preset **orphans without connectivity**: what do you see? Tick the connectivity clean-up. How many superpixels are left, and what happens to the achievable accuracy compared with $m = 20$?
+
+**S4.** Switch to the **grey scene**, $K \approx 200$, and compare **SLIC**, **FH** and **watershed** (the readout gives recall, error and accuracy). Which adheres best to the boundaries? Then press **curves vs K** (exercise page only).
+
+**S5.** Preset **graph cut on superpixels**: compare the two segmentations and the times.
+
+**S6.** Preset **thin line lost** (grey scene, $K = 60$). Look at the dark line between the two bright halves. Raise $K$ to 400. How do the boundary recall and the achievable accuracy change?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**S1.** $S = 25.6$ px (windows about $51 \times 51$). The superpixels change a lot in the first iteration (blocky, noisy assignments), settle after about 3, and hardly change between 5 and 10. The objective falls from $10.2$ to $7.3$ million after one iteration and to $6.7$ million after ten.
+
+**S2.** $m = 6$: ragged superpixels that follow noise and texture (the green disc); after the clean-up only 127 superpixels, recall 0.92, error 0.09, accuracy 0.956. $m = 20$: compact, boundary-following superpixels (196), recall 1.000, error 0.000, accuracy 0.9998. $m = 80$: near-regular cells (196), recall 0.999, error 0.001, accuracy 0.9993: on this scene the object boundaries are strong enough that even large $m$ follows them.
+
+**S3.** Without connectivity at $m = 6$, the labels are scattered into thousands of small fragments: the boundaries cover almost the whole image (so "recall" is trivially 1). With the clean-up, 127 superpixels remain; 35 573 pixels were orphans. The accuracy drops to 0.956 (from 0.9998 at $m = 20$): orphans are given to the neighbour on their left, which may lie across a true boundary.
+
+**S4.** Grey scene, about 200 superpixels: SLIC (195) recall 0.953, error 0.018, accuracy 0.991; FH (192) 0.982, 0.008, 0.996; watershed (196) 0.982, 0.008, 0.996. FH and the watershed adhere better to the boundaries (texture, faint step, line); SLIC gives regular cells. In the curves, the gap is largest at small $K$ (SLIC recall 0.81 at 25 superpixels against about 0.94–0.96).
+
+**S5.** Both give the same object (the red ellipse). The pixel graph has 65 536 nodes and 130 560 edges; the superpixel graph has 400 nodes and about 1100 edges, and its graph cut is several times faster, but SLIC itself costs a few tens of ms: worthwhile when you segment repeatedly (interactive seeds) or run a slower method.
+
+**S6.** At $K = 60$ ($S = 32$): recall 0.855, accuracy 0.957; the line has no superpixel of its own, and other boundaries (the faint step, the spots) are missed too. At $K = 400$ ($S = 12.8$): recall 0.938, accuracy 0.984.
+:::
+
+## Where this leads
+
+Superpixels are the leaves of [hierarchies](../merge-trees/lec.qmd) and the nodes of fast [graph cuts](../graphcut-seg/lec.qmd) and [random walkers](../random-walker/lec.qmd); with features per superpixel they feed [pixel classification](../pixelclass/lec.qmd). In 3D the same ideas give supervoxels.

@@ -200,11 +200,16 @@ Image analysis
 </section>
 <section id="a-processor-in-three-numbers" class="slide level2">
 <h2>A processor in three numbers</h2>
+<div class="columns">
+<div class="column" style="width:54%;">
 <ul>
 <li>A processor executes <strong>instructions</strong> (add, multiply, compare, load, store) at a <strong>clock rate</strong> of about <span class="math inline">3 \cdot 10^9</span> cycles per second: one simple instruction takes about 0.3 ns.</li>
 <li>Data lives in <strong>main memory</strong>, physically far away: one read takes about <strong>100 ns</strong>, i.e.&nbsp;<strong>300 cycles</strong> of doing nothing.</li>
 <li><strong>Caches</strong>: small, fast memories next to the processor that keep recently used data. A hit costs a few cycles; a miss costs the full trip.</li>
 </ul>
+</div><div class="column" style="width:46%;">
+<p><img data-src="fig-latency.svg" style="width:100.0%" alt="Horizontal bar chart on a logarithmic axis of cycles at 3 times 10 to the 9 per second: one instruction 1 cycle (0.3 ns), a cache hit about 4 cycles (about 1 ns), a main memory read 300 cycles (100 ns)."></p>
+</div></div>
 <p>An image is far bigger than any cache: a 2048 × 2048 float32 image is 16 MB. Most of the art of fast image code is about <strong>not waiting for memory</strong>.</p>
 </section>
 <section id="latency-what-a-cpu-core-is-built-for" class="slide level2">
@@ -226,30 +231,45 @@ Image analysis
 <section id="the-math-latency-and-throughput" class="slide level2 math">
 <h2>The math: latency and throughput</h2>
 <p>Time for <span class="math inline">n</span> items with a start-up cost <span class="math inline">t_0</span> and a rate <span class="math inline">R</span>: <span class="math display">t(n) = t_0 + \frac{n}{R}.</span></p>
+<div class="columns">
+<div class="column" style="width:56%;">
 <ul>
 <li>CPU: small <span class="math inline">t_0</span>, small <span class="math inline">R</span>. GPU: large <span class="math inline">t_0</span> (moving the data, starting the program), large <span class="math inline">R</span>.</li>
 <li>The GPU is faster when <span class="math inline">t_0^\text{GPU} + n/R_\text{GPU} &lt; t_0^\text{CPU} + n/R_\text{CPU}</span>, i.e.&nbsp;above the <strong>break-even</strong> size <span class="math display">n^* = \frac{t_0^\text{GPU} - t_0^\text{CPU}}{1/R_\text{CPU} - 1/R_\text{GPU}}.</span></li>
 <li>Example: CPU <span class="math inline">t_0 = 0.01</span> ms, <span class="math inline">R = 2\cdot10^8</span> pixels/s; GPU <span class="math inline">t_0 = 0.5</span> ms, <span class="math inline">R = 10^{10}</span> pixels/s: <span class="math inline">n^* = 0.49\text{ ms} / 4.9\text{ ns} = 100\,000</span> pixels, an image of about <span class="math inline">316 \times 316</span>.</li>
 </ul>
+</div><div class="column" style="width:44%;">
+<p><img data-src="fig-breakeven.svg" style="width:100.0%" alt="Log-log plot of time in ms against the number of pixels n for the example: the CPU line (t0 = 0.01 ms, 2e8 pixels per second) starts low and rises steeply; the GPU line (t0 = 0.5 ms, 1e10 pixels per second) stays flat near 0.5 ms and rises late. They cross at n* = 100 000 pixels, about 316 by 316: the CPU is faster to the left, the GPU to the right."></p>
+</div></div>
 </section>
 <section id="where-gpus-come-from" class="slide level2">
 <h2>Where GPUs come from</h2>
+<div class="columns">
+<div class="column" style="width:58%;">
 <p>Drawing one frame of a 3D scene (recall <a href="../rasterise/lec.html">the rasteriser</a>): for every pixel a triangle covers, run the same small program (shading) with different data. Millions of independent pixels, the same instructions.</p>
 <ul>
 <li>The <strong>fragment stage</strong> of the graphics pipeline is a <strong>map</strong> over pixels.</li>
 <li>Around 2006 the hardware became programmable enough to run <em>any</em> such program: general-purpose GPU computing.</li>
 <li>Image processing has exactly this shape: a filter, a threshold, a colour conversion compute every output pixel by the same rule from nearby input pixels.</li>
 </ul>
+</div><div class="column" style="width:42%;">
+<p><img data-src="fig-fragment.svg" style="width:100.0%" alt="A 14 by 10 pixel grid with a triangle drawn over it; the 45 pixels whose centres lie inside the triangle are orange. Caption: 45 covered pixels, the same shading program 45 times."></p>
+</div></div>
 <p>You write the program for <strong>one pixel</strong>; the GPU runs it for all of them.</p>
 </section>
 <section id="simt-warps-of-32-threads" class="slide level2">
 <h2>SIMT: warps of 32 threads</h2>
+<div class="columns">
+<div class="column" style="width:58%;">
 <ul>
 <li>One <strong>thread</strong> per pixel (or per output value). A 2048 × 2048 image: 4 194 304 threads.</li>
 <li>Threads are grouped in <strong>warps</strong> of 32 that execute <strong>the same instruction at the same time</strong>, each on its own data: single instruction, multiple threads (<strong>SIMT</strong>). (Some vendors call a warp a <em>wavefront</em>, of 32 or 64.) 2048² pixels = 131 072 warps.</li>
 <li>Warps are grouped in <strong>blocks</strong>; a block runs on one <strong>multiprocessor</strong>, whose threads share a small fast memory (next unit). A GPU has tens of multiprocessors.</li>
 <li>One instruction fetch and decode serves 32 lanes: that is where the saved chip area comes from.</li>
 </ul>
+</div><div class="column" style="width:42%;">
+<p><img data-src="fig-simt.svg" style="width:100.0%" alt="Top: an image cut into a grid of blocks of 32 by 8 pixels, one block highlighted in orange. Bottom: that block enlarged: 8 rows of 32 lanes, 256 threads; the top row is highlighted in blue and labelled one warp, 32 lanes, one instruction."></p>
+</div></div>
 <p>The catch: 32 lanes, <strong>one</strong> instruction stream. What if the lanes want different instructions?</p>
 </section>
 <section id="branch-divergence" class="slide level2">
@@ -320,6 +340,8 @@ Image analysis
 </section>
 <section id="loops-wait-for-the-slowest-lane" class="slide level2">
 <h2>Loops wait for the slowest lane</h2>
+<div class="columns">
+<div class="column" style="width:56%;">
 <ul>
 <li>A loop with a data-dependent number of iterations (“iterate until converged”, “march along a ray until it is opaque”, <a href="../volrender/lec.html">volume rendering</a>): the warp runs until its <strong>slowest</strong> lane is done.</li>
 <li>8 lanes needing 3, 1, 1, 12, 2, 1, 4, 1 iterations: the warp takes 12, the average is 3.1: 26 % efficiency.</li>
@@ -330,15 +352,23 @@ Image analysis
 <li>replace a short branch by arithmetic: compute both values and <strong>select</strong> one;</li>
 <li><strong>split</strong> the job: a cheap pass over everything, then an expensive pass over the few pixels that need it.</li>
 </ul>
+</div><div class="column" style="width:44%;">
+<p><img data-src="fig-slowest.svg" style="width:100.0%" alt="Bar chart of loop iterations for 8 lanes: 3, 1, 1, 12, 2, 1, 4, 1 in blue, each topped up to 12 in light grey (the lane idles while masked). A dashed line at 12 marks the warp time, a dotted line at 3.1 the mean. Title: 25 of 96 lane-iterations useful, 26 percent."></p>
+</div></div>
 </section>
 <section id="hiding-memory-latency" class="slide level2">
 <h2>Hiding memory latency</h2>
 <p>A load from global memory takes about 500 cycles. A warp that waits is <strong>parked</strong>, and the multiprocessor issues instructions from <strong>another</strong> resident warp in the meantime.</p>
+<div class="columns">
+<div class="column" style="width:56%;">
 <ul>
 <li>With enough warps in flight, some warp is always ready: the waiting is <strong>hidden</strong>.</li>
 <li><strong>Occupancy</strong>: how many warps are resident, out of the maximum. It is limited by registers and fast memory per thread: a big per-thread program means fewer warps.</li>
 <li>A warp doing <span class="math inline">k</span> cycles of work per load of latency <span class="math inline">L</span> needs about <span class="math inline">(k + L)/k</span> companions: <span class="math inline">k = 8</span>, <span class="math inline">L = 200</span>: <strong>26 warps</strong>.</li>
 </ul>
+</div><div class="column" style="width:44%;">
+<p><img data-src="fig-occupancy.svg" style="width:100.0%" alt="Plot of the percentage of busy lanes against the number of resident warps N, for loads of latency L = 200 cycles. With k = 8 compute cycles per load the line rises linearly and reaches 100 percent at 26 warps (dashed line); with k = 4 it rises half as fast. One warp with k = 4 is busy only 2 percent of the time."></p>
+</div></div>
 <p>So a GPU needs <strong>tens of thousands of threads</strong> to be busy. A 256 × 256 image (65 536 threads) barely fills it; a 64 × 64 image cannot.</p>
 </section>
 <section id="the-math-how-much-must-be-in-flight-littles-law" class="slide level2 math">

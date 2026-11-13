@@ -1,0 +1,109 @@
+---
+title: "Exercise: fast MRI with compressed sensing"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute scan times and accelerations from the number of k-space lines,
+- predict the zero-filled images of centre-only, regular and random line masks,
+- explain why the centre of k-space is sampled densely,
+- explain what a sparsity prior can remove from an MRI image,
+- *(math)* derive the PSF of a regular mask and show that $\|PF\| = 1$.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| k-space | the 2D Fourier transform of the object; the scanner fills it line by line |
+| Scan time | number of lines × repetition time (per line) |
+| Acceleration | full number of lines / lines measured |
+| Zero-filled image | inverse FFT with missing lines set to 0 = image * PSF of the mask |
+| Regular undersampling by r | r copies, shifted by FOV/r (fold-over) |
+| Variable density | random lines with probability $∝ (1 - |k|/k_{\max})^q$, fully sampled centre |
+| CS-MRI | $\min \tfrac12\|PF\mathbf x - \mathbf y\|^2 + λ\|W\mathbf x\|_1$ (+ TV), FISTA with step 1 |
+
+## By hand
+
+**D1.** **Scan time.** A 3D scan has 256 × 128 phase-encoding lines and a repetition time of 10 ms.
+(a) How long does it take?
+(b) With 4× acceleration? With 8×?
+(c) A child can lie still for about 90 s. Which acceleration is needed?
+
+**D2.** **1D fold.** An 8-sample profile along the phase-encoding direction is $x = (0, 0, 5, 0, 0, 0, 0, 0)$.
+(a) Keep the even DFT coefficients (every second line) and zero-fill. What is the result?
+(b) Keep every fourth coefficient. Where are the ghosts, and how large?
+(c) In a 256-row image with a 20-row-high object in the middle, does a 2× fold-over overlap the object itself?
+
+**D3.** **Why the centre?** The phantom's k-space energy: 38.7 % in the single central line, 77.0 % within the central 17 lines, 89.7 % within 33, 96.3 % within 65 (of 256).
+(a) What fraction of the energy does a centre-only mask with 64 lines (4×) keep, roughly? Why is its image still bad?
+(b) Why would a uniform random mask with 64 lines be worse than variable density?
+
+**D4.** **Match.** Three masks (A: central band of 64 lines; B: every 2nd line plus a centre; C: random lines, denser at the centre) and three zero-filled images (i: streaky, noise-like artefacts; ii: a ghost copy half a field of view away; iii: blurred with ringing). Match them, and say for which one a CS reconstruction helps most.
+
+**D5.** A radiologist asks: "will CS at 4× hide a 3-pixel lesion with 3 % contrast?" Answer using what you know about ℓ1 shrinkage, and suggest how to check.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** (a) $256 \cdot 128 \cdot 0.01 = 327.7$ s = 5.5 min. (b) 4×: 81.9 s; 8×: 41.0 s. (c) 327.7/90 = 3.6, so about 4×.
+
+**D2.** (a) $\tfrac12(x_n + x_{n+4})$: (0, 0, 2.5, 0, 0, 0, 2.5, 0). (b) Copies at shifts of 2: (1.25, 0, 1.25, 0, 1.25, 0, 1.25, 0): the spike at 2 and ghosts at 4, 6 and 0, each a quarter of the height. (c) No: the ghost of a 20-row object in the middle of a 256-row field of view lies 128 rows away, at the edge, in empty background. Fold-over only overlaps when the object fills more than half the field of view, which is why regular undersampling works with small objects (and multiple coils).
+
+**D3.** (a) 64 central lines contain about 96 % of the energy (65 lines: 96.3 %), but the missing 4 % is exactly the high-frequency content of the edges and small details: the image is blurred and rings. (b) A uniform mask leaves holes near the centre, where most of the energy and the coarse wavelets are; those coefficients cannot be recovered from the rest. Variable density takes all of the centre and spreads the remaining lines randomly (with 25 % of the lines, the demo's phantom: 19.1 dB zero-filled and 21.2 dB after CS with a uniform random mask, against 21.3 and 27.1 dB with variable density).
+
+**D4.** A → iii (blur), B → ii (ghost), C → i (noise-like). CS helps most for C: the artefacts are incoherent, so the sparsity prior separates them from the image. For A the high frequencies were never measured; for B the ghost is as sparse as the object.
+
+**D5.** It may: a 3-pixel lesion with 3 % contrast produces only small wavelet coefficients, of the order of the threshold, which ℓ1 sets to zero or shrinks strongly; in the lecture's phantom such discs vanish already at 4×. To check: reconstruct phantoms (or fully sampled scans with lesions added) of the same size and contrast at the planned acceleration, or reduce λ and the acceleration for this question.
+:::
+
+### Math questions
+
+**D6.** *(math)* A mask keeps the lines $k_y = 0, r, 2r, \dots$ of an $N$-row image ($r$ divides $N$). Show that the PSF along $y$ is $\frac1r\sum_{j=0}^{r-1}δ(y - jN/r)$, so the zero-filled image is the average of $r$ copies shifted by multiples of FOV/$r$.
+
+**D7.** *(math)* $F$ is the orthonormal 2D DFT and $P$ selects a subset of its rows. Show that $(PF)(PF)^H = I$, hence $\|PF\| = 1$, so the ISTA/FISTA step τ = 1 is safe; and that the gradient step $\mathbf x + (PF)^H(\mathbf y - PF\mathbf x)$ replaces the measured k-space values of $\mathbf x$ by the data and keeps the others.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**D6.** The mask is $m(k) = 1$ if $r$ divides $k$, else 0. Its inverse DFT: $\frac1N\sum_{k:\,r|k}e^{2πiky/N} = \frac1N\sum_{l=0}^{N/r-1}e^{2πily/(N/r)}$, which is $\frac{N/r}{N} = \frac1r$ when $N/r$ divides $y$ and 0 otherwise. So the PSF is $1/r$ at $y = 0, N/r, \dots$: convolving with it averages $r$ shifted copies.
+
+**D7.** $FF^H = I$ (orthonormal), and $PP^\top = I$ (selecting rows of the identity), so $(PF)(PF)^H = PFF^HP^\top = PP^\top = I$. All singular values of $PF$ are 1, so $\|PF\| = 1$ and L = 1. Gradient step: $F\mathbf x + P^\top(\mathbf y - PF\mathbf x)$ in k-space equals $F\mathbf x$ on unmeasured rows and $\mathbf y$ on measured rows (since $P^\top P$ is the projection onto the measured rows); transforming back gives the stated image.
+:::
+
+## Explore {#explore}
+
+The phantom (256 × 256) is undersampled in k-space and reconstructed by zero filling and by compressed sensing (FISTA, progressive). Top: zero-filled and CS images. Bottom: lines kept, k-space with the mask, the PSF of the mask (square-root scale) and the CS error. The readout gives the sampled fraction, PSNR, SSIM and the scan time.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="csmri" data-preset="cs4" data-n="256" data-layout="full"></div>
+<script src="../demos/dist/csmri.js"></script>
+```
+
+**E1.** Presets **centre only: blur**, **every 2nd line: fold** and **random: noise-like**. For each: describe the PSF, the zero-filled image and what CS does.
+
+**E2.** Preset **variable density + wavelets: 4×**. Read PSNR and SSIM of the zero-filled and CS images. Compare with the uniform random mask at the same acceleration.
+
+**E3.** Still at 4×, change the density exponent q from 1 to 6. What happens?
+
+**E4.** Raise the acceleration to 6, 8 and 10. Where does the reconstruction break down?
+
+**E5.** Preset **8×: lesions vanish**. Go back to 4×. Can you find the five faint lesions? Lower λ: do they come back, and at what cost?
+
+**E6.** Preset **TV cartoon** (the micrograph, not an MRI image). What do TV and wavelets do to the texture?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Centre only: the PSF is a smeared line along $y$; zero-filled = blurred and ringing; CS cannot sharpen it (the missing frequencies were never measured). Every 2nd line: the PSF has two spikes half a field of view apart; the image has a ghost; CS keeps the ghost (it is as sparse as the object). Random: one central spike plus low irregular sidelobes; zero-filled = streaky; CS removes most of the streaks.
+
+**E2.** Zero-filled about 21.3 dB, CS about 27 dB, SSIM from about 0.5 to about 0.9. With a uniform random mask at 4×: 19.1 dB zero-filled and only about 21 dB after CS: without the dense centre the coarse structure is wrong and the prior cannot fix it.
+
+**E3.** q = 1 spreads the lines further out (more high frequencies, fewer near the centre): CS about 25.5 dB, SSIM 0.74; q = 6 concentrates them near the centre (closer to the centre-only blur): 25.2 dB, SSIM 0.91 but softer edges; q = 3: 27.1 dB. The best results lie in between; the fully sampled centre protects against the worst case.
+
+**E4.** CS: 27.1 dB at 4×, 24.6 dB at 6×, then 21.0 dB at 8× and 20.7 dB at 10×, barely better than zero filling (19.9 and 19.7 dB): the image breaks into blocks. The drop between 6× and 8× is the abrupt failure of the phase transition.
+
+**E5.** At 4× the lesions are not visible (the error map shows them as small dots of the missing contrast). Lowering λ lets more small coefficients through, so faint structure returns, but so do the noise-like artefacts: there is no λ that keeps the lesions and removes the artefacts, because both consist of small coefficients.
+
+**E6.** TV turns the texture into flat patches with sharp boundaries (cartoon); Haar wavelets give blocks. Both remove fine, low-contrast texture, which is not sparse in either representation. This is why MRI images (mostly smooth tissue regions with edges) suit compressed sensing better than textured micrographs.
+:::
+
+## Where this leads
+
+Wavelets and TV are hand-made priors. The next unit **learns** the atoms from the images themselves (dictionary learning); the diffusion elective learns a whole prior. Both promise better reconstructions and both bring the question of what the prior adds that was not measured.

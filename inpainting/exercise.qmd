@@ -1,0 +1,152 @@
+---
+title: "Exercise: filling holes"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- fill small holes by harmonic inpainting by hand, in 1D and 2D, and run Jacobi sweeps;
+- predict when TV inpainting reconnects a broken structure;
+- compute a masked patch distance and say which patch exemplar inpainting copies;
+- choose a method for a defect, and say what may not be measured afterwards;
+- *(math)* derive Laplace's equation from the Dirichlet energy, Jacobi as a heat step, and the TV costs of the connectivity rule.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Harmonic inpainting | missing pixels: each = mean of its 4 neighbours (Laplace's equation), known pixels fixed |
+| Jacobi sweep | every missing pixel ← mean of its neighbours' **old** values (= heat step, Δt = 1/4, inside the hole) |
+| Gauss–Seidel | the same, using new values as soon as they are computed |
+| TV inpainting | minimise the total variation in the hole; edge cost = contrast × length |
+| Connectivity rule | bar of width $w$, gap $d$: reconnected if $d < w$ |
+| Exemplar | fill-front pixel of highest priority (confidence × data term); copy the patch with the smallest squared difference over the **known** pixels |
+
+## By hand
+
+**B1.** 1D: known 2 at pixel 0 and 10 at pixel 4; pixels 1–3 missing.
+(a) The harmonic fill.
+(b) Start Jacobi from zeros in the hole and do two sweeps. How far are you from (a)?
+(c) Do the same two sweeps with Gauss–Seidel (left to right). Which is closer?
+
+**B2.** 2D: two missing pixels $a$ and $b$ side by side; $a$'s other neighbours are 10, 10, 10; $b$'s are 30, 30, 30. Set up the two equations and solve them. Then change $b$'s neighbours to 10 as well: what are $a$ and $b$ now?
+
+**B3.** A dark bar of width 6 pixels with two gaps, one of 4 and one of 10 pixels, both masked. Which gaps does TV inpainting reconnect? Give the edge lengths of both candidates for each gap.
+
+**B4.** **Masked SSD.** The target patch (? = missing) and three candidate patches:
+
+:::: {.columns}
+::: {.column width="25%"}
+target
+
+| | | |
+|---|---|---|
+| 10 | 12 | ? |
+| 11 | 48 | ? |
+| ? | ? | 52 |
+:::
+::: {.column width="25%"}
+A
+
+| | | |
+|---|---|---|
+| 10 | 11 | 50 |
+| 12 | 50 | 52 |
+| 49 | 51 | 50 |
+:::
+::: {.column width="25%"}
+B
+
+| | | |
+|---|---|---|
+| 30 | 30 | 30 |
+| 30 | 30 | 30 |
+| 30 | 30 | 30 |
+:::
+::: {.column width="25%"}
+C
+
+| | | |
+|---|---|---|
+| 10 | 12 | 10 |
+| 11 | 48 | 10 |
+| 10 | 10 | 10 |
+:::
+::::
+
+(a) The squared difference of each candidate over the five known pixels. (b) Which candidate is copied, and which values fill the four missing pixels? (c) C agrees exactly on four of the five known pixels. Why does it lose?
+
+**B5.** A scale bar burnt into a micrograph crosses a cell. (a) For a figure, what would you do? (b) For measuring the cell's mean intensity? (c) For a Fourier transform of the whole image?
+
+**B6.** Choose a method, with a reason: (a) a single dead column; (b) dust spots of 3–5 pixels on a smooth background; (c) a 50 × 50 hole on a regular grating; (d) a hole that cuts a thin membrane (width 3) over a length of 10.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) (2, 4, 6, 8, 10). (b) Sweep 1 (old values 2, 0, 0, 0, 10): pixel 1 = (2 + 0)/2 = 1, pixel 2 = (0 + 0)/2 = 0, pixel 3 = (0 + 10)/2 = 5. Sweep 2: (2 + 0)/2 = 1, (1 + 5)/2 = 3, (0 + 10)/2 = 5. Errors 3, 3, 3. (c) Gauss–Seidel sweep 1: 1, then (1 + 0)/2 = 0.5, then (0.5 + 10)/2 = 5.25; sweep 2: (2 + 0.5)/2 = 1.25, (1.25 + 5.25)/2 = 3.25, (3.25 + 10)/2 = 6.625. Errors 2.75, 2.75, 1.375: closer.
+
+**B2.** $4a = 30 + b$, $4b = 90 + a$: $a = 14$, $b = 26$. With all six other neighbours 10: $4a = 30 + b$, $4b = 30 + a$, so $a = b = 10$: a flat surrounding gives a flat fill.
+
+**B3.** Gap 4 < 6: connect costs two edges of length 4 (8 in total, times the contrast), break costs two end caps of 6 (12): reconnected. Gap 10 > 6: connect 20, break 12: left broken.
+
+**B4.** (a) A: $0 + 1 + 1 + 4 + 4 = 10$. B: $400 + 324 + 361 + 324 + 484 = 1893$. C: $0 + 0 + 0 + 0 + 42^2 = 1764$. (b) A is copied; the missing pixels become 50 (top right), 52 (middle right), 49 and 51 (bottom left, bottom middle). (c) The squared difference punishes one large mismatch (52 against 10) more than many small ones: C's bright corner is missing, A continues the bright structure.
+
+**B5.** (a) Inpaint it (harmonic is enough for a thin bar; exemplar if it crosses texture) and say so in the legend, or draw a new scale bar elsewhere. (b) Mask the bar's pixels and compute the mean over the rest of the cell; report the masked fraction. (c) Inpaint (any method) so that the bar's sharp edges do not produce spurious lines in the spectrum; nothing measured from the spectrum depends on the filled values in detail.
+
+**B6.** (a) Harmonic. (b) Harmonic (small, smooth background). (c) Exemplar: the grating's texture must be continued, and with a regular grating good copies exist. (d) A gap of 10 across a membrane of width 3: TV would leave it broken ($10 > 3$); exemplar inpainting (data term: the membrane is a strong isophote) or a curvature-based method can continue it, but the continuation is invented.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that the minimiser of $\int_\Omega|\nabla u|^2$ with $u = f$ on $\partial\Omega$ satisfies $\Delta u = 0$ in Ω. Write the discrete version for the two-pixel hole of B2 as a matrix equation.
+
+**B8.** *(math)* Show that one Jacobi sweep is one explicit heat step with Δt = 1/4 applied to the hole pixels (with the known pixels held fixed), and explain with the first unit why it needs about $w^2$ sweeps.
+
+**B9.** *(math)* A piecewise constant image: background 200, bar 50 (contrast $c = 150$), bar width $w$, gap length $d$. Compute the total variation added by the two candidate fills (connect, break), and state the rule. What happens at $d = w$?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Perturb $u \to u + \epsilon v$ with $v = 0$ on $\partial\Omega$: $\frac{d}{d\epsilon}\int|\nabla u + \epsilon\nabla v|^2 = 2\int\nabla u\cdot\nabla v = -2\int(\Delta u)\,v$ (no boundary term since $v = 0$ there). Zero for all $v$ ⇔ $\Delta u = 0$. Discretely: $\begin{pmatrix}4 & -1\\ -1 & 4\end{pmatrix}\begin{pmatrix}a\\b\end{pmatrix} = \begin{pmatrix}30\\90\end{pmatrix}$, i.e. $L_{\Omega\Omega}u_\Omega = -L_{\Omega\partial}f_\partial$.
+
+**B8.** The heat step: $u_p \leftarrow u_p + \Delta t\,(\sum_{q\sim p}u_q - 4u_p)$. With $\Delta t = 1/4$: $u_p \leftarrow \tfrac14\sum_{q\sim p}u_q$, the Jacobi update; the known pixels are not updated (fixed boundary values). The heat equation transports information a distance $\sqrt{2t}$ in time $t$; to reach the middle of a hole of width $w$ needs $t \propto w^2$, i.e. $\propto w^2$ steps of fixed size.
+
+**B9.** Connect: the bar's two long edges are extended by $d$ each: TV $= 2d \cdot 150$. Break: two end caps across the bar, each of length $w$: TV $= 2w \cdot 150$. The minimum is "connect" for $d < w$ and "break" for $d > w$. At $d = w$ both cost the same (and blends of them, e.g. a grey fill, can cost the same as well): the minimiser is not unique, and iterative solvers converge very slowly near this point.
+:::
+
+## Explore {#explore}
+
+An image with known truth (test card, micrograph, a dot texture, a broken bar, synthetic nuclei) and a mask (presets, or **paint**: choose it and drag on the left image). Methods: Jacobi or Gauss–Seidel sweeps (play; **solve / finish** solves directly), TV (primal–dual iterations, started from the diffusion fill), exemplar (patch by patch: yellow = target, orange = copied source; right: fill order). Right panel otherwise: the error inside the hole.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="inpaint" data-preset="jacobi"></div>
+<script src="../demos/dist/inpaint.js"></script>
+```
+
+**E1.** Preset **Jacobi needs ~w² sweeps** (a 16 × 16 hole). Play and watch the counter: after how many sweeps does the hole look finished? Compare with Gauss–Seidel (restart). Then press **solve / finish**.
+
+**E2.** Presets **dead column** and **text over the micrograph**. Read the mean error in the hole. Why is it not zero, and which features of the micrograph cannot come back?
+
+**E3.** Presets **large hole: diffusion blurs** and **TV continues edges**. Compare the two fills of the square's corner and the two small discs. Why does TV cut the corner?
+
+**E4.** Preset **bar: gap < width connects**. Increase the gap step by step (restart TV with **solve / finish** each time). At which gap does TV stop reconnecting the bar of width 10? What happens close to the width?
+
+**E5.** Presets **texture: exemplar wins** and **exemplar invents a nucleus**. Step through the first few patches: where does the fill start, and why there? What appears in the nucleus image?
+
+**E6.** Choose **paint**, draw a hole over one of the nuclei (image **nuclei**) and try all methods. Which method invents what?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** After 100 Jacobi sweeps the mean difference to the exact fill is still 17 grey levels, after 200 about 3; it takes about 300 sweeps until every pixel is within 1 (the hole is 16 wide: $16^2 = 256$). Gauss–Seidel is roughly twice as fast (3.0 after 100 sweeps, 0.1 after 200). The direct solve (conjugate gradients) converges in a few dozen iterations.
+
+**E2.** Dead column: mean error 13 grey levels; text: about 19. The fill is the smoothest interpolation of the rim, so it cannot restore the fine texture of the micrograph (membranes, granules) that the missing pixels contained: those details are lost, the fill only hides the defect.
+
+**E3.** Diffusion (mean error 29.1): a soft blend, the corner and the discs vanish into a gradient. TV (23.9 after 1500 iterations): the square's two edges are continued sharply, but they meet along a diagonal: TV minimises edge length, and the diagonal is shorter than the two sides of the true corner. The discs, entirely inside the hole, are lost in both: no method can know they were there.
+
+**E4.** Gaps up to 8 are bridged (centre 50, as dark as the bar); from 14 on the bar stays broken (centre 200). Between 9 and 12 the result after the default iterations is grey (e.g. gap 10: about 100–110): connecting and breaking cost almost the same near $d = w$, so the iterations converge very slowly and the minimiser is (nearly) not unique.
+
+**E5.** The fill starts at the rim where the data term is large: where the texture's strong edges (or a nucleus's edge) meet the hole. Texture: 33 patches, mean error 4.5 (harmonic: 41.9). Nuclei: 30 patches; a bright, textured blob (part of a nucleus, 244 pixels brighter than 120) grows into a hole that was empty background (whose truth never exceeds 80).
+
+**E6.** Harmonic and TV remove the nucleus and fill a smooth or flat patch (they invent "nothing here"); exemplar may rebuild a nucleus-like structure, but not the one that was there (a different texture, size or position), or continue the background. Every method invents something; none recovers the hidden nucleus.
+:::
+
+## Where this leads
+
+The last unit of the day, [all smoothers on one image](../smoothers/lec.qmd), puts heat, Perona–Malik, TV, bilateral and non-local means side by side with the median, wavelet shrinkage and Wiener filtering, and asks which belief about the image each one encodes.

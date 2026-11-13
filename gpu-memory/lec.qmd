@@ -42,6 +42,8 @@ From [how GPUs store images](../gpuformats/lec.qmd): memory is one long row of b
 - **Interleaved** RGB stores RGBRGB…; **planar** stores all R, then all G, then all B.
 - Neighbours along a row are neighbours in memory; neighbours along a column are $4W$ bytes apart.
 
+![](fig-rowmajor.svg){fig-alt="A 4 by 3 image with pixels labelled (x, y), rows coloured blue, orange and green, and below it the same 12 pixels as one row of memory at byte offsets 0, 4, 8 up to 44. An arrow from pixel (1,1) at byte 20 to its row neighbour (2,1) at byte 24, another to its column neighbour (1,2) at byte 36, 16 bytes away." width="82%" fig-align="center"}
+
 Today this layout decides how fast a GPU can read the image.
 
 ## The memory hierarchy
@@ -54,9 +56,16 @@ Fast memory is small and near the lanes; big memory is far and slow. The link to
 
 Add two float32 images: per pixel, read 8 bytes, write 4, do **one** addition.
 
+:::: {.columns}
+::: {.column width="55%"}
 - At 1 TB/s: $10^{12}/12 = 8.3 \cdot 10^{10}$ additions per second.
 - The lanes could do $3 \cdot 10^{13}$: the addition uses **0.28 %** of the arithmetic.
 - The GPU spends almost all its time **waiting for bytes**. Arithmetic is nearly free; moving data is not.
+:::
+::: {.column width="45%"}
+![](fig-membound.svg){fig-alt="Bar chart on a logarithmic time axis for adding two 4096 by 4096 float32 images on the desktop GPU: moving the 201 MB at 1 TB/s takes 201 microseconds, the 16.8 million additions at 3e13 operations per second take 0.56 microseconds." width="100%"}
+:::
+::::
 
 Element-wise operations, thresholds, colour conversions, small filters: all limited by **bandwidth**. The questions become: how many bytes does an operation move, and does it move them efficiently?
 
@@ -64,11 +73,18 @@ Element-wise operations, thresholds, colour conversions, small filters: all limi
 
 Memory delivers whole **lines** of 128 bytes (32 floats), in four 32-byte **sectors**.
 
+:::: {.columns}
+::: {.column width="55%"}
 - The 32 lanes read 32 **consecutive** floats (a row): one line, all of it used. **Coalesced**: 100 %.
 - They read a **column** of a 1024-wide image: 32 different lines, one sector each, 4 of 32 bytes used: **12.5 %**.
 - Interleaved RGB, reading only R: every third float, 3 lines for 128 useful bytes: **33 %**. Planar R: 100 %.
 
 So: map neighbouring threads to neighbouring pixels **along rows**; prefer **planar** channels; do transposes through fast shared memory in tiles.
+:::
+::: {.column width="45%"}
+![](fig-coalesce.svg){fig-alt="Stacked bar chart of the bytes moved when a warp asks for 128 useful bytes: a row moves 128 bytes, 100 percent used; interleaved RGB reading only R moves 384 bytes, 33.3 percent used; a column moves 1024 bytes, 12.5 percent used. Dark blue is the requested part, light blue moved but unused." width="100%"}
+:::
+::::
 
 ## Try it: coalescing
 
@@ -86,11 +102,18 @@ Simulated: the 32 lanes on top, the touched 128-byte lines below (thick separato
 
 A 3 × 3 filter reads 9 inputs per output. Read them all from global memory and each input pixel is fetched 9 times.
 
+:::: {.columns}
+::: {.column width="60%"}
 - **Tiles**: a block computing a 16 × 16 output tile first loads the **18 × 18** input tile (the tile plus a **halo** of 1 pixel) into **shared memory**, once. Every thread then reads its 9 neighbours from there.
 - Global reads per output pixel: $18^2/16^2 = 1.27$ instead of 9.
 - A $k \times k$ kernel needs a halo of $(k-1)/2$: a 31 × 31 kernel with 8 × 8 tiles loads $38^2/8^2 = 22.6$ pixels per output: the halo dominates small tiles; with 32 × 32 tiles 3.75.
 
 (The texture cache of [GPU textures](../gpuformats/lec.qmd) does part of this automatically, and gives bilinear interpolation for free.)
+:::
+::: {.column width="40%"}
+![](fig-halo.svg){fig-alt="An 18 by 18 grid: the inner 16 by 16 output tile in blue, the one-pixel halo ring in orange. A red 3 by 3 square at the left edge shows that the stencil of an edge pixel reaches into the halo. 18 squared = 324 loads for 256 outputs, 1.27 each." width="92%"}
+:::
+::::
 
 ## Try it: tiles and halos
 
@@ -153,6 +176,8 @@ A pipeline "scale, subtract a constant background, clip, threshold" as four sepa
 - Same arithmetic, a quarter of the bytes: **4 times faster** ($I$: 0.125 → 0.5).
 - The same idea is why the intermediate images of a pipeline should stay in registers or fast memory whenever the next step needs only the same pixel (or a small neighbourhood).
 
+![](fig-fuse.svg){fig-alt="Timeline bars for a 4096 by 4096 float32 image on the desktop GPU: four separate passes (scale, subtract background, clip, threshold), each a full read and write of 134 microseconds, 537 microseconds in total; the fused kernel reads and writes once, 134 microseconds." width="88%" fig-align="center"}
+
 ## Try it: the roofline
 
 ```{=html}
@@ -173,6 +198,8 @@ The image must cross the **link** (about 25 GB/s) to the GPU and back, and every
 - The CPU does that element-wise operation in a few ms itself: for **one** cheap step the GPU cannot win.
 - **Keep data on the GPU** for a whole pipeline; move only inputs and final results.
 - Small images (≲ 256 × 256) are dominated by the fixed costs: launches, transfers, too few threads.
+
+![](fig-transfer.svg){fig-alt="Timeline for one element-wise kernel on a 4096 by 4096 float32 image (67 MB): upload 2.7 ms over the 25 GB/s link, the kernel 0.13 ms, download 2.7 ms." width="68%" fig-align="center"}
 
 The opening demo: at 2048², 9 × 9, the download (106 ms) took far longer than the filter (14 ms). At 128² the fixed costs were all there was.
 

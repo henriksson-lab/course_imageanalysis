@@ -1,0 +1,153 @@
+---
+title: "Exercise: from matches to a transform"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- choose a **transform model** for a situation and count its degrees of freedom and pairs,
+- fit a translation and a similarity to point pairs by hand, and spot a suspicious pair,
+- compute **RANSAC iteration numbers** and decide inliers for a given transform,
+- estimate **drift** in a chain of tiles and say what a global fit does,
+- choose between **features and intensities** for a registration,
+- *(math)* write the least-squares systems for affine and homography fits and derive the iteration formula.
+
+Do the pen-and-paper part first, then the two demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Models | translation (2 numbers, 1 pair), rigid (3, 2), similarity (4, 2), affine (6, 3), homography (8, 4) |
+| Least squares | every pair gives 2 equations; one wrong pair pulls the whole fit |
+| RANSAC | minimal sample → exact fit → count pairs within ε → keep the best → refit on its inliers |
+| Iterations | $N = \log(1 - p)/\log(1 - w^s)$; inlier fraction $w$, sample size $s$, success probability $p$ |
+| Checking | report inliers and RMS residual; too few inliers = no reliable alignment |
+| Mosaics | pairwise fits made consistent by a global least squares; gain correction, then feathering or multi-band blending |
+
+## By hand
+
+**A1.** Name the simplest model and the minimal number of pairs for: (a) a slide-scanner tile grid; (b) the same slide imaged again after remounting; (c) two photographs of a poster from different angles; (d) a panorama from a tripod; (e) two photographs of a plant from different positions.
+
+**A2.** Three pairs: $(0, 0) \to (3, 1)$, $(4, 0) \to (7, 1)$, $(0, 4) \to (3, 6)$. (a) Fit a translation by least squares and give the residuals. Which pair is suspicious? (b) Fit a similarity exactly to the first two pairs. Where does it map $(0, 4)$?
+
+**A3.** RANSAC iterations for $p = 0.99$. (a) Complete the row $w = 0.7$ for $s = 1, 2, 3, 4$. (b) 100 matches, 30 correct. A stricter ratio test removes half of the wrong matches and 5 % of the correct ones. What is the new $w$, and how many iterations does a homography need before and after?
+
+**A4.** Affine transform $A = \begin{pmatrix}1 & 1\\ 0 & 2\end{pmatrix}$, $\mathbf t = (3, -1)$. Matches: $(1, 1) \to (5, 1)$, $(2, 0) \to (6, 0)$, $(0, 3) \to (4, 6)$, $(4, 4) \to (15, 3)$. Which are inliers for ε = 2 px?
+
+**A5.** Four tiles in a row, 1000 px wide each, joined pairwise; each pairwise rotation estimate is off by 0.2°. (a) The rotation error of tile 4 relative to tile 1, if the errors add up, and if they are independent? (b) The position error this causes at the far edge of tile 4 (4000 px from the left edge of tile 1)? (c) What does a global fit do if the tiles also overlap diagonally (a 2 × 2 arrangement)?
+
+**A6.** Phase correlation or features as the first choice? (a) Tiles with 10 % overlap and a known stage grid; (b) sections rotated by up to 180°; (c) an almost empty tile; (d) two time points with a 3× zoom change.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**A1.** (a) Translation, 1 pair. (b) Rigid, 2 pairs (similarity if the magnification may differ). (c) Homography, 4 pairs (a plane seen from two angles). (d) Homography, 4 pairs (a camera turning about its centre). (e) None of the 2D models: parallax; the fundamental matrix (7 or 8 pairs) and epipolar geometry.
+
+**A2.** (a) Differences (3, 1), (3, 1), (3, 2); mean $(3, 4/3)$. Residuals (difference minus mean): $(0, -1/3)$, $(0, -1/3)$, $(0, 2/3)$. The third pair is suspicious (it disagrees with the two others). (b) The vector between the first two points is (4, 0) in both images: scale 1, rotation 0, translation (3, 1). It maps $(0, 4)$ to $(3, 5)$, 1 px from the matched $(3, 6)$.
+
+**A3.** (a) 4, 7, 11, 17. (b) After the test: 28.5 correct and 35 wrong, $w = 28.5/63.5 = 0.45$. Homography: $N = 567$ at $w = 0.3$, $N = 112$ at $w = 0.45$: five times fewer, for 5 % fewer correct matches.
+
+**A4.** $A(1, 1) + \mathbf t = (5, 1)$: distance 0, inlier. $A(2, 0) + \mathbf t = (5, -1)$: distance $\sqrt 2 = 1.41$, inlier. $A(0, 3) + \mathbf t = (6, 5)$: distance $\sqrt 5 = 2.24$, outlier (just). $A(4, 4) + \mathbf t = (11, 7)$: distance $\sqrt{32} = 5.66$, outlier.
+
+**A5.** (a) Three pairwise steps: 0.6° if the errors add up, $0.2°\sqrt 3 = 0.35°$ if independent. (b) $4000 \cdot 0.6 \cdot \pi/180 = 42$ px (or 24 px). (c) Every tile is then constrained by several pairs, including tile 1 directly or through short paths; the least-squares solution averages the redundant measurements, so errors no longer accumulate along one path.
+
+**A6.** (a) Phase correlation: a translation, precise, and the stage gives a starting point. (b) Features: phase correlation cannot handle large rotations (without a log-polar extension). (c) Neither works well; phase correlation at least uses all the faint structure; report the failure if the peak is weak. (d) Features: scale-invariant keypoints handle the zoom.
+:::
+
+### Math questions
+
+**B7.** *(math)* Write the $2n \times 6$ least-squares system for the affine fit and show that it splits into two $n \times 3$ systems with the same matrix.
+
+**B8.** *(math)* Derive the two DLT rows of one pair from $\mathbf x' \times H\mathbf x = \mathbf 0$ and show that the third row is a combination of the two.
+
+**B9.** *(math)* Derive $N = \log(1 - p)/\log(1 - w^s)$ and the approximation $N \approx -\log(1 - p)/w^s$ for small $w^s$. Compare for $w = 0.5$, $s = 4$ and $w = 0.3$, $s = 4$.
+
+**B10.** *(math)* A camera turns about its centre: $\mathbf x \simeq K\mathbf X$ in the first view, $\mathbf x' \simeq KR\mathbf X$ in the second. Show that $\mathbf x' \simeq KRK^{-1}\mathbf x$, a homography.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** Unknowns $\mathbf a = (a_{11}, a_{12}, t_x, a_{21}, a_{22}, t_y)$. Pair $i$ gives the rows $[x_i, y_i, 1, 0, 0, 0]\,\mathbf a = x'_i$ and $[0, 0, 0, x_i, y_i, 1]\,\mathbf a = y'_i$. The x rows involve only the first three unknowns, the y rows only the last three, so $\min\|M\mathbf a - \mathbf b\|^2$ splits into $\min\|B(a_{11}, a_{12}, t_x)^\top - \mathbf x'\|^2$ and $\min\|B(a_{21}, a_{22}, t_y)^\top - \mathbf y'\|^2$ with the same $n \times 3$ matrix $B$ of rows $[x_i, y_i, 1]$: one factorisation of $B^\top B$ serves both.
+
+**B8.** Let $\mathbf h_1^\top, \mathbf h_2^\top, \mathbf h_3^\top$ be the rows of $H$ and $\mathbf x' = (x', y', 1)$. Then $H\mathbf x = (\mathbf h_1^\top\mathbf x, \mathbf h_2^\top\mathbf x, \mathbf h_3^\top\mathbf x)$ and $\mathbf x' \times H\mathbf x = \big(y'\mathbf h_3^\top\mathbf x - \mathbf h_2^\top\mathbf x,\ \mathbf h_1^\top\mathbf x - x'\mathbf h_3^\top\mathbf x,\ x'\mathbf h_2^\top\mathbf x - y'\mathbf h_1^\top\mathbf x\big)$. The first two components are the rows $(\mathbf 0^\top, -\mathbf x^\top, y'\mathbf x^\top)$ and $(\mathbf x^\top, \mathbf 0^\top, -x'\mathbf x^\top)$ acting on $\mathbf h$. The third equals $-x'$ times the first minus $y'$ times the second: $-x'(y'\mathbf h_3^\top\mathbf x - \mathbf h_2^\top\mathbf x) - y'(\mathbf h_1^\top\mathbf x - x'\mathbf h_3^\top\mathbf x) = x'\mathbf h_2^\top\mathbf x - y'\mathbf h_1^\top\mathbf x$.
+
+**B9.** See the quiz for the formula. For small $q = w^s$, $\log(1 - q) \approx -q$, so $N \approx -\log(1 - p)/q = 4.61/q$ at $p = 0.99$. $w = 0.5$, $s = 4$: $q = 0.0625$: exact 72, approximation 73.7. $w = 0.3$, $s = 4$: $q = 0.0081$: exact 567, approximation 568.5.
+
+**B10.** $\mathbf X \simeq K^{-1}\mathbf x$ (the ray of the pixel; the depth is lost but does not matter), so $\mathbf x' \simeq KR\mathbf X \simeq KRK^{-1}\mathbf x$. The 3 × 3 matrix $KRK^{-1}$ does not depend on the point: every pixel maps by the same homography, whatever the depth of the scene. With a translation of the camera, the depth would enter and no homography would fit (parallax).
+:::
+
+## Explore: the transform zoo {#explore-transformzoo}
+
+A square with a grid and six numbered landmarks (grey); drag the six targets (orange). The chosen model is fitted by least squares to the first $n$ pairs and drawn as the warped grid (blue), with red residual arrows from each mapped landmark to its target.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="transformzoo" data-preset="more"></div>
+<script src="../demos/dist/transformzoo.js"></script>
+```
+
+**D1.** Presets **one pair**, **two pairs**, **three**, **four**: what is the residual in each case, and why?
+
+**D2.** Preset **more pairs than needed** (six pairs, affine). Read the RMS residual, then switch through all five models. Which model fits the default targets best, and why?
+
+**D3.** Preset **one outlier ruins it**. How large is the RMS residual now? Move the outlier further away. What happens to the grid?
+
+**D4.** With the homography and four pairs, drag target 3 so that the grid's top and bottom edges are no longer parallel. Can the affine model with four pairs do this?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** All four are exact fits (residual 0): each model has exactly as many unknowns as the pairs give equations (2, 4, 6, 8).
+
+**D2.** Six pairs, RMS residuals: translation 54.9, rigid 34.1, similarity 22.3, affine 11.3, homography 2.2. The targets were made from a mild perspective map (plus small bumps of a few pixels), so only the homography can follow them; the residual 2.2 is the size of the bumps.
+
+**D3.** Affine RMS 44.7 (on the five good pairs 27.1, instead of about 11): the whole grid is pulled towards the outlier. The further it goes, the more the grid skews: least squares has no limit on the influence of one point.
+
+**D4.** Yes with the homography (lines stay straight but parallel lines may converge). The affine model keeps parallel lines parallel whatever the targets; with four pairs it is a least-squares compromise with residuals.
+:::
+
+## Explore: RANSAC on matches and a mosaic {#explore}
+
+Pair mode: two views (known transform), 89 matches after the ratio test and the mutual check, plus a chosen fraction of added wrong matches. **one sample** steps through RANSAC: the yellow pairs are the sample, the dashed yellow outline is its exact fit (view 2's border drawn in view 1), green pairs lie within ε. The blue outline is the best fit; the overlay shows view 1 and the warped view 2 as a checkerboard or a difference. The plot shows the best inlier count against the iteration, the predicted $N(w, s, 0.99)$ (red) and the number of truly correct matches (green). **mosaic mode** switches to four tiles.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="featurealign" data-preset="sim"></div>
+<script src="../demos/dist/featurealign.js"></script>
+```
+
+**E1.** Preset **RANSAC similarity: a few iterations**. How many matches, how many truly correct, what is $w$ and the predicted $N$? At which iteration is the best model found? Read the RMS residual and the true error. Step through the first five samples with **one sample**.
+
+**E2.** Preset **least squares on all matches fails**. What is the true error? Untick the checkbox and compare.
+
+**E3.** Preset **homography needs hundreds at w = 0.3**. What are $w$ and $N$? At which iteration does this seed find the model? Try a few seeds with 100 iterations: does it always succeed?
+
+**E4.** Preset **a tighter ratio test → fewer iterations** (ratio 0.7, no added wrong matches). What are $w$ and $N$ now?
+
+**E5.** Preset **ε too large** (ε = 25 px, 50 % added wrong matches). Compare inliers, RMS and true error with ε = 3.
+
+**E6.** Preset **affine on a rotating-camera pair; homography fits**. Compare inliers and true error for similarity, affine and homography. Where is the affine difference image largest?
+
+**E7.** Preset **no texture: too few inliers, report failure**. How many matches and inliers? What should you report?
+
+**E8.** Press **mosaic mode**, preset **mosaic: chain drifts, global fixes**. Read the corner errors of the four tiles for the chain and for the global refinement. Set the match noise to 0 and to 3 px. Then compare the three blends.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 127 matches (89 accepted + 38 added), 79 truly correct: $w = 0.62$, $N(0.62, 2, 0.99) = 10$. The best model is found at iteration 2; after the refit 79 inliers, RMS 0.54 px, true error 0.07 px.
+
+**E2.** Least squares on all 127 pairs: true error 79 px, the checkerboard is broken. RANSAC: 0.07 px.
+
+**E3.** 280 matches, 86 truly correct: $w = 0.31$, $N(0.31, 4) = 516$. Seed 1 finds the model at iteration 49 (lucky: the expected number of iterations until the first all-inlier sample is $1/w^4 \approx 110$). With 100 iterations, seeds 1 to 20 succeed 12 times (86 inliers) and fail 8 times (seeds 2, 7, 10, 11, 17–20: only 6 to 13 inliers, a wrong homography): $1 - (1 - 0.31^4)^{100} = 0.60$. For 99 % you need about 516.
+
+**E4.** 77 matches, 76 correct: $w = 0.99$, $N = 2$; found at iteration 2, true error 0.19 px.
+
+**E5.** ε = 25: 83 inliers (some near-misses among them), RMS 4.2 px, true error 2.0 px. ε = 3: 79 inliers, RMS 0.54 px, true error 0.07 px.
+
+**E6.** 64 matches. Similarity: 14 inliers, true error 73 px; affine: 18 inliers, true error 71 px; homography: 58 inliers, true error 0.88 px. The affine difference image is grey near the centre (where the fit's inliers are) and shows strong structure towards the corners: perspective cannot be expressed by an affine map.
+
+**E7.** 12 matches, 5 inliers (true error 4.1 px): fewer than 10 inliers, so report "no reliable alignment" rather than this transform.
+
+**E8.** Match noise 1.5 px: chain 1 → 2 → 4 → 3: tile errors 0, 0.76, 2.21, 1.56 px; global: 0, 0.54, 1.00, 0.50 px. Tile 3, at the end of the chain, profits most. Noise 0: chain 0.04, 0.11, 0.13 px, global 0.04, 0.10, 0.06 px (both tiny). Noise 3: chain 1.60, 4.42, 3.24 px, global 1.05, 1.42, 0.86 px. Blends: without blending the seams and the exposure steps of the tiles (gains 1, 1.22, 0.85, 1.12) are visible; feathering hides them in soft transitions; multi-band gives similar smooth transitions with less blurring of detail in the overlaps.
+:::
+
+## Where this leads
+
+- **Geometry from images**: matches between views of a 3D scene obey [epipolar geometry](../two-view/lec.qmd); many views: [structure from motion](../sfm/lec.qmd).
+- **Non-rigid registration** starts from the rigid or affine fit found here: [non-rigid registration](../nonrigid-reg/lec.qmd).
+- **Tracking**: small motions by [optical flow](../lucas-kanade/lec.qmd), large ones by matching keypoints and RANSAC.

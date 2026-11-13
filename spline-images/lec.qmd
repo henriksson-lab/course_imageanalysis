@@ -36,20 +36,35 @@ Convention: pixel centres at integers, x to the right, y down. β³ is the centr
 
 ## Recall: nearest and bilinear
 
+:::: {.columns}
+::: {.column width="52%"}
 From the [images unit](../images/lec.qmd): resampling (rotate, zoom, warp) looks up the input at non-integer positions.
 
 - **Nearest neighbour** = the degree-0 B-spline (box): blocky, jumps.
 - **Bilinear** = the degree-1 B-spline in $x$ times in $y$ (a **tensor product**, unit 2): continuous, but with **kinks** along every pixel row and column (the slope jumps), and it **blurs**: halfway between pixels it averages.
 
 Both are fine for display. They hurt when the result is resampled again, when sub-pixel positions matter (registration), or when derivatives of the interpolated image are needed (gradients for snakes and registration).
+:::
+::: {.column width="48%"}
+![Micrograph: Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.](fig-zoom.png){fig-alt="A 16 × 16 pixel patch of the cell micrograph zoomed eight times: nearest neighbour shows square blocks; bilinear is smoother but blurred, with faint straight creases along pixel rows and columns; the cubic B-spline is smooth and sharper." width="100%"}
+:::
+::::
 
 ## Two cubic ideas
 
+:::: {.columns}
+::: {.column width="58%"}
 **(a) Cubic convolution.** A fixed kernel of width 4 with small negative lobes, chosen so that it **interpolates** (1 at its own pixel, 0 at the others) and is smooth (C¹). 16 pixels per output value. Image libraries call this "bicubic" (one-line pointer).
 
 **(b) Cubic B-spline.** The smooth bell of unit 2 (C²), but it does **not** interpolate: its values $\tfrac16, \tfrac46, \tfrac16$ average neighbouring pixels. So first compute **coefficients** $c_k$ such that the spline passes through the samples:
-$$\tfrac16\big(c_{k-1} + 4c_k + c_{k+1}\big) = f_k\qquad\text{along every row, then every column.}$$
+$$\tfrac16\big(c_{k-1} + 4c_k + c_{k+1}\big) = f_k$$
+along every row, then every column.
 This is the interpolation system of [unit 3](../spline-fit/lec.qmd). Solving it is a cheap **sharpening filter** (the **prefilter**: two passes per row). After it the B-spline interpolates exactly, is C², and its derivatives are free.
+:::
+::: {.column width="42%"}
+![](fig-prefilter.svg){fig-alt="Nine samples 0, 0, 1, 3, 2, 2.5, 0.5, 0, 0 (black dots). Top: bells weighted by the samples themselves; their sum (blue) is a blurred curve that misses the samples. Bottom: bells weighted by the prefiltered coefficients (sharper, e.g. 4.10 at the peak, with small negative values next to it); their sum passes exactly through every sample." width="100%"}
+:::
+::::
 
 ## The impulse test
 
@@ -107,6 +122,8 @@ The denominator is the response of $\tfrac16[1\;4\;1]$, at least $\tfrac13$ (at 
 
 ## Resampling again and again
 
+:::: {.columns}
+::: {.column width="60%"}
 Rotate an image by 36° ten times: it is back where it started, but each rotation interpolated the previous result.
 
 | Interpolator | RMS change after 10 × 36° (micrograph, 128 × 128) |
@@ -118,6 +135,11 @@ Rotate an image by 36° ten times: it is back where it started, but each rotatio
 | cubic B-spline | 11.3 |
 
 Nearest shreds edges, bilinear and the unfiltered B-spline blur visibly; the cubic B-spline loses about half of what bilinear loses. The same applies to sub-pixel shifts in registration, smooth zooming, and gradients at sub-pixel positions (exact derivatives of the spline).
+:::
+::: {.column width="40%"}
+![](fig-rotate10.png){fig-alt="Centre of the micrograph, original and after ten rotations by 36 degrees: nearest neighbour (RMS change 28.1) is jagged, bilinear (21.6) is visibly blurred, the cubic B-spline (11.3) stays close to the original." width="100%"}
+:::
+::::
 
 ## Try it: rotate ten times
 
@@ -133,12 +155,21 @@ Nearest shreds edges, bilinear and the unfiltered B-spline blur visibly; the cub
 
 ## Overshoot, and when to use nearest
 
+:::: {.columns}
+::: {.column width="60%"}
 - Cubic interpolators have **negative lobes**: near an edge they **overshoot**. A step from 0 to 100 gives values down to −7 and up to 107 (cubic convolution) or −11 and 111 (cubic B-spline). For 8-bit images, **clip** to 0–255 (and say so); for measurements, know that the values near edges are not data.
 - **Label images** (object numbers, masks): any interpolator that averages invents labels that do not exist (recall the [images quiz](../images/quiz.qmd), Q6). Use **nearest neighbour**, whatever is used for the grey image.
 - Cubic convolution is local (4 × 4 pixels, no prefilter): useful when only a few output values are needed; the B-spline needs the prefilter over whole rows and columns first, then it is cheaper per value of quality.
+:::
+::: {.column width="40%"}
+![](fig-overshoot.svg){fig-alt="A step from 0 to 100 between pixels 9 and 10, interpolated: bilinear stays between 0 and 100; cubic convolution dips to -7 and rises to 107; the cubic B-spline dips to -11 and rises to 111, with small ripples next to the step." width="100%"}
+:::
+::::
 
 ## Free-form deformation
 
+:::: {.columns}
+::: {.column width="64%"}
 A smooth, flexible deformation of a whole image with few numbers:
 
 - A coarse **grid of control points** (every 16 to 64 pixels), each with a **displacement vector**.
@@ -146,6 +177,11 @@ A smooth, flexible deformation of a whole image with few numbers:
 - From unit 2, for free: **smooth** (C²), **local** (a control point moves only a 4 × 4-cell neighbourhood), **partition of unity** (all control points moved by the same vector = a translation).
 
 Drag one control point by 9 pixels (grid spacing $h$): the pixel at that control point moves **4** pixels, a pixel at the next control point **1** pixel, diagonally **0.25** pixel. Control points are not on the deformed grid: they **steer** it, like the control polygon of a curve.
+:::
+::: {.column width="36%"}
+![Displacement exaggerated ×2.5.](fig-ffd.svg){fig-alt="A control grid (circles) over the image grid. One control point (red) is dragged to the right; the image grid lines bend smoothly towards it within two control spacings around it and stay straight further away. The red point lies off the deformed grid lines: it steers them." width="100%"}
+:::
+::::
 
 ## The math: the FFD displacement field {.math}
 
@@ -157,11 +193,18 @@ $$\mathbf{u}(\mathbf{x}) = \sum_{k,l}\mathbf{d}_{kl}\,\beta^3\!\big(\tfrac{x}{h}
 
 ## Folding
 
+:::: {.columns}
+::: {.column width="48%"}
 If neighbouring control points move too far towards or past each other, the map stops being one-to-one: parts of the image fold over others, and the **Jacobian determinant** (local area change) becomes **negative**.
 
 - It is shown as a colour map: blue = compressed, red = stretched, black = folded.
 - One control point alone can move far (in 2D up to $2.25h$ in one direction); two neighbours moved in opposite directions fold at about $1.2h$ each.
 - A safe rule for any pattern: keep every displacement below about **0.49 of the spacing** in 2D (0.40 in 3D; Choi & Lee 2000). Registration methods enforce this, or penalise bending.
+:::
+::: {.column width="52%"}
+![](fig-fold.png){fig-alt="The demo's fold preset on a 256 × 256 checkerboard with control spacing 32: two neighbouring control points moved 44 pixels towards and past each other. Left: the deformed grid crosses itself and the checkerboard overlaps. Right: the Jacobian determinant, blue where compressed, red where stretched, black in the folded region between the two points (minimum -0.146)." width="100%"}
+:::
+::::
 
 ## Try it: free-form deformation
 

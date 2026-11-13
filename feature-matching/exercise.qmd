@@ -1,0 +1,127 @@
+---
+title: "Exercise: matching descriptors"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- find nearest neighbours in a distance table, apply the **ratio test** and the **mutual check**,
+- compute **precision and recall** of matches and judge which setting suits the next step,
+- estimate the cost of brute-force matching,
+- predict where matching fails,
+- *(math)* reason about mutual matches, the ratio under a simple model, and search trees.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Nearest neighbour | for each descriptor of image 1, the closest of image 2 ($d_1$) and the second closest ($d_2$) |
+| Ratio test | accept if $d_1/d_2 < t$ (typically 0.8) |
+| Mutual check | accept $(i, j)$ only if $i$ is also $j$'s nearest in image 1 |
+| One-to-one | minimise the total distance with each point used at most once (assignment problem) |
+| Correct match | the known transform maps point $i$ to within ε px of point $j$ |
+| Precision, recall | correct / accepted, correct / possible |
+
+## By hand
+
+**A1.** Distances between 4 descriptors of image 1 (rows) and 5 of image 2 (columns a–e):
+
+| | a | b | c | d | e |
+|---|---|---|---|---|---|
+| 1 | 0.20 | 0.60 | 0.75 | 0.90 | 0.70 |
+| 2 | 0.55 | 0.30 | 0.32 | 0.80 | 0.85 |
+| 3 | 0.70 | 0.65 | 0.28 | 0.90 | 0.95 |
+| 4 | 0.21 | 0.70 | 0.90 | 0.85 | 0.60 |
+
+(a) Find each row's nearest neighbour and the ratio $d_1/d_2$. (b) Which matches pass the ratio test at 0.8? (c) Which of those pass the mutual check?
+
+**A2.** Ratio test by hand for the distance pairs $(d_1, d_2)$: (0.20, 0.60), (0.30, 0.32), (0.45, 0.50), (0.10, 0.11), at $t = 0.8$ and at $t = 0.6$. Which are probably on a repetitive texture? Which one is suspicious even though its $d_1$ is the smallest?
+
+**A3.** 400 correct correspondences are possible. Setting 1 accepts 250 matches, 210 correct; setting 2 accepts 150, 145 correct. Precision and recall of both? The next unit fits a homography with RANSAC (4 pairs per sample) and needs inliers but tolerates outliers. Which setting do you prefer?
+
+**A4.** Brute-force cost for 2000 × 2000 descriptors: multiply-adds for 128-number histograms, and 64-bit XOR + bit-count operations for 256-bit binary descriptors.
+
+**A5.** Predict. (a) A cell culture imaged again after one hour with a stage drift: which matches are correct as descriptors but wrong for the drift? (b) What does the ratio test do on a regular array of identical wells?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**A1.** (a) Row 1 → a (0.20; second 0.60, ratio 0.33); row 2 → b (0.30; 0.32, ratio 0.94); row 3 → c (0.28; 0.65, ratio 0.43); row 4 → a (0.21; 0.60, ratio 0.35). (b) Rows 1, 3, 4 (row 2 fails: 0.94). (c) Column a's nearest row is 1 (0.20 < 0.21), so 4 → a fails; c's nearest is 3. Kept: **1–a and 3–c**.
+
+**A2.** Ratios 0.33, 0.94, 0.90, 0.91. At 0.8 and at 0.6 only (0.20, 0.60) is accepted. (0.30, 0.32) and (0.10, 0.11) have a runner-up almost as close: typical of repetitive texture. (0.10, 0.11) has the smallest $d_1$ of all and is still rejected: two candidates fit equally well, so we cannot tell which is right. (0.45, 0.50) is simply a weak match.
+
+**A3.** Setting 1: precision $210/250 = 0.84$, recall $210/400 = 0.525$. Setting 2: $145/150 = 0.97$, $145/400 = 0.36$. Both inlier fractions are high enough for RANSAC: a homography needs $N = 7$ iterations at $w = 0.84$ and 3 at $w = 0.97$ ($p = 0.99$), both trivial. Setting 1 gives 210 inliers instead of 145, so the refitted transform is better determined and covers more of the image: prefer setting 1.
+
+**A4.** $2000 \cdot 2000 \cdot 128 = 5.1 \cdot 10^8$ multiply-adds; binary: $4 \cdot 10^6$ pairs × 4 words = $1.6 \cdot 10^7$ XOR + bit counts, 32× fewer operations, each also cheaper.
+
+**A5.** (a) Matches on cells that moved or divided: same cell, but their displacement is not the drift. The static background (scratches, debris, the dish) gives the drift. (b) It rejects most matches (every well has near-identical impostors, ratio near 1); the few accepted ones are often confidently wrong, e.g. to a neighbouring well, because by chance one impostor was a bit further away.
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that the mutual nearest-neighbour pairs form a matching (no point in two pairs). Give a 2 × 2 distance matrix where the mutual check keeps fewer pairs than the optimal one-to-one assignment.
+
+**B7.** *(math)* For a feature, the distances to the $n$ wrong descriptors are independent and uniform on $[a, b]$, and the true partner is at distance $c < a$. Show that the expected second-nearest distance is $a + (b - a)/(n + 1)$ and give the approximate ratio. Evaluate for $a = 0.5$, $b = 1.2$, $n = 99$, $c = 0.2$. How does the ratio depend on $c$?
+
+**B8.** *(math)* Number of distance evaluations per query for brute force and for a balanced k-d tree in 2 dimensions, $n = 10^6$ (exact search visits $O(1)$ leaves after descending). Why does the argument break down in 128 dimensions?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** See the quiz: a unique nearest neighbour means $i$ cannot be mutual with two different $j$, and vice versa. Example $C = \begin{pmatrix}1 & 2\\ 1.5 & 10\end{pmatrix}$: row 1 → column 1, row 2 → column 1; column 1 → row 1, column 2 → row 1. Mutual: only (1, 1). The assignment with both points used: (1, 2) + (2, 1) = 3.5, smaller than (1, 1) + (2, 2) = 11. One mutual pair against two assigned pairs.
+
+**B7.** The minimum $m$ of $n$ uniforms on $[a, b]$ has $P(m > x) = ((b - x)/(b - a))^n$, so $E[m] = a + \int_a^b ((b - x)/(b - a))^n dx = a + (b - a)/(n + 1)$. The nearest is the true partner (at $c < a$), the second nearest is this minimum: ratio $\approx c/(a + (b - a)/(n + 1)) = 0.2/(0.5 + 0.007) = 0.39$. It is proportional to $c$: a better descriptor (smaller $c$) gives a smaller ratio; a feature without a partner has $d_1, d_2$ both near $a$: ratio near 1.
+
+**B8.** Brute force: $10^6$ distances per query. k-d tree: depth $\log_2 10^6 \approx 20$ comparisons to reach a leaf of a few points, plus a few neighbouring leaves: tens of distances. In 128 dimensions the distance to the nearest neighbour is almost as large as to any other point (concentration of distances), so the ball around the query crosses almost every splitting plane and the search visits nearly all leaves.
+:::
+
+## Explore: matching {#explore}
+
+Two views: view 2 is view 1 turned 30°, zoomed 1.3×, with gain 1.2 and noise 3 (or a repetitive scene, or the micrograph). 200 DoG keypoints per view, with gradient-histogram, binary or patch descriptors. Matches are lines, green = correct by the known transform (ε px), red = wrong. Below: histograms of $d_1$ and of $d_1/d_2$ for correct and wrong nearest-neighbour matches (click them to set the thresholds), and the precision–recall curve. Click a keypoint of view 1 to see its nearest and second nearest.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="featurematch" data-preset="nn" data-layout="full"></div>
+<script src="../demos/dist/featurematch.js"></script>
+```
+
+**E1.** Preset **nearest only: a mess**. How many matches, how many correct? What are precision and recall, and how many correct matches are possible at all?
+
+**E2.** Preset **distance threshold: can't separate** ($d_1 \le 0.45$). Precision and recall? Look at the $d_1$ histogram: why can no threshold give high precision **and** high recall?
+
+**E3.** Preset **ratio 0.8**. Precision and recall? Move the ratio threshold to 0.6 and 0.9. Where on the precision–recall curve are you?
+
+**E4.** Preset **ratio + mutual**. What does the mutual check add? Where are the remaining wrong matches?
+
+**E5.** Tick **one-to-one** with the ratio test off. How many matches and how many correct? Why so many wrong ones?
+
+**E6.** Preset **repetitive grid** (ratio off), then set the ratio to 0.8, then tick **mutual**. Count correct matches each time.
+
+**E7.** Preset **binary vs histogram under blur** (blur 1.5): compare binary and histogram descriptors (precision, recall).
+
+**E8.** Preset **approximate search: 4× fewer distances** (k-d tree, 8 leaves). How often is the exact nearest neighbour found, and what happens to precision? Try 1 and 64 leaves.
+
+**E9.** Preset **the micrograph tiles**. How do precision and recall compare with the synthetic scene?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 290 matches (one per descriptor of view 1), 71 correct: precision 24 %, recall 88 % of the 81 possible correct matches.
+
+**E2.** 81 accepted, 57 correct: precision 70 %, recall 70 %. The correct matches lie at small $d_1$ (median 0.14) and the wrong ones at large $d_1$ (median 0.68), but both spread over 0.3–0.7: a threshold below the overlap loses correct matches, above it lets wrong ones in. With 0.3: 50 matches, all correct (100 %), recall only 62 %.
+
+**E3.** Ratio 0.8: 85 accepted, 66 correct: precision 78 %, recall 81 %. 0.6: 57, 55 correct (96 %, 68 %); 0.9: 134, 68 correct (51 %, 84 %). Lower thresholds move up and to the left on the curve.
+
+**E4.** 69 accepted, 64 correct (93 %), recall 79 %: it removes 16 matches, of which 14 were wrong. Most remaining wrong matches start in the repetitive patch of small squares in view 1 (bottom right): without that patch, the ratio test alone gives 65 matches, 61 correct.
+
+**E5.** 144 matches (each descriptor of view 2 used once), 72 correct (50 %). The assignment must pair every point of view 2 with some point of view 1, even when the true partner was not detected: it trades local quality for a global optimum of the wrong problem.
+
+**E6.** Ratio off: 638 matches, 40 correct (6 %). Ratio 0.8: 97 matches, 14 correct (14 %). Plus mutual: 28 matches, 10 correct (36 %). Descriptors cannot tell identical wells apart; only geometry can.
+
+**E7.** Binary: 95 accepted, 47 correct (49 %), recall 87 % (of 54 possible). Histogram: 83 accepted, 55 correct (66 %), recall 79 % (of 70). The histogram is more robust to blur.
+
+**E8.** With 8 leaves the exact nearest is found for 61 % of the queries with 10 447 instead of 41 760 distance computations; precision drops from 78 % to 70 % (86 accepted, 60 correct). With 1 leaf: 29 % exact, precision 49 %. With 64 leaves: 100 % exact, but 41 652 distances: no saving at all in 128 dimensions.
+
+**E9.** Ratio 0.8: 87 accepted, 82 correct (94 %), recall 85 % (96 possible); with the mutual check 84 and 80 (95 %). Better than the synthetic scene, which has a repetitive patch and many similar shapes.
+:::
+
+## Where this leads
+
+Even after the ratio test and the mutual check, some matches are wrong. The next unit uses **geometry**: all correct matches agree on one transform, found robustly with RANSAC: [from matches to a transform](../feature-alignment/lec.qmd). With a 3D scene the matches obey epipolar geometry instead: [two views](../two-view/lec.qmd).

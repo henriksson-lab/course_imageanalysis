@@ -38,9 +38,16 @@ This day owns the parallel scan; the integral-image unit owns the sequential run
 
 Think in patterns instead of loops: if every output can be computed **without the other outputs**, all of them can run at once.
 
+:::: {.columns}
+::: {.column width="58%"}
 - **Map**: each output from the input at the same pixel. Gain and offset, gamma, thresholding, colour conversion, adding images. Perfectly parallel; memory-bound (last unit).
 - **Stencil**: each output from a fixed neighbourhood of the input. Convolution ([kernels](../kernels/lec.qmd)), morphology with a small structuring element, finite differences, one step of a diffusion. Parallel per output pixel; tiles and halos (last unit).
 - An **iterated** stencil (100 diffusion steps) needs 100 passes: step $t+1$ needs **all** of step $t$, a global barrier between passes.
+:::
+::: {.column width="42%"}
+![](fig-map-stencil.svg){fig-alt="Two 5 by 5 input grids each with an arrow to a 5 by 5 output grid. Map: one orange input pixel gives the blue output pixel at the same place. Stencil: the orange 3 by 3 neighbourhood of the input gives the one blue output pixel at its centre." width="100%"}
+:::
+::::
 
 The interesting cases are the ones where outputs depend on **many** inputs.
 
@@ -60,6 +67,8 @@ Recall [summing many pixels](../floatingpoint/lec.qmd): adding small numbers to 
 - But floating-point addition is **not associative**: $(a + b) + c$ can differ from $a + (b + c)$ in the last digit.
 - How the work is split over blocks changes the grouping: two runs, or two GPUs, can give **different last digits** for the same sum.
 - Reproducible sums need a fixed order (fixed tree), or integer / compensated arithmetic.
+
+![](fig-order.svg){fig-alt="The demo preset: 2000 and fifteen small values (1.5, 3, 0.5, ...) summed by a tree in float16, every partial sum rounded. Step 1 gives 2002, 3.5, 3.5, 4, 3.5, 4, 3, 2.5; step 2 gives 2006, 7.5, 7.5, 5.5; step 3 gives 2014 and 13; step 4 gives 2027. The sequential loop gives 2025; the exact sum is 2025.5." width="96%" fig-align="center"}
 
 ## Try it: reduction and the order of additions
 
@@ -104,6 +113,8 @@ Each running total seems to need the previous one, yet it runs in $\log_2 n$ ste
 
 ## Blelloch: the work-efficient scan
 
+:::: {.columns}
+::: {.column width="58%"}
 1. **Up-sweep**: a reduction tree that keeps its partial sums in place (block sums of 2, 4, 8, …).
 2. Set the last element to 0.
 3. **Down-sweep**: walking back down the tree, each node passes its value to its left child and gives its right child (left value + its own).
@@ -111,6 +122,11 @@ Each running total seems to need the previous one, yet it runs in $\log_2 n$ ste
 Result: the exclusive scan in $2\log_2 n$ steps with $2(n-1)$ additions, the same order of work as the loop. For large $n$ the GPU prefers it (less work); for one block, Hillis–Steele (fewer steps).
 
 The integral image = a scan along every row, then along every column: both are thousands of independent scans.
+:::
+::: {.column width="42%"}
+![](fig-blelloch.svg){fig-alt="Blelloch scan of 3, 1, 7, 0, 4, 1, 6, 3 drawn as rows. Up-sweep: 3 4 7 7 4 5 6 9, then 3 4 7 11 4 5 6 14, then the total 25 at the right end. The last element is set to 0. Down-sweep, three steps of swap-and-add arrows: 3 4 7 0 4 5 6 11, then 3 0 7 4 4 11 6 16, then the exclusive scan 0 3 4 11 11 15 16 22. 8 steps, 14 additions." width="100%"}
+:::
+::::
 
 ## Try it: scans
 
@@ -136,6 +152,8 @@ Each factor is one parallel step: every element adds its neighbour $2^d$ to the 
 
 ## Stream compaction
 
+:::: {.columns}
+::: {.column width="62%"}
 Keep only some elements (the foreground pixels, the unfinished rays, the detected spots), **densely packed**:
 
 1. a 0/1 mask of the elements to keep (a map);
@@ -143,14 +161,26 @@ Keep only some elements (the foreground pixels, the unfinished rays, the detecte
 3. every kept element writes itself to that position (a scatter without conflicts).
 
 All three steps are parallel. Uses: building the list of object pixels, of edge pixels, of active cells; radix sort; and the cure for divergence (last unit): **compact** the pixels that need the expensive branch into a dense list, so that they fill whole warps.
+:::
+::: {.column width="38%"}
+![](fig-compact.svg){fig-alt="Stream compaction of 16 values 3 1 7 0 4 1 6 3 5 2 2 8 1 4 0 6 drawn as columns. Keep mask 1 0 1 1 0 0 1 0 1 1 0 0 0 1 0 1 (kept rows orange). Its exclusive scan 0 1 1 2 3 3 3 4 4 5 6 6 6 6 7 7. Arrows from each kept element to its scan position in the output: 3 7 0 6 5 2 4 6, 8 kept." width="88%"}
+:::
+::::
 
 ## Histogram: atomic additions
 
+:::: {.columns}
+::: {.column width="58%"}
 Each thread looks at one pixel and adds 1 to bin $h(I_p)$ ([histograms](../histogram/lec.qmd)). Many threads, few bins, positions that depend on the data.
 
 - Two threads incrementing the same bin at the same time would both read 5 and both write 6: a count is lost. The increment must be **atomic**: read–add–write as one indivisible step.
 - Atomic updates to **the same address are serialised**: one per cycle. A dark image whose pixels nearly all fall into bin 0 makes every thread wait in one queue: **contention**.
 - **Privatisation**: each block keeps its own histogram in its fast memory, then the block histograms are added (a reduction). The queue on one bin is divided by the number of blocks.
+:::
+::: {.column width="42%"}
+![](fig-contention.svg){fig-alt="Two histograms of the 64 pixels of the demo, one atomic update per pixel. Dark image: 58 updates to bin 0 and 6 to bin 1: 58 cycles in one queue. Uniform image: 3 to 11 updates per bin, the busiest bin has 11: 11 cycles." width="100%"}
+:::
+::::
 
 The same for every **scatter** with collisions: Hough voting into an accumulator, splatting points into an image.
 
@@ -178,10 +208,17 @@ $$t \approx \frac{n\max_j q_j}{m} + m.$$
 
 ## Gather or scatter, and the FFT
 
+:::: {.columns}
+::: {.column width="60%"}
 - **Gather**: a thread reads many inputs and writes one output (convolution, interpolation, back-projection per output pixel). No write conflicts, no atomics.
 - **Scatter**: a thread writes to many or data-dependent outputs (histograms, Hough voting, splatting, back-projection per projection ray). Needs atomics.
 - Rewrite scatter as gather where possible: in [filtered back-projection](../fbp/lec.qmd), loop over output pixels and gather from every projection, instead of smearing every ray into the image.
 - The **FFT** ([Fourier](../fourier/lec.qmd)): $\log_2 n$ passes, each a map over pairs of values (butterflies): regular and parallel, but each pass moves all the data: bandwidth-bound. A 2D FFT = 1D FFTs along rows, then columns (coalescing: transpose in between).
+:::
+::: {.column width="40%"}
+![](fig-gather-scatter.svg){fig-alt="Top, gather: one output cell reads three neighbouring input cells; no write conflicts. Bottom, scatter: five input cells write to output cells chosen by their data; three of them land on the same output cell, which needs atomic additions." width="100%"}
+:::
+::::
 
 ## Summary
 

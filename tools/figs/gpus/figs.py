@@ -89,7 +89,7 @@ save(fig, "gpu-memory/fig-hierarchy.svg")
 # ---------------------------------------------------------------- 4. roofline, desktop preset
 peak, bw = 30e12, 1e12
 I = np.logspace(-2, 3.5, 300)
-fig, ax = plt.subplots(figsize=(10, 6))
+fig, ax = plt.subplots(figsize=(7.6, 5.4))
 ax.loglog(I, np.minimum(peak, bw * I) / 1e12, "k", lw=3)
 ax.axvline(peak / bw, color=GREY, ls="--", lw=1.5)
 ax.text(peak / bw * 1.1, 0.012, "ridge I* = 30", color=GREY)

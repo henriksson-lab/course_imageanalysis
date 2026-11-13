@@ -1,0 +1,241 @@
+---
+title: "Exercise: contrast and intensity transforms"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- recognise **point operations**, sketch their curves and predict what the **slope** does to contrast and noise,
+- compute **gamma** and **log** displays by hand,
+- **equalise** a small histogram by hand and explain why the result is not flat,
+- explain **CLAHE** (tiles, interpolation, clip limit) and **histogram matching**,
+- say for each transform what it does to **measurements**, and where to measure instead.
+
+Do the pen-and-paper part first, then the four demos.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Point operation | $s = T(v)$: the new value depends only on the old value of the same pixel; one curve for the whole image |
+| Lookup table (LUT) | $T$ computed once per possible value ($L$ = 256 for 8 bits, 4096 for 12 bits), then looked up per pixel |
+| Slope $T'(v)$ | the contrast gain at $v$; noise is multiplied by the same factor |
+| Gamma | $s = v^\gamma$ on values scaled to $[0, 1]$; γ < 1 brightens the darks |
+| Log | $s = c\ln(1 + v)$; equal ratios become equal steps |
+| Cumulative histogram | $c_k$ = number of pixels with value $\le k$; $P(k) = c_k / N$ |
+| Equalisation | $s_k = \operatorname{round}\big((L - 1)\,c_k/N\big)$ |
+| CLAHE | one equalisation curve per tile, from the tile's histogram **clipped** at β × the mean count with the excess spread evenly; each pixel blends the curves of the four nearest tile centres |
+| Matching | $T = G^{-1}\circ F$: find the target value with the same cumulative fraction |
+
+## By hand
+
+**B1.** Point operation or not? For each that is, sketch its curve (input on the $x$ axis, output on the $y$ axis, 8-bit values).
+(a) the negative; (b) a Gaussian blur; (c) a window $[50, 150]$; (d) a 3 × 3 median filter; (e) a threshold at 100; (f) CLAHE; (g) adding 40 to every pixel; (h) subtracting a background image.
+
+**B2.** Gamma by hand, on values scaled to $[0, 1]$: map 0.01, 0.04, 0.25 and 0.81 with γ = 0.5 and with γ = 2. Which γ brightens the darks? What is the slope of the γ = 0.5 curve at 0.04 and at 0.81, and what does it do to noise of SD 0.01 at those two values?
+
+**B3.** A 12-bit image (0 … 4095) is shown on 8 bits with $s = c\ln(1 + v)$.
+(a) Find $c$ so that 4095 → 255.
+(b) Map 10, 100 and 1000. How many display levels does each factor of 10 get?
+
+**B4.** (a) An 8-bit image uses only the values 60 … 123. You stretch it linearly to 0 … 255. How many distinct values does the result have, and what does its histogram look like?
+(b) A 12-bit image uses 960 … 1980 and is shown with the window $[960, 1980]$ on 8 bits. How many display levels are used?
+
+**B5.** Equalise the 8-level, 64-pixel image with counts 6, 22, 18, 8, 5, 3, 1, 1 (levels 0 … 7) by hand: the cumulative histogram, the mapping $s_k = \operatorname{round}(7c_k/64)$, the output histogram. Is it flat? Which input levels merged, which output levels are empty, and why can the level with 22 pixels not be split?
+
+**B6.** Histogram matching by hand: match the same image to the target counts 0, 0, 8, 8, 16, 16, 8, 8. For each input level $k$, find the smallest target level whose cumulative count reaches $c_k$. Give the mapping and the output histogram.
+
+**B7.** Predict, without computing:
+(a) you apply γ = 0.5 to an image and then equalise it;
+(b) you equalise an image and then equalise the result again;
+(c) you equalise an image in which every pixel has the same value.
+
+**B8.** A background peak holds 40 % of the pixels within 20 of the 256 levels; its noise has SD 3 grey levels. Estimate the slope of the global equalisation curve there and the noise SD afterwards. With CLAHE at β = 3, at most how large can the background noise become?
+
+**B9.** A CLAHE tile has 16 pixels and 4 levels with counts 1, 10, 4, 1. The clip limit is 1.5 × the mean count.
+(a) Clip, spread the excess evenly over the 4 bins, and accumulate: give the tile curve $s_k = 3c_k/16$ before and after.
+(b) The contrast gain of a level is $L\,h(k)/N$ (1 for a flat histogram). Give it for the most common level before and after.
+(c) After one spreading, one bin is above the limit again. Which, and why? What happens if you repeat clip-and-spread?
+
+**B10.** Two cells in a 12-bit image have raw means 300 and 600; the background is 100.
+(a) What is their ratio after background subtraction?
+(b) Do the same computation after γ = 0.5 applied to $v/4095$.
+(c) Can you compute the ratio after equalising each of the two images separately? Why not?
+
+**B11.** Which of these are unchanged by **any** rising curve (in the sense that the transformed statistic picks out the same pixels, or equals the curve applied to the original statistic)? The mean; the median; the set of pixels above the 90th percentile; the Pearson correlation of two channels; the Spearman correlation; the mask of a "brightest 10 %" threshold; the mask of an Otsu threshold.
+
+**B12.** A colleague equalises every frame of a time-lapse "so the cells are easier to see", then plots the mean cell intensity over time. What goes wrong? What should they do?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Yes: a falling line from (0, 255) to (255, 0). (b) No: each output averages neighbours. (c) Yes: 0 up to 50, a straight ramp to 255 at 150, 255 above. (d) No: it looks at neighbours. (e) Yes: a step, 0 below 100 and 255 from 100 on. (f) No: each pixel still goes through a curve, but the curve depends on where the pixel is (its tiles), so the same value maps to different outputs in different places. (g) Yes: the identity shifted up by 40, flat at 255 from 215 on (clipped in 8 bits). (h) No: the amount subtracted depends on the position.
+
+**B2.** γ = 0.5: 0.1, 0.2, 0.5, 0.9. γ = 2: 0.0001, 0.0016, 0.0625, 0.6561. γ = 0.5 brightens the darks. Slope $0.5\,v^{-0.5}$: 2.5 at 0.04 and 0.56 at 0.81. Noise of SD 0.01 becomes about 0.025 in the darks and 0.0056 in the brights: the dark noise is amplified, the bright noise reduced.
+
+**B3.** (a) $c = 255/\ln 4096 = 30.66$. (b) $30.66\ln 11 = 73.5 \to 74$; $30.66\ln 101 = 141.5 \to 141$; $30.66\ln 1001 = 211.8 \to 212$. Each decade gets $c\ln 10 \approx 71$ levels (74 → 141 → 212: 67 and 71; the first is a little less because of the "1 +").
+
+**B4.** (a) 64 input values become 64 output values, about 4 levels apart (0, 4, 8, 12, …): 64 of 256 levels used, 192 empty. The histogram is a **comb**; a smooth gradient shows bands. (b) 1021 raw values share 256 levels, about 4 per level: all 256 levels are used, and the histogram is smooth.
+
+**B5.** Cumulative: 6, 28, 46, 54, 59, 62, 63, 64. $7c_k/64$ = 0.66, 3.06, 5.03, 5.91, 6.45, 6.78, 6.89, 7. Mapping: 1, 3, 5, 6, 6, 7, 7, 7. Output counts at levels 0 … 7: 0, 6, 0, 22, 0, 18, 13, 5. Not flat (flat would be 8 each). Input levels 3 and 4 merged into 6, and 5, 6, 7 into 7. Output levels 0, 2 and 4 are empty. The 22 pixels all have the same input value, and a point operation gives the same output to the same input: they move together.
+
+**B6.** Target cumulative: 0, 0, 8, 16, 32, 48, 56, 64. For $c_k$ = 6: the first target level with cumulative ≥ 6 is 2; 28 → 4 (32); 46 → 5 (48); 54 → 6 (56); 59, 62, 63, 64 → 7. Mapping 2, 4, 5, 6, 7, 7, 7, 7. Output counts at levels 0 … 7: 0, 0, 6, 0, 22, 18, 8, 10, against the target 0, 0, 8, 8, 16, 16, 8, 8. Close in the cumulative sense, not bin by bin, for the same reason as in B5.
+
+**B7.** (a) The same as equalising directly: equalisation depends only on the order of the values, and a rising gamma keeps the order. (If the gamma result is rounded back to 8 bits, a few bright levels may merge where the slope is below 1; then the results differ slightly there.) (b) Nothing changes, up to rounding: for B5, the second pass maps 1, 3, 5, 6, 7 to 1, 3, 5, 6, 7. (c) The cumulative histogram jumps from 0 to 1 at that value: every pixel maps to $L - 1$ (white). There is one output level, whatever you do.
+
+**B8.** The curve rises by about $255 \cdot 0.4 = 102$ levels over 20 input levels: slope ≈ 5.1. The noise SD becomes ≈ 5.1 × 3 ≈ 15 grey levels. With CLAHE at β = 3 the slope is at most about 3, so the noise SD is at most about 9.
+
+**B9.** (a) Mean count 4, limit 6. Clipping removes 4 from the bin of 10; spreading adds 1 to every bin: 2, 7, 5, 2. Curve before: $c$ = 1, 11, 15, 16 → 0.19, 2.06, 2.81, 3. After: $c$ = 2, 9, 14, 16 → 0.38, 1.69, 2.63, 3. (b) Before $4 \cdot 10/16 = 2.5$, after $4 \cdot 7/16 = 1.75$. (c) The clipped bin itself also receives its share of the excess: 6 + 1 = 7 > 6. Repeating clip-and-spread converges to 2.33, 6, 5.33, 2.33: the largest gain is then exactly $4 \cdot 6/16 = 1.5$ = β.
+
+**B10.** (a) $(600 - 100)/(300 - 100) = 2.5$. (b) $\big(\sqrt{600/4095} - \sqrt{100/4095}\big)/\big(\sqrt{300/4095} - \sqrt{100/4095}\big) = (0.383 - 0.156)/(0.271 - 0.156) = 1.98$. (c) No. Each image gets its own curve, which depends on its whole histogram (how many pixels are background, how many are cells). An equalised value is a rank, "brighter than this fraction of that image", not an intensity, so a ratio of equalised values compares fractions of pixels in two different images.
+
+**B11.** Unchanged: the median (the median pixel stays the median pixel, $\operatorname{median}T(X) = T(\operatorname{median}X)$), the set of pixels above the 90th percentile, the Spearman correlation (it uses ranks), and the "brightest 10 %" mask. Changed in general: the mean ($\overline{T(v)} \ne T(\bar v)$ unless $T$ is linear), the Pearson correlation (it uses the values), and the Otsu mask (Otsu uses class means and variances; when the classes are well separated the mask often survives, but after equalisation of a noisy background it may not: in the `displayvsdata` demo the Otsu mask grows from 5024 to 18 746 pixels).
+
+**B12.** Each frame gets its own curve. An equalised value is a rank within that frame, so the mean equalised intensity of a whole frame is always about the middle of the range, and a cell that fades (bleaching) or brightens (a real response) keeps roughly its rank: the plot shows almost nothing. Do: segment on the equalised (or any helpful) display if needed, measure **raw** intensities inside the masks, correct bleaching explicitly, and show the movie with one fixed display setting.
+:::
+
+### Math questions
+
+**B13.** *(math)* Show that for a rising, differentiable $T$ and a continuous intensity with density $p_X$, the output density is $p_S(s) = p_X(v)/T'(v)$ at $s = T(v)$. Use it to find the output density when $T(v) = \sqrt v$ and $X$ is uniform on $[0, 1]$.
+
+**B14.** *(math)* (a) Prove that $F(X)$ is uniform on $[0, 1]$ for a continuous $X$ with a strictly rising cumulative distribution $F$. (b) For a discrete image, show that the output count at any used level is a sum of input counts, and conclude that a level with $h(k) > N/L$ stays above $N/L$.
+
+**B15.** *(math)* Show that equalisation is invariant to a strictly rising $g$ applied first: equalising $g(X)$ gives the same image as equalising $X$.
+
+**B16.** *(math)* Show that $T = G^{-1}\circ F$ gives $T(X)$ the distribution $G$ (continuous case). What goes wrong when $G$ has flat parts, and how does the generalised inverse $G^{-1}(u) = \min\{v' : G(v') \ge u\}$ handle it?
+
+**B17.** *(math)* CLAHE slope bound: a tile has $N$ pixels and $L$ bins, the clip limit is $\beta N/L$, and the clipped excess $E$ is spread evenly. Show that the slope of the tile curve $T(v) = \frac{L - 1}{N}\sum_{k \le v}\tilde h(k)$ is at most $\frac{L - 1}{L}(\beta + E/N)$.
+
+**B18.** *(math)* (a) Derive $\operatorname{SD}(T(X)) \approx |T'(\mu)|\operatorname{SD}(X)$ from a first-order Taylor expansion. (b) Show that $2\sqrt X$ has SD ≈ 1 for Poisson $X$ with a large mean.
+
+**B19.** *(math)* (a) Show with Jensen's inequality that $\mathbb E[T(X)] \le T(\mathbb E[X])$ for a concave $T$, and give the numbers for two pixels 100 and 900 with $T = \sqrt{\cdot}$. (b) Which $T$ keep the ratio $(\bar a - \bar b)/(\bar c - \bar b)$ of background-subtracted means for every image?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B13.** The pixels with values in $[v, v + dv]$ land in $[s, s + ds]$ with $ds = T'(v)\,dv$, and their number is the same: $p_S(s)\,ds = p_X(v)\,dv$, so $p_S(s) = p_X(v)/T'(v)$. Formally: $P(S \le s) = P(X \le T^{-1}(s)) = F_X(T^{-1}(s))$; differentiate and use $(T^{-1})'(s) = 1/T'(v)$. For $T = \sqrt v$ and $p_X = 1$: $T'(v) = 1/(2\sqrt v) = 1/(2s)$, so $p_S(s) = 2s$ on $[0, 1]$: a ramp; the darks are thinned out, the brights piled up.
+
+**B14.** (a) For $y \in [0, 1]$: $P(F(X) \le y) = P(X \le F^{-1}(y)) = F(F^{-1}(y)) = y$, the cumulative distribution of the uniform distribution. (b) Every pixel of input level $k$ goes to the same output level $s_k$, so the output count at level $j$ is $\sum_{k : s_k = j} h(k)$: a sum of whole input counts. If $h(k) > N/L$, the output level $s_k$ holds at least $h(k)$ pixels, more than $N/L$. In particular the number of used output levels cannot exceed the number of used input levels.
+
+**B15.** For a strictly rising $g$, $g(X) \le g(v) \iff X \le v$. So the cumulative count of $g(X)$ at $g(v)$ equals the cumulative count of $X$ at $v$: $F_{g(X)}(g(v)) = F_X(v)$. Each pixel with value $v$ gets $\operatorname{round}((L - 1)F_X(v))$ in both cases.
+
+**B16.** $U = F(X)$ is uniform (B14). For uniform $U$: $P(G^{-1}(U) \le t) = P(U \le G(t)) = G(t)$, using $G^{-1}(u) \le t \iff u \le G(t)$, which holds for the generalised inverse. So $T(X) = G^{-1}(F(X))$ has distribution $G$. Where $G$ is flat (target values with no probability), many $t$ share one value $u = G(t)$ and the ordinary inverse is not defined; the generalised inverse takes the smallest, so those values are simply never produced, as they should not be. For discrete images the jumps of $F$ add the rounding problem of B5.
+
+**B17.** The slope from bin $v - 1$ to $v$ is $\frac{L - 1}{N}\tilde h(v)$ with $\tilde h(v) = \min(h(v), \beta N/L) + E/L \le \beta N/L + E/L$. So the slope is at most $\frac{L - 1}{N}\cdot\frac{\beta N + E}{L} = \frac{L - 1}{L}\big(\beta + \frac{E}{N}\big)$. The straight line has slope $(L - 1)/L$ per bin in these units, so the gain is at most $\beta + E/N$; repeating clip-and-spread removes the $E/N$ term.
+
+**B18.** (a) $T(X) \approx T(\mu) + T'(\mu)(X - \mu)$, so $\operatorname{Var}T(X) \approx T'(\mu)^2\operatorname{Var}X$ and $\operatorname{SD}T(X) \approx |T'(\mu)|\operatorname{SD}X$. (b) For Poisson $X$, $\operatorname{SD}X = \sqrt\mu$; with $T = 2\sqrt x$, $T'(\mu) = 1/\sqrt\mu$, so $\operatorname{SD} \approx 1$ for every μ (the approximation is good when μ is large compared with 1).
+
+**B19.** (a) Jensen: for concave $T$, $T(\mathbb E X) \ge \mathbb E\,T(X)$ (a chord lies below a concave curve). Pixels 100 and 900: $\sqrt{500} = 22.36$, but $(\sqrt{100} + \sqrt{900})/2 = (10 + 30)/2 = 20$. (b) Every affine $T(v) = \alpha v + \delta$ with $\alpha \ne 0$: means commute with $T$, the offset δ cancels in the differences and α in the ratio. Any $T$ with curvature changes the ratio for some image (part a). In practice: a linear window, as long as nothing clips.
+:::
+
+## Explore: tone curves {#explore}
+
+The demo shows the image through the current curve (click a pixel to follow it), the curve over the input histogram (log counts), and the output histogram below (square-root counts, so gaps are visible). Images: the course micrograph (8 bit; credit under the image), a synthetic 12-bit fluorescence image, and the same image reduced to 8 bits.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="tonecurve" data-preset="window"></div>
+<script src="../demos/dist/tonecurve.js"></script>
+```
+
+**E1.** Preset **the window is a straight line**. Check by hand that the marked pixel (raw 787) gets display level 55 with the window 130 … 3176. How many raw levels are used, and how many display levels?
+
+**E2.** Preset **γ = 0.5 lifts the darks**. Read the contrast gain at the marked background pixel. Then click a pixel in a bright nucleus: is the gain larger or smaller than 1 there? What do you see in the background, and why?
+
+**E3.** Presets **stretch 8 bits ×4: the comb** and **the same stretch on 12 bits**. Compare the output histograms and the "levels used" readouts. Which rule from the lecture does this illustrate?
+
+**E4.** Preset **a falling part reverses the order**. Click a mid-grey pixel and a bright pixel. Which ends up brighter on the screen? The option "keep the curve rising" is off here: tick it and see how the curve changes.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** $255 \cdot (787 - 130)/(3176 - 130) = 255 \cdot 657/3046 = 55.0$. 3076 raw levels in, 256 display levels out (the window is narrower than the data range: 1.6 % of the pixels are black, 0.5 % white).
+
+**E2.** At the background pixel (raw 158) the gain is 4.25: four times more contrast than showing the full range linearly. In a bright nucleus the slope of $v^{0.5}$ is below 1, so the gain is below 1: bright detail is compressed. The background becomes grey and grainy: its noise is amplified by the same factor as its contrast.
+
+**E3.** 8 bits: 225 levels in, but the stretch uses only 64 output levels, every 4th: a comb. 12 bits: 253 output levels, a smooth histogram. A curve can merge levels but never split them: do contrast work on the high-bit data and convert to 8 bits last.
+
+**E4.** The curve rises to 255 at 128 and falls again (to 110 at 192, 20 at 255): a mid-grey pixel around 128 becomes white, while the brightest pixels become dark. The order of grey values is reversed for the bright part. Ticking "keep the curve rising" makes every point at least as high as the one to its left: the curve becomes 0, 170, 255, 255, 255 and the order is kept (with the bright part merged into white).
+:::
+
+### Explore: equalisation {#explore-equalise}
+
+Panels: input and output image, the mapping curve (dashed: $(L - 1)$ times the cumulative histogram), the input histogram with its cumulative histogram (red), and the output histogram with its cumulative histogram and the flat level $N/L$ (dashed). Click a histogram bar to highlight its pixels.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="equalise" data-preset="hand"></div>
+<script src="../demos/dist/equalise.js"></script>
+```
+
+**E5.** Preset **8 levels by hand**. Compare the output histogram with your answer to B5. Click the tallest output bar: which input pixels are these?
+
+**E6.** Preset **cumulative = curve** (the micrograph, $L$ = 256). How many output levels are used? How far is the output cumulative histogram from the straight line? Switch $L$ to 64 and 16: what happens to the output histogram?
+
+**E7.** Preset **gamma first: same**. Move the γ slider between 0.2 and 5. What changes, and what does not? Why?
+
+**E8.** Preset **exact: invented order**. Compare the readouts with **not flat: bins move** (the same foggy scene). Look closely at the flat regions of the output image. What has exact equalisation invented?
+
+**E9.** Presets **match another image** and **match a Gaussian**. Compare the mapping curves with the dashed equalisation curve. What would "match to flat" give?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E5.** Levels 0 … 7 hold 0, 6, 0, 22, 0, 18, 13, 5, as in B5. The tallest bar, level 3, is the 22 pixels of input level 1: the dark ring around the bright centre.
+
+**E6.** 195 of 256 levels used; the output cumulative histogram is within 0.7 % of the straight line. With fewer output levels each level collects more input levels, and the histogram gets closer to flat (with $L = 16$ the bars are similar in height, though not equal).
+
+**E7.** The input image and its histogram change (γ < 1 brightens and spreads the darks, γ > 1 the reverse); the output image, the output histogram and the readouts do not change at all. Equalisation uses only the order of the values (B15), and a rising gamma keeps the order.
+
+**E8.** Not flat: 105 levels in, 88 used out, largest bin 1594 against a flat 256. Exact: all 256 levels used, exactly 256 pixels each. The flat regions of the scene, where many pixels share a value, are spread over a range of output levels at random: exact equalisation invents an order among equal pixels, which shows as added noise.
+
+**E9.** Matching to another image (the micrograph) gives a curve that, like equalisation, is flat outside the occupied range, but it pushes most pixels up to bright values, because the micrograph is mostly bright; matching to a Gaussian puts most pixels near the middle. Matching to flat is equalisation (the two curves coincide up to rounding).
+:::
+
+### Explore: CLAHE {#explore-clahe}
+
+Left: input with the tile grid (the clicked pixel's tile in red, its four nearest tile centres as dots) and output; the green box is a background region. Middle: the four nearest tile curves with their weights and the blend, and the clicked tile's histogram with the clip line. Click to choose a pixel.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="clahe" data-preset="noclip"></div>
+<script src="../demos/dist/clahe.js"></script>
+```
+
+**E10.** Presets **global (1 tile)**, **no clip: the noise explodes** and **CLAHE β = 3** (faint-cell scene). Read the noise SD in the green box for each. Click in the background: what is the largest gain of that tile's curve? Compare with B8.
+
+**E11.** Preset **no interpolation: seams**, then tick "interpolate between tiles". What changes in the output? Click a pixel near a tile corner and read the four weights.
+
+**E12.** Presets **tiles too small** and **tiles too large = global**. What goes wrong at each end? What should the tile size be compared with the objects?
+
+**E13.** Preset **same raw value, two outputs**. Find the two marked pixels. Why does the same raw value give different outputs, and what does that mean for comparing two cells in one CLAHE image?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E10.** Global: 3.4 → 64.8; adaptive without clipping (8 × 8 tiles): 3.4 → 74.9; CLAHE β = 3: 3.4 → 9.5, about 3 × the input noise, as B8 predicts. Without clipping the clicked tile's curve has a largest gain of about 25: its histogram is a narrow peak and its curve a near-step. With β = 3 the readout shows exactly 3.00.
+
+**E11.** Without interpolation every tile has its own curve: squares with visible edges, most obvious where a tile border crosses a smooth region. With interpolation each pixel blends the four nearest curves, and the seams disappear. The four weights sum to 1; the nearest centre has the largest weight.
+
+**E12.** Too small (16 × 16 tiles of 16 pixels): each tile is pushed to full contrast on its own, so the inside of a cell and a patch of background look alike, with halos and blotches. Too large (2 × 2): the curve is almost global again, and dim regions get little contrast. Tiles should be clearly larger than the objects, so that each tile sees both object and background.
+
+**E13.** On the foggy scene two pixels with raw value about 123 become 102 and 157. They lie in different tiles, whose histograms (and curves) differ. In a CLAHE image a brighter cell can therefore look dimmer than another: comparisons are valid only within a tile-sized neighbourhood, never across the image.
+:::
+
+### Explore: display vs data {#explore-measure}
+
+A synthetic control and treated image (12 bit, the same six nuclei; the treated nuclei are 1.5× brighter above the offset of 100; Poisson noise). The transform is applied to both. Nuclei are segmented with Otsu on each displayed image (orange outlines); the table measures both images and gives the ratio, green when within ±2 % of the truth.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="displayvsdata" data-preset="raw"></div>
+<script src="../demos/dist/displayvsdata.js"></script>
+```
+
+**E14.** Go through the presets and fill in the ratio of the mean nucleus intensity (row 1) for: raw, same window, auto-windows, gamma, equalise each, match, CLAHE. Then tick "measure raw values" for each. What do you find?
+
+**E15.** Which transforms are safe to **segment** on here, and why does **segment on CLAHE, measure raw** recover 1.50? Look at the area rows and at "equalise each".
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E14.** Displayed values: raw 1.50, same window 1.50, auto-windows 1.01, gamma 1.30, equalise each 1.00, match 1.00, CLAHE 1.04. With "measure raw values" every one gives 1.50 again: the raw data never changed; only the display did. Within the control, the brightest/dimmest nucleus ratio is 2.17 raw, 1.67 after gamma and 1.52 after CLAHE.
+
+**E15.** For segmentation only the masks matter. Window, auto-window, gamma, match and CLAHE all give the same Otsu nucleus area here (5024 pixels, CLAHE within a few pixels), because the nuclei are well separated from the background. Equalising each image fails even for segmentation: the background, half of all pixels, is spread over half of the output levels, its noise reaches the nuclei's range, and Otsu takes 18 746 pixels. Segment on CLAHE, measure raw: the masks from the CLAHE display are good, and the raw values inside them give 1.50.
+:::
+
+## Where this leads
+
+- **Thresholding day**: a threshold is the steepest point operation; a percentile threshold is a fixed threshold on the equalised image; background correction (divide or subtract) is what makes an image **measurably** even.
+- **Colour day**: the sRGB transfer function is a power law used for storage; averaging and blurring belong in linear light ([linear RGB](../rgb-linear/lec.qmd)). Equalising a colour image channel by channel shifts the hues; equalise the lightness only.
+- **Texture features** use exactly equalised patches, so that texture does not depend on contrast ([texture features](../texture-features/lec.qmd)).
+- **Measurements**: normalise the numbers per well or per batch, not the pixels ([intensity features](../intensity-features/lec.qmd)).

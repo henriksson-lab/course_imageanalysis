@@ -37,6 +37,8 @@ This unit owns structure from motion, bundle adjustment (with gauge freedom, Sch
 
 ## The problem
 
+:::: {.columns}
+::: {.column width="60%"}
 Photographs of an object from many unknown positions: find where each camera was **and** the 3D shape.
 
 - **Photogrammetry**: objects, buildings, landscapes, archaeological finds; **plant phenotyping**: leaf areas and stem angles from a ring of photos.
@@ -44,6 +46,11 @@ Photographs of an object from many unknown positions: find where each camera was
 - The camera poses behind every modern 3D capture, including the radiance fields and Gaussian splats of the optional last unit.
 
 What we have from the previous units: matched interest points (unit 2), a way to get two cameras from $E$ (unit 2), triangulation (unit 2), and a camera from known 3D points by the DLT (unit 1).
+:::
+::: {.column width="40%"}
+![](fig-problem.svg){fig-alt="Flatland: an object outline with 40 points on it and 10 cameras around it; every observation is a ray from a camera through a point. Unknown: all camera poses and all points." width="100%"}
+:::
+::::
 
 ## The incremental pipeline
 
@@ -58,6 +65,8 @@ Small errors in each step add up, so step 6 is not optional. Global methods (all
 
 ## Bundle adjustment
 
+:::: {.columns}
+::: {.column width="50%"}
 One least-squares problem: change **all** camera parameters and **all** points to minimise the **total reprojection error** (the pixel distance between each observed point and where the current cameras and points predict it).
 
 - "Bundle": the bundle of rays from each point to the cameras that see it, adjusted until they hit the observations.
@@ -65,6 +74,11 @@ One least-squares problem: change **all** camera parameters and **all** points t
 - It is the nonlinear big sibling of the global tile alignment in [stitching](../stitching/lec.qmd): there, pairwise shifts gave tile positions in one **linear** least-squares solve. Here the unknowns enter through rotations and a division by depth: **nonlinear**.
 
 Typical sizes: 10 cameras, 1000 points seen 4 times each: 3060 unknowns, 8000 residuals.
+:::
+::: {.column width="50%"}
+![](fig-ba-start.svg){fig-alt="The flatland bundle adjustment demo, large perturbation. Left, the start: cameras and points displaced, the rays miss the points, RMS 58 px. Right, after Levenberg–Marquardt: the rays pass through the points, RMS 0.15 px." width="100%"}
+:::
+::::
 
 ## The math: the bundle adjustment objective {.math}
 
@@ -84,6 +98,8 @@ Nonlinear least squares, walking downhill:
 - **Levenberg–Marquardt** adds a **damping** $\mu$: large $\mu$ = a small, careful step downhill; small $\mu$ = the full Gauss–Newton step. After a step that lowers the error, $\mu$ shrinks; after one that does not, the step is rejected and $\mu$ grows.
 
 By hand, one unknown: a point at $X = 1$ seen at normalised $x = 0.25$, depth $Z$ unknown. Residual $r(Z) = 0.25 - 1/Z$, slope $1/Z^2$. From $Z_0 = 3$: $r = -0.083$, slope 0.111, step $+0.75$: $Z_1 = 3.75$; then $Z_2 = 3.98$. The truth is 4.
+
+![](fig-gn-lm.svg){fig-alt="Left: the residual r(Z) = 0.25 − 1/Z with two Gauss–Newton steps along its tangents, from Z = 3 to 3.75 to 3.98, close to the root at 4. Right: RMS error per step on a log scale for the large perturbation in the demo: Gauss–Newton goes from 58 to 154 to 1178 px and stalls near 94; Levenberg–Marquardt goes 58, 15, 4.9, 1.0, 0.25 and settles at 0.15 px, below the noise level 0.2 px." width="100%"}
 
 ## The math: Gauss–Newton and Levenberg–Marquardt {.math}
 
@@ -111,12 +127,19 @@ with $D = I$ or $D = \mathrm{diag}(J^\top J)$ (Marquardt's scaling).
 
 ## Gauge freedom
 
+:::: {.columns}
+::: {.column width="62%"}
 Move, turn or scale the **whole** reconstruction (all cameras and all points together): every image stays exactly the same.
 
 - 3D: 3 (translation) + 3 (rotation) + 1 (scale) = **7** directions in which the error does not change at all. In the 2D flatland demo: 2 + 1 + 1 = **4**.
 - The solution is a family, not a point; the solver may wander along it, and its linear systems are singular.
 - **Fix the gauge**: hold the first camera still and fix one distance (or one coordinate of a second camera). Or add a known length, which also sets the true scale.
 - The same thing happened in stitching: tile positions from pairwise shifts are determined only up to a common shift, so one tile is held fixed.
+:::
+::: {.column width="38%"}
+![](fig-gauge.svg){fig-alt="A flatland reconstruction (40 points, 10 cameras) and a copy of it moved, turned by 35 degrees and scaled by 0.6, cameras included: every camera sees exactly the same image in both." width="100%"}
+:::
+::::
 
 ## Sparsity: why it scales
 
@@ -138,17 +161,31 @@ $$(U - WV^{-1}W^\top)\,\boldsymbol\delta_c = \mathbf g_c - WV^{-1}\mathbf g_p .$
 
 ## Robustness, drift and loop closure
 
+:::: {.columns}
+::: {.column width="62%"}
 - A few **wrong matches** with residuals of 20 pixels dominate a sum of squares: the solver bends everything to reduce them. A **robust** loss (Huber: squared for small residuals, linear for large ones) lets them stay large. Combine with RANSAC upstream.
 - **Drift**: in a long chain of cameras (walking down a corridor, a time-lapse, tiles of a mosaic) each new pose inherits the errors of the previous one, as in the chain of tiles in stitching.
 - **Loop closure**: when the camera sees an old part of the scene again, the matches tie the end of the chain to its start, and bundle adjustment spreads the accumulated error around the loop.
+:::
+::: {.column width="38%"}
+![](fig-robust.svg){fig-alt="Cost against residual: the squared loss r² and the Huber loss with δ = 1 px, which is quadratic up to 1 px and linear beyond. A 20 px residual costs 400 squared but 39 with Huber." width="100%"}
+:::
+::::
 
 ## How certain are the points?
 
+:::: {.columns}
+::: {.column width="50%"}
 After bundle adjustment the solver knows how steep the error is in every direction: shallow directions are uncertain.
 
 - With the gauge fixed, the **covariance** of the estimate is about $\sigma^2(J^\top J)^{-1}$ ($\sigma$ = pixel noise). Each point gets an **uncertainty ellipse** (ellipsoid in 3D).
 - Points seen from many directions: small, round ellipses. Points seen only from one side, or far from all cameras: **long** ellipses (the wedges of unit 2).
 - The ellipses also carry the uncertainty of the cameras: if the cameras' own positions are poorly fixed, all points share a long common direction.
+:::
+::: {.column width="50%"}
+![](fig-ellipses.svg){fig-alt="2-sigma uncertainty ellipses of the points after bundle adjustment, magnified 2 times. Ten cameras all round: small, nearly round ellipses. Six cameras on one side: long ellipses pointing along the viewing direction, all sharing a common direction." width="100%"}
+:::
+::::
 
 ## The math: gauge and covariance {.math}
 
@@ -170,12 +207,19 @@ After bundle adjustment the solver knows how steep the error is in every directi
 
 ## Dense reconstruction: multi-view stereo
 
+:::: {.columns}
+::: {.column width="63%"}
 Structure from motion gives the cameras and a **sparse** set of points. With the cameras known, **every pixel** can be matched:
 
 - **Plane sweep** (Collins, 1996): for one reference image, try a series of depths. For each depth, imagine a plane at that depth, warp the other images onto the reference **through that plane** (a homography), and compare. Where the colours agree across all views (**photo-consistency**), the surface is at that depth.
 - Per pixel, keep the most consistent depth: a **depth map** per image (stereo, generalised to many views and any camera arrangement).
 - Fuse the depth maps into a point cloud or a volume, and extract a mesh with [marching cubes](../marchingcubes/lec.qmd).
 - It fails where stereo fails: textureless and shiny surfaces, occlusions (a point hidden in some views); more views help, wide angles hurt.
+:::
+::: {.column width="37%"}
+![](fig-sweep.svg){fig-alt="Plane sweep in flatland with 3 views: photo-consistency (variance across views) against depth for one pixel. Textured pixel 60: a sharp minimum at 2.58, the true depth 2.57. Textureless pixel 66: a long flat valley of zero variance; the minimum at 2.16 is far from the true 2.60." width="100%"}
+:::
+::::
 
 ## The math: the plane-induced homography {.math}
 

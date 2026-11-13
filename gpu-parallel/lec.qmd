@@ -48,9 +48,16 @@ A direct 9 × 9 box filter on a 2048 × 2048 float image: on the CPU in plain Ty
 
 ## A processor in three numbers
 
+:::: {.columns}
+::: {.column width="54%"}
 - A processor executes **instructions** (add, multiply, compare, load, store) at a **clock rate** of about $3 \cdot 10^9$ cycles per second: one simple instruction takes about 0.3 ns.
 - Data lives in **main memory**, physically far away: one read takes about **100 ns**, i.e. **300 cycles** of doing nothing.
 - **Caches**: small, fast memories next to the processor that keep recently used data. A hit costs a few cycles; a miss costs the full trip.
+:::
+::: {.column width="46%"}
+![](fig-latency.svg){fig-alt="Horizontal bar chart on a logarithmic axis of cycles at 3 times 10 to the 9 per second: one instruction 1 cycle (0.3 ns), a cache hit about 4 cycles (about 1 ns), a main memory read 300 cycles (100 ns)." width="100%"}
+:::
+::::
 
 An image is far bigger than any cache: a 2048 × 2048 float32 image is 16 MB. Most of the art of fast image code is about **not waiting for memory**.
 
@@ -77,27 +84,48 @@ A sports car (2 people, 200 km/h) vs a bus (50 people, 80 km/h): the bus moves 1
 Time for $n$ items with a start-up cost $t_0$ and a rate $R$:
 $$t(n) = t_0 + \frac{n}{R}.$$
 
+:::: {.columns}
+::: {.column width="56%"}
 - CPU: small $t_0$, small $R$. GPU: large $t_0$ (moving the data, starting the program), large $R$.
 - The GPU is faster when $t_0^\text{GPU} + n/R_\text{GPU} < t_0^\text{CPU} + n/R_\text{CPU}$, i.e. above the **break-even** size
 $$n^* = \frac{t_0^\text{GPU} - t_0^\text{CPU}}{1/R_\text{CPU} - 1/R_\text{GPU}}.$$
 - Example: CPU $t_0 = 0.01$ ms, $R = 2\cdot10^8$ pixels/s; GPU $t_0 = 0.5$ ms, $R = 10^{10}$ pixels/s: $n^* = 0.49\text{ ms} / 4.9\text{ ns} = 100\,000$ pixels, an image of about $316 \times 316$.
+:::
+::: {.column width="44%"}
+![](fig-breakeven.svg){fig-alt="Log-log plot of time in ms against the number of pixels n for the example: the CPU line (t0 = 0.01 ms, 2e8 pixels per second) starts low and rises steeply; the GPU line (t0 = 0.5 ms, 1e10 pixels per second) stays flat near 0.5 ms and rises late. They cross at n* = 100 000 pixels, about 316 by 316: the CPU is faster to the left, the GPU to the right." width="100%"}
+:::
+::::
 
 ## Where GPUs come from
 
+:::: {.columns}
+::: {.column width="58%"}
 Drawing one frame of a 3D scene (recall [the rasteriser](../rasterise/lec.qmd)): for every pixel a triangle covers, run the same small program (shading) with different data. Millions of independent pixels, the same instructions.
 
 - The **fragment stage** of the graphics pipeline is a **map** over pixels.
 - Around 2006 the hardware became programmable enough to run *any* such program: general-purpose GPU computing.
 - Image processing has exactly this shape: a filter, a threshold, a colour conversion compute every output pixel by the same rule from nearby input pixels.
+:::
+::: {.column width="42%"}
+![](fig-fragment.svg){fig-alt="A 14 by 10 pixel grid with a triangle drawn over it; the 45 pixels whose centres lie inside the triangle are orange. Caption: 45 covered pixels, the same shading program 45 times." width="100%"}
+:::
+::::
 
 You write the program for **one pixel**; the GPU runs it for all of them.
 
 ## SIMT: warps of 32 threads
 
+:::: {.columns}
+::: {.column width="58%"}
 - One **thread** per pixel (or per output value). A 2048 × 2048 image: 4 194 304 threads.
 - Threads are grouped in **warps** of 32 that execute **the same instruction at the same time**, each on its own data: single instruction, multiple threads (**SIMT**). (Some vendors call a warp a *wavefront*, of 32 or 64.) 2048² pixels = 131 072 warps.
 - Warps are grouped in **blocks**; a block runs on one **multiprocessor**, whose threads share a small fast memory (next unit). A GPU has tens of multiprocessors.
 - One instruction fetch and decode serves 32 lanes: that is where the saved chip area comes from.
+:::
+::: {.column width="42%"}
+![](fig-simt.svg){fig-alt="Top: an image cut into a grid of blocks of 32 by 8 pixels, one block highlighted in orange. Bottom: that block enlarged: 8 rows of 32 lanes, 256 threads; the top row is highlighted in blue and labelled one warp, 32 lanes, one instruction." width="100%"}
+:::
+::::
 
 The catch: 32 lanes, **one** instruction stream. What if the lanes want different instructions?
 
@@ -143,6 +171,8 @@ Random pixels are the worst case. Real images are **coherent**: a warp of 32 nei
 
 ## Loops wait for the slowest lane
 
+:::: {.columns}
+::: {.column width="56%"}
 - A loop with a data-dependent number of iterations ("iterate until converged", "march along a ray until it is opaque", [volume rendering](../volrender/lec.qmd)): the warp runs until its **slowest** lane is done.
 - 8 lanes needing 3, 1, 1, 12, 2, 1, 4, 1 iterations: the warp takes 12, the average is 3.1: 26 % efficiency.
 
@@ -151,14 +181,26 @@ Remedies:
 - make branches **uniform per warp**: map warps to compact tiles, sort or compact the work first (unit 3);
 - replace a short branch by arithmetic: compute both values and **select** one;
 - **split** the job: a cheap pass over everything, then an expensive pass over the few pixels that need it.
+:::
+::: {.column width="44%"}
+![](fig-slowest.svg){fig-alt="Bar chart of loop iterations for 8 lanes: 3, 1, 1, 12, 2, 1, 4, 1 in blue, each topped up to 12 in light grey (the lane idles while masked). A dashed line at 12 marks the warp time, a dotted line at 3.1 the mean. Title: 25 of 96 lane-iterations useful, 26 percent." width="100%"}
+:::
+::::
 
 ## Hiding memory latency
 
 A load from global memory takes about 500 cycles. A warp that waits is **parked**, and the multiprocessor issues instructions from **another** resident warp in the meantime.
 
+:::: {.columns}
+::: {.column width="56%"}
 - With enough warps in flight, some warp is always ready: the waiting is **hidden**.
 - **Occupancy**: how many warps are resident, out of the maximum. It is limited by registers and fast memory per thread: a big per-thread program means fewer warps.
 - A warp doing $k$ cycles of work per load of latency $L$ needs about $(k + L)/k$ companions: $k = 8$, $L = 200$: **26 warps**.
+:::
+::: {.column width="44%"}
+![](fig-occupancy.svg){fig-alt="Plot of the percentage of busy lanes against the number of resident warps N, for loads of latency L = 200 cycles. With k = 8 compute cycles per load the line rises linearly and reaches 100 percent at 26 warps (dashed line); with k = 4 it rises half as fast. One warp with k = 4 is busy only 2 percent of the time." width="100%"}
+:::
+::::
 
 So a GPU needs **tens of thousands of threads** to be busy. A 256 × 256 image (65 536 threads) barely fills it; a 64 × 64 image cannot.
 

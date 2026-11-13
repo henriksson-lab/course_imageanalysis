@@ -1,0 +1,128 @@
+---
+title: "Exercise: describing a keypoint"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- build a cell histogram of gradient directions by hand and see what rotation and lighting do to it,
+- compute binary descriptor bits and Hamming distances,
+- estimate memory and comparison costs of descriptors,
+- predict which descriptor handles which change,
+- *(math)* prove the invariance of the normalised descriptor and the statistics of the Hamming distance.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Keypoint frame | sample the window centred at $(x, y)$, size ∝ σ, turned by θ |
+| Normalised patch | patch minus its mean, divided by its length; dot product = NCC |
+| Gradient histogram | 4 × 4 cells × 8 direction bins (45°, centred at 0°, 45°, …) = 128; Gaussian weight; normalise, clip 0.2, normalise |
+| Binary descriptor | 256 pairs $(\mathbf p_i, \mathbf q_i)$ on a smoothed patch, $b_i = [I(\mathbf p_i) < I(\mathbf q_i)]$ |
+| Distances | L2 for histograms (L1, χ², Hellinger), Hamming = number of differing bits for binary |
+
+## By hand
+
+**A1.** One cell has four gradients (magnitude, direction): (2, 10°), (1, 50°), (3, 100°), (2, 355°). Fill its 8-bin histogram with nearest-bin voting. Then turn the image by 90° (add 90° to every direction) and fill it again. What do you get if the directions are measured relative to an orientation θ that also turned by 90°?
+
+**A2.** The same cell in an image twice as bright, and in an image with 50 grey levels added. Give the histogram in both cases, and after normalising to length 1.
+
+**A3.** Hamming distance between `1011 0010 1110 0001` and `1001 0110 1100 0011`: write the XOR and count. How many bits would two unrelated 256-bit descriptors typically differ in?
+
+**A4.** A smoothed 3 × 3 patch (rows from the top):
+
+| 12 | 40 | 25 |
+|---|---|---|
+| 30 | 55 | 18 |
+| 60 | 35 | 47 |
+
+Four pairs (row, column), $b = [I(\mathbf p) < I(\mathbf q)]$: (0,0)–(1,1), (0,1)–(2,0), (2,2)–(0,2), (1,0)–(2,1). (a) Compute the four bits. (b) The same after $I \mapsto I^2$. (c) Noise of ±10 is added to pixel (2,1). Which bit can flip?
+
+**A5.** 2000 keypoints per image. (a) Memory per image for 128 floats of 4 bytes, and for 256 bits. (b) Comparing all pairs between two images: how many multiply-adds for the histograms, and how many 64-bit XOR + bit-count operations for the binary descriptors?
+
+**A6.** Predict which descriptor (normalised patch, gradient histogram, binary) handles: (a) a 1-px error in the keypoint position; (b) a gamma change of the camera; (c) a 30° rotation without orientation assignment; (d) light vs electron microscopy.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**A1.** 10° and 355° → bin 0° (2 + 2 = 4); 50° → 45° (1); 100° → 90° (3): **[4, 1, 3, 0, 0, 0, 0, 0]**. Turned: 100° → 90°, 140° → 135°, 190° → 180°, 85° → 90°: **[0, 0, 4, 1, 3, 0, 0, 0]**, shifted by two bins. Relative to θ (also turned by 90°) the directions are the original ones: [4, 1, 3, 0, 0, 0, 0, 0] again.
+
+**A2.** Twice as bright: every magnitude doubles, [8, 2, 6, 0, …]; plus 50: gradients unchanged, [4, 1, 3, 0, …]. Normalised (length $\sqrt{26} = 5.10$ or $2\sqrt{26}$): both give [0.78, 0.20, 0.59, 0, …].
+
+**A3.** XOR `0010 0100 0010 0010`: **4** bits. Unrelated 256-bit descriptors: about 128 (± 8).
+
+**A4.** (a) 12 < 55: 1; 40 < 60: 1; 47 < 25: 0; 30 < 35: 1 → **1101**. (b) Squaring keeps the order of non-negative values: 1101 again. (c) Pixel (2,1) = 35 only enters the fourth pair (30 vs 35): with noise below −5 it becomes smaller than 30 and that bit flips. The other bits have margins of 20 or more.
+
+**A5.** (a) $2000 \cdot 128 \cdot 4 = 1\,024\,000$ bytes ≈ 1 MB against $2000 \cdot 32 = 64\,000$ bytes = 64 kB, 16× less. (b) $2000 \cdot 2000 = 4 \cdot 10^6$ pairs; histograms $4 \cdot 10^6 \cdot 128 = 5.1 \cdot 10^8$ multiply-adds; binary $4 \cdot 10^6 \cdot 4 = 1.6 \cdot 10^7$ word operations (256 bits = 4 words of 64 bits).
+
+**A6.** (a) Gradient histogram (positions inside a cell do not matter); the patch and the binary descriptor lose some similarity. (b) Binary (any increasing map); the histogram mostly, thanks to clipping; the patch only partly (NCC removes gain and offset, not a curved mapping). (c) None: all three are computed in the frame, and without θ the frame does not turn. (d) None reliably: contrast may reverse; use landmarks or intensity-based methods.
+:::
+
+### Math questions
+
+**B7.** *(math)* Prove that the unit-normalised gradient-histogram descriptor is unchanged under $I \mapsto aI + b$ with $a > 0$. What happens for $a < 0$?
+
+**B8.** *(math)* Show $\|\mathbf a - \mathbf b\|^2 = 2 - 2\,\mathbf a\cdot\mathbf b$ for unit vectors, and that for L1-normalised non-negative $\mathbf a, \mathbf b$: $\|\sqrt{\mathbf a} - \sqrt{\mathbf b}\|^2 = 2 - 2\sum_i\sqrt{a_ib_i}$ (Hellinger).
+
+**B9.** *(math)* Two independent random 256-bit strings with $P(1) = \tfrac12$ for every bit. Find the mean and the variance of their Hamming distance. How many standard deviations below the mean is a distance of 60?
+
+**B10.** *(math)* Show that the intensity-centroid angle $\theta = \operatorname{atan2}(-m_{01}, m_{10})$ turns with the image: rotate the coordinates in $m_{10}$ and $m_{01}$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\nabla(aI + b) = a\nabla I$: every direction is the same and every magnitude is multiplied by $a$. Each vote (magnitude × weight × binning factor) is multiplied by $a$, so the whole vector is $a\,\mathbf d$, and $a\mathbf d/\|a\mathbf d\| = \mathbf d/\|\mathbf d\|$. Clipping and renormalising act on the normalised vector, so they give the same result too. For $a < 0$ every direction turns by 180°: votes move by four bins, a different descriptor (and the orientation θ turns by 180° as well).
+
+**B8.** First part: expand $(\mathbf a - \mathbf b)\cdot(\mathbf a - \mathbf b)$. Second: $\|\sqrt{\mathbf a}\|^2 = \sum a_i = 1$, so $\sqrt{\mathbf a}$ and $\sqrt{\mathbf b}$ are unit vectors and the first part gives $2 - 2\sum\sqrt{a_i}\sqrt{b_i}$.
+
+**B9.** Each bit differs independently with probability ½: $d_H \sim \mathrm{Binomial}(256, \tfrac12)$, mean 128, variance $256 \cdot \tfrac14 = 64$, standard deviation 8. A distance of 60 is $(128 - 60)/8 = 8.5$ standard deviations below the mean.
+
+**B10.** Turning the image by φ about the keypoint moves the content at $(x, y)$ to $R(x, y)$, with $R$ the rotation. The first moments $(m_{10}, m_{01})$ are the vector $\sum (x, y)\,I$, which turns with $R$ as well (the disc is unchanged), so its angle changes by φ. (With $y$ down, "counter-clockwise on the screen" means $\theta = \operatorname{atan2}(-m_{01}, m_{10})$.)
+:::
+
+## Explore: a descriptor, step by step {#explore}
+
+View 1 is a synthetic scene (or a repetitive scene, or the micrograph) with DoG keypoints; view 2 is the same scene turned, zoomed, with a lighting change, blur, noise and optionally an error in the keypoint frame. Click a keypoint in view 1. Middle: its window in the frame (16 × 16, gradient arrows, cells, Gaussian weight; in binary mode the pairs), and the descriptor. Bottom: the distances from this descriptor to all descriptors of view 2, sorted; the green dot is the true partner. The readout also counts, over **all** keypoints, how often the nearest descriptor is the true partner.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="descriptorlab" data-preset="nearest"></div>
+<script src="../demos/dist/descriptorlab.js"></script>
+```
+
+**E1.** Preset **the true partner is nearest** (25°, zoom 1.2). Read $d_1$, $d_2$ and the ratio for the selected keypoint, and the fraction over all keypoints.
+
+**E2.** Preset **rotate 90° without θ: lost**, then **with θ: found again**. Compare the partner's rank and the fraction over all keypoints. Try 15° without θ: why does it still work there?
+
+**E3.** Preset **gain ×3: normalising fixes it** (normalise and clip off). What is the partner's rank? Tick **normalise**, then **clip 0.2**. What changes?
+
+**E4.** Preset **gamma 0.5: clipping helps** (clip off). Read the fraction over all keypoints, then tick **clip 0.2**. How much does clipping help here?
+
+**E5.** Preset **a 2-px frame error: patch vs histogram** (normalised patch). Read the fraction over all keypoints, then switch to the gradient histogram. Repeat with frame errors 1 and 3 px.
+
+**E6.** Preset **binary: 256 bits, Hamming**. Read the Hamming distance to the partner and to the second nearest. How many standard deviations is the partner's distance below that of unrelated descriptors (128 ± 8)?
+
+**E7.** Preset **repetitive grid: equally near impostors**. Where does the true partner rank? Look at the distance strip: why is this keypoint hopeless for nearest-neighbour matching?
+
+**E8.** Preset **blur** (σ = 2). Compare gradient histogram and binary (fraction over all keypoints, and how many keypoints have a partner at all).
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Keypoint at (53, 54), σ = 1.95: $d_1 = 0.518$ (the partner), $d_2 = 0.712$, ratio 0.73. Over all keypoints with a partner: 66 of 79 (84 %).
+
+**E2.** Without θ at 90°: the partner drops to rank 20 of 150 ($d$ = 0.85 against $d_1$ = 0.70), and only 3 of 142 keypoints (2 %) have their partner nearest. With θ: rank 1 ($d_1$ = 0.36, ratio 0.72) and 213 of 221 (96 %). At 15° without θ the votes move by only a third of a bin and soft binning shares them: 95 of 102 (93 %) still work. Rotation invariance is needed for large angles.
+
+**E3.** Without normalisation the partner is only 21st (distance 357 against $d_1$ = 262: the vectors are just three times longer), and 0 % of the keypoints match. Normalised: rank 1 ($d$ = 0.505), 80 %; with clipping 83 %.
+
+**E4.** Without clipping 58 of 79 (73 %); with clipping 59 of 79 (75 %): a small gain here. A gamma change alters the gradients over the whole window rather than in a few highlights, which is what clipping is designed for.
+
+**E5.** Frame error 2 px: normalised patch 189 of 220 (86 %), gradient histogram 197 of 220 (90 %). 1 px: 97 % and 98 %; 3 px: 75 % and 79 %. Both degrade, the patch slightly faster. In this demo the window is wide (12σ) and sampled from an already blurred image, so a few pixels are a small error relative to it; the histogram's advantage shows more with deformation and small windows.
+
+**E6.** Hamming distance 4 to the partner, 35 to the second nearest (ratio 0.11). Unrelated: 128 ± 8, so 4 is $(128 - 4)/8 = 15.5$ standard deviations below. 44 of 53 keypoints (83 %) have their partner nearest.
+
+**E7.** The partner is only 7th of 574; $d_1$ = 0.017 and $d_2$ = 0.020, ratio 0.83: dozens of wells give almost the same descriptor, and the strip is nearly flat at the left. Overall only 28 of 458 (6 %). Nothing in the window says which well it is: the next unit's ratio test rejects such matches, and geometry (unit 4) is needed.
+
+**E8.** Gradient histogram: 47 of 59 (80 %); binary: 32 of 38 (84 %). Blur removes small keypoints, so fewer have a partner; the binary descriptor uses its own orientation (intensity centroid) and its keypoints with a partner are fewer, but in this scene it copes with the blur about as well.
+:::
+
+## Where this leads
+
+The next unit compares descriptors between two images: [matching, with the ratio test and the mutual check](../feature-matching/lec.qmd). The [geometry day's two-view unit](../two-view/lec.qmd) uses the matches to estimate the epipolar geometry.

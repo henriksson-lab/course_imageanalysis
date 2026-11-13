@@ -36,6 +36,8 @@ Several examples come from later days (watershed, labelling, graph cuts, neural 
 
 ## Four questions
 
+:::: {.columns}
+::: {.column width="52%"}
 A method suits a GPU when the answers are yes:
 
 1. Are there **many independent outputs**, at least $10^5$–$10^6$? (unit 1: occupancy)
@@ -44,9 +46,16 @@ A method suits a GPU when the answers are yes:
 4. Is there **no global order**: no output waits for an unknown other output? (unit 3: depth)
 
 And (5): does the work justify the **transfer** to the GPU and back, or does the data stay there? (unit 2)
+:::
+::: {.column width="48%"}
+![](fig-scorecard.svg){fig-alt="A table of nine methods against the four questions (1 many outputs, 2 same work, 3 regular memory, 4 no global order). Element-wise steps, small filters and network layers: yes to all four. FFT: yes, yes, partly, yes. Ray marching: yes, partly, partly, yes. Below a line: watershed queue no to all; union-find labelling no, partly, no, no; DP table partly, yes, yes, no; error diffusion no, yes, yes, no." width="100%"}
+:::
+::::
 
 ## Good: maps, filters and the FFT
 
+:::: {.columns}
+::: {.column width="60%"}
 - **Element-wise steps** and short fused pipelines (map): trivially parallel, bandwidth-bound; fuse them.
 - **Filters and morphology** with small kernels (stencil): tiles and halos; **separable** filters; very large kernels through the FFT.
 - **FFT** (regular butterflies, $\log_2 n$ passes): registration, deconvolution, large convolutions.
@@ -54,14 +63,28 @@ And (5): does the work justify the **transfer** to the GPU and back, or does the
 - **Distance transforms done separably**: the exact Euclidean distance transform runs row by row, then column by column ([morphology](../morph-openclose/lec.qmd)); each row is independent.
 
 All are maps or stencils, with coherent warps and coalesced reads.
+:::
+::: {.column width="40%"}
+![](fig-cellpipe.svg){fig-alt="Four panels of the course electron micrograph of a cell: 1 the input; 2 smoothed with a Gaussian of sigma 2 (a stencil); 3 the gradient magnitude (a stencil and a map), bright along membranes; 4 the gradient above a threshold (a map), a white edge map." width="100%"}
+:::
+::::
+
+*Micrograph: transmission electron micrograph of a mesenchymal stem cell, Robert M. Hunt, CC BY 3.0, via Wikimedia Commons.*
 
 ## Good: neural networks
 
 A convolutional layer applies a bank of kernels to all pixels and all channels ([convolutional networks](../cnn/lec.qmd)): it can be written as one large **matrix product**.
 
+:::: {.columns}
+::: {.column width="57%"}
 - A 3 × 3 layer with $C = 64$ input and output channels on a 256 × 256 image: $4.8 \cdot 10^9$ operations on $34$ MB: intensity $\approx 9C/4 = 143$. Far right of the ridge: **compute-bound**, the one common image workload that uses the GPU's full arithmetic.
 - Training uses **batches** of images: more columns in the matrix product, more reuse of the weights.
 - This is why deep learning and GPUs grew up together: from 2012 on, networks trained on GPUs started winning image recognition contests.
+:::
+::: {.column width="43%"}
+![](fig-nnroof.svg){fig-alt="Roofline of the desktop GPU on log axes (operations per byte against 10^12 operations per second), ridge at 30. Adding images (I = 0.083) and a tiled 3 by 3 filter (I = 2.25) sit low on the slanted memory-bound part; the network layer with C = 64 (I = 143) sits on the flat compute-bound roof." width="100%"}
+:::
+::::
 
 ## Good: ray marching and volume rendering
 
@@ -83,12 +106,19 @@ Demo below: 576 pixels, 573 queue steps against 22 level-synchronous steps, the 
 
 ## Bad: union–find labelling
 
+:::: {.columns}
+::: {.column width="50%"}
 Two-pass labelling with union–find ([labelling](../label-connectivity/lec.qmd)) scans the image in raster order and follows parent pointers: sequential, with random memory access.
 
 - **Label propagation**: every foreground pixel takes the smallest label among itself and its neighbours; repeat until nothing changes. Each pass is a stencil, fully parallel.
 - Price: the number of **passes** = the longest path inside an object from its smallest label. A blob: a dozen passes. A spiral or a long snake: hundreds or thousands, each a full pass over the image.
 - **Pointer jumping**: after each pass, every pixel replaces its label by its label's label (a jump along the chain). Chains shrink much faster.
 - Real GPU labelling codes are hybrids: label tiles in fast memory, then merge across tile borders.
+:::
+::: {.column width="50%"}
+![](fig-propagation.svg){fig-alt="The two demo shapes on a 24 by 24 grid, each foreground pixel coloured by the pass in which its label last changed. Blobs: 12 passes, colours grow from the top of each blob. Spiral: 262 passes, the colour climbs steadily from the outer end of the spiral to its centre." width="100%"}
+:::
+::::
 
 ## Try it: labelling in parallel
 
@@ -114,10 +144,17 @@ $$\text{passes} = \max_{p \in K} d_K(p_0, p) \;\le\; \operatorname{diam}_K.$$
 
 ## Bad: max-flow and dynamic programming
 
+:::: {.columns}
+::: {.column width="58%"}
 - **Max-flow** ([graph cuts](../maxflow/lec.qmd)): augmenting paths are found one after another, each depending on the flows left by the previous ones. **Push–relabel** is local (each node pushes excess flow to its neighbours) and parallel per node, but irregular and needs many global passes.
 - **Dynamic programming** ([DP paths](../dp-paths/lec.qmd)): cell $(i, j)$ needs $(i-1, j)$, $(i, j-1)$ and $(i-1, j-1)$. Only cells on one **anti-diagonal** are independent: a **wavefront** of $n + m - 1$ steps that starts with one cell, grows to $\min(n, m)$, and shrinks to one again.
 
 Both have work to spare but a long chain of dependent steps: depth, not work, is the limit.
+:::
+::: {.column width="42%"}
+![](fig-wavefront.svg){fig-alt="Top: a 10 by 16 DP table coloured by i + j, the anti-diagonal of step 9 outlined in red. Bottom: bar chart of busy lanes per step: 1, 2, 3 up to 10, ten for several steps, then down to 1; 25 steps for 160 cells, 6.4 per step." width="100%"}
+:::
+::::
 
 ## Try it: the DP wavefront
 
@@ -176,11 +213,18 @@ Recall the [floating-point formats](../floatingpoint/lec.qmd): float32 (24 signi
 
 ## The math: mixed-precision dot products {.math}
 
+:::: {.columns}
+::: {.column width="58%"}
 A dot product of length $K$ (one output of a matrix product), unit roundoff $u$ ($u_{16} = 2^{-11}$, $u_{32} = 2^{-24}$):
 
 - Products and sums in float16: error up to about $K\,u_{16}\sum|a_ib_i|$; and once the sum $s$ is large, adding a term smaller than half the spacing of $s$ changes nothing: the sum **stalls** (bit-depth day: 0.015-sized pixel values stall at 64 in float16).
 - Products rounded to float16 (or exact in the matrix unit), sums in float32: the summation error drops to $K\,u_{32}$, and stalling happens only $2^{13}$ times later.
 - Example: 10 000 terms of 0.01: float16 throughout gives **32**; float16 values with float32 accumulation give **100.02** (0.01 is stored as 0.010002).
+:::
+::: {.column width="42%"}
+![](fig-stall.svg){fig-alt="Running sum of 10 000 terms of 0.01 (stored in float16). With a float32 accumulator the sum rises linearly to 100.02. With a float16 accumulator it rises to 32 and then stays at 32." width="100%"}
+:::
+::::
 
 ## Try it: a network layer under three roofs
 

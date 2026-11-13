@@ -1,0 +1,146 @@
+---
+title: "Exercise: sparse coding and dictionary learning"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- code a small patch with OMP over a given dictionary,
+- carry out one K-SVD atom update by hand,
+- explain the relation between k-means, K-SVD and PCA,
+- estimate the cost of patch-based restoration and set the OMP stopping threshold,
+- choose between patch dictionaries, wavelets and non-local means for an image,
+- *(math)* derive the K-SVD update, the patch-averaging formula and k-means as a special case.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Dictionary $D$ | atoms $\mathbf d_j$ (unit vectors of patch size), often more atoms than pixels |
+| Sparse code | $\mathbf y \approx D\mathbf c$ with few nonzeros; found by OMP (or ℓ1) |
+| Dictionary learning | $\min_{D,C}\|Y - DC\|_F^2$, $\|\mathbf c_i\|_0 \le K$; alternate coding and atom updates |
+| K-SVD update | atom = top singular vector of the residuals of the patches that use it |
+| MOD | $D = YC^\top(CC^\top)^{-1}$, then normalise |
+| k-means | one atom per patch, coefficient 1: centre = mean |
+| Patch denoising | code overlapping patches to the noise level $d\,(1.15σ)^2$, average the overlaps |
+
+## By hand
+
+**F1.** **OMP on a 4-pixel patch.** Dictionary (unit columns): $\mathbf d_1 = \tfrac12(1, 1, 1, 1)$, $\mathbf d_2 = \tfrac12(1, 1, -1, -1)$, $\mathbf d_3 = \tfrac12(1, -1, 1, -1)$, $\mathbf d_4 = \tfrac12(1, -1, -1, 1)$, $\mathbf d_5 = \tfrac{1}{\sqrt2}(1, 1, 0, 0)$, $\mathbf d_6 = \tfrac1{\sqrt2}(0, 0, 1, 1)$. Patch $\mathbf y = (3, 3, 1, 1)$.
+(a) Compute all correlations $\mathbf d_j^\top\mathbf y$. Which atom does OMP pick? Coefficient and residual for $K = 1$?
+(b) Second step ($K = 2$): which atom, the refitted coefficients, the residual?
+(c) The first four atoms form an orthonormal basis. How many of them are needed for $\mathbf y$? Why is the overcomplete dictionary better here?
+
+**F2.** **One K-SVD update.** Three 2-pixel residuals (2, 1), (4, 2), (−1, −1) use the same atom.
+(a) Compute $\sum\mathbf r\mathbf r^\top$ and its top eigenvector.
+(b) The new coefficients of the three patches, and the remaining squared error.
+(c) What would k-means (one centre for these three points) give?
+
+**F3.** **k-means vs K-SVD.** All training patches are ± multiples of one edge pattern $\mathbf e$ (dark-to-bright and bright-to-dark edges of various contrasts). How many atoms does k-means need to represent them reasonably, and how many does K-SVD (with one atom per patch)?
+
+**F4.** **Counting.**
+(a) How many overlapping 8 × 8 patches does a 256 × 256 image have? How many patches cover an interior pixel?
+(b) OMP with 256 atoms and $K = 4$: about how many multiplications per patch (correlations dominate), and for the whole image?
+
+**F5.** The noise has σ = 10 grey levels. What residual energy should OMP stop at for 8 × 8 patches (factor 1.15)?
+
+**F6.** Denoising results on the micrograph crop (σ = 20, PSNR in dB): noisy 22.1, wavelet shrinkage 24.3, NL-means 24.0, DCT dictionary 24.4, learned dictionary 24.0. (a) What do you conclude? (b) Which method would you choose for a fluorescence image with many similar nuclei, and which for a single-instance texture?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**F1.** (a) $\mathbf d^\top\mathbf y$ = 4, 2, 0, 0, 4.243, 1.414. Pick $\mathbf d_5$, coefficient $3\sqrt2 = 4.243$; residual $\mathbf y - 3(1, 1, 0, 0) = (0, 0, 1, 1)$, norm 1.414. (b) Correlations with the residual: 1, −1, 0, 0, 0, 1.414: pick $\mathbf d_6$. Refit on $\{\mathbf d_5, \mathbf d_6\}$: coefficients (4.243, 1.414), residual 0: exact with 2 atoms. (c) In the orthonormal basis $\mathbf y = 4\mathbf d_1 + 2\mathbf d_2$: also 2 atoms for this patch. The overcomplete dictionary offers more ways to be sparse: a patch such as (3, 3, 0, 0) is one atom ($\mathbf d_5$) in it but needs two basis atoms ($3\mathbf d_1 + 3\mathbf d_2$). The price is that the code is no longer unique and must be searched for.
+
+**F2.** (a) $\begin{pmatrix}21 & 11\\ 11 & 6\end{pmatrix}$; eigenvalues 26.81 and 0.19; top eigenvector (0.884, 0.467). (b) Coefficients 2.24, 4.47, −1.35; remaining squared error 0.19 (the small eigenvalue). (c) The mean (1.67, 0.67) with coefficient 1 for each point: a poor fit (squared error $\sum\|\mathbf r - \bar{\mathbf r}\|^2 = 17.3$ for these three points), because the points lie on a line through 0 at different distances and on both sides.
+
+**F3.** k-means needs many centres: at least one per sign, and several per contrast level (each centre is one fixed patch). K-SVD needs one atom, $\mathbf e$, with the coefficient carrying sign and contrast.
+
+**F4.** (a) $249^2 = 62\,001$ patches; an interior pixel lies in $8 \cdot 8 = 64$ patches. (b) Correlations $64 \cdot 256 = 16\,384$, plus updates of the correlations over 4 steps ($4 \cdot 256 \cdot 4 \approx 4\,000$): about $2 \cdot 10^4$ per patch, $1.3 \cdot 10^9$ for the image.
+
+**F5.** $64 \cdot (1.15 \cdot 10)^2 = 8\,464$ (grey levels², summed over the patch).
+
+**F6.** (a) On this textured image all methods are within 0.4 dB: the fine texture is not sparse in any of the representations and is smoothed together with the noise; the learned dictionary (trained on another region) is not better than a fixed DCT here. (b) Many similar nuclei: a learned dictionary or NL-means, which exploit the repetition. A single-instance texture: none of them will keep it; a wavelet or DCT method with a low threshold loses least, or keep the noise.
+:::
+
+### Math questions
+
+**F7.** *(math)* Show that the K-SVD update of atom $k$ (supports fixed) is a rank-1 approximation and is solved by the leading singular pair of the restricted residual matrix.
+
+**F8.** *(math)* Derive the patch-averaging formula $\hat{\mathbf x} = (λI + \sum_pR_p^\top R_p)^{-1}(λ\mathbf y + \sum_pR_p^\top D\mathbf c_p)$ and show that $\sum_pR_p^\top R_p$ is diagonal.
+
+**F9.** *(math)* Show that the two steps of k-means are the coding and update steps of $\min\|Y - DC\|_F^2$ when every code is a single 1.
+
+**F10.** *(math)* Derive MOD: for fixed codes $C$, minimise $\|Y - DC\|_F^2$ over $D$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**F7.** $DC = \sum_j\mathbf d_j\mathbf c^j$, so $\|Y - DC\|_F^2 = \|E_k - \mathbf d_k\mathbf c^k\|_F^2$ with $E_k = Y - \sum_{j\ne k}\mathbf d_j\mathbf c^j$. Keeping the supports means only the columns $R$ where $\mathbf c^k$ is nonzero can change: minimise $\|E_k^R - \mathbf d_k\mathbf c^k_R\|_F^2$ over rank-1 matrices $\mathbf d_k\mathbf c^k_R$ with $\|\mathbf d_k\| = 1$. By Eckart–Young the best rank-1 approximation is $σ_1\mathbf u_1\mathbf v_1^\top$: $\mathbf d_k = \mathbf u_1$ (top eigenvector of $E_k^RE_k^{R\top}$, as in F2), $\mathbf c^k_R = σ_1\mathbf v_1^\top = \mathbf u_1^\top E_k^R$. The error drops to $\sum_{i\ge2}σ_i^2$.
+
+**F8.** The objective is quadratic in $\mathbf x$; setting the gradient to 0: $λ(\mathbf x - \mathbf y) + \sum_pR_p^\top(R_p\mathbf x - D\mathbf c_p) = 0$, which gives the formula. $R_p$ selects the 64 pixels of patch $p$ ($R_p$ is 64 × N with one 1 per row), so $R_p^\top R_p$ is the diagonal matrix with 1 on those pixels; the sum is diagonal with the number of patches covering each pixel.
+
+**F9.** With $\mathbf c_i = \mathbf e_{a(i)}$, $\|Y - DC\|_F^2 = \sum_i\|\mathbf y_i - \mathbf d_{a(i)}\|^2$. Coding (fix $D$): choose $a(i) = \arg\min_j\|\mathbf y_i - \mathbf d_j\|^2$, the nearest centre. Update (fix $a$): $\sum_{i:\,a(i) = j}\|\mathbf y_i - \mathbf d_j\|^2$ is a sum of squares minimised by the mean of those $\mathbf y_i$.
+
+**F10.** $\nabla_D\|Y - DC\|_F^2 = -2(Y - DC)C^\top = 0$ gives $DCC^\top = YC^\top$, so $D = YC^\top(CC^\top)^{-1}$ (if $CC^\top$ is invertible; otherwise add a small ridge). Then normalise each atom and scale its row of $C$ accordingly.
+:::
+
+## Explore: learning a dictionary {#explore}
+
+4000 patches of the image are coded with $K$ atoms (OMP) and the atoms are updated (K-SVD, MOD or k-means). Left: the atoms, sorted by use. Middle: the image (click to pick a patch), the patch written as coefficient × atom + …, and the error plot (tab: error against $K$ for PCA, DCT and the learned dictionary).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="patchdict" data-preset="dct"></div>
+<script src="../demos/dist/patchdict.js"></script>
+```
+
+**E1.** Preset **DCT start**. Click a few patches (smooth background, the nuclear membrane, texture). How many atoms are needed and which ones are chosen? What is atom 0?
+
+**E2.** Preset **learned: edges appear**. Watch the atoms during the 20 iterations. How does the error curve behave? Describe the most used atoms.
+
+**E3.** Preset **k-means atoms: blurry averages**. Compare the atoms and the error with K-SVD. Why are the k-means atoms not unit vectors?
+
+**E4.** Preset **K = 1 vs K = 4**: learn with K = 1, note the error, then set K = 4 and run 20 more iterations.
+
+**E5.** Preset **PCA vs learned at K = 4**. Read the three curves at K = 1, 4 and 8. Why are they equal at K = 1?
+
+**E6.** Preset **texture image: stripes in the atoms**. What do the atoms look like, and why?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Atom 0 is the constant patch: its coefficient carries the patch mean (about 8 × the mean grey level). Smooth patches need atom 0 and one or two low-frequency cosines; patches on the membrane need cosines that together build an edge; texture patches use high frequencies and still leave a large residual.
+
+**E2.** The error drops fast in the first few iterations and then flattens (as in the lecture's figure: most of the gain in the first five); small increases after a coding step are possible because OMP is greedy. The most used atoms: the constant patch, smooth ramps, and oriented edges and bars.
+
+**E3.** k-means atoms are averages of many patches: smooth, low-contrast blobs, and the error is much larger, because each patch is represented by one fixed centre without scaling. They are cluster means, not directions, so their length carries the brightness.
+
+**E4.** K = 1 gives a larger error (each patch is one scaled atom); with K = 4 the error drops markedly, and the atoms become more specific (parts of patterns that combine).
+
+**E5.** At K = 1 every method only has the patch mean (the constant atom / the first principal component, which for uncentred patches is close to the constant), so the errors coincide. At K = 4 and 8 the learned dictionary is lowest, the DCT in between and PCA highest (lecture: 330, 426, 639 at K = 4): each patch choosing its own atoms beats a fixed subspace.
+
+**E6.** Stripes at the four orientations and frequencies of the texture, at several phases, plus a few edge atoms for the disc: the dictionary stores the patterns that recur in the training image.
+:::
+
+## Explore: restoring with dictionaries {#explore-sparserestore}
+
+The restoration demo with patch priors (8 × 8 DCT, a learned dictionary, NL-means) next to wavelets and TV, on the 128 × 128 crop of the micrograph. The learned dictionary comes from the demo above when it was trained on the same image with 8 × 8 patches, otherwise it is learned from another region of the image.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="sparserestore" data-preset="dctden" data-priors="none db4 tv dct learned nlmeans" data-layout="full"></div>
+<script src="../demos/dist/sparserestore.js"></script>
+```
+
+**E7.** Presets **patch DCT denoising**, **learned dictionary denoising** and **NL-means baseline** (σ = 20). Compare the PSNRs and the error maps. Then switch to db4 and adjust λ for the best PSNR.
+
+**E8.** Lower the noise to σ = 5 and repeat. Which method wins now, and what is lost?
+
+**E9.** Preset **patch inpainting, 50 %**. Compare with db4 ℓ1 on the same mask. Then choose the task **scratches + hole**: look at the hole.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E7.** All within a few tenths of a dB of each other on this crop (lecture: DCT 24.4, wavelet 24.3, NL-means 24.0, learned 24.0 dB from 22.1); the error maps show that each method removes the noise and part of the fine texture alike. The texture is the limit, not the method.
+
+**E8.** At low noise the gains over the noisy image are small for every method, and the methods with a strong smoothing tendency (large patches coded with few atoms, TV) start to remove real texture: the error maps show structure, not noise. Use a smaller λ or error target.
+
+**E9.** With 50 % missing pixels the patch method restores more texture than db4 ℓ1 (lecture: 24.1 against 22.4 dB). With scratches and a 16 × 16 hole the scratches vanish with both, but the patch method fills the hole with invented structure (a dark blob in the lecture's example), while wavelets fill it with a smooth blur: the patch prior continues patterns into a region where nothing was measured.
+:::
+
+## Where this leads
+
+Learned dictionaries are the bridge to learned priors. The first layer of a convolutional network learns similar atoms ([CNNs](../cnn/lec.html)); unrolled ISTA iterations become networks; and diffusion models learn a whole prior over images and use it to restore and inpaint ([diffusion priors](../diffusion-inverse/lec.html)), with the same question in a sharper form: what did the prior add that was never measured?

@@ -1,0 +1,118 @@
+---
+title: "Exercise: bilateral filter and non-local means"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute bilateral and non-local means weights and estimates by hand;
+- read a weight map and compute the effective number of averaged pixels;
+- choose σr and $h$ from the noise level, and predict when the filters fail;
+- explain the bilateral filter as an edge-stopping diffusion and NLM as a diffusion on a graph;
+- *(math)* derive the variance of a weighted mean, the expected patch distance, and NLM as a graph heat step.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Weighted mean | $\hat u_p = \sum_q w_{pq}I_q/\sum_q w_{pq}$ |
+| Bilateral weight | $e^{-|p-q|^2/2\sigma_s^2}\,e^{-(I_p - I_q)^2/2\sigma_r^2}$: close **and** similar |
+| NLM weight | $e^{-d^2/h^2}$, $d^2$ = mean squared difference of the patches around $p$ and $q$ (search window around $p$) |
+| $N_{\text{eff}}$ | $(\sum w)^2/\sum w^2$; noise variance ÷ $N_{\text{eff}}$ |
+| Expected patch distance | $d^2_{\text{clean}} + 2\sigma_n^2$ |
+| Self-weight fix | own weight = largest weight of any other pixel |
+| Joint bilateral | range weights from a guide image $G$, values from the noisy image |
+
+## By hand
+
+**B1.** The row $(12, 10, 50)$, bilateral filter at the centre pixel, σs very large (spatial weights all 1), σr = 10.
+(a) The three weights and the estimate.
+(b) The plain mean of the three. Which is closer to the "true" local value 10–12?
+
+**B2.** Non-local means on $x = (11, 9, 30, 10, 12, 29, 9, 11)$ (pixels 0 … 7), patches of 3, target pixel 3, $h = 10$, mean squared patch difference.
+(a) Compute $d^2$ and the weight for the patch centres 1 … 6.
+(b) The estimate. Compare with the 3-pixel mean around pixel 3.
+(c) What would $h = 1$ give?
+
+**B3.** $N_{\text{eff}}$ for the weights (1, 1, 1, 1), (1, 0.1, 0.1, 0.1) and (1, 0.5, 0.5, 0.5, 0.5). How much is the noise reduced in each case?
+
+**B4.** **Predict.** Sketch the bilateral weight map at a pixel next to a T-junction (three regions of very different brightness meeting at a point), and the NLM weight map at a pixel in a field of identical, regularly spaced dots.
+
+**B5.** Noise $\sigma_n = 8$. (a) Suggest σr for edges of height 100. (b) And for edges of height 15? (c) Suggest $h$ for NLM and give the weight of a perfect copy (expected $d^2$) for your $h$.
+
+**B6.** Which filter, and why: (a) a crystal lattice in an electron micrograph; (b) a single vesicle; (c) a noisy fluorescence channel with a clean bright-field partner; (d) an image whose only structures are a few large, flat cells.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $e^{-4/200} = 0.980$ (for 12), 1 (itself), $e^{-1600/200} = e^{-8} = 0.0003$ (for 50). Estimate $(0.980 \cdot 12 + 10 + 0.0003 \cdot 50)/1.980 = 11.0$. (b) $(12 + 10 + 50)/3 = 24$: the plain mean mixes in the other side of the edge; the bilateral estimate stays on its own side.
+
+**B2.** (a) Target patch (30, 10, 12). Centre 1, (11, 9, 30): $d^2 = (19^2 + 1 + 18^2)/3 = 228.7$, $w = 0.10$; centre 2, (9, 30, 10): $(21^2 + 20^2 + 2^2)/3 = 281.7$, $w = 0.06$; centre 3: 0, $w = 1$; centre 4, (10, 12, 29): $(20^2 + 2^2 + 17^2)/3 = 231$, $w = 0.10$; centre 5, (12, 29, 9): $(18^2 + 19^2 + 3^2)/3 = 231.3$, $w = 0.10$; centre 6, (29, 9, 11): $(1 + 1 + 1)/3 = 1$, $w = 0.99$. (b) $(0.10 \cdot 9 + 0.06 \cdot 30 + 1 \cdot 10 + 0.10 \cdot 12 + 0.10 \cdot 29 + 0.99 \cdot 9)/2.44 = 10.93$. The 3-pixel mean is $(30 + 10 + 12)/3 = 17.3$: NLM found the copy at pixel 6 and averaged with it. (c) $h = 1$: pixel 6 gets $e^{-1} = 0.37$, all others about 0: estimate $(10 + 0.37 \cdot 9)/1.37 = 9.73$, still mostly the pixel itself.
+
+**B3.** (1, 1, 1, 1): 4, noise ÷ 2. (1, 0.1, 0.1, 0.1): $1.69/1.03 = 1.64$, ÷ 1.28. (1, 0.5, 0.5, 0.5, 0.5): $3^2/2 = 4.5$, ÷ 2.12.
+
+**B4.** Bilateral: only the wedge of the pixel's own region inside the round window is bright, the other two regions dark (like the half-moon and the quarter, but cut along the junction's three boundaries). NLM on the dot field: bright spots at the positions of the other dots in the search window (exactly one per dot, at the same position within its dot), nearly black elsewhere.
+
+**B5.** (a) σr ≈ 2σn = 16: noise differences (spread $\sqrt2 \cdot 8 = 11$) get weight, edges of 100 get $e^{-100^2/512} \approx 0$. (b) No good choice: edges of 15 are as large as typical noise differences; any σr that keeps the edge also keeps the noise, and vice versa. (c) $h \approx 1$–$1.5\,\sigma_n$, e.g. $h = 10$: a perfect copy has $d^2 \approx 2 \cdot 64 = 128$, weight $e^{-1.28} = 0.28$; with $h = 8$, $e^{-2} = 0.14$.
+
+**B6.** (a) NLM: many copies of every unit cell. (b) Bilateral (or TV): NLM has no copies to average and leaves the vesicle as noisy as before. (c) Joint bilateral guided by the bright-field, checking the guide's edges. (d) TV or bilateral (piecewise constant; NLM works too in the flat interiors, but brings no advantage at the few unique boundaries).
+:::
+
+### Math questions
+
+**B7.** *(math)* Show $\mathrm{Var}(\hat u_p) = \sigma_n^2/N_{\text{eff}}$ for fixed weights and independent noise, and that $1 \le N_{\text{eff}} \le n$ for $n$ positive weights.
+
+**B8.** *(math)* Derive $\mathbb E\,d^2(P_p, P_q) = d^2(C_p, C_q) + 2\sigma_n^2$ for non-overlapping patches with independent noise. Does it still hold if the patches overlap?
+
+**B9.** *(math)* Write one NLM pass as $u \leftarrow D^{-1}Wu$ and show it equals $u - L_{\text{rw}}u$ with $L_{\text{rw}} = I - D^{-1}W$. Which explicit heat step with which time step is it, and why can it not create new extrema?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\hat u_p = \sum_q a_q I_q$ with $a_q = w_q/\sum w$. Independent noise: $\mathrm{Var} = \sigma_n^2\sum a_q^2 = \sigma_n^2\sum w_q^2/(\sum w_q)^2 = \sigma_n^2/N_{\text{eff}}$. Cauchy–Schwarz, $(\sum w_q \cdot 1)^2 \le n\sum w_q^2$, gives $N_{\text{eff}} \le n$ (equal weights: equality); $\sum w_q^2 \le (\sum w_q)^2$ for $w_q \ge 0$ gives $N_{\text{eff}} \ge 1$.
+
+**B8.** Per patch pixel $k$: $\mathbb E(C_{pk} - C_{qk} + E_{pk} - E_{qk})^2 = (C_{pk} - C_{qk})^2 + 2(C_{pk} - C_{qk})\,\mathbb E(E_{pk} - E_{qk}) + \mathbb E(E_{pk} - E_{qk})^2 = (C_{pk} - C_{qk})^2 + 0 + 2\sigma_n^2$. Average over the $m$ pixels. If the patches overlap (shift smaller than the patch), pixel $k$ of one patch and pixel $k$ of the other are still two different pixels, so each term has the same expectation and the formula holds; what changes is that the terms are no longer independent of each other, so the spread of $d^2$ around its mean is larger than for separate patches. Only at shift 0 (the pixel's own patch) do the noise terms cancel: $d^2 = 0$.
+
+**B9.** $D^{-1}Wu = u - (u - D^{-1}Wu) = u - (I - D^{-1}W)u = u - L_{\text{rw}}u$: the explicit step $u \leftarrow u - \Delta t\,Lu$ of the first unit with $\Delta t = 1$ and $L = L_{\text{rw}}$. Each row of $D^{-1}W$ is non-negative and sums to 1, so every new value is a convex combination of old values: no new maxima or minima.
+:::
+
+## Explore {#explore}
+
+The noisy test card (or the micrograph). Click a pixel: the bilateral spatial factor, range factor and their product over the window, and the NLM weights over the search window (yellow: the five best patches, also outlined on the image). The readout gives both estimates, $N_{\text{eff}}$ and the NLM own weight. **Show** switches the large image between the noisy input, the bilateral result (1, 3 or 10 passes), NLM and the joint bilateral filter guided by a clean channel with an extra step across the ramp.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="patchweights" data-preset="flat"></div>
+<script src="../demos/dist/patchweights.js"></script>
+```
+
+**E1.** Presets **flat**, **edge** and **corner**. Describe the bilateral product map and read $N_{\text{eff}}$ in each. Why is the NLM $N_{\text{eff}}$ at the corner so low?
+
+**E2.** Preset **noise ≈ edge height** (noise 60, σr = 120). What does the range map look like? Compare the bilateral estimate with the truth.
+
+**E3.** Presets **NLM, lattice: all copies** and **NLM, unique spot: only itself**. Read $N_{\text{eff}}$ and the own weight in both. Tick the self-weight fix on the unique spot: what happens to the estimate?
+
+**E4.** Lattice again: set $h$ to 5 (preset **h too small**), then 30. And the **search window**: 5, 21, 31. Explain each change of $N_{\text{eff}}$.
+
+**E5.** Find a pixel where NLM averages fewer than 5 pixels ($N_{\text{eff}} < 5$) at the default settings, other than the unique spot. Why there?
+
+**E6.** Preset **iterated: cartoon** (10 passes). What happened to the stripes and to the 1-px line? Switch to 1 and 3 passes.
+
+**E7.** Preset **joint: copies the guide's edge**. Look at the ramp at the bottom left. Compare with **show: bilateral** at the same settings.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Flat (22, 22): a round blob, bilateral $N_{\text{eff}}$ 44 (NLM 216). Edge (6, 22): a half-moon (the dark outside column block has no weight), 25. Corner (6, 6): a quarter, 15. NLM at the corner: 1 (own weight 100 %): the patch of a corner has no copy inside the search window (the other corners of the square are farther away), so only the pixel itself matches.
+
+**E2.** The range map is a random speckle: with noise 60, neighbours on the same side differ as much as across the edge (120), so σr cannot tell them apart. The estimate is 142 at a pixel whose truth is 180: dark pixels from outside the square were averaged in.
+
+**E3.** Lattice (21 × 21 search): $N_{\text{eff}}$ 7.1, own weight 27 %: the nine dot copies in reach (the period is 6) get most of the weight. Unique spot: $N_{\text{eff}}$ 1.0, own weight 100 %: the noisy value 68.3 is returned unchanged (truth 60). With the fix, $N_{\text{eff}}$ rises to 11 and the estimate is 57.9: closer to the truth here, but it is now an average of patches that are only somewhat similar.
+
+**E4.** $h = 5$: copies differ by about $2\sigma_n^2 = 200$, weight $e^{-200/25} \approx 0$: $N_{\text{eff}}$ 1, own weight 100 % (with the fix 2.7). $h = 30$: copies and some non-copies get weight: $N_{\text{eff}}$ 24, estimate 158.6 instead of 180 (blur). Search 5 × 5: smaller than the period 6, no copy in reach: $N_{\text{eff}}$ 1. 21 × 21: 7.1. 31 × 31: 21.7 (more copies).
+
+**E5.** For example the rims of the discs, the ends of the 1-px line, the corners of the square, the ring (unique spot) and the soft step: places whose patch has no copy in the search window. Inside flat regions and on the stripes (many copies) it is in the hundreds.
+
+**E6.** After 10 passes the stripes have merged into flat grey (their spread in the stripe region falls from about 19 to 2), the 1-px line is still there (178 at row 112), flat regions are cartoon-like. PSNR: 33.0, 26.1, 23.3 dB for 1, 3, 10 passes.
+
+**E7.** The joint result has a step across the ramp at $x = 50$, where the guide has one and the noisy image has none (about 134 → 109 averaged over rows 100–123; the truth is 124 → 120). The plain bilateral filter follows the ramp. The range map at (50, 112) is a clean half-plane cut at the guide's step.
+:::
+
+## Where this leads
+
+The same patch matching drives exemplar inpainting in the next unit, [filling holes](../inpainting/lec.qmd): there the best-matching patch is **copied** into a missing region instead of averaged, with the same risk of producing a confident copy of something that was never there.

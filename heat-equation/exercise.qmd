@@ -1,0 +1,126 @@
+---
+title: "Exercise: smoothing as heat flow"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- take one explicit heat step by hand in 1D and 2D, and check that the total is kept;
+- convert between diffusion time and Gaussian σ ($\sigma = \sqrt{2t}$), and count the steps a blur needs;
+- choose a stable time step and recognise the checkerboard of an unstable one;
+- take one implicit step and say why it is stable;
+- *(math)* derive the Gaussian solution, the amplification factor and the stability limit.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Explicit step | $u \leftarrow u + \Delta t\,(\text{sum of neighbours} - k\,u)$, $k$ = number of neighbours (2 in 1D, 4 in 2D) |
+| Heat equation | $u_t = \Delta u$; after time $t$: Gaussian blur with $\sigma = \sqrt{2t}$ |
+| Stability (explicit) | $\Delta t \le \Delta x^2/(2d)$: $1/2$ in 1D, $1/4$ in 2D, $1/6$ in 3D (pixel size 1) |
+| Mirror border | outside = copy of the border pixel: no flux leaves, the total is kept |
+| Zero border | outside = 0: heat leaks out |
+| Implicit step | solve $(I + \Delta t L)\,u^{\text{new}} = u^{\text{old}}$; $L$ = graph Laplacian; stable for any $\Delta t$ |
+
+## By hand
+
+**B1.** The row $(0, 0, 4, 0, 0)$, mirror border.
+(a) One explicit step with $r = \Delta t/\Delta x^2 = 1/4$, $1/2$ and $1$. Give the total each time.
+(b) Take one more step with $r = 1$ from your result. What pattern appears?
+(c) Which of the three steps keeps every value between the old minimum and maximum?
+
+**B2.** A pixel of value 8 whose four neighbours are 0 (and stay the reference). Compute its new value after one explicit 2D step with $\Delta t = 0.2$ and with $\Delta t = 0.3$. Which step is allowed, and what goes wrong with the other?
+
+**B3.** (a) What σ does a diffusion of 50 explicit steps with $\Delta t = 0.25$ correspond to?
+(b) How many steps of $\Delta t = 0.25$ for σ = 8? For σ = 16?
+(c) A colleague says "I'll use $\Delta t = 0.25$ in 2D, it is exactly the limit, so it is the fastest safe choice". What does the amplification factor say about the finest checkerboard at exactly this step?
+
+**B4.** A stack is resampled from 0.2 µm to 0.1 µm pixels in $x$, $y$ and $z$. You want the same physical smoothing.
+(a) How do the number of steps and the total work change in 2D (one slice)?
+(b) And in 3D (whole stack)?
+
+**B5.** The row $y = (0, 3, 0)$ with a mirror border and $\Delta t = 1$.
+(a) Write the three equations of one implicit step $(I + \Delta t L)\,u = y$, with $L$ the path Laplacian (end pixels have one neighbour). Solve them.
+(b) Check your answer by plugging it in: does $u - \Delta t\,\nabla^2 u = y$ hold? Is the total kept?
+(c) Take one *explicit* step with $\Delta t = 1$ from $y$ instead. Compare.
+
+**B6.** The demo's by-hand grid: a 7 × 7 grid of zeros (zero outside) with 100 in the centre and 20 directly above and directly left of it.
+(a) After one step with $\Delta t = 0.2$: the new centre, the new value above, the new value to the right, and the total.
+(b) The same with $\Delta t = 0.3$. Which value shows that the step is too large?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $r = 1/4$: $(0, 1, 2, 1, 0)$; $r = 1/2$: $(0, 2, 0, 2, 0)$; $r = 1$: $(0, 4, -4, 4, 0)$. The total is 4 every time (mirror border: nothing leaves).
+(b) From $(0, 4, -4, 4, 0)$ with $r = 1$: $(4, -8, 12, -8, 4)$. The signs alternate from pixel to pixel and the magnitudes grow: the checkerboard. (The total is still 4.)
+(c) $r = 1/4$ and $r = 1/2$: all values stay in $[0, 4]$. $r = 1$ creates $-4$, below the old minimum.
+
+**B2.** $\Delta t = 0.2$: $8 + 0.2\,(0 - 32) = 1.6$. $\Delta t = 0.3$: $8 + 0.3\,(0 - 32) = -1.6$. Only $0.2 \le 1/4$ is allowed; with $0.3$ the pixel gives away $0.3 \cdot 8 = 2.4$ to each of four neighbours, 9.6 in total, more than its 8.
+
+**B3.** (a) $t = 50 \cdot 0.25 = 12.5$, $\sigma = \sqrt{25} = 5$. (b) σ = 8: $t = 32$, 128 steps; σ = 16: $t = 128$, 512 steps (four times as many). (c) In 2D, $A = 1 - 8r$ at the checkerboard frequency; at $r = 1/4$, $A = -1$: that pattern is not damped at all, it only flips sign every step. A slightly smaller step (e.g. 0.2) damps every frequency.
+
+**B4.** (a) The allowed $\Delta t$ (in physical units) falls by 4 and the required time stays the same: 4× the steps; each slice has 4× the pixels: 16× the work. (b) In 3D the limit is $\Delta x^2/6$, again 4× the steps, but 8× the voxels: 32× the work.
+
+**B5.** (a) $2u_1 - u_2 = 0$, $-u_1 + 3u_2 - u_3 = 3$, $-u_2 + 2u_3 = 0$ (row 1: $u_1 + (u_1 - u_2) = 0$, etc.). So $u_1 = u_3 = u_2/2$ and $3u_2 - u_2 = 3$: $u = (0.75, 1.5, 0.75)$. (b) The Laplacian of $u$ is $(0.75, -1.5, 0.75)$, and $u - 1 \cdot (0.75, -1.5, 0.75) = (0, 3, 0)$: yes. The total is kept (3). (c) Explicit with $\Delta t = 1$: $(3, -3, 3)$, unstable ($\Delta t = 1 > 1/2$). The implicit step gives a smooth, positive result at the same step size; it is the quadratic smoother with λ = 1.
+
+**B6.** (a) Centre: $100 + 0.2\,(20 + 20 + 0 + 0 - 400) = 28$. Above: $20 + 0.2\,(0 + 0 + 0 + 100 - 80) = 24$ (its neighbours: 0 above, 0 left, 0 right, 100 below). Right: $0 + 0.2 \cdot 100 = 20$. The total stays 140 (no heat has reached the zero border yet). (b) Centre: $100 + 0.3\,(40 - 400) = -8$: negative, below the old minimum 0. Above and left become 26, right and below 30; the total is still 140.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that $G(x, t) = \frac{1}{\sqrt{4\pi t}}e^{-x^2/4t}$ satisfies $G_t = G_{xx}$. What is its variance? Conclude that $G(\cdot, t) * f$ solves $u_t = u_{xx}$ and corresponds to $\sigma = \sqrt{2t}$.
+
+**B8.** *(math)* Insert $u_j^n = A^n e^{ij\omega}$ into the 1D explicit step and derive $A(\omega) = 1 - 4r\sin^2(\omega/2)$. Derive the limit $r \le 1/2$. Repeat in 2D with $u_{jk}^n = A^n e^{i(j\omega_x + k\omega_y)}$ and derive $r \le 1/4$.
+
+**B9.** *(math)* Derive the amplification factor of the implicit step and show it lies in $(0, 1]$ for every $r > 0$.
+
+**B10.** *(math)* The path Laplacian with Neumann ends has eigenvalues $2 - 2\cos(\pi k/n)$, $k = 0, \dots, n - 1$. Use them to show that $I - \Delta t L$ has spectral radius at most 1 exactly when $\Delta t \le 1/2$ (for $n \to \infty$), and that $I + \Delta t L$ is invertible for every $\Delta t \ge 0$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** $\ln G = -\tfrac12\ln(4\pi t) - x^2/4t$, so $G_t = G\,\big(-\tfrac{1}{2t} + \tfrac{x^2}{4t^2}\big)$. $G_x = -\tfrac{x}{2t}G$ and $G_{xx} = -\tfrac{1}{2t}G + \tfrac{x^2}{4t^2}G$: equal. It is a normal density with variance $2t$, so it is the Gaussian kernel with $\sigma^2 = 2t$. For $u = G * f$, $u_t = G_t * f = G_{xx} * f = (G * f)_{xx}$ (differentiate under the integral), and $G(\cdot, t) \to \delta$ as $t \to 0$, so $u(\cdot, 0) = f$.
+
+**B8.** $A^{n+1}e^{ij\omega} = A^n e^{ij\omega}\big(1 + r(e^{-i\omega} - 2 + e^{i\omega})\big)$, and $e^{-i\omega} + e^{i\omega} - 2 = 2\cos\omega - 2 = -4\sin^2(\omega/2)$. So $A = 1 - 4r\sin^2(\omega/2) \in [1 - 4r, 1]$. Stability needs $|A| \le 1$ for all ω; the minimum, at $\omega = \pi$, is $1 - 4r \ge -1$ ⇔ $r \le 1/2$. In 2D the step adds the two directions: $A = 1 - 4r\big(\sin^2\tfrac{\omega_x}{2} + \sin^2\tfrac{\omega_y}{2}\big) \ge 1 - 8r$, worst at $(\pi, \pi)$: $r \le 1/4$.
+
+**B9.** $(1 + 4r\sin^2\tfrac{\omega}{2})\,A = 1$, so $A = 1/(1 + 4r\sin^2\tfrac{\omega}{2})$. The denominator is $\ge 1$, so $0 < A \le 1$ for every $r > 0$: no mode grows and none changes sign.
+
+**B10.** $I - \Delta t L$ has eigenvalues $1 - \Delta t\,(2 - 2\cos\frac{\pi k}{n}) \in (1 - 4\Delta t, 1]$, and the smallest approaches $1 - 4\Delta t$ as $n \to \infty$. All lie in $[-1, 1]$ for every $n$ ⇔ $1 - 4\Delta t \ge -1$ ⇔ $\Delta t \le 1/2$. $I + \Delta t L$ has eigenvalues $1 + \Delta t\lambda_k \ge 1 > 0$, so it is invertible (and symmetric positive definite).
+:::
+
+## Explore {#explore}
+
+The **1D** tab shows a profile (plateau, two-pixel peak, ramp, noise; or a row of the micrograph) under explicit or implicit steps, the Gaussian at $\sigma = \sqrt{2t}$ as a red dotted line, the total, and the amplification factor $A(\omega)$ of one step (red dot: the checkerboard frequency $\omega = \pi$). The **2D** tab compares explicit steps with the Gaussian on the micrograph or the test card. **By hand** steps a 7 × 7 grid; click a cell to see its update written out. $\Delta t$ is set as a multiple of the stability limit.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="heatflow" data-preset="gauss"></div>
+<script src="../demos/dist/heatflow.js"></script>
+```
+
+**E1.** Preset **heat = Gaussian**. How many steps, which $\Delta t$, which time $t$ and which σ? How far apart are the blue and the red dotted curves? Press **play**: which feature of the profile disappears first, and why?
+
+**E2.** Set **Δt / limit** to 1.0, restart and play. Then 1.05, 1.1 and 1.2. After roughly how many steps does the checkerboard blow up (values far outside 0 … 255) in each case? Compare with $|A(\pi)|$ in the readout.
+
+**E3.** Preset **implicit: any Δt is stable**. What are $\Delta t$ and $t$? How close is the result to the Gaussian? Now switch the scheme to **explicit** at the same $\Delta t$ and restart.
+
+**E4.** Presets **zero border** and **mirror border** (a step near the right end, 150 steps). Read the total in both. Where does the difference go, and what happens to the right end of the profile?
+
+**E5.** 2D tab, preset **σ = 10 takes 200 steps**. Read the largest difference to the Gaussian. Set Δt / limit to 0.9 and run to the same σ (how many steps?). Why is the difference smaller although the steps are smaller?
+
+**E6.** **By hand** tab. Press **step** once with Δt / limit = 0.8 and click the centre, the cell above it and the cell to the right. Compare with B6. Set Δt / limit to 1.2, restart and step: which cell goes negative?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 20 steps of $\Delta t = 0.45$ (0.9 × the 1D limit 1/2): $t = 9$, $\sigma = \sqrt{18} = 4.24$. The curves differ by at most 0.44 grey levels. The two-pixel peak goes first: it consists of the highest frequencies, which decay fastest ($e^{-\omega^2 t}$); the plateau's corners round next, the ramp hardly changes in its middle.
+
+**E2.** At 1.0 × the limit the profile stays smooth for thousands of steps ($A(\pi) = -1$: the checkerboard neither grows nor decays). At 1.02 it takes about 97 steps until values beyond 300 appear, at 1.05 about 34, at 1.1 about 16 and at 1.2 about 8: $|A(\pi)| = 1.04$, 1.1, 1.2 and 1.4 per step, starting from the small checkerboard part of the noise.
+
+**E3.** $\Delta t = 8 \times 0.5 = 4$, 5 steps, $t = 20$, $\sigma = 6.32$. The implicit result is within 2.9 grey levels of the Gaussian and perfectly smooth. Explicit at the same step explodes in the first steps ($A(\pi) = 1 - 16 = -15$).
+
+**E4.** Mirror: the total stays 10240 and the right end stays near 200 (199.1). Zero: the total falls to 8134 and the right end sinks to 13.5: heat flows out across the border into the 0 that the border rule pretends lies outside. For a measurement of intensity, the zero border would be wrong.
+
+**E5.** At exactly the 2D limit, after 200 steps, the largest difference is 0.96 grey levels: the finest checkerboard of the micrograph is not damped at $\Delta t = 1/4$ ($A = -1$), unlike in the Gaussian. At 0.9 × the limit ($\Delta t = 0.225$) it takes 222 steps to reach about σ = 10, and the difference drops to 0.04: every frequency is now damped, as in the true heat flow.
+
+**E6.** As B6: the centre becomes 28, the cell above 24, the cell to the right 20, the total stays 140. At 1.2 × the limit ($\Delta t = 0.3$) the centre becomes −8: it has given away more than it had.
+:::
+
+## Where this leads
+
+Here the "conductivity" was the same everywhere, so the result is just a Gaussian. The next unit, [Perona–Malik diffusion](../perona-malik/lec.qmd), lets the conductivity depend on the local gradient: heat flows inside regions but is stopped at edges. The stability limit of this unit stays the same there.

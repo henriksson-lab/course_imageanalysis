@@ -105,7 +105,7 @@ const arrowDefs = `<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" m
   b += txt(x0 + 70, 60, `reflected: R = ${(100 * R).toFixed(1)} %`, `fill="#8a6a00"`);
   b += txt(x0 + 120, H - 30, `refracted: ${(100 * (1 - R)).toFixed(1)} %`, `fill="#8a6a00"`);
   b += txt(x0 - 330, H - 30, "n₁ sin θ₁ = n₂ sin θ₂ = 0.5");
-  save("whitted/fig-snell.svg", svg(W, H, b));
+  save("whitted/fig-snell.svg", svg(W, H, b).replace('font-size="20"', 'font-size="25"'));
 }
 {
   // ray tree of the glass preset's inspected pixel

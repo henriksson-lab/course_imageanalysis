@@ -10,7 +10,7 @@ Order within a part is the teaching order. Days marked *(new)* have no plan yet.
 
 | Part | Theme | Days |
 |---|---|---|
-| I | Images as numbers | 1. Images, filters, frequencies (`images/`, `kernels/`, `fourier/`, `pca/`) · 2. Edges, blobs and ridges · 3. Bit depth and noise (`quantisation/`, `cameranoise/`, `highbit/`, `floatingpoint/`) · 4. Image formation · 5. Deconvolution |
+| I | Images as numbers | 1. Images, filters, frequencies (`images/`, `kernels/`, `fourier/`, `pca/`) · 2. Edges, blobs and ridges · 3. Bit depth and noise (`quantisation/`, `cameranoise/`, `highbit/`, `contrast/`, `floatingpoint/`) · 4. Image formation · 5. Deconvolution |
 | II | From pixels to objects | 6. Thresholding · 7. Colour · 8. Morphology · 9. Labelling · 10. Watershed · 11. Measurements |
 | III | Aligning images | 12. FFT registration |
 | IV | Segmentation as optimisation | 13. Graph cuts (built: `seg-energy/`, `maxflow/`, `graphcut-seg/`, `ncut/`) |
@@ -42,6 +42,11 @@ Each group can be taken after the core day named.
 | Motion *(built 2026-11-13: optical flow `plan/opticalflow-day.md`, tracking `plan/tracking-day.md`)* | **Optical flow** as its own day (requested 2026-11-12): brightness constancy and the aperture problem, Lucas–Kanade (local least squares, the structure tensor link to the edges day), Horn–Schunck (global smoothness, a regularised energy), coarse-to-fine pyramids for large motion, flow visualisation and evaluation, applications (cell/tissue flow, kymographs, PIV-style analysis); non-rigid registration as a related unit or day; **Tracking** as its own day (requested 2026-11-12): linking detections over time (nearest neighbour, global assignment / Hungarian, gating), motion models and prediction (Kalman filter), gaps and missed detections, **dividing objects** (splits/merges, lineage trees), appearing/disappearing objects, track evaluation, and track analysis (MSD, velocities). Inspiration for methods: the user's tool blockflow (/home/mahogny/github/claude/blockflow) has several tracking methods — read it when planning, but no tool names in student material | FFT registration; tracking after labelling (needs objects) and the point-detection day |
 | Detection *(point detection: built 2026-11-13, `plan/pointdetection-day.md`)* | Spot/point detection: local maxima, LoG/DoG and à trous detectors, thresholds on detection statistics, sub-pixel localisation by fitting, evaluation by matching | Edges, blobs and ridges |
 | Fluorescence quantification *(built 2026-11-13: `plan/colocalisation-day.md`, `plan/fret-day.md`, `plan/flim-day.md`)* | **Colocalisation** (Pearson, Manders with thresholds, Costes, object-based colocalisation, bleed-through and resolution as confounds); **FRET** (sensitised emission with bleed-through/cross-excitation correction, acceptor photobleaching, FRET efficiency and distance, ratiometric imaging); **FLIM** (lifetimes, time-domain/TCSPC and frequency-domain, exponential fitting, phasor analysis, FLIM-FRET) | Colour; spectral unmixing helps for FRET |
+| Objects *(spatial statistics: built 2026-11-13, `plan/spatialstats-day.md`; after Moments in the sidebar)* | **Spatial statistics of objects**: point patterns and complete spatial randomness (quadrats, intensity), nearest-neighbour and empty-space functions (G, F, J) with edge correction, Ripley's K/L and the pair correlation, simulation envelopes and global tests, two cell types (cross-K, mark connection) and inhomogeneous density (`point-patterns/`, `nn-functions/`, `ripley-k/`, `envelopes/`, `marked-patterns/`) | Measurements (day 11); point detection and labelling help |
+| Curves and energies *(graph-based segmentation: built 2026-11-13, `plan/graphseg-day.md`; after Ising/MRF in the sidebar)* | **Graph-based segmentation beyond graph cuts**: the random walker, spanning trees (single linkage, Felzenszwalb–Huttenlocher), watershed as a minimum spanning forest, hierarchical segmentation and merge trees, superpixels (SLIC) (`random-walker/`, `mst-seg/`, `ws-msf/`, `merge-trees/`, `superpixels/`) | Graph cuts (day 13); watershed (day 10) |
+| Detection *(keypoints: built 2026-11-13, `plan/keypoints-day.md`; after Point detection in the sidebar)* | **Keypoints and descriptors**: corners and blobs across scale (DoG pyramid, repeatability), gradient-histogram and binary descriptors, matching (ratio test, mutual check, k-d trees), fitting transforms to matches with RANSAC, stitching and registration (`keypoints/`, `descriptors/`, `feature-matching/`, `feature-alignment/`) | Edges, blobs and ridges; Hough (RANSAC) and FFT registration help |
+| Transforms *(edge-preserving smoothing: built 2026-11-13, `plan/pdesmooth-day.md`; after Radon in the sidebar)* | **Edge-preserving smoothing and PDEs**: the heat equation and explicit schemes, Perona–Malik, total variation flow, bilateral filter and non-local means in depth, diffusion and exemplar inpainting, all smoothers compared (`heat-equation/`, `perona-malik/`, `tv-flow/`, `bilateral-nlm/`, `inpainting/`, `smoothers/`) | Deconvolution (day 5); the plan proposes a new group "Restoration" (not applied) |
+| Transforms *(sparse representations: built 2026-11-13, `plan/sparse-day.md`; last in the group)* | **Sparse representations**: sparsity and the ℓ1 penalty, ISTA/FISTA and pursuit, compressed sensing, fast MRI with compressed sensing, sparse coding and dictionary learning (`sparsity/`, `ista/`, `compressed-sensing/`, `cs-mri/`, `dictionaries/`) | Wavelets; deconvolution (`regularise/`) |
 
 ## Owners of shared concepts
 
@@ -66,6 +71,12 @@ slide with a pointer.
 | Integral image | Integral images |
 | NCC, template matching | FFT registration |
 | Radon transform | Radon |
+| Feature matching (descriptors, ratio test, cross-check, RANSAC on matches) | Keypoints and descriptors (`two-view/` recalls it) |
+| Point-pattern statistics (CSR, G/F/J, K/L/g, edge corrections, envelopes, cross/mark functions) | Spatial statistics of objects (`relations/` keeps the first Poisson nearest-neighbour law; `coloc-objects/` keeps cross-K as an application) |
+| Random walker, minimum spanning trees / FH segmentation, hierarchical segmentation, superpixels, watershed as MSF | Graph-based segmentation (`ws-msf/`; union–find stays with labelling; k-means with `kmeans/`) |
+| Sparsity priors in general (ℓ0/ℓ1, lasso, ISTA, compressed sensing, dictionaries) | Sparse representations (wavelet shrinkage stays on the wavelets day as the first special case) |
+| Nonlinear diffusion, TV flow, explicit-scheme stability for diffusion, bilateral/NLM in depth, classical inpainting | Edge-preserving smoothing and PDEs (`gmrf/` owns TV as a prior; `denoise/` first introduces the denoisers) |
+| Point operations, gamma/log, histogram equalisation, CLAHE, histogram matching; the cumulative histogram | `contrast/` (day 3); `histogram/` recalls the cumulative histogram |
 
 ## Conventions
 
@@ -128,6 +139,14 @@ Candidates (first one requested: point detection):
 - Energy minimisation: graph cuts, Ising, snakes, level sets, dynamic programming,
   deconvolution (regularisation).
 
+## Applied after the second batch (2026-11-13)
+
+The planners' "Proposed reorganisation" sections were accepted (owners rows above). The
+spatial-statistics day's entry point is after Measurements (day 11). The watershed day's optional
+`ws-graphs/` unit is superseded by `ws-msf/` on the graph-based segmentation day. Edits to
+**built units** implied by these decisions are listed in `plan/crosslink-todo.md` for the
+cross-link pass.
+
 ## Prerequisite map (planned 2026-11-12, build after the current day build)
 
 For learners who want one topic and only what it needs.
@@ -154,31 +173,31 @@ For learners who want one topic and only what it needs.
   order respects hard prerequisites.
 - The sidebar in `_quarto.yml` could later be generated from the same database.
 
-## Queue, second batch (requested 2026-11-13, not yet planned)
+## Queue, second batch (requested 2026-11-13; all built 2026-11-13)
 
-To be planned and built after the current batch. Days and content may be reorganised when
+All six items are planned and built (marked below). To be planned and built after the current batch. Days and content may be reorganised when
 planning (the user allowed reorganising days and content).
 
-- **Keypoints and descriptors** (day): interest-point detectors (Harris/Förstner recall from the
+- **Built 2026-11-13** (`plan/keypoints-day.md`; elective Detection, after Point detection). **Keypoints and descriptors** (day): interest-point detectors (Harris/Förstner recall from the
   edges day, DoG/scale-space extrema), orientation and scale invariance, SIFT-style gradient
   histograms and binary descriptors, matching (ratio test, mutual nearest neighbours), robust
   fitting with RANSAC (recall the Hough day), uses: stitching, registration, geometry from images.
   Becomes the owner of feature matching that several days currently assume.
-- **Spatial statistics of objects** (day): point patterns (complete spatial randomness as the
+- **Built 2026-11-13** (`plan/spatialstats-day.md`; elective Objects, after Moments, entry after Measurements). **Spatial statistics of objects** (day): point patterns (complete spatial randomness as the
   null model), nearest-neighbour distance distributions, Ripley's K/L and pair correlation,
   clustering vs regularity, edge corrections, marked patterns (types of cells), simulation
   envelopes; inputs from point detection and labelling; link to the evaluation day's statistics.
-- **Contrast and intensity transforms** (unit, place when planning: Part I or the thresholding
+- **Built 2026-11-13** (`plan/contrast-unit.md`; core day 3, unit `contrast/` between `highbit/` and `floatingpoint/`). **Contrast and intensity transforms** (unit, place when planning: Part I or the thresholding
   day): point operations, gamma/log, histogram equalisation (the cumulative histogram as the
   mapping), CLAHE, what these do to measurements (display vs analysis).
-- **Graph-based segmentation beyond graph cuts** (day or units): the random walker (a linear
+- **Built 2026-11-13** (`plan/graphseg-day.md`; elective Curves and energies, after Ising/MRF). **Graph-based segmentation beyond graph cuts** (day or units): the random walker (a linear
   system on the graph Laplacian; recall ncut), minimum-spanning-tree segmentation
   (Felzenszwalb–Huttenlocher), superpixels (SLIC; recall k-means), watershed as a minimum
   spanning forest (recall the watershed day), hierarchical segmentation.
-- **Sparse representations** (day): sparsity in a basis (recall wavelets, DCT), L1 vs L2
+- **Built 2026-11-13** (`plan/sparse-day.md`; elective Transforms, last, after Edge-preserving smoothing). **Sparse representations** (day): sparsity in a basis (recall wavelets, DCT), L1 vs L2
   (geometry of the lasso), compressed sensing (incoherent sampling, recovery), sparse coding
   and dictionary learning, uses in denoising/inpainting/deconvolution and fast MRI.
-- **Edge-preserving smoothing and PDEs** (day): heat equation = Gaussian blur (scale space
+- **Built 2026-11-13** (`plan/pdesmooth-day.md`; elective Transforms, after Radon; the proposed new group "Restoration" is not applied). **Edge-preserving smoothing and PDEs** (day): heat equation = Gaussian blur (scale space
   recall), anisotropic diffusion (Perona–Malik), total variation flow (recall Ising/TV),
   bilateral filter and non-local means in depth (recall deconvolution denoisers), inpainting
   (diffusion-based and exemplar-based), stability of explicit schemes (CFL recall from level sets).

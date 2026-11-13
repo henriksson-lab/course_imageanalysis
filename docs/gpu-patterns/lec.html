@@ -182,11 +182,16 @@ Image analysis
 <section id="map-and-stencil-one-output-per-pixel" class="slide level2">
 <h2>Map and stencil: one output per pixel</h2>
 <p>Think in patterns instead of loops: if every output can be computed <strong>without the other outputs</strong>, all of them can run at once.</p>
+<div class="columns">
+<div class="column" style="width:58%;">
 <ul>
 <li><strong>Map</strong>: each output from the input at the same pixel. Gain and offset, gamma, thresholding, colour conversion, adding images. Perfectly parallel; memory-bound (last unit).</li>
 <li><strong>Stencil</strong>: each output from a fixed neighbourhood of the input. Convolution (<a href="../kernels/lec.html">kernels</a>), morphology with a small structuring element, finite differences, one step of a diffusion. Parallel per output pixel; tiles and halos (last unit).</li>
 <li>An <strong>iterated</strong> stencil (100 diffusion steps) needs 100 passes: step <span class="math inline">t+1</span> needs <strong>all</strong> of step <span class="math inline">t</span>, a global barrier between passes.</li>
 </ul>
+</div><div class="column" style="width:42%;">
+<p><img data-src="fig-map-stencil.svg" style="width:100.0%" alt="Two 5 by 5 input grids each with an arrow to a 5 by 5 output grid. Map: one orange input pixel gives the blue output pixel at the same place. Stencil: the orange 3 by 3 neighbourhood of the input gives the one blue output pixel at its centre."></p>
+</div></div>
 <p>The interesting cases are the ones where outputs depend on <strong>many</strong> inputs.</p>
 </section>
 <section id="reduction-a-tree" class="slide level2">
@@ -204,7 +209,8 @@ Image analysis
 <li>How the work is split over blocks changes the grouping: two runs, or two GPUs, can give <strong>different last digits</strong> for the same sum.</li>
 <li>Reproducible sums need a fixed order (fixed tree), or integer / compensated arithmetic.</li>
 </ul>
-</section>
+
+<img data-src="fig-order.svg" class="quarto-figure quarto-figure-center r-stretch" style="width:96.0%" alt="The demo preset: 2000 and fifteen small values (1.5, 3, 0.5, ...) summed by a tree in float16, every partial sum rounded. Step 1 gives 2002, 3.5, 3.5, 4, 3.5, 4, 3, 2.5; step 2 gives 2006, 7.5, 7.5, 5.5; step 3 gives 2014 and 13; step 4 gives 2027. The sequential loop gives 2025; the exact sum is 2025.5."></section>
 <section id="try-it-reduction-and-the-order-of-additions" class="slide level2">
 <h2>Try it: reduction and the order of additions</h2>
 <link rel="stylesheet" href="../demos/dist/demo.css">
@@ -252,6 +258,8 @@ Image analysis
 </section>
 <section id="blelloch-the-work-efficient-scan" class="slide level2">
 <h2>Blelloch: the work-efficient scan</h2>
+<div class="columns">
+<div class="column" style="width:58%;">
 <ol type="1">
 <li><strong>Up-sweep</strong>: a reduction tree that keeps its partial sums in place (block sums of 2, 4, 8, …).</li>
 <li>Set the last element to 0.</li>
@@ -259,6 +267,9 @@ Image analysis
 </ol>
 <p>Result: the exclusive scan in <span class="math inline">2\log_2 n</span> steps with <span class="math inline">2(n-1)</span> additions, the same order of work as the loop. For large <span class="math inline">n</span> the GPU prefers it (less work); for one block, Hillis–Steele (fewer steps).</p>
 <p>The integral image = a scan along every row, then along every column: both are thousands of independent scans.</p>
+</div><div class="column" style="width:42%;">
+<p><img data-src="fig-blelloch.svg" style="width:100.0%" alt="Blelloch scan of 3, 1, 7, 0, 4, 1, 6, 3 drawn as rows. Up-sweep: 3 4 7 7 4 5 6 9, then 3 4 7 11 4 5 6 14, then the total 25 at the right end. The last element is set to 0. Down-sweep, three steps of swap-and-add arrows: 3 4 7 0 4 5 6 11, then 3 0 7 4 4 11 6 16, then the exclusive scan 0 3 4 11 11 15 16 22. 8 steps, 14 additions."></p>
+</div></div>
 </section>
 <section id="try-it-scans" class="slide level2">
 <h2>Try it: scans</h2>
@@ -290,6 +301,8 @@ Image analysis
 </section>
 <section id="stream-compaction" class="slide level2">
 <h2>Stream compaction</h2>
+<div class="columns">
+<div class="column" style="width:62%;">
 <p>Keep only some elements (the foreground pixels, the unfinished rays, the detected spots), <strong>densely packed</strong>:</p>
 <ol type="1">
 <li>a 0/1 mask of the elements to keep (a map);</li>
@@ -297,15 +310,23 @@ Image analysis
 <li>every kept element writes itself to that position (a scatter without conflicts).</li>
 </ol>
 <p>All three steps are parallel. Uses: building the list of object pixels, of edge pixels, of active cells; radix sort; and the cure for divergence (last unit): <strong>compact</strong> the pixels that need the expensive branch into a dense list, so that they fill whole warps.</p>
+</div><div class="column" style="width:38%;">
+<p><img data-src="fig-compact.svg" style="width:88.0%" alt="Stream compaction of 16 values 3 1 7 0 4 1 6 3 5 2 2 8 1 4 0 6 drawn as columns. Keep mask 1 0 1 1 0 0 1 0 1 1 0 0 0 1 0 1 (kept rows orange). Its exclusive scan 0 1 1 2 3 3 3 4 4 5 6 6 6 6 7 7. Arrows from each kept element to its scan position in the output: 3 7 0 6 5 2 4 6, 8 kept."></p>
+</div></div>
 </section>
 <section id="histogram-atomic-additions" class="slide level2">
 <h2>Histogram: atomic additions</h2>
+<div class="columns">
+<div class="column" style="width:58%;">
 <p>Each thread looks at one pixel and adds 1 to bin <span class="math inline">h(I_p)</span> (<a href="../histogram/lec.html">histograms</a>). Many threads, few bins, positions that depend on the data.</p>
 <ul>
 <li>Two threads incrementing the same bin at the same time would both read 5 and both write 6: a count is lost. The increment must be <strong>atomic</strong>: read–add–write as one indivisible step.</li>
 <li>Atomic updates to <strong>the same address are serialised</strong>: one per cycle. A dark image whose pixels nearly all fall into bin 0 makes every thread wait in one queue: <strong>contention</strong>.</li>
 <li><strong>Privatisation</strong>: each block keeps its own histogram in its fast memory, then the block histograms are added (a reduction). The queue on one bin is divided by the number of blocks.</li>
 </ul>
+</div><div class="column" style="width:42%;">
+<p><img data-src="fig-contention.svg" style="width:100.0%" alt="Two histograms of the 64 pixels of the demo, one atomic update per pixel. Dark image: 58 updates to bin 0 and 6 to bin 1: 58 cycles in one queue. Uniform image: 3 to 11 updates per bin, the busiest bin has 11: 11 cycles."></p>
+</div></div>
 <p>The same for every <strong>scatter</strong> with collisions: Hough voting into an accumulator, splatting points into an image.</p>
 </section>
 <section id="try-it-histogram-with-atomics" class="slide level2">
@@ -339,12 +360,17 @@ Image analysis
 </section>
 <section id="gather-or-scatter-and-the-fft" class="slide level2">
 <h2>Gather or scatter, and the FFT</h2>
+<div class="columns">
+<div class="column" style="width:60%;">
 <ul>
 <li><strong>Gather</strong>: a thread reads many inputs and writes one output (convolution, interpolation, back-projection per output pixel). No write conflicts, no atomics.</li>
 <li><strong>Scatter</strong>: a thread writes to many or data-dependent outputs (histograms, Hough voting, splatting, back-projection per projection ray). Needs atomics.</li>
 <li>Rewrite scatter as gather where possible: in <a href="../fbp/lec.html">filtered back-projection</a>, loop over output pixels and gather from every projection, instead of smearing every ray into the image.</li>
 <li>The <strong>FFT</strong> (<a href="../fourier/lec.html">Fourier</a>): <span class="math inline">\log_2 n</span> passes, each a map over pairs of values (butterflies): regular and parallel, but each pass moves all the data: bandwidth-bound. A 2D FFT = 1D FFTs along rows, then columns (coalescing: transpose in between).</li>
 </ul>
+</div><div class="column" style="width:40%;">
+<p><img data-src="fig-gather-scatter.svg" style="width:100.0%" alt="Top, gather: one output cell reads three neighbouring input cells; no write conflicts. Bottom, scatter: five input cells write to output cells chosen by their data; three of them land on the same output cell, which needs atomic additions."></p>
+</div></div>
 </section>
 <section id="summary" class="slide level2">
 <h2>Summary</h2>

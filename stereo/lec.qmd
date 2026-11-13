@@ -37,11 +37,18 @@ This unit owns stereo for the course (rectification, matching costs, aggregation
 
 ## Rectification: epipolar lines become rows
 
+:::: {.columns}
+::: {.column width="54%"}
 After rectification, a pixel's match is on the **same row** in the other image, a little to the left. Matching becomes a 1D search along a row.
 
 - Turn both cameras (in the computer) to a common orientation whose $x$ axis is the **baseline**: then the motion between them is purely **sideways**, and the epipolar lines are rows (last unit).
 - Turning a camera about its centre changes the image by a **homography**, so each image is **resampled** once: for every output pixel, ask where it comes from in the original and interpolate ([images day](../images/lec.qmd), "go backwards").
 - Stereo rigs are built nearly rectified (parallel cameras on a bar); a calibration makes it exact. Lens distortion is removed in the same resampling.
+:::
+::: {.column width="46%"}
+![](fig-rectify.svg){fig-alt="A flat textured scene (an electron micrograph of a cell) seen by two toed-in cameras. Top: the original left and right images with four points and their epipolar lines, which are slanted and not parallel. Bottom: the same pair after rectification: the epipolar lines are horizontal and each point's match lies on the same row." width="100%"}
+:::
+::::
 
 ## The math: rectifying homographies {.math}
 
@@ -81,6 +88,8 @@ For a left pixel and a candidate disparity $d$, compare a small **window** aroun
 
 All costs for all pixels and all disparities form the **cost volume** $C(x, y, d)$: one image of costs per disparity.
 
+![](fig-gain.svg){fig-alt="A random-texture stereo pair in which the right camera has gain 0.6 and offset +60, and the disparity maps found with 7 by 7 windows and winner-take-all: SAD 18.4 % bad pixels (a noisy map), NCC 3.4 %, census 1.4 % (both show the raised square cleanly)." width="100%"}
+
 ## The math: costs {.math}
 
 With windows $\mathcal W$ around $(x, y)$ and around $(x - d, y)$, $I$ left, $J$ right:
@@ -99,6 +108,8 @@ $$\mathrm{SAD} = \sum_{\mathcal W}|I - J|, \qquad \mathrm{NCC} = \frac{\sum_{\ma
 - **Large windows**: reliable in textured areas, but at a **depth edge** the window straddles foreground and background, and the textured foreground wins: objects come out **fatter** than they are (foreground fattening). Slanted surfaces blur too.
 
 By hand: left row $(1, 1, 5, 9, 5, 1, 1, 1)$, right row shifted 2 to the left. A window of 3 centred on the 9: SAD = 12, 12 and **0** for $d = 0, 1, 2$. A constant row gives the same cost for every $d$: no information.
+
+![](fig-window.svg){fig-alt="Random-dot stereo pair with a raised square: the true disparity map and winner-take-all results with SAD windows of 3 by 3 (24.8 % bad pixels, very noisy), 7 by 7 (1.5 %) and 15 by 15 (1.0 %, but the square's corners are rounded and it grows)." width="100%"}
 
 ## Try it: stereo matching
 
@@ -121,6 +132,8 @@ A rectified 192 × 144 pair with ground truth. Panels: left (click a pixel: its 
 
 **Left–right check**: match left→right **and** right→left; keep a pixel only if the two disparities agree (within one pixel). Occluded and ambiguous pixels mostly fail and are marked **invalid**: holes to be filled later, never "depth 0".
 
+![](fig-failures.svg){fig-alt="The scene 'wall, fence, post': left image with a textureless wall, a striped fence, a post in front and slanted textured ground. Winner-take-all with 3 by 3 SAD: 19.9 % bad pixels, the wall and the fence are full of wrong disparities. Semi-global matching with the left-right check: clean, with grey invalid strips just left of the wall, the fence and the post, where the background is occluded in the right image." width="100%"}
+
 ## Global methods: add smoothness
 
 Neighbouring pixels usually have similar disparities. Make that part of the problem: the same **data + λ·smoothness** energy as for segmentation ([segmentation as energy minimisation](../seg-energy/lec.qmd)), with the disparity as a label from $0, \dots, D - 1$:
@@ -132,6 +145,8 @@ $$E(d) = \sum_{\mathbf p} C(\mathbf p, d_\mathbf p) + \sum_{\text{neighbours}} V
 
 ## Scanline dynamic programming
 
+:::: {.columns}
+::: {.column width="60%"}
 One row of the cost volume is a table: columns $x$, rows $d$. A disparity profile is a **path** through it.
 
 - Find the cheapest path, with $P_1$ for small steps and $P_2$ for jumps: exactly the table filling and backtracking of [dynamic programming on paths](../dp-paths/lec.qmd): fill the cumulative cost column by column, keep a pointer to the best predecessor, backtrack from the best end.
@@ -139,6 +154,11 @@ One row of the cost volume is a table: columns $x$, rows $d$. A disparity profil
 - Each row is solved **independently**: one row's mistake does not know about its neighbours: horizontal **streaks**.
 
 By hand (the exercise): a $4 \times 5$ slice where WTA jumps $1, 2, 1, 0, 1$ (cost 8 + four steps of $P_1 = 1$ = 12) and DP takes the straight path at disparity 1 (cost 10).
+:::
+::: {.column width="40%"}
+![](fig-dp-slice.svg){fig-alt="A 4 by 5 cost table, pixel x across and disparity d upwards. Red boxes: the winner-take-all cells, d = 1, 2, 1, 0, 1, energy 8 plus four steps of 1 = 12. Yellow dashed boxes: the dynamic-programming path, d = 1 everywhere, energy 10." width="100%"}
+:::
+::::
 
 ## Semi-global matching
 
@@ -148,6 +168,8 @@ Hirschmüller (2008): do the 1D dynamic programming along **several directions**
 - Then winner-take-all on the summed costs.
 - Linear in the number of pixels × disparities × directions; easy to run in parallel. The standard algorithm in practice (cars, drones, depth cameras).
 - Learned matching costs (neural networks comparing patches) and end-to-end networks are common today; they still build a cost volume and often keep an SGM-like aggregation.
+
+![](fig-aggregation.svg){fig-alt="True disparity of the 'wall, fence, post' scene and the results with 3 by 3 SAD: winner-take-all 19.9 % bad pixels, scanline dynamic programming 2.8 % with horizontal streaks, semi-global matching with 8 directions 1.5 %." width="100%"}
 
 ## The math: semi-global matching {.math}
 
@@ -174,6 +196,8 @@ Scene "wall, fence, post": a slanted textured ground (d from 6 at the top to 18 
 
 ## Sub-pixel disparity
 
+:::: {.columns}
+::: {.column width="60%"}
 Integer disparities give depth in steps: at 20 m, one step is 4 m in the example. Interpolate the cost curve:
 
 - Fit a **parabola** through the costs at $d - 1$, $d$, $d + 1$; take its minimum. By hand: costs 4, 1, 2 give the offset $+0.25$.
@@ -181,6 +205,11 @@ Integer disparities give depth in steps: at 20 m, one step is 4 m in the example
 - In the demo (SGM 4 on the slanted ground): the mean error of the good pixels drops from 0.26 to 0.12 px.
 
 Together with a long baseline, sub-pixel matching is what makes stereo useful at a distance.
+:::
+::: {.column width="40%"}
+![](fig-subpixel.svg){fig-alt="Costs 4, 1 and 2 at disparities d − 1, d and d + 1, the parabola through them, and its minimum at an offset of +0.25 pixels." width="100%"}
+:::
+::::
 
 ## The math: the sub-pixel parabola {.math}
 
