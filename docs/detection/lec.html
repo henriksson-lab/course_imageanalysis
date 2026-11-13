@@ -159,13 +159,16 @@ Image analysis
 <p><em>How does a network output “there are 12 cells, here”, when the number is not known in advance?</em></p>
 <ul>
 <li><strong>Boxes</strong>: the simplest object description; <strong>IoU</strong> of two boxes in closed form.</li>
-<li>Where candidate boxes come from: <strong>anchors</strong> (template boxes on a grid) or <strong>centre heat maps</strong> (peaks = objects).</li>
+<li>Where candidate boxes come from: a <strong>grid of guesses</strong> (in detail on the next day).</li>
 <li>Every object gets many candidates: <strong>non-maximum suppression</strong> (NMS) keeps one, and what it gets wrong in a crowd.</li>
-<li>How detections are scored: recalled from the evaluation day.</li>
+<li>How detections are scored: recalled from the <a href="../object-eval/lec.html">evaluation day</a>.</li>
 </ul>
 <p><em>Slides titled <strong>The math</strong> give the formulas and proofs; the ideas are complete without them.</em></p>
+<div class="builds-on" style="font-size: 0.6em; margin-top: 0.4em;">
+<p><strong>Builds on:</strong> <a href="../instances/lec.html">From masks to objects (previous unit)</a>; <a href="../neuralnet/lec.html">Day 36: Neural networks</a>; <a href="../object-eval/lec.html">Day 37: Evaluation and statistics</a>; <a href="../autoencoder/lec.html">Day 38: Variational autoencoders</a>.</p>
+</div>
 <aside class="notes">
-<p>This unit follows “From masks to objects” (instances/), which previewed NMS for star-convex polygons. The matching of predictions to truth, F1, matching accuracy and average precision are owned by the evaluation day (object-eval/); here they are only readouts. The demo’s detector is simulated (jittered boxes around the true cells, with scores), so the effect of NMS can be seen without any trained network.</p>
+<p>This unit follows <a href="../instances/lec.html">“From masks to objects”</a> (instances/), which named NMS as the step that prunes star-convex polygons. Anchors, centre heat maps and the grid head of a real single-shot detector are taught on the next day (<a href="../yolo/lec.html">yolo/</a>). The matching of predictions to truth, F1, matching accuracy and average precision are owned by the evaluation day (<a href="../object-eval/lec.html">object-eval/</a>); here they are only readouts. The demo’s detector is simulated (jittered boxes around the true cells, with scores), so the effect of NMS can be seen without any trained network.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
           position:absolute!important;
@@ -194,7 +197,7 @@ Image analysis
 </section>
 <section id="iou-of-two-boxes" class="slide level2">
 <h2>IoU of two boxes</h2>
-<p>The evaluation day’s overlap measure, intersection over union: <span class="math inline">\mathrm{IoU} = |A \cap B| / |A \cup B|</span>. For two axis-aligned boxes the intersection is a box again.</p>
+<p>The <a href="../object-eval/lec.html">evaluation day</a>’s overlap measure, intersection over union: <span class="math inline">\mathrm{IoU} = |A \cap B| / |A \cup B|</span>. For two axis-aligned boxes the intersection is a box again.</p>
 <ul>
 <li><span class="math inline">A = [0, 4] \times [0, 4]</span>, <span class="math inline">B = [2, 6] \times [2, 6]</span>: intersection <span class="math inline">[2, 4] \times [2, 4]</span>, area 4; union <span class="math inline">16 + 16 - 4 = 28</span>; <span class="math inline">\mathrm{IoU} = 4/28 = 0.14</span>.</li>
 <li>The same <span class="math inline">4 \times 4</span> box shifted by one pixel to the right: <span class="math inline">12/20 = 0.6</span>. Shifted by one pixel right <strong>and</strong> down: <span class="math inline">9/23 = 0.39</span>.</li>
@@ -211,7 +214,7 @@ Image analysis
 <div class="column" style="width:62%;">
 <ul>
 <li><strong>Scale invariant</strong>: scaling both boxes by <span class="math inline">s</span> multiplies every area by <span class="math inline">s^2</span>; the ratio is unchanged.</li>
-<li><span class="math inline">1 - \mathrm{IoU}</span> as a training loss gives <strong>no gradient</strong> when the boxes do not overlap (<span class="math inline">w = 0</span> or <span class="math inline">h = 0</span> on a whole region): the loss is flat at 1 however far apart they are. Hence the regression losses on the box coordinates (next slides).</li>
+<li><span class="math inline">1 - \mathrm{IoU}</span> as a training loss gives <strong>no gradient</strong> when the boxes do not overlap (<span class="math inline">w = 0</span> or <span class="math inline">h = 0</span> on a whole region): the loss is flat at 1 however far apart they are. Hence the regression losses on the box coordinates (next day).</li>
 </ul>
 </div><div class="column" style="width:38%;">
 <p><img data-src="fig-iouloss.svg" style="width:100.0%" alt="1 − IoU of two 4 × 4 boxes against the horizontal shift of B: it rises from 0 to 1 at a shift of 4 pixels and stays exactly 1 for larger shifts: flat, no gradient."></p>
@@ -219,62 +222,31 @@ Image analysis
 </section>
 <section id="recall-scoring-detections" class="slide level2">
 <h2>Recall: scoring detections</h2>
-<p>From the evaluation day, unchanged:</p>
+<p>From the <a href="../object-eval/lec.html">evaluation day</a>, unchanged:</p>
 <ul>
 <li>Match predictions to true objects one to one at IoU <span class="math inline">\ge \tau</span> (often <span class="math inline">\tau = 0.5</span>): TP, FP, FN objects; F1 and <strong>matching accuracy</strong> <span class="math inline">TP/(TP + FP + FN)</span>.</li>
 <li>Rank the scored detections, walk down the list: a precision–recall curve; its area is the <strong>average precision (AP)</strong>. Detection benchmarks often average AP over <span class="math inline">\tau = 0.5, 0.55, \dots, 0.95</span>.</li>
 </ul>
 <p>This unit is about what happens <strong>before</strong> the evaluation: where the scored boxes come from, and how duplicates are removed.</p>
 </section>
-<section id="where-candidates-come-from-anchors" class="slide level2">
-<h2>Where candidates come from: anchors</h2>
+<section id="where-do-the-candidates-come-from" class="slide level2">
+<h2>Where do the candidates come from?</h2>
 <div class="columns">
-<div class="column" style="width:58%;">
-<p>The network looks at every position of a coarse grid (a feature map, e.g.&nbsp;every 16 pixels; the neural networks day) and guesses there.</p>
+<div class="column" style="width:57%;">
 <ul>
-<li>At each grid cell: a few <strong>anchors</strong>, template boxes of preset sizes and shapes (e.g.&nbsp;1:1, 2:1, 1:2).</li>
-<li>For each anchor the network predicts “is there an object?” (a score) and a small <strong>correction</strong> of the box.</li>
-<li>An object is learned only by anchors that overlap it well (IoU <span class="math inline">\ge 0.5</span> during training). Objects much smaller, larger or more elongated than every anchor match <strong>no</strong> anchor and are never learned.</li>
+<li>The network looks at a <strong>coarse grid</strong> over the image (e.g.&nbsp;every 16 pixels).</li>
+<li>Every grid cell <strong>guesses</strong> a box and a score.</li>
+<li>Older detectors guess relative to <strong>template boxes</strong> (anchors); objects that fit no template are never learned.</li>
+<li>Others predict a <strong>heat map of centres</strong>; its peaks are the objects.</li>
 </ul>
-<p>A <span class="math inline">4 \times 4</span> cell and a <span class="math inline">10 \times 10</span> anchor with the same centre: IoU <span class="math inline">= 16/100 = 0.16</span>: not matched.</p>
-</div><div class="column" style="width:42%;">
+<p>In detail, with a real network: <a href="../yolo/lec.html">Networks for cells and objects: single-shot detection</a>.</p>
+</div><div class="column" style="width:43%;">
 <p><img data-src="fig-anchors.png" style="width:100.0%" alt="Anchor grid (yellow dots, stride 16) with one 20 × 20 square anchor shape on the rod-and-small-cell scene: for each object the best anchor (dashed yellow) and its IoU: 0.67 for one round cell (green, learnable); 0.39, 0.28, 0.17 for the other cell, the large cell and the diagonal rod, and 0.10 for the small cell (red, never learned)."></p>
 </div></div>
 </section>
-<section id="the-math-boxes-relative-to-an-anchor" class="slide level2 math">
-<h2>The math: boxes relative to an anchor</h2>
-<p>Anchor centre <span class="math inline">(x_a, y_a)</span>, size <span class="math inline">(w_a, h_a)</span>; the network predicts</p>
-<p><span class="math display">t_x = \frac{x - x_a}{w_a}, \quad t_y = \frac{y - y_a}{h_a}, \quad t_w = \log\frac{w}{w_a}, \quad t_h = \log\frac{h}{h_a}.</span></p>
-<ul>
-<li>Dividing by the anchor size makes the targets the same for small and large objects.</li>
-<li>The <strong>log</strong>: a box twice too wide and one half as wide are equally wrong (<span class="math inline">\pm\log 2</span>); the predicted width <span class="math inline">w_a e^{t_w}</span> is always positive; and an error in <span class="math inline">t_w</span> is a <strong>relative</strong> error in <span class="math inline">w</span>.</li>
-<li>Training: a cross-entropy for the score of every anchor (most anchors are background, so easy background examples are down-weighted, e.g.&nbsp;by a factor <span class="math inline">(1 - p)^\gamma</span>, the <em>focal loss</em>), and a squared or absolute error on <span class="math inline">(t_x, t_y, t_w, t_h)</span> for the matched anchors.</li>
-</ul>
-</section>
-<section id="where-candidates-come-from-centre-heat-maps" class="slide level2">
-<h2>Where candidates come from: centre heat maps</h2>
-<div class="columns">
-<div class="column" style="width:50%;">
-<p>Anchor-free: the network outputs a <strong>heat map</strong> of object centres (a small bump at every centre) and, at every pixel, the size of the box centred there.</p>
-<ul>
-<li>Objects = <strong>local maxima</strong> of the heat map: a pixel that is the largest in its <span class="math inline">3 \times 3</span> (or larger) window and above a threshold.</li>
-<li>No preset shapes. Two problems remain: two objects whose centres are too close give one peak; a noisy heat map gives two peaks in one object.</li>
-<li>This is the <strong>peak picking of the Hough accumulator</strong> (the Hough day), applied to a learned map.</li>
-</ul>
-</div><div class="column" style="width:50%;">
-<p><img data-src="fig-heat.png" style="width:100.0%" alt="Simulated centre heat maps with their local maxima (white crosses) and boxes (green). Clean map on touching elongated cells: 12 peaks for 12 cells. Noisy map on the sparse scene: 14 peaks for 9 cells, two cells with two peaks each and spurious peaks."></p>
-</div></div>
-</section>
-<section id="the-math-heat-map-targets-and-peaks" class="slide level2 math">
-<h2>The math: heat-map targets and peaks</h2>
-<p>Training target for objects with centres <span class="math inline">c_k</span>:</p>
-<p><span class="math display">Y(p) = \max_k \exp\!\Big(-\frac{\|p - c_k\|^2}{2\sigma^2}\Big),</span></p>
-<p>with <span class="math inline">\sigma</span> growing with the object size; loss: a pixelwise (focal) cross-entropy.</p>
-<p>Peaks: <span class="math inline">p</span> is a detection if <span class="math inline">Y(p) = \max_{q \in W(p)} Y(q)</span> over the window <span class="math inline">W(p)</span> (a grey-level dilation with a square, compared with the map) and <span class="math inline">Y(p) \ge \theta</span>. A larger window removes noise peaks but also merges close objects.</p>
-</section>
 <section id="many-candidates-per-object" class="slide level2">
 <h2>Many candidates per object</h2>
-<p>Whatever proposes the boxes, every object gets <strong>several</strong> overlapping candidates: neighbouring anchors, neighbouring pixels of a peak, jittered guesses.</p>
+<p>Whatever proposes the boxes, every object gets <strong>several</strong> overlapping candidates: neighbouring grid cells, neighbouring pixels of a peak, jittered guesses.</p>
 <p><strong>Greedy non-maximum suppression</strong>: sort by score; keep the best box; delete every remaining box with IoU <span class="math inline">&gt; t</span> with it; repeat with the best remaining box.</p>
 <p>Five boxes: <span class="math inline">b_1 = [0,10]^2</span> (0.9), <span class="math inline">b_2 = [1,11] \times [0,10]</span> (0.8), <span class="math inline">b_3 = [8,18] \times [0,10]</span> (0.7), <span class="math inline">b_4 = [9,19] \times [1,11]</span> (0.6), <span class="math inline">b_5 = [20,26]^2</span> (0.3). Two true cells: under <span class="math inline">b_1</span> and under <span class="math inline">b_3</span>.</p>
 <div class="columns">
@@ -317,7 +289,7 @@ Image analysis
 <li>Remove every remaining candidate <span class="math inline">c</span> with <span class="math inline">\mathrm{IoU}(b, c) &gt; t</span>.</li>
 <li>Repeat from 2 until no candidate remains; output <span class="math inline">K</span>.</li>
 </ol>
-<p>At most <span class="math inline">n</span> rounds, each comparing with up to <span class="math inline">n</span> boxes: <span class="math inline">O(n^2)</span> IoUs. The result depends only on the order of the scores and on <span class="math inline">t</span>. It is not an optimisation of any global criterion; it is a rule. The same rule with polygon IoU prunes the star-convex polygons of the previous unit.</p>
+<p>At most <span class="math inline">n</span> rounds, each comparing with up to <span class="math inline">n</span> boxes: <span class="math inline">O(n^2)</span> IoUs. The result depends only on the order of the scores and on <span class="math inline">t</span>. It is not an optimisation of any global criterion; it is a rule. The same rule with polygon IoU prunes star-convex polygons (next day, StarDist).</p>
 </section>
 <section id="try-it-boxes-and-suppression" class="slide level2">
 <h2>Try it: boxes and suppression</h2>
@@ -325,7 +297,7 @@ Image analysis
 <div data-demo="nmsboxes" data-preset="crowd"></div>
 <script src="../demos/dist/nmsboxes.js"></script>
 <aside class="notes">
-<p>The detector is simulated: 5 jittered boxes per true cell with scores from their IoU, plus 3 false boxes. Tour: “IoU of two boxes”: drag B, watch 4/28 = 0.143 change. “duplicates removed”: sparse image, t = 0.5, 48 candidates → 12 boxes, all 9 cells found (3 FP are the false boxes). Step through: the first kept box removes 4 duplicates. “touching cells”: two palisades of elongated touching cells at ±45°, whose boxes overlap their neighbours by about 0.3. With t = 0.2: 10 boxes, 4 cells have no box left. “threshold too high” (t = 0.75): 46 boxes, 34 false positives (duplicates). Find the best t (about 0.4). Then “diagonal rod”, “small cell: no anchor matches” (anchors: 1 of 5 objects matched) and the two heat-map presets.</p>
+<p>The detector is simulated: 5 jittered boxes per true cell with scores from their IoU, plus 3 false boxes. Tour: “IoU of two boxes”: drag B, watch 4/28 = 0.143 change. “duplicates removed”: sparse image, t = 0.5, 48 candidates → 12 boxes, all 9 cells found (3 FP are the false boxes). Step through: the first kept box removes 4 duplicates. “touching cells”: two palisades of elongated touching cells at ±45°, whose boxes overlap their neighbours by about 0.3. With t = 0.2: 10 boxes, 4 cells have no box left. “threshold too high” (t = 0.75): 46 boxes, 34 false positives (duplicates). Find the best t (about 0.4). Then “diagonal rod”. The anchor and heat-map modes and presets stay in the selector; they are toured on the next day (<a href="../yolo/lec.html">yolo/</a>).</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
           position:absolute!important;
@@ -345,20 +317,15 @@ Image analysis
 <ul>
 <li>In a <strong>crowd</strong> of touching cells, the box of a true neighbour overlaps the kept box by more than <span class="math inline">t</span>: it is <strong>deleted</strong> (a missed cell). The fix “raise <span class="math inline">t</span>” lets <strong>duplicates</strong> of the same cell survive.</li>
 <li>One threshold cannot do both when neighbours overlap as much as duplicates do. In the demo’s palisade (neighbour IoU about 0.3): <span class="math inline">t = 0.2</span> loses 4 of 12 cells; <span class="math inline">t = 0.75</span> keeps 34 duplicates; the best, <span class="math inline">t = 0.4</span>, still has 3 false positives.</li>
-<li>Hence for dense cells the <strong>map-based</strong> routes of the previous unit are usually preferred over boxes.</li>
+<li>Hence for dense cells the <strong>map-based</strong> routes of the <a href="../instances/lec.html">previous unit</a> are usually preferred over boxes.</li>
 </ul>
 </div><div class="column" style="width:50%;">
 <p><img data-src="fig-crowd.png" style="width:100.0%" alt="Two palisades of touching elongated cells after NMS (green: kept boxes with scores; blue dashed: true boxes). t = 0.2: 10 boxes, 4 cells have no box left. t = 0.75: 46 boxes, 34 of them duplicates (false positives)."></p>
 </div></div>
 </section>
-<section id="three-meanings-of-non-maximum-suppression" class="slide level2">
-<h2>Three meanings of “non-maximum suppression”</h2>
+<section id="meanings-of-non-maximum-suppression" class="slide level2">
+<h2>Meanings of “non-maximum suppression”</h2>
 <table class="caption-top">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
 <thead>
 <tr class="header">
 <th>Where</th>
@@ -368,12 +335,12 @@ Image analysis
 </thead>
 <tbody>
 <tr class="odd">
-<td>Canny (the edges day)</td>
+<td>Canny (the <a href="../canny/lec.html">edges day</a>)</td>
 <td>gradient values that are not the largest <strong>across</strong> the edge</td>
 <td>the two neighbours along the gradient direction</td>
 </tr>
 <tr class="even">
-<td>Hough accumulator (the Hough day)</td>
+<td>Hough accumulator (the <a href="../hough-lines/lec.html">Hough day</a>)</td>
 <td>accumulator cells that are not a local peak</td>
 <td>a window in parameter space</td>
 </tr>
@@ -382,18 +349,23 @@ Image analysis
 <td><strong>boxes</strong> that overlap a better box by more than <span class="math inline">t</span></td>
 <td>IoU with the kept boxes</td>
 </tr>
+<tr class="even">
+<td>Polygons (next day, <a href="../stardist/lec.html">StarDist</a>)</td>
+<td><strong>polygons</strong> that overlap a better polygon by more than <span class="math inline">t</span></td>
+<td>polygon IoU with the kept polygons</td>
+</tr>
 </tbody>
 </table>
-<p>A centre heat map’s peak picking is the Hough version; box NMS is a different rule with the same name.</p>
+<p>A centre heat map’s peak picking (next day) is the Hough version; box NMS is a different rule with the same name, and polygon NMS is the box rule with polygon IoU.</p>
 </section>
 <section id="summary" class="slide level2">
 <h2>Summary</h2>
 <ul>
 <li>A box is 4 numbers + score; IoU of boxes has a closed form; poor for diagonal or long objects.</li>
-<li>Candidates come from <strong>anchors</strong> (template boxes: objects that match no anchor are never learned) or from <strong>peaks of a centre heat map</strong> (no templates; close objects or noise are the risk).</li>
+<li>Candidates come from a <strong>grid of guesses</strong> (anchors or centre peaks: <a href="../yolo/lec.html">next day</a>).</li>
 <li>Every object gets many candidates; <strong>greedy NMS</strong> keeps the best and deletes overlaps above <span class="math inline">t</span>.</li>
 <li>In crowds, one <span class="math inline">t</span> cannot both remove duplicates and keep touching neighbours.</li>
-<li>Scoring (matching, F1, AP) comes from the evaluation day.</li>
+<li>Scoring (matching, F1, AP) comes from the <a href="../object-eval/lec.html">evaluation day</a>.</li>
 </ul>
 
 
