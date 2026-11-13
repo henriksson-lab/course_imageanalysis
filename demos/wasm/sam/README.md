@@ -10,8 +10,9 @@ SAM 2.1 Hiera tiny, from the henriksson-lab crate **sam2-rs** (Candle, CPU backe
 - Weights: `make models` → `demos/dist/models/sam2/sam2.1_hiera_tiny.safetensors` (manifest entry
   `sam2.1-hiera-tiny`: the official checkpoint, converted by sam2-rs `tools/convert_checkpoint.py`,
   stored as f16; Candle reads it into f32).
-- Two dependencies are patched copies, because the published sources do not compile or do not
-  run on wasm32: see `vendor/README.md`.
+- Candle from the mahogny/candle fork, rev `2512982` (2026-11-13), used as published. sam2-rs is a
+  patched copy, because the published source does not run on wasm32 (`std::time::Instant`): see
+  `vendor/README.md`.
 
 ## API (JavaScript, from the wasm-bindgen glue)
 
@@ -45,13 +46,18 @@ more module.
 
 | | Headless Chrome (worker) | node 20 (test) | native sam2-rs, 8 threads |
 |---|---:|---:|---:|
-| Module `sam_bg.wasm` | 2.56 MB (2 557 650 B) | | |
+| Module `sam_bg.wasm` | 2.56 MB (2 557 970 B) | | |
 | Weights (f16 safetensors) | 78.0 MB (77 980 836 B) | | |
 | Download + cache, first load (local server) | 1.7 s | | |
-| Build network from weights | 0.4 s | 0.47 s | 0.1–0.2 s |
-| Image encoder (once per image) | 26.6 s | 24.5 s | 2.5 s |
-| Prompt encoder + mask decoder (per click, 3 masks) | 0.41–0.43 s | 0.34 s | 0.06 s |
-| Automatic masks, 8 × 8 grid (64 points × 3 candidates) | 21.7 s (decoder 21.1 s) | 21.6 s | 5.4 s |
+| Build network from weights | 0.4 s | 0.46–0.47 s | 0.1–0.2 s |
+| Image encoder (once per image) | 26.6 s | 23.6 s | 2.5 s |
+| Prompt encoder + mask decoder (per click, 3 masks) | 0.41–0.43 s | 0.33 s | 0.06 s |
+| Automatic masks, 8 × 8 grid (64 points × 3 candidates) | 21.7 s (decoder 21.1 s) | 21.0–21.5 s | 5.4 s |
+
+Candle rev `2512982` instead of `0998c8c` (2026-11-13; the node column measured with both, same
+machine): the same speed (encoder 23.6 vs 23.6 s, decoder 0.33 s per click), module +320 B,
+and bit-identical output (embedding, mask logits, IoU and object scores: max |difference| 0).
+The Chrome column was measured with `0998c8c`.
 
 The decoder costs about 0.33 s per prompt point in Wasm, so a 16 × 16 grid takes about 90 s;
 the demo defaults to 8 × 8. Agreement with native (test): predicted IoU within 0.01,
@@ -62,7 +68,7 @@ masks (8 × 8 grid, default thresholds).
 
 - **SIMD** (`-C target-feature=+simd128`, all current browsers): needs (a) the Wasm build to pass
   that flag (`demos/wasm/build.sh` or a `.cargo/config.toml` at the repository root) and (b) a fix in
-  candle-core at the pinned revision, which then fails to compile (`CurrentCpuF16`/`CurrentCpuBF16`
+  candle-core (still needed at rev `2512982`), which then fails to compile (`CurrentCpuF16`/`CurrentCpuBF16`
   missing for the simd128 path). Expected gain: a few times on the matrix products.
 - **Threads** (rayon on Web Workers) need cross-origin isolation headers, which GitHub Pages
   cannot set.

@@ -24,9 +24,12 @@ under `lib: es2020`): `load(config, thresholds, h5)`, `predict(img, w, h, engine
 `out_width/out_height/prob/dist`, `instances(prob, dist, …, prob_thresh, nms_thresh)` plus the
 `dec_*` getters (candidates, count, points, probs, dists, coords, labels), `normalize_percentile`.
 
-Two patches in this wrapper, none upstream: `getrandom` with `wasm_js` (candle pulls in `rand`)
-and the candle fork that stardist-rs builds against (`[patch.crates-io]`, because a dependency's
-own `[patch]` does not apply here).
+Two patches in this wrapper, none upstream: `getrandom` with `wasm_js` (candle pulls in `rand`;
+still needed at the candle revision below) and the candle fork that stardist-rs builds against
+(`[patch.crates-io]`, because a dependency's own `[patch]` does not apply here), pinned to rev
+`2512982` of mahogny/candle (branch `integration/stardist-clearmap-ops`, 2026-11-13), the same
+candle as `demos/wasm/sam`, instead of stardist-rs's branch `pr/stardist-candle-integration`
+(`c4e7b3e`), which it contains.
 
 ## Checks
 
@@ -42,7 +45,7 @@ own `[patch]` does not apply here).
 
 ## Benchmark (2026-11-13, Xeon Gold 6138 at 2.0 GHz, under load from other jobs; one thread)
 
-Sizes: `stardist_bg.wasm` 1.06 MB (257 kB gzip), `weights_best.h5` 5.5 MB (f32, barely
+Sizes: `stardist_bg.wasm` 1.22 MB (274 kB gzip; 1.06 MB and 257 kB with candle `c4e7b3e`), `weights_best.h5` 5.5 MB (f32, barely
 compresses), demo script 35 kB.
 
 512 × 512 sample image (`images/stardist-img2d.png`): 121 objects from 4737 candidate cells.
@@ -52,8 +55,14 @@ The labels and counts are the same in every column.
 |---|---:|---:|
 | headless Chrome, fast engine (default) | 1.96–2.04 s | 0.12–0.13 s |
 | headless Chrome, candle engine | 5.2–5.5 s | 0.12 s |
-| node 20, fast / candle | 1.8–2.0 s / 4.9–5.3 s | 0.11 s |
+| node 20, fast / candle | 1.8–2.0 s / 4.1 s (4.9–5.3 s with candle `c4e7b3e`) | 0.11 s |
 | native x86-64, candle, 1 thread / 40 threads | 2.7 s / 1.0 s | 0.06 s |
+
+Candle rev `2512982` instead of `c4e7b3e` (2026-11-13): candle's matrix products come from the
+mahogny/gemm fork instead of crates.io `gemm` 0.19, which makes the candle engine about 18 % faster
+in node (4.1 vs 5.0 s) and the module 157 kB larger; the fast engine and the decoding are
+unchanged. Output is bit-identical (prob, dist and labels of both engines: max |difference| 0).
+The Chrome rows were measured with `c4e7b3e`.
 
 696 × 520 (`dsb-fluo-dense`): 2.6 s network, 0.22 s decoding, 305 objects.
 

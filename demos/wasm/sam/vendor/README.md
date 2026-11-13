@@ -1,19 +1,21 @@
-# Patched copies of two crates (for wasm32)
+# Patched copy of sam2-rs (for wasm32)
 
-The `sam` crate builds SAM 2.1 from the henriksson-lab crate **sam2-rs** on **Candle**. Two
-small problems stop the published sources from working on `wasm32-unknown-unknown`, so the
-crate depends on these copies instead (path dependencies in `../Cargo.toml`). The upstream
-repositories are not modified.
+The `sam` crate builds SAM 2.1 from the henriksson-lab crate **sam2-rs** on **Candle**. The
+published sam2-rs does not run on `wasm32-unknown-unknown`, so the crate depends on this copy
+instead (a path dependency in `../Cargo.toml`). The upstream repository is not modified.
 
 | Copy | Source | Patch |
 |---|---|---|
-| `candle-nn/` | github.com/mahogny/candle, rev `0998c8c655ae84330149ddbff509916254b887a1` (the revision sam2-rs pins), `candle-nn/src/` and the licences | `src/attention/cpu_flash/standard.rs`: `std::is_x86_feature_detected!` does not exist on wasm32, even inside `cfg!(target_arch = "x86_64") && …`, so the crate does not compile. A local macro `x86_feature!` calls it on x86_64 and is `false` elsewhere. Manifest rewritten without the workspace inheritance (same dependencies and versions). |
-| `sam2-rs/` | github.com/henriksson-lab/sam2-rs, rev `edb4cb76cfd85bdc69915893a9addea7ebe3bd62` (the commit of the converter in `tools/models/manifest.json`), `src/` without `src/bin/`, and `manifests/` | `std::time::Instant::now()` panics on wasm32 ("time not implemented"), and the mask decoder and prompt encoder call it unconditionally (for optional profiling). Every use now goes through `src/clock.rs`: std's `Instant` natively, a stand-in with zero elapsed time on wasm32. Mechanical replacement in 10 files. Manifest without the CUDA build script and the optional features (download, image/video decoding, CUDA, MKL). |
+| `sam2-rs/` | github.com/henriksson-lab/sam2-rs, rev `edb4cb76cfd85bdc69915893a9addea7ebe3bd62` (the commit of the converter in `tools/models/manifest.json`, and still the latest `main` on 2026-11-13), `src/` without `src/bin/`, and `manifests/` | `std::time::Instant::now()` panics on wasm32 ("time not implemented"), and the mask decoder and prompt encoder call it unconditionally (for optional profiling). Every use now goes through `src/clock.rs`: std's `Instant` natively, a stand-in with zero elapsed time on wasm32. Mechanical replacement in 10 files. Manifest without the CUDA build script and the optional features (download, image/video decoding, CUDA, MKL), and with Candle at rev `2512982e1f879939d25b60797913761876c49465` (the revision `../Cargo.toml` uses) instead of upstream's `0998c8c`, which does not compile for wasm32. |
 
-To update: copy the same directories from the new revisions and repeat the two patches
-(`grep -rn "is_x86_feature_detected" candle-nn/src`, `grep -rn "Instant" sam2-rs/src`), then
-`make wasm` and the check in `demos/test/sam-wasm-test.ts`. Better: get both fixes upstream
-and drop these copies.
+Candle itself is no longer vendored: until rev `0998c8c` its `candle-nn` called
+`std::is_x86_feature_detected!` inside `cfg!(target_arch = "x86_64") && …`, which does not compile
+on wasm32. The fork's rev `2512982` (branch `integration/stardist-clearmap-ops`, "Guard CPU
+attention AVX detection on x86-64") puts it behind `#[cfg]`, so Candle is used as published.
 
-Natively the patched crates behave exactly as the originals: the wrapper's output equals
+To update: copy the same directories from the new sam2-rs revision and repeat the patch
+(`grep -rn "Instant" sam2-rs/src`), then `make wasm` and the check in
+`demos/test/sam-wasm-test.ts`. Better: get the fix upstream and drop this copy.
+
+Natively the patched crate behaves exactly as the original: the wrapper's output equals
 sam2-rs's `Sam2ImagePredictor` to the last bit (max |logit difference| 0, see `../README.md`).
