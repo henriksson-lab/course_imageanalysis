@@ -1,5 +1,10 @@
 # Course map (decisions, 2026-11-12)
 
+> **Decided 2026-11-13: this is a self-study course with no cap on the number of days. There
+> are no electives and no core/elective distinction.** Every day belongs to one sequence, sorted
+> into themed parts by prerequisites (see "Self-study restructure" at the end). The tables below
+> still use the older core/elective wording until that restructure is applied.
+
 Single source of truth for the structure of the course. Plans and units follow this
 file; where a plan disagrees, this file wins and the plan should be updated. Based on
 the three reviews (`review-ordering.md`, `review-gaps.md`, `review-organisation.md`).
@@ -201,3 +206,33 @@ planning (the user allowed reorganising days and content).
   recall), anisotropic diffusion (Perona–Malik), total variation flow (recall Ising/TV),
   bilateral filter and non-local means in depth (recall deconvolution denoisers), inpainting
   (diffusion-based and exemplar-based), stability of explicit schemes (CFL recall from level sets).
+
+
+## Self-study restructure (decided 2026-11-13, to do)
+
+The course is self-study and has no cap on days, so the core/elective split goes away. All days
+form one sequence, grouped into themed parts and ordered so that hard prerequisites come first.
+Learners pick a topic and follow its prerequisites (the prerequisite map makes that easy).
+
+To do:
+1. **New part structure** (proposal, to be refined when applied): fold every former elective into
+   the part where its topic belongs, after its prerequisites, e.g.
+   - Part I Images as numbers: + contrast, splines, GPUs, compression, wavelets, sparse
+     representations, edge-preserving smoothing/PDEs, Radon (or a separate "Transforms and
+     reconstruction" part);
+   - Part II From pixels to objects: + skeletons, moments, spatial statistics, point detection,
+     keypoints, Hough, integral images;
+   - Part III Aligning images and motion: FFT registration, optical flow, tracking, geometry from
+     multiple images;
+   - Part IV Segmentation as optimisation: graph cuts, graph-based segmentation, snakes, level
+     sets, dynamic programming, Ising/MRF;
+   - Part V Learning from examples: random forests, SVM, Gaussian mixtures, neural networks,
+     evaluation, VAEs, modern deep learning, networks for cells and objects, diffusion;
+   - Part VI Fluorescence and spectra: colour (or keep in II), unmixing, colocalisation, FRET, FLIM;
+   - Part VII 3D: marching cubes, 3D graphics, ray tracing.
+   Day numbers become global (1…N) in that order.
+2. Derive the order from the prerequisite database (`days.yml`, see "Prerequisite map") so that
+   it is checked, not hand-maintained; the sidebar is generated from it.
+3. Remove "elective"/"core" wording from units, plans, the home page and the course map (about
+   127 .qmd files and most plans mention it); replace "the X elective" with "the X day".
+4. Update day numbers in plans and units ("day N" references) after renumbering.

@@ -1,6 +1,7 @@
 # Audience
 
-University students who have completed about **three years** of study (typically
+**Self-study course** (no fixed length, no electives: learners pick topics and follow their
+prerequisites). University students who have completed about **three years** of study (typically
 a bachelor's degree in a science or engineering subject). Not published on the site.
 
 ## What we can expect them to know
