@@ -15,10 +15,13 @@ import * as M from "./model";
 const NAME = "featurescan";
 const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .fs-plate { flex: 1 1 360px; max-width: 440px; }
-[data-demo="${NAME}"] .qb-plot { flex: 1 1 300px; max-width: 400px; }
-[data-demo="${NAME}"] .qb-readout { font-size: 13.5px; white-space: pre; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 270px; gap: .3em; }
+[data-demo="${NAME}"] .fs-plate { flex: 1 1 340px; max-width: 420px; min-width: 240px; }
+[data-demo="${NAME}"] .fs-plots { flex: 0 1 300px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
+[data-demo="${NAME}"] .fs-plots .qb-plot { flex: none; max-width: none; }
+[data-demo="${NAME}"] .fs-plots svg { max-height: calc(50vh - 90px); margin: 0 auto; }
+[data-demo="${NAME}"] .qb-figure figcaption { font-size: 15px; }
+[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 260px; gap: .25em; font-size: 15px; }
 [data-demo="${NAME}"] .fs-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
@@ -26,7 +29,8 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; flex-basis: 250px; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 13px; }
 .reveal [data-demo="${NAME}"] .fs-plate { flex-basis: 330px; }
-.reveal [data-demo="${NAME}"] .qb-plot { max-width: 330px; }
+.reveal [data-demo="${NAME}"] .fs-plots { flex-basis: 360px; }
+.reveal [data-demo="${NAME}"] .fs-plots svg { max-height: 480px; }
 `;
 
 function injectStyle(): void {
@@ -62,8 +66,9 @@ function mount(host: HTMLElement): void {
   button(featRow, "smallest p", () => { feat = ana.p.indexOf(Math.min(...ana.p)); drawPlate(); });
   button(featRow, "a real feature", () => { const k = plate.real.indexOf(true); if (k >= 0) { feat = k; drawPlate(); } });
   button(featRow, "a null feature", () => { feat = plate.real.indexOf(false); drawPlate(); });
-  const histF = plotFigure(host, "all p-values");
-  const rankF = plotFigure(host, "sorted p-values and three thresholds");
+  const plots = htmlEl("div", "fs-plots", "", host);
+  const histF = plotFigure(plots, "all p-values");
+  const rankF = plotFigure(plots, "sorted p-values, three thresholds");
   const panel = htmlEl("div", "qb-panel", "", host);
   htmlEl("div", "fs-lab", "presets", panel);
   const pbtn = presets(panel, M.PRESETS.map(p => ({ label: p.label, apply: () => load(p) })));
@@ -84,6 +89,7 @@ function mount(host: HTMLElement): void {
   if (!panels.has("plate")) left.style.display = "none";
   if (!panels.has("hist")) histF.style.display = "none";
   if (!panels.has("rank")) rankF.style.display = "none";
+  if (!panels.has("hist") && !panels.has("rank")) plots.style.display = "none";
   if (!panels.has("controls")) panel.style.display = "none";
 
   let plate = M.makePlate(st, seed), ana = M.analyse(plate, st.alpha);

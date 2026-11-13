@@ -22,20 +22,26 @@ const NAME = "colocnull";
 
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
-.qb-demo[data-demo="${NAME}"] .cn-img { flex: 0 1 300px; min-width: 200px; margin: 0; }
-.qb-demo[data-demo="${NAME}"] .cn-img canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; image-rendering: pixelated; }
-.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
-.qb-demo[data-demo="${NAME}"] .cn-main { flex: 1 1 400px; min-width: 260px; max-width: 520px; }
+.qb-demo[data-demo="${NAME}"] .cn-left { flex: 0 1 290px; min-width: 180px; display: flex; flex-direction: column; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .cn-img { margin: 0; }
+.qb-demo[data-demo="${NAME}"] .cn-img canvas { width: 100%; max-width: min(250px, calc(100vh - 480px)); min-width: 160px; aspect-ratio: 1; display: block; margin: 0 auto; border-radius: 3px; image-rendering: pixelated; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin: 0 0 .2em; }
+.qb-demo[data-demo="${NAME}"] .cn-main { flex: 1 1 380px; min-width: 260px; max-width: min(425px, calc((100vh - 250px) * 1.35)); }
 .qb-demo[data-demo="${NAME}"] .cn-tabs { display: flex; flex-wrap: wrap; gap: .25em; margin-bottom: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 290px; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre; }
-.qb-demo[data-demo="${NAME}"] .cn-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 320px; gap: .25em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { padding: .12em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre-wrap; line-height: 1.3; }
+.qb-demo[data-demo="${NAME}"] .cn-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.1em; }
+.qb-demo[data-demo="${NAME}"] .cn-row { display: flex; flex-wrap: wrap; gap: .2em; align-items: center; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; gap: .5em; flex-wrap: nowrap; }
-.reveal .qb-demo[data-demo="${NAME}"] .cn-img { flex: 0 0 250px; min-width: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .cn-left { flex: 0 0 250px; min-width: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .cn-img canvas { max-width: 250px; }
 .reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
-.reveal .qb-demo[data-demo="${NAME}"] .cn-main { flex: 0 0 430px; min-width: 0; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 380px; gap: .12em; min-width: 0; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 18px; line-height: 1.2; padding: .25em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .cn-main { flex: 0 0 430px; min-width: 0; max-width: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 380px; gap: .12em; min-width: 0; font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; line-height: 1.2; padding: .25em .45em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 18px; padding: .05em .35em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-presets { gap: .2em; }
 .reveal .qb-demo[data-demo="${NAME}"] .cn-lab { font-size: 18px; }
@@ -86,10 +92,12 @@ function mount(host: HTMLElement): void {
   let nullR: { block: Float64Array; px: Float64Array; obs: number; p: number; pPx: number } | null = null;
   let nullIcq: { vals: Float64Array; obs: number; p: number } | null = null;
 
-  const imgFig = htmlEl("figure", "cn-img", "", host);
+  const left = htmlEl("div", "cn-left", "", host);
+  const imgFig = htmlEl("figure", "cn-img", "", left);
   const imgCap = htmlEl("figcaption", "", "", imgFig);
   const cv = htmlEl("canvas", "", "", imgFig);
   cv.width = S; cv.height = S;
+  const ro = htmlEl("div", "qb-readout", "", left);
 
   const main = htmlEl("div", "cn-main", "", host);
   const tabs = htmlEl("div", "cn-tabs", "", main);
@@ -98,7 +106,7 @@ function mount(host: HTMLElement): void {
   const pl = new Plot(pf, { width: 460, height: 340, x: [-20, 20], y: [-0.2, 1], font: FS, margin: { l: 3.2 * FS, b: 2.8 * FS, t: 12, r: 12 } });
 
   const panel = htmlEl("div", "qb-panel", "", host);
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  if (onSlide) panel.prepend(ro);   // slides: the wide panel holds the readout (pages: under the image)
   const runRow = htmlEl("div", "qb-presets", "", panel);
   const runBtn = button(runRow, `shuffle B ×${NSHUF}`, () => { runNull(); draw(); });
   const bS = slider(panel, "block (px)", 0, BLOCKS.length - 1, 1, BLOCKS.indexOf(st.block), v => { st.block = BLOCKS[v]; nullR = null; nullIcq = null; unp(); draw(); }, v => String(BLOCKS[v]));
@@ -112,11 +120,12 @@ function mount(host: HTMLElement): void {
   const leS = slider(panel, "bleed A→B", 0, 0.8, 0.05, st.bleed, v => { st.bleed = v; changed(); });
   const unS = slider(panel, "shared background", 0, 80, 2, st.uneven, v => { st.uneven = v; changed(); });
   const noS = slider(panel, "noise σ", 0, 20, 1, st.noise, v => { st.noise = v; changed(); });
-  const roiB = presets(panel, [
+  const roiRow = htmlEl("div", "cn-row", "", panel);
+  const roiB = presets(roiRow, [
     { label: "inside cells", apply: () => { st.roi = "cells"; nullR = null; nullIcq = null; unp(); draw(); } },
     { label: "whole image", apply: () => { st.roi = "all"; nullR = null; nullIcq = null; unp(); draw(); } },
   ]);
-  button(panel, "reset", () => { applyPreset(null); });
+  button(roiRow, "reset", () => { applyPreset(null); });
 
   function buildPresetButtons(): void {
     presetRow.replaceChildren();

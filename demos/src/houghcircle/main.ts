@@ -19,7 +19,7 @@ import { ImgPanel, injectStyle, PANEL_CSS, greyRGBA, heatRGBA, COL, fmtInt } fro
 
 const NAME = "houghcircle";
 const STYLE = PANEL_CSS(NAME) + `
-[data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; }
 [data-demo="${NAME}"] .hc-left { flex: 1 1 800px; min-width: 0; display: flex; flex-direction: column; gap: .4em; }
 [data-demo="${NAME}"] .hc-figs { display: flex; gap: .6em; }
 [data-demo="${NAME}"] .hc-figs .hv-fig { flex: 1 1 0; }
@@ -35,7 +35,7 @@ const STYLE = PANEL_CSS(NAME) + `
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 0 0 310px; gap: .12em; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .06em .4em; }
 .reveal [data-demo="${NAME}"] .hv-credit { display: none; }
-@media (max-width: 860px) { [data-demo="${NAME}"], [data-demo="${NAME}"] .hc-bottom { flex-wrap: wrap; } }
+@media (max-width: 860px) { .qb-demo[data-demo="${NAME}"], [data-demo="${NAME}"] .hc-bottom { flex-wrap: wrap; } }
 `;
 
 type Img = CircleSceneId | "cell";

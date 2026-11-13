@@ -17,22 +17,23 @@ import { injectCss } from "../lkflow/flowui";
 const NAME = "aperture", S = `.qb-demo[data-demo="${NAME}"]`;
 const CSS = `
 ${S} { gap: .9em; flex-wrap: wrap; align-items: flex-start; }
-${S} .ap-left { flex: 0 1 380px; min-width: 220px; }
+${S} .ap-left { flex: 0 1 330px; min-width: 200px; max-width: calc(100vh - 280px); }
 ${S} .ap-left canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 4px; }
 ${S} .ap-left .ap-wrap { position: relative; }
 ${S} .ap-left svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 ${S} .ap-cap { font-size: 17px; text-align: center; margin-bottom: .2em; }
-${S} .ap-right { flex: 0 1 380px; min-width: 220px; touch-action: none; }
+${S} .ap-right { flex: 0 1 340px; min-width: 200px; max-width: calc(100vh - 250px); touch-action: none; }
 ${S} .ap-right svg { cursor: crosshair; }
-${S} .qb-panel { flex: 1 1 280px; max-width: 340px; gap: .35em; }
+${S} .qb-panel { flex: 0 1 300px; min-width: 240px; gap: .3em; font-size: 15px; }
+${S} .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
 ${S} .qb-readout { font-size: 15px; }
 ${S} .ap-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 ${S} .ap-credit { font-size: 12px; color: var(--qb-muted); }
 .reveal ${S} { font-size: 18px; flex-wrap: nowrap; }
-.reveal ${S} .ap-left { flex: 0 0 360px; }
-.reveal ${S} .ap-right { flex: 0 0 380px; }
+.reveal ${S} .ap-left { flex: 0 0 360px; max-width: none; }
+.reveal ${S} .ap-right { flex: 0 0 380px; max-width: none; }
 .reveal ${S} .ap-cap { font-size: 18px; }
-.reveal ${S} .qb-panel { flex: 1 1 330px; gap: .2em; }
+.reveal ${S} .qb-panel { flex: 1 1 330px; gap: .2em; font-size: inherit; }
 .reveal ${S} .qb-btn { font-size: 16px; padding: .06em .38em; }
 .reveal ${S} .qb-readout { font-size: 18px; }
 .reveal ${S} .ap-lab { font-size: 16px; }

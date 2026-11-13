@@ -13,14 +13,16 @@ import { basisN, coxDeBoorTower, bsplineKernel, knotDomain } from "../lib/spline
 const NAME = "bsplinebasis";
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { gap: .8em; }
-.qb-demo[data-demo="${NAME}"] .bb-plots { flex: 1 1 560px; max-width: 700px; display: flex; flex-direction: column; gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .bb-plots { flex: 0 1 640px; min-width: 0; max-width: calc((100vh - 150px) * 1.3); display: flex; flex-direction: column; gap: .2em; }
+.qb-demo[data-demo="${NAME}"].qb-wide { flex-wrap: nowrap; }
 .qb-demo[data-demo="${NAME}"] .bb-plots .qb-plot { flex: none; max-width: none; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 360px; gap: .35em; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 18px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; min-width: 260px; gap: .3em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
 .qb-demo[data-demo="${NAME}"] .bb-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; flex-wrap: nowrap; }
-.reveal .qb-demo[data-demo="${NAME}"] .bb-plots { flex: 0 0 690px; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 0 400px; gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .bb-plots { flex: 0 0 690px; max-width: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 0 400px; gap: .2em; font-size: inherit; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .05em .4em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { padding: .2em .45em; font-size: 17px; }
 .reveal .qb-demo[data-demo="${NAME}"] .bb-lab, .reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }

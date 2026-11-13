@@ -18,18 +18,19 @@ const NAME = "msdplot";
 const S = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = `
 ${S} { gap: .6em; }
-${S} .ms-tracks { flex: 0 1 300px; min-width: 200px; }
-${S} .ms-msd { flex: 1 1 460px; max-width: 560px; min-width: 260px; }
-${S} .ms-hist { flex: 0 1 320px; min-width: 220px; }
-${S} .qb-panel { flex: 1 1 300px; max-width: 380px; gap: .25em; }
+${S} .ms-side { flex: 0 1 250px; min-width: 190px; display: flex; flex-direction: column; gap: .3em; }
+${S} .ms-msd { flex: 0 1 min(440px, calc((100vh - 200px) * 1.4)); min-width: 260px; }
+${S} .qb-panel { flex: 1 1 280px; max-width: 340px; gap: .2em; font-size: 15px; }
+${S} .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+${S} .qb-presets { gap: .25em; }
 ${S} .ms-row { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
-${S} .qb-readout { font-size: 17px; white-space: pre-wrap; }
+${S} .qb-readout { font-size: 14px; white-space: pre-wrap; }
 ${S} .qb-presets { flex-basis: 100%; }
 ${S} .qb-btn.ms-on { background: var(--qb-accent); border-color: var(--qb-accent); color: #fff; }
 .reveal ${S} { font-size: 18px; gap: .4em; }
-.reveal ${S} .ms-tracks { flex: 0 0 250px; }
+.reveal ${S} .ms-side { flex: 0 0 250px; }
 .reveal ${S} .ms-msd { flex: 0 0 560px; max-width: 560px; }
-.reveal ${S} .qb-panel { flex: 0 0 400px; gap: .05em; }
+.reveal ${S} .qb-panel { flex: 0 0 400px; gap: .05em; font-size: 18px; }
 .reveal ${S} .qb-btn { font-size: 18px; padding: .02em .35em; }
 .reveal ${S} .qb-readout { font-size: 18px; padding: .15em .4em; }
 `;
@@ -49,7 +50,8 @@ autoMount(NAME, host => {
   injectStyle();
   const panels = (host.dataset.panels ?? "tracks,msd,hist").split(",").map(s => s.trim());
   let st: State = { ...DEFAULT, mode: host.dataset.mode === "speed" ? "speed" : "msd" };
-  const trBox = htmlEl("div", "ms-tracks", "", host);
+  const side = htmlEl("div", "ms-side", "", host);   // tracks above the histogram, beside the MSD
+  const trBox = htmlEl("div", "ms-tracks", "", side);
   const trPlot = new Plot(trBox, { width: 300, height: 300, x: [-1, 1], y: [-1, 1], equal: true, xlabel: "x (µm)", font: 22, margin: { l: 60 } });
   const msBox = htmlEl("div", "ms-msd", "", host);
   let msPlot: Plot;
@@ -60,7 +62,7 @@ autoMount(NAME, host => {
       xlabel: sp ? "frame interval Δt (s)" : "lag τ (s)", ylabel: sp ? "apparent speed (µm/s)" : "MSD (µm²)", font: 26 });
   };
   const panel = htmlEl("div", "qb-panel", "", host);
-  const hiBox = htmlEl("div", "ms-hist", "", host);
+  const hiBox = htmlEl("div", "ms-hist", "", side);
   const hiPlot = new Plot(hiBox, { width: 320, height: 250, x: [0, 1], y: [0, 1], xlabel: "D per track (µm²/s), lags 1–4", ylabel: "tracks", font: 20 });
   const read = htmlEl("div", "qb-readout", "", panel);
   const typeRow = htmlEl("div", "ms-row", "", panel);
@@ -113,6 +115,7 @@ autoMount(NAME, host => {
     (llC.parentElement as HTMLElement).style.display = st.mode === "speed" ? "none" : "";
     trBox.style.display = st.mode === "msd" && panels.includes("tracks") ? "" : "none";
     hiBox.style.display = st.mode === "msd" && panels.includes("hist") ? "" : "none";
+    side.style.display = trBox.style.display === "none" && hiBox.style.display === "none" ? "none" : "";
     if (st.mode === "speed") { drawSpeed(); return; }
     // tracks: the first 8, centred on their start; the first one highlighted
     trPlot.clear();

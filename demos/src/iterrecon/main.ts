@@ -30,7 +30,19 @@ const PRESETS: Preset[] = [
   { id: "cartoon", label: "TV too strong: cartoon", s: { ...base, method: "art", omega: 0.5, nonneg: true, tv: 0.05, dose: 3e3, target: 30 } },
 ];
 
-const STYLE = baseCss(NAME);
+// Pages (not slides): figures on the left (reconstruction and error side by side, the plot
+// under them), the controls in a .qb-panel column on the right, so all fit 1366x768.
+const D = `.qb-demo[data-demo="${NAME}"]`;
+const STYLE = baseCss(NAME) + `
+${D}.ir-side { flex-direction: row; flex-wrap: wrap; gap: .5em 1em; align-items: flex-start; }
+${D}.ir-side .rd-figs { flex: 1 1 520px; max-width: 600px; width: auto; gap: .3em .8em; }
+${D}.ir-side .rd-fig { flex: 1 1 240px; min-width: 160px; max-width: 290px; }
+${D}.ir-side .rd-fig.wide { flex: 1 1 100%; max-width: 600px; }
+${D}.ir-side .rd-ctls { flex: 1 1 360px; max-width: 480px; width: auto; flex-direction: column; flex-wrap: nowrap; gap: .45em; }
+${D}.ir-side .rd-col { flex: 0 0 auto; gap: .25em; }
+${D}.ir-side .qb-btn { font-size: 14px; padding: .15em .5em; }
+${D}.ir-side .qb-slider { font-size: 15px; }
+`;
 
 function mount(host: HTMLElement): void {
   injectStyle(NAME, STYLE);
@@ -38,12 +50,15 @@ function mount(host: HTMLElement): void {
   const start: Settings = pAttr ? { ...pAttr.s } : { ...base };
   const st: Settings = { ...start };
 
+  const side = !host.closest(".reveal");
+  if (side) host.classList.add("ir-side");
   const L = layout(host, 3);
+  if (side) (L.cols[0].parentElement as HTMLElement).classList.add("qb-panel");
   const recP = imagePanel(L.figs, "reconstruction", N, 0, "rd-fig");
   const credit = htmlEl("div", "rd-credit", CELL_CREDIT, recP.fig);
   const errP = imagePanel(L.figs, "error", N, 0, "rd-fig");
   const plotFig = plotFigure(L.figs, "red: RMSE vs truth · blue: data residual · dashed: FBP", "rd-fig wide");
-  const plot = uniqueClip(new Plot(plotFig, { font: 22, width: 400, height: 300, x: [0, 10], y: [0.003, 1], ylog: true, xlabel: "iteration", ylabel: "" }));
+  const plot = uniqueClip(new Plot(plotFig, { font: 22, width: side ? 560 : 400, height: side ? 250 : 300, x: [0, 10], y: [0.003, 1], ylog: true, xlabel: "iteration", ylabel: "" }));
   const [colA, colB, colC] = L.cols;
 
   htmlEl("div", "rd-lab", "presets", colA);

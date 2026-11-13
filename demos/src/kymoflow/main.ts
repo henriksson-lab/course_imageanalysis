@@ -19,20 +19,32 @@ ${S} { gap: .9em; flex-wrap: wrap; }
 ${S} .ky-plots { flex: 0 1 440px; min-width: 260px; display: flex; flex-direction: column; gap: .2em; }
 ${S} .ky-kymo { flex: 0 1 290px; min-width: 180px; }
 ${S} .ky-kymo .ky-wrap { position: relative; }
-${S} .ky-kymo canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; border-radius: 3px; }
+${S} .ky-kymo canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; border-radius: 3px; object-fit: fill; max-height: none; }
 ${S} .ky-kymo svg.ky-over { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 ${S} .ky-cap { font-size: 17px; text-align: center; margin-bottom: .15em; }
 ${S} .qb-panel { flex: 1 1 280px; max-width: 340px; gap: .3em; }
 ${S} .qb-readout { font-size: 15px; }
 ${S} .ky-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 ${S} .ky-credit { font-size: 12px; color: var(--qb-muted); }
+/* pages: plots | kymograph | panel in one row of ~1075 px, compact panel */
+${S} .ky-plots { flex: 0 1 400px; max-width: calc((100vh - 230px) * 0.92); }
+${S} .ky-kymo { flex: 0 1 250px; max-width: calc((100vh - 260px) * 0.83); }
+${S} .qb-panel { flex: 1 1 260px; gap: .2em; font-size: 15px; }
+${S} .qb-panel .qb-btn { font-size: 13.5px; padding: .1em .45em; }
+${S} .qb-panel .qb-presets { gap: .25em; }
+${S} .qb-panel .qb-slider { gap: .3em; }
+${S} .qb-panel .qb-readout { font-size: 13.5px; padding: .3em .5em; }
+.reveal ${S} .ky-plots, .reveal ${S} .ky-kymo { max-width: none; }
+.reveal ${S} .ky-kymo canvas { max-height: none; }
+.reveal ${S} .qb-panel { font-size: inherit; }
+.reveal ${S} .qb-panel .qb-presets { gap: .35em; }
 .reveal ${S} { font-size: 18px; flex-wrap: nowrap; }
 .reveal ${S} .ky-plots { flex: 0 0 400px; }
 .reveal ${S} .ky-kymo { flex: 0 0 230px; }
 .reveal ${S} .ky-cap { font-size: 18px; }
 .reveal ${S} .qb-panel { flex: 0 0 450px; max-width: 450px; gap: .12em; }
-.reveal ${S} .qb-btn { font-size: 16px; padding: .06em .38em; }
-.reveal ${S} .qb-readout { font-size: 18px; padding: .2em .4em; }
+.reveal ${S} .qb-btn, .reveal ${S} .qb-panel .qb-btn { font-size: 16px; padding: .06em .38em; }
+.reveal ${S} .qb-readout, .reveal ${S} .qb-panel .qb-readout { font-size: 18px; padding: .2em .4em; }
 .reveal ${S} .ky-lab { font-size: 16px; }
 .reveal ${S} .ky-credit { display: none; }
 @media (max-width: 860px) { ${S} { flex-wrap: wrap; } }

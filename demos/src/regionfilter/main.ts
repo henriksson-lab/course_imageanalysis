@@ -49,6 +49,9 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
 .qb-demo[data-demo="${NAME}"] .rf-count { font-size: 18px; font-weight: 600; }
 .qb-demo[data-demo="${NAME}"] .rf-credit { font-size: 12px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .rf-ex .qb-btn { font-size: 13px; padding: .1em .45em; }
+.qb-demo[data-demo="${NAME}"] .rf-ex .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .rf-ex { display: flex; flex-direction: column; gap: .3em; padding-bottom: .2em; border-bottom: 1px solid var(--qb-grid); }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
 .reveal .qb-demo[data-demo="${NAME}"] .rf-tab { max-height: 200px; }
 .reveal .qb-demo[data-demo="${NAME}"] { flex-wrap: nowrap; }
@@ -88,7 +91,10 @@ function mount(host: HTMLElement): void {
   const credit = htmlEl("div", "rf-credit", "", left);
 
   // ---- middle: controls, readout, table ----
-  const mid = htmlEl("div", "rf-mid", "", host);
+  // pages: the examples on top of this column (beside the image); slides keep them under the plot
+  const onSlide = !!host.closest(".reveal");
+  const mid = htmlEl("div", onSlide ? "rf-mid" : "rf-mid qb-panel", "", host);
+  const exBox = onSlide ? null : htmlEl("div", "rf-ex", "", mid);
   const thr = slider(mid, "threshold", 0, 255, 1, o.threshold, v => { o.threshold = v; run(); });
   const opn = slider(mid, "open radius", 0, 4, 1, o.openRadius, v => { o.openRadius = v; run(); });
   const crow = htmlEl("div", "qb-presets", "", mid);
@@ -123,8 +129,8 @@ function mount(host: HTMLElement): void {
     g.appendChild(r);
   }, [null as Brush | null]);
   htmlEl("div", "qb-note", "Drag a rectangle in the plot: only the objects inside are kept.", right);
-  htmlEl("div", "rf-lab", "examples", right);
-  const prow = htmlEl("div", "qb-presets", "", right);
+  htmlEl("div", "rf-lab", "examples", exBox ?? right);
+  const prow = htmlEl("div", "qb-presets", "", exBox ?? right);
   const pb = PRESETS.map(p => button(prow, p.label, () => load(p)));
   button(prow, "⟲ reset", () => load(p0));
 

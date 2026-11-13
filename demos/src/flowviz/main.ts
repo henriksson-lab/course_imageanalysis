@@ -14,9 +14,9 @@ import { injectCss, flowWheel, drawQuiver, WHEEL_CSS, fmtSpeed } from "../lkflow
 const NAME = "flowviz", S = `.qb-demo[data-demo="${NAME}"]`;
 const CSS = `
 ${S} { gap: .8em; flex-wrap: wrap; }
-${S} .fv-views { flex: 1 1 760px; display: grid; grid-template-columns: repeat(3, 1fr); gap: .6em; min-width: 0; }
+${S} .fv-views { flex: 1 1 560px; max-width: 900px; display: grid; grid-template-columns: repeat(3, 1fr); gap: .6em; min-width: 0; }
 ${S} .fv-views.four { grid-template-columns: repeat(4, 1fr); }
-${S} .qb-panel { flex: 0 1 300px; gap: .35em; }
+${S} .qb-panel { flex: 0 0 280px; gap: .3em; font-size: 15px; }
 ${S} .qb-readout { font-size: 15px; }
 ${S} .fv-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 ${S} .fv-quiz { font-size: 18px; font-weight: 600; min-height: 1.4em; }

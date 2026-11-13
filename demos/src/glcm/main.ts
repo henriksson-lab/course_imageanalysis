@@ -17,6 +17,8 @@ const NAME = "glcm";
 const LEVELS = [2, 4, 8, 16, 32, 64];
 const ANGLES = [0, 45, 90, 135];
 
+/** Page-only selector (not inside reveal.js slides). */
+const PG = `.qb-demo[data-demo="${NAME}"]:not(.reveal *)`;
 const STYLE = `
 [data-demo="${NAME}"] { gap: .7em; }
 [data-demo="${NAME}"] .gl-main { flex: 1 1 520px; display: flex; flex-direction: column; gap: .3em; min-width: 0; }
@@ -33,6 +35,18 @@ const STYLE = `
 [data-demo="${NAME}"] .gl-credit { font-size: 12px; color: var(--qb-muted); }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
 [data-demo="${NAME}"] select { font: inherit; font-size: 15px; }
+/* Pages: patches and matrices (two rows), features and polar plot, controls: three columns
+   that fit a 1366x768 window (each figure at most half the window height minus captions). */
+@media (min-width: 641px) {
+  ${PG} { flex-wrap: nowrap; gap: .7em; }
+  ${PG} .gl-main { flex: 0 1 calc(2 * min(270px, (100vh - 250px) / 2) + .6em); }
+  ${PG} .gl-row figure { max-width: min(270px, calc((100vh - 250px) / 2)); }
+  ${PG} figcaption { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  ${PG} .gl-side { flex: 0 1 250px; min-width: 0; }
+  ${PG} .qb-panel { flex: 1 1 280px; min-width: 0; max-width: 360px; gap: .25em; }
+  ${PG} .qb-btn { padding: .15em .5em; }
+  ${PG} table { font-size: 15px; }
+}
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 15px; gap: .6em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
 .reveal .qb-demo[data-demo="${NAME}"] .gl-row figure { max-width: 215px; }

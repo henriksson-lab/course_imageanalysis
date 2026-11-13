@@ -46,6 +46,15 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .35em; }
 .qb-demo[data-demo="${NAME}"] .lg-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre; }
+/* pages: plane | curves + readout | panel in one row of ~1075 px; plane capped by the window height */
+.qb-demo[data-demo="${NAME}"] .lg-plane { flex: 0 1 390px; max-width: calc(100vh - 240px); }
+.qb-demo[data-demo="${NAME}"] .lg-right { flex: 0 1 330px; max-width: 330px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .12em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .35em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .lg-plane { max-width: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .lg-right { flex-basis: 330px; max-width: 360px; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; gap: .5em; }
 .reveal .qb-demo[data-demo="${NAME}"] .lg-plane { flex-basis: 440px; }
 .reveal .qb-demo[data-demo="${NAME}"] .lg-right { flex-basis: 330px; max-width: 360px; }
@@ -122,7 +131,7 @@ function mount(host: HTMLElement): void {
   const pRow = htmlEl("div", "qb-presets", "", panel);
   const pBtns = PENS.map(q => button(pRow, q.label, () => { st.p = q.p; changed(); sync(); draw(); }));
   const lamS = slider(panel, "λ", 0, 5, 0.05, st.lambda, v => { st.lambda = v; changed(); draw(); });
-  const rhoS = slider(panel, "column correlation ρ", -0.9, 0.9, 0.05, st.rho, v => { st.rho = v; changed(); draw(); });
+  const rhoS = slider(panel, "correlation ρ", -0.9, 0.9, 0.05, st.rho, v => { st.rho = v; changed(); draw(); });
   const tRow = htmlEl("div", "qb-presets", "", panel);
   const tBtns = [button(tRow, "transfer curves", () => { st.tab = "curves"; sync(); draw(); }), button(tRow, "path, 6 coefficients", () => { st.tab = "path"; sync(); draw(); })];
   button(panel, "reset", () => { Object.assign(st, init, { b: [...init.b] }); sync(); draw(); presetBtns.forEach((b, i) => b.classList.toggle("active", PRESETS[i] === p0)); });

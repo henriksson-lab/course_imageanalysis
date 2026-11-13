@@ -19,8 +19,12 @@ import * as M from "./model";
 
 const NAME = "resolve";
 const STYLE = baseStyle(NAME) + `
-[data-demo="${NAME}"] .rs-left { flex: 1 1 400px; max-width: 460px; display: flex; flex-direction: column; gap: .3em; min-width: 0; }
-[data-demo="${NAME}"] .rs-mid { flex: 1 1 330px; max-width: 420px; display: flex; flex-direction: column; gap: .3em; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+[data-demo="${NAME}"] .rs-left { flex: 0 1 390px; max-width: 390px; display: flex; flex-direction: column; gap: .3em; min-width: 0; }
+[data-demo="${NAME}"] .rs-mid { flex: 0 1 330px; max-width: 360px; display: flex; flex-direction: column; gap: .3em; min-width: 0; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 290px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { grid-template-columns: auto 1fr 3em; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider input[type=range] { min-width: 4em; }
 [data-demo="${NAME}"] .rs-pix canvas { width: 100%; display: block; image-rendering: pixelated; border-radius: 2px; }
 [data-demo="${NAME}"] .rs-xz { display: grid; grid-template-columns: 1fr 1fr; gap: .5em; }
 [data-demo="${NAME}"] .rs-xz canvas { width: 100%; aspect-ratio: 1 / 2; display: block; image-rendering: pixelated; }

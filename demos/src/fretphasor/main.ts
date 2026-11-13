@@ -21,9 +21,11 @@ const NAME = "fretphasor";
 const SEL = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = `
 ${SEL} { gap: .6em; flex-wrap: wrap; align-items: flex-start; }
-${SEL} .fp-a { flex: 1 1 460px; min-width: 0; max-width: 540px; }
-${SEL} .fp-b { flex: 1 1 320px; min-width: 0; max-width: 420px; }
-${SEL} .qb-panel { flex: 1 1 260px; gap: .25em; }
+${SEL} .fp-a { flex: 1 1 400px; min-width: 0; max-width: 500px; }
+${SEL} .fp-a > svg { max-height: calc(100vh - 300px); }
+${SEL} .fp-b { flex: 0 1 290px; min-width: 0; max-width: 360px; }
+${SEL} .fp-b > svg { max-height: calc(50vh - 60px); }
+${SEL} .qb-panel { flex: 0 0 260px; gap: .25em; font-size: 15px; }
 .reveal ${SEL} { flex-wrap: nowrap; }
 .reveal ${SEL} .fp-a { flex: 0 0 470px; }
 .reveal ${SEL} .fp-b { flex: 0 0 330px; }

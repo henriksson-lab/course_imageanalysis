@@ -40,15 +40,18 @@ const PRESETS: Preset[] = [
 
 const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .d2-grid { flex: 0 1 540px; min-width: 260px; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .5em; }
+[data-demo="${NAME}"] .d2-grid { flex: 0 1 min(440px, calc(100vh - 290px)); min-width: 260px; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .5em; }
 [data-demo="${NAME}"] figure { margin: 0; min-width: 0; }
 [data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.15; margin: 0 0 .15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 [data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 2px; }
 [data-demo="${NAME}"] canvas.pick { cursor: pointer; }
-[data-demo="${NAME}"] .d2-side { flex: 1 1 250px; max-width: 330px; display: flex; flex-direction: column; gap: .4em; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 240px; max-width: 320px; gap: .38em; }
-[data-demo="${NAME}"] .d2-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+[data-demo="${NAME}"] .d2-side { flex: 1 1 230px; max-width: 290px; display: flex; flex-direction: column; gap: .4em; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 240px; max-width: 310px; gap: .3em; font-size: 15px; }
+[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .2em; }
+[data-demo="${NAME}"] .qb-panel .qb-btn { padding: .12em .5em; }
+[data-demo="${NAME}"] .qb-panel .qb-slider { gap: .35em; }
+[data-demo="${NAME}"] .d2-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; line-height: 1.3; overflow-x: auto; }
 [data-demo="${NAME}"] .d2-credit { font-size: 12px; color: var(--qb-muted); }
 [data-demo="${NAME}"] .qb-slider.off { opacity: .35; pointer-events: none; }
 .reveal [data-demo="${NAME}"] { font-size: 16px; gap: .5em; }
@@ -58,7 +61,8 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .qb-check { font-size: 15px; }
 .reveal [data-demo="${NAME}"] figcaption { font-size: 15px; }
 .reveal [data-demo="${NAME}"] .d2-side { flex: 0 1 260px; }
-.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 340px; max-width: 380px; gap: .25em; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 1 1 340px; max-width: 380px; gap: .25em; font-size: 16px; }
+.reveal [data-demo="${NAME}"] .d2-side { max-width: 330px; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 15px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .05em .4em; }
@@ -130,7 +134,8 @@ function mount(host: HTMLElement): void {
     button(dRow, "log |w|", () => { st.display = "log"; changed(); rebuild(); }),
   ];
   button(panel, "reset", () => { Object.assign(st, init); st.dropped = [...init.dropped]; newImage(); presetBtns.forEach((b, i) => b.classList.toggle("active", PRESETS[i] === p0)); });
-  htmlEl("div", "qb-note", "Subbands: grey = LL (approximation); colours = detail bands (blue negative, red positive), each scaled to its own largest value. Faded = dropped.", panel);
+  // the note sits under the plot (pages: keeps the control column short; hidden on slides)
+  htmlEl("div", "qb-note", "Subbands: grey = LL (approximation); colours = detail bands (blue negative, red positive), each scaled to its own largest value. Faded = dropped.", side);
 
   function changed(): void { presetBtns.forEach(b => b.classList.remove("active")); }
   function sync(): void {

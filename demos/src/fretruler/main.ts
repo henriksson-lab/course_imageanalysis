@@ -21,11 +21,11 @@ const NAME = "fretruler";
 const Q = `.qb-demo[data-demo="${NAME}"]`;
 const CSS = `
 ${Q} { gap: .8em; flex-wrap: wrap; align-items: flex-start; }
-${Q} .rl-mol { flex: 0 1 380px; min-width: 260px; }
+${Q} .rl-mol { flex: 0 1 min(360px, calc(100vh - 240px)); min-width: 240px; }
 ${Q} .rl-mol svg { width: 100%; display: block; touch-action: none; }
-${Q} .rl-plots { flex: 1 1 360px; min-width: 260px; max-width: 420px; display: flex; flex-direction: column; gap: .2em; }
-${Q} .qb-panel { flex: 1 1 280px; max-width: 360px; gap: .35em; }
-${Q} .qb-readout { font-size: 15px; }
+${Q} .rl-plots { flex: 1 1 300px; min-width: 240px; max-width: 380px; display: flex; flex-direction: column; gap: .2em; }
+${Q} .qb-panel { flex: 0 0 280px; gap: .3em; font-size: 15px; }
+${Q} .qb-readout { font-size: 14px; }
 ${Q} .rl-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
 .reveal ${Q} { font-size: 18px; flex-wrap: nowrap; margin: 0; }
 .reveal ${Q} .rl-mol { flex: 0 0 360px; }

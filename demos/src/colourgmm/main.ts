@@ -37,6 +37,14 @@ const STYLE = `
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; padding: .2em .45em; }
 .reveal .qb-demo[data-demo="${NAME}"] .cg-ctl > div { gap: .15em; }
 .reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
+/* pages: figures and readout on the left, the controls in a column beside them */
+.qb-demo[data-demo="${NAME}"] .cg-left { flex: 1 1 560px; min-width: 0; max-width: min(780px, calc((100vh - 330px) * 3 + 2em)); display: flex; flex-direction: column; gap: .5em; }
+.qb-demo[data-demo="${NAME}"] .cg-left .qb-readout { font-size: 13px; line-height: 1.3; }
+.qb-demo[data-demo="${NAME}"] .cg-panel { flex: 0 1 330px; gap: .35em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .cg-panel > div { display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .cg-panel .qb-presets { gap: .2em; align-items: center; }
+.qb-demo[data-demo="${NAME}"] .cg-panel .qb-btn { padding: .12em .5em; }
+.qb-demo[data-demo="${NAME}"] .cg-panel .qb-slider { gap: .35em; }
 @media (max-width: 640px) { .qb-demo[data-demo="${NAME}"] .cg-row { flex-wrap: wrap; } .qb-demo[data-demo="${NAME}"] .cg-row > * { flex-basis: 45%; } }
 `;
 function injectStyle(): void {
@@ -73,7 +81,11 @@ function mount(host: HTMLElement): void {
   let image: ColourImage = makeImage(st.img), F = features(image, st.feat, st.wxy), timer = 0;
 
   // ---- layout ----
-  const row = htmlEl("div", "cg-row", "", host);
+  // Slides: a row of figures and the readout over two control columns. Pages: figures with the
+  // readout under them on the left, the controls in a column (.qb-panel) beside them.
+  const onSlide = !!host.closest(".reveal");
+  const left = onSlide ? host : htmlEl("div", "cg-left", "", host);
+  const row = htmlEl("div", "cg-row", "", left);
   const fig0 = htmlEl("figure", "", "", row);
   htmlEl("figcaption", "", "image (synthetic)", fig0);
   const cv0 = htmlEl("canvas", "", "", fig0); cv0.width = N; cv0.height = N;
@@ -86,10 +98,10 @@ function mount(host: HTMLElement): void {
   const fig1 = htmlEl("figure", "", "", row);
   const cap1 = htmlEl("figcaption", "", "", fig1);
   const cv1 = htmlEl("canvas", "", "", fig1); cv1.width = N; cv1.height = N;
-  const roWrap = htmlEl("div", "cg-ro", "", row);
+  const roWrap = htmlEl("div", "cg-ro", "", onSlide ? row : left);
   const ro = htmlEl("div", "qb-readout", "", roWrap);
 
-  const ctl = htmlEl("div", "cg-ctl", "", host);
+  const ctl = htmlEl("div", onSlide ? "cg-ctl" : "qb-panel cg-panel", "", host);
   const c1 = htmlEl("div", "", "", ctl), c2 = htmlEl("div", "", "", ctl);
   const r1 = htmlEl("div", "qb-presets", "", c1);
   button(r1, "step", () => { stop(); stepOnce(); draw(); });

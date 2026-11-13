@@ -19,12 +19,17 @@ const NAME = "decayfit";
 const SEL = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = `
 ${SEL} { gap: .6em; flex-wrap: wrap; align-items: flex-start; }
-${SEL} .df-a { flex: 1 1 500px; min-width: 0; max-width: 600px; }
-${SEL} .df-b { flex: 1 1 300px; min-width: 0; max-width: 400px; }
-${SEL} .qb-panel { flex: 1 1 260px; gap: .25em; }
+${SEL} .df-a { flex: 1 1 380px; min-width: 0; max-width: min(440px, calc((100vh - 220px) * 1.4)); }
+${SEL} .df-b { flex: 1 1 240px; min-width: 0; max-width: 290px; }
+${SEL} .qb-panel { flex: 0 1 310px; gap: .22em; font-size: 15px; }
+${SEL} .qb-panel .qb-presets { gap: .2em; }
+${SEL} .qb-panel .qb-btn { padding: .12em .5em; }
+${SEL} .qb-panel .qb-slider { gap: .35em; }
+${SEL} .fl-ro { font-size: 13px; line-height: 1.3; }
 .reveal ${SEL} { flex-wrap: nowrap; }
-.reveal ${SEL} .df-a { flex: 0 0 500px; }
-.reveal ${SEL} .df-b { flex: 0 0 330px; }
+.reveal ${SEL} .df-a { flex: 0 0 500px; max-width: none; }
+.reveal ${SEL} .df-b { flex: 0 0 330px; max-width: none; }
+.reveal ${SEL} .fl-ro { font-size: 16px; }
 .reveal ${SEL} .qb-panel { flex: 1 1 280px; font-size: 17px; gap: .1em; }
 .reveal ${SEL} .qb-readout { font-size: 16px; }
 `;
@@ -53,17 +58,18 @@ function mount(host: HTMLElement): void {
   const p0 = PRESETS.find(p => p.id === host.dataset.preset);
   const st: State = { ...DEFAULT, ...(p0?.s ?? {}) };
 
+  const PW = host.closest(".reveal") ? 520 : 470;   // pages: a narrower viewBox (larger text in the smaller column)
   const colA = htmlEl("div", "df-a fl-col", "", host);
-  const hist = new Plot(colA, { width: 520, height: 300, x: [0, AX.T], y: [0.5, 1e4], ylog: true, ylabel: "photons per bin", margin: { l: 78, r: 10, t: 10, b: 34 } });
+  const hist = new Plot(colA, { width: PW, height: 300, x: [0, AX.T], y: [0.5, 1e4], ylog: true, ylabel: "photons per bin", margin: { l: 78, r: 10, t: 10, b: 34 } });
   const dataM = hist.scatter([], [], { color: "var(--qb-c1)", r: 2.6 });
   const irfM = hist.line([], [], { color: "var(--qb-c4)", width: 2, dash: "6 4", label: "IRF" });
   const fitM = hist.line([], [], { color: "var(--qb-c2)", width: 3, label: "model" });
-  const resP = new Plot(colA, { width: 520, height: 150, x: [0, AX.T], y: [-4, 4], yticks: [-3, 0, 3], xlabel: "time (ns)", ylabel: "residual", margin: { l: 78, r: 10, t: 6, b: 58 } });
+  const resP = new Plot(colA, { width: PW, height: 150, x: [0, AX.T], y: [-4, 4], yticks: [-3, 0, 3], xlabel: "time (ns)", ylabel: "residual", margin: { l: 78, r: 10, t: 6, b: 58 } });
   resP.hline(0, { color: "var(--qb-axis)", width: 1, dash: "" });
   const resM = resP.step([], [], { color: "var(--qb-c1)", width: 1.5 }, "mid");
 
   const colB = htmlEl("div", "df-b fl-col", "", host);
-  const land = new Plot(colB, { width: 340, height: 320, x: [0.2, 8], y: [0.5, 1.5], xlog: true, xlabel: "τ (ns)", ylabel: "amplitude / photons", xticks: [0.2, 0.5, 1, 2, 4, 8], xfmt: v => String(v), margin: { l: 74, r: 10, t: 30, b: 58 }, title: "cost landscape" });
+  const land = new Plot(colB, { width: 340, height: 320, x: [0.2, 8], y: [0.5, 1.5], xlog: true, xlabel: "τ (ns)", ylabel: "amplitude / photons", xticks: [0.2, 0.5, 1, 2, 4, 8], xfmt: v => String(v), margin: { l: 84, r: 10, t: 30, b: 58 }, title: "cost landscape" });
   let heat = land.heatmap(new Float64Array(G * G), G, G, { map: inferno, flipY: false, maxCells: 1 });
   const truthM = land.scatter([], [], { color: "var(--qb-c3)", r: 7 });
   const pathL = land.line([], [], { color: "#fff", width: 2 });

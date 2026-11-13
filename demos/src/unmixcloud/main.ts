@@ -18,18 +18,19 @@ import { injectStyle, canvasFigure, canvasPixel, fmt, COMMON_CSS } from "../lsun
 const NAME = "unmixcloud";
 const CSS = COMMON_CSS + `
 [data-demo="${NAME}"] { gap: .6em; align-items: flex-start; }
-[data-demo="${NAME}"] .uc-left { flex: 0 1 190px; min-width: 150px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .uc-gl { flex: 1 1 340px; min-width: 240px; max-width: 420px; }
+[data-demo="${NAME}"] .uc-left { flex: 0 1 160px; min-width: 130px; display: flex; flex-direction: column; gap: .3em; }
+[data-demo="${NAME}"] .uc-gl { flex: 0 1 310px; min-width: 220px; max-width: calc(100vh - 260px); }
 [data-demo="${NAME}"] .uc-axes { font-size: 14px; color: var(--qb-muted); }
-[data-demo="${NAME}"] .uc-tri { flex: 1 1 300px; min-width: 220px; max-width: 380px; }
+[data-demo="${NAME}"] .uc-tri { flex: 0 1 270px; min-width: 200px; }
 [data-demo="${NAME}"] .uc-tri svg { touch-action: none; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 330px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 260px; max-width: 330px; gap: .3em; }
+[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; flex-wrap: nowrap; }
 .reveal [data-demo="${NAME}"] .uc-left { flex: 0 0 170px; }
-.reveal [data-demo="${NAME}"] .uc-gl { flex: 0 0 330px; }
+.reveal [data-demo="${NAME}"] .uc-gl { flex: 0 0 330px; max-width: none; }
 .reveal [data-demo="${NAME}"] .uc-tri { flex: 0 0 300px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 0 0 300px; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .08em .35em; }
+.reveal [data-demo="${NAME}"] .qb-btn, .reveal [data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 15px; padding: .08em .35em; }
 .reveal [data-demo="${NAME}"] .uc-axes { font-size: 15px; }
 .reveal [data-demo="${NAME}"] .qb-check, .reveal [data-demo="${NAME}"] .qb-slider { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }

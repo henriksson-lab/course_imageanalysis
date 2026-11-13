@@ -18,7 +18,7 @@ import { injectStyle } from "../houghlines/view";
 
 const NAME = "houghdual";
 const STYLE = `
-[data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; }
 [data-demo="${NAME}"] .hd-fig { flex: 0 1 320px; min-width: 200px; margin: 0; }
 [data-demo="${NAME}"] .hd-fig.par { flex: 0 1 435px; }
 [data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .1em; }
@@ -32,7 +32,7 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .25em; flex-basis: 270px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .1em .45em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .45em; }
-@media (max-width: 860px) { [data-demo="${NAME}"] { flex-wrap: wrap; } }
+@media (max-width: 860px) { .qb-demo[data-demo="${NAME}"] { flex-wrap: wrap; } }
 `;
 
 type Param = "normal" | "slope";

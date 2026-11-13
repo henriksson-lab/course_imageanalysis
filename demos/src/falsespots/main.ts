@@ -19,15 +19,19 @@ import { ImgView, injectStyle, label, shownIds, TP_COL, FP_COL, FN_COL } from ".
 const NAME = "falsespots";
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: wrap; }
-.qb-demo[data-demo="${NAME}"] .fs-main { flex: 0 1 420px; min-width: 300px; }
-.qb-demo[data-demo="${NAME}"] .fs-mid { flex: 0 1 340px; min-width: 220px; display: flex; flex-direction: column; gap: .2em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 290px; max-width: 360px; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .fs-main { flex: 0 1 min(400px, calc(100vh - 290px)); min-width: 260px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .fs-mid { flex: 0 1 300px; min-width: 220px; display: flex; flex-direction: column; gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 330px; gap: .25em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { padding: .12em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; line-height: 1.3; white-space: pre-wrap; }
 .qb-demo[data-demo="${NAME}"] .fs-busy { font-size: 14px; color: var(--qb-muted); min-height: 1.1em; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; flex-wrap: nowrap; }
-.reveal .qb-demo[data-demo="${NAME}"] .fs-main { flex: 0 0 400px; }
+.reveal .qb-demo[data-demo="${NAME}"] .fs-main { flex: 0 0 400px; display: block; }
 .reveal .qb-demo[data-demo="${NAME}"] .fs-mid { flex: 0 0 340px; gap: 0; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 360px; gap: .12em; }
+.reveal .qb-demo[data-demo="${NAME}"] .fs-mid { max-width: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 360px; max-width: 360px; gap: .12em; font-size: 18px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .05em .35em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 18px; padding: .2em .4em; }
 `;
@@ -121,7 +125,8 @@ function mount(host: HTMLElement): void {
   const locC = checkbox(row, "local noise", st.local, v => { st.local = v; if (v) { st.ansc = false; ansC.checked = false; } makeResponse(); });
   const ansC = checkbox(row, "Anscombe", st.ansc, v => { st.ansc = v; if (v) { st.local = false; locC.checked = false; } makeResponse(); });
   button(row, "reset", () => { Object.assign(st, start()); presetBtns.forEach(b => b.classList.remove("active")); sync(); computeStats(); makeImage(); });
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  // pages: the readout under the image (keeps the control column short); slides: in the panel
+  const ro = htmlEl("div", "qb-readout", "", host.closest(".reveal") ? panel : main);
 
   function load(p: Preset): void { Object.assign(st, DEFAULT, p.s); sync(); computeStats(); makeImage(); }
   function sync(): void {

@@ -30,6 +30,19 @@ ${S} .lk-tabs { display: flex; flex-wrap: wrap; gap: .25em; margin-bottom: .3em;
 ${S} .lk-tabs .qb-btn { padding: .12em .45em; }
 ${S} .qb-readout { font-size: 15px; }
 ${S} .lk-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
+/* pages: image | velocity plot | panel in one row of ~1075 px, compact panel */
+${S} .lk-main { flex: 0 1 370px; max-width: calc(100vh - 290px); }
+${S} .lk-mid { flex: 0 1 290px; min-width: 200px; }
+${S} .qb-panel { flex: 1 1 280px; max-width: 340px; gap: .2em; font-size: 15px; }
+${S} .qb-panel .qb-btn, ${S} .lk-tabs .qb-btn { font-size: 13.5px; padding: .1em .45em; }
+${S} .qb-panel .qb-presets { gap: .25em; }
+${S} .qb-readout { font-size: 13.5px; padding: .3em .5em; }
+.reveal ${S} .lk-main { max-width: none; }
+.reveal ${S} .lk-mid { min-width: 220px; }
+.reveal ${S} .qb-panel { max-width: 380px; font-size: inherit; }
+.reveal ${S} .qb-panel .qb-presets { gap: .35em; }
+.reveal ${S} .qb-panel .qb-btn, .reveal ${S} .lk-tabs .qb-btn { font-size: 16px; padding: .06em .38em; }
+.reveal ${S} .qb-readout.qb-readout { font-size: 18px; padding: .2em .4em; }
 .reveal ${S} { font-size: 18px; flex-wrap: nowrap; }
 .reveal ${S} .lk-main { flex: 0 0 390px; }
 .reveal ${S} .lk-mid { flex: 0 0 320px; }

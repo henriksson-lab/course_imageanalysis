@@ -29,7 +29,24 @@ const PRESETS: Preset[] = [
   { id: "dosefew", label: "…or few clean ones", s: { ...base, nA: 30, dose: 1e3, fixedTotal: true } },
 ];
 
-const STYLE = baseCss(NAME);
+const Q = `.qb-demo[data-demo="${NAME}"]`;
+// Pages: the three figures in a row with the controls as one column beside them (the shared
+// radonproj layout puts the controls under the figures). Slides keep the shared layout.
+const STYLE = baseCss(NAME) + `
+${Q} { flex-direction: row; flex-wrap: wrap; gap: .8em; align-items: flex-start; }
+${Q} .rd-figs { flex: 0 1 720px; width: auto; min-width: 0; flex-wrap: nowrap; gap: .6em; }
+${Q} .rd-fig { flex: 1 1 0; min-width: 0; max-width: 240px; }
+${Q} .rd-fig figcaption { font-size: 15px; }
+${Q} .rd-ctls { flex: 0 1 300px; width: auto; min-width: 240px; flex-direction: column; flex-wrap: nowrap; gap: .35em; }
+${Q} .rd-col { flex: 0 0 auto; }
+@media (max-width: 640px) { ${Q} .rd-figs { flex-wrap: wrap; } ${Q} .rd-fig { flex: 1 1 160px; max-width: none; } }
+.reveal ${Q} { flex-direction: column; flex-wrap: nowrap; gap: .2em; align-items: stretch; }
+.reveal ${Q} .rd-figs { flex: 0 0 auto; width: 100%; gap: .8em; }
+.reveal ${Q} .rd-fig { flex: 1 1 230px; min-width: 180px; max-width: 300px; }
+.reveal ${Q} .rd-fig figcaption { font-size: 17px; }
+.reveal ${Q} .rd-ctls { flex: 0 0 auto; width: 100%; flex-direction: row; flex-wrap: wrap; gap: .5em 1.2em; }
+.reveal ${Q} .rd-col { flex: 1 1 240px; }
+`;
 
 function mount(host: HTMLElement): void {
   injectStyle(NAME, STYLE);

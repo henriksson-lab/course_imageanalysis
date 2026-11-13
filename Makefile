@@ -1,4 +1,4 @@
-.PHONY: all render preview clean gitadd help demos typecheck test wasm models check-prereqs sidebar check check-links check-console
+.PHONY: all render preview clean gitadd help demos typecheck test wasm models check-prereqs sidebar check check-links check-console check-fit
 
 # Default: render the site, then stage every source file in git.
 all: render gitadd
@@ -72,6 +72,15 @@ check-links:
 check-console:
 	tools/check/console.sh
 
+# Do the demos fit on the screen? Every demo on the pages at 1366x768 and 1920x1080 and on the
+# slides at 1280x720: not taller than the window, controls beside (not under) the figure.
+# Writes $(FIT_OUT).json and .txt. JOBS=n parallel browsers; FIT_ARGS="asm/exercise.html" checks
+# only those pages. See demos/README.md, "Fitting the screen".
+FIT_OUT ?= /tmp/fit
+JOBS ?= 6
+check-fit:
+	python3 tools/check/fit.py --jobs $(JOBS) --out $(FIT_OUT) $(FIT_ARGS)
+
 # Rust -> WebAssembly crates demos/wasm/<name>/ -> demos/dist/wasm/<name>/ (wasm-bindgen glue
 # + .wasm; git-ignored, CI builds it). Needs cargo, the wasm32-unknown-unknown target and
 # wasm-bindgen-cli (version pinned in the crates). See demos/README.md, "WebAssembly".
@@ -106,5 +115,6 @@ help:
 	@echo "  make check-prereqs  validate days.yml (prerequisites, order, sidebar current)"
 	@echo "  make sidebar   regenerate the sidebar in _quarto.yml from days.yml"
 	@echo "  make check     check the rendered site: links and anchors, then browser console errors"
+	@echo "  make check-fit check that every demo fits on the screen (pages and slides)"
 	@echo "  make gitadd    stage all source files in git"
 	@echo "  make clean     remove docs/, demos/dist/ and .quarto/"

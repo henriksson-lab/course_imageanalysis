@@ -26,6 +26,14 @@ ${Q} .ri-map { flex: 1 1 280px; min-width: 200px; max-width: 340px; display: fle
 ${Q} .ri-plots { flex: 1 1 300px; min-width: 220px; max-width: 360px; display: flex; flex-direction: column; gap: .1em; }
 ${Q} .qb-panel { flex: 1 1 260px; max-width: 340px; }
 ${Q} .ri-row { display: flex; flex-wrap: wrap; gap: .25em; }
+${Q}:not(.reveal *) .ri-tiles { flex: 0 1 125px; min-width: 90px; }
+${Q}:not(.reveal *) .ri-map { flex: 0 1 290px; min-width: 200px; }
+${Q}:not(.reveal *) .ri-plots { flex: 0 1 270px; min-width: 200px; }
+${Q}:not(.reveal *) .ri-plots .qb-readout { font-size: 13px; margin-top: .3em; }
+${Q}:not(.reveal *) .qb-panel { flex: 1 1 260px; max-width: 330px; gap: .25em; font-size: 15px; }
+${Q}:not(.reveal *) .qb-btn { font-size: 13px; }
+${Q}:not(.reveal *) .qb-panel .qb-presets { gap: .25em; }
+${Q}:not(.reveal *) .fr-fig figcaption { font-size: 15px; }
 .reveal ${Q} { flex-wrap: nowrap; }
 .reveal ${Q} .ri-tiles { flex: 0 0 150px; }
 .reveal ${Q} .ri-map { flex: 0 0 280px; }
@@ -108,7 +116,7 @@ function mount(host: HTMLElement): void {
   const shS = slider(panel, "shift A (px)", 0, 3, 1, st.shift, v => { st.shift = v; off(); regen(); });
   const bcS = slider(panel, "acceptor bleach / frame", 0, 0.03, 0.001, st.bleach, v => { st.bleach = v; off(); regen(); });
   button(panel, "reset", () => { stop(); Object.assign(st, start()); presetBtns.forEach(b => b.classList.remove("active")); sync(); regenerate(); });
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  const ro = htmlEl("div", "qb-readout", "", RV ? panel : plots);   // pages: under the plots, to keep the panel short
   const off = () => presetBtns.forEach(b => b.classList.remove("active"));
   if (host.dataset.compact !== undefined) [phS, ofS, blS, shS, bcS].forEach(hideControl);
   function sync(): void {

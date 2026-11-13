@@ -23,10 +23,18 @@ ${S} .bv-c3 { flex: 1 1 300px; max-width: 420px; }
 ${S} canvas.bv-cv { width: 100%; aspect-ratio: 1; display: block; border: 1px solid var(--qb-grid); border-radius: 4px; touch-action: none; cursor: crosshair; }
 ${S} .bv-row { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
 ${S} .qb-readout { font-family: system-ui, sans-serif; white-space: pre; line-height: 1.3; }
-.reveal ${S} { flex-wrap: nowrap; font-size: 18px; gap: .5em; }
+/* pages: the scene on the left, controls and the plot under them in a column on the right */
+${S} { display: grid; gap: .6em 1em; align-items: start; justify-content: start;
+  grid-template-columns: minmax(240px, min(460px, calc(100vh - 250px))) minmax(0, 420px); grid-template-rows: auto 1fr; }
+${S} .bv-c1 { grid-row: 1 / span 2; }
+${S} .bv-c2, ${S} .bv-c3 { max-width: none; }
+${S} .bv-c2 .qb-btn { font-size: 14px; padding: .15em .5em; }
+${S} .bv-c3 { max-width: 380px; }
+@media (max-width: 640px) { ${S} { grid-template-columns: minmax(0, 1fr); } ${S} .bv-c1 { grid-row: auto; } }
+.reveal ${S} { display: flex; flex-wrap: nowrap; font-size: 18px; gap: .5em; }
 .reveal ${S} .bv-c1 { flex: 0 0 440px; }
 .reveal ${S} .bv-c2 { flex: 0 0 330px; }
-.reveal ${S} .bv-c3 { flex: 0 0 360px; }
+.reveal ${S} .bv-c3 { flex: 0 0 360px; max-width: 420px; }
 .reveal ${S} .qb-panel { flex: 0 0 330px; gap: .2em; padding: .3em .45em; }
 .reveal ${S} .qb-btn { font-size: 18px; padding: .02em .35em; }
 .reveal ${S} .qb-readout { font-size: 18px; padding: .2em .4em; }

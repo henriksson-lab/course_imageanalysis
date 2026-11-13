@@ -19,14 +19,19 @@ import { apply } from "../lib/transforms2d";
 
 const NAME = "repeatability";
 const STYLE = COMMON_CSS + `
-.qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: wrap; }
-.qb-demo[data-demo="${NAME}"] .rp-views { flex: 0 1 540px; min-width: 300px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] { gap: .6em; flex-wrap: wrap; }
+.qb-demo[data-demo="${NAME}"] .rp-views { flex: 0 1 460px; min-width: 300px; display: flex; flex-direction: column; gap: .3em; }
 .qb-demo[data-demo="${NAME}"] .rp-pair { display: flex; gap: .5em; }
 .qb-demo[data-demo="${NAME}"] .rp-pair .ev-fig { flex: 1 1 0; }
-.qb-demo[data-demo="${NAME}"] .rp-mid { flex: 0 1 300px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 270px; max-width: 330px; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; }
-.qb-demo[data-demo="${NAME}"] .rp-key { display: flex; flex-wrap: wrap; gap: .1em .8em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .rp-mid { flex: 0 1 260px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 300px; max-width: 320px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
+.qb-demo[data-demo="${NAME}"] .rp-key { display: flex; flex-wrap: wrap; gap: .1em .8em; font-size: 14px; }
+.qb-demo[data-demo="${NAME}"] .rp-more { margin: 0; }
+.qb-demo[data-demo="${NAME}"] .rp-more > summary { cursor: pointer; font-size: 15px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .rp-more[open] { display: flex; flex-direction: column; gap: .3em; }
 .qb-demo[data-demo="${NAME}"] .rp-tabs { display: flex; gap: .3em; flex-wrap: wrap; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; flex-wrap: nowrap; }
 .reveal .qb-demo[data-demo="${NAME}"] .rp-views { flex: 0 0 530px; }
@@ -93,13 +98,15 @@ function mount(host: HTMLElement): void {
   const zS = slider(panel, "zoom", -100, 100, 1, 0, v => { st.zoom = zOf(v); recompute(); }, v => zOf(v).toFixed(2));
   const aS = slider(panel, "rotation°", -180, 180, 5, st.angle, v => { st.angle = v; recompute(); });
   const tS = slider(panel, "tilt°", 0, 70, 5, st.tilt, v => { st.tilt = v; recompute(); });
-  const gS = slider(panel, "gain", 0.5, 2, 0.05, st.gain, v => { st.gain = v; recompute(); });
-  const oS = slider(panel, "offset", -60, 60, 5, st.offset, v => { st.offset = v; recompute(); });
-  const gmS = slider(panel, "gamma", 0.4, 2.5, 0.05, st.gamma, v => { st.gamma = v; recompute(); });
-  const bS = slider(panel, "blur σ", 0, 4, 0.25, st.blur, v => { st.blur = v; recompute(); });
-  const nS = slider(panel, "noise", 0, 20, 1, st.noise, v => { st.noise = v; recompute(); });
-  const kS = slider(panel, "keypoints", 50, 400, 25, st.n, v => { st.n = v; recompute(); });
-  const eS = slider(panel, "ε (px)", 1, 6, 0.5, st.eps, v => { st.eps = v; draw(); sweep(); });
+  const more = htmlEl("details", "rp-more", "", panel);
+  htmlEl("summary", "", "more options (lighting, blur, noise, ε)", more);
+  const gS = slider(more, "gain", 0.5, 2, 0.05, st.gain, v => { st.gain = v; recompute(); });
+  const oS = slider(more, "offset", -60, 60, 5, st.offset, v => { st.offset = v; recompute(); });
+  const gmS = slider(more, "gamma", 0.4, 2.5, 0.05, st.gamma, v => { st.gamma = v; recompute(); });
+  const bS = slider(more, "blur σ", 0, 4, 0.25, st.blur, v => { st.blur = v; recompute(); });
+  const nS = slider(more, "noise", 0, 20, 1, st.noise, v => { st.noise = v; recompute(); });
+  const kS = slider(more, "keypoints", 50, 400, 25, st.n, v => { st.n = v; recompute(); });
+  const eS = slider(more, "ε (px)", 1, 6, 0.5, st.eps, v => { st.eps = v; draw(); sweep(); });
   button(panel, "reset", () => { Object.assign(st, start()); presetBtns.forEach(b => b.classList.remove("active")); sync(); load(); });
 
   function zOf(v: number): number { return Math.round(Math.pow(3, v / 100) * 100) / 100; }
@@ -107,6 +114,8 @@ function mount(host: HTMLElement): void {
   function sync(): void {
     zS.set(vOf(st.zoom)); aS.set(st.angle); tS.set(st.tilt); gS.set(st.gain); oS.set(st.offset); gmS.set(st.gamma);
     bS.set(st.blur); nS.set(st.noise); kS.set(st.n); eS.set(st.eps);
+    // show the options a preset changed
+    if (st.gain !== DEFAULT.gain || st.offset !== DEFAULT.offset || st.gamma !== DEFAULT.gamma || st.blur !== DEFAULT.blur) more.open = true;
   }
 
   let scene: Grey | null = null, views: ViewPairResult | null = null;

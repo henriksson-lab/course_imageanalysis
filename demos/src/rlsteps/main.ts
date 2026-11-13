@@ -21,9 +21,20 @@ const NAME = "rlsteps";
 const N = 128;
 
 const STYLE = baseStyle(NAME) + `
-[data-demo="${NAME}"] .rl-imgs { flex: 1 1 360px; max-width: 420px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em .5em; }
-[data-demo="${NAME}"] .rl-imgs3 { flex: 1 1 420px; max-width: 470px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .3em .4em; }
-[data-demo="${NAME}"] .rl-plots { flex: 1 1 330px; max-width: 420px; display: flex; flex-direction: column; gap: .2em; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; }
+[data-demo="${NAME}"] .rl-imgs { flex: 0 1 380px; max-width: 420px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em .5em; }
+[data-demo="${NAME}"] .rl-imgs3 { flex: 0 1 400px; max-width: 470px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .3em .4em; }
+[data-demo="${NAME}"] .rl-plots { flex: 0 1 340px; max-width: 420px; display: flex; flex-direction: column; gap: .2em; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 290px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { grid-template-columns: auto 1fr 3.2em; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider input[type=range] { min-width: 4em; }
+/* 2D mode on a page: a wider panel so that the ten presets pair up and the readout stays on screen */
+.qb-demo.qb-wide.rl-2d[data-demo="${NAME}"] .rl-imgs { flex-basis: 340px; }
+.qb-demo.qb-wide.rl-2d[data-demo="${NAME}"] .rl-plots { flex-basis: 320px; }
+.qb-demo.qb-wide.rl-2d[data-demo="${NAME}"] .qb-panel { flex-basis: 360px; max-width: 360px; }
+[data-demo="${NAME}"] .rl-more { margin: 0; }
+[data-demo="${NAME}"] .rl-more > summary { cursor: pointer; font-size: 15px; color: var(--qb-muted); }
+[data-demo="${NAME}"] .rl-more[open] { display: flex; flex-direction: column; gap: .35em; }
 [data-demo="${NAME}"] .rl-free canvas { aspect-ratio: auto; }
 [data-demo="${NAME}"] table.rl-table { border-collapse: collapse; font-size: 15px; width: 100%; }
 [data-demo="${NAME}"] table.rl-table td, [data-demo="${NAME}"] table.rl-table th { border: 1px solid var(--qb-grid); padding: .15em .35em; text-align: right; }
@@ -68,6 +79,7 @@ function mount2d(host: HTMLElement): void {
   let run: M.RLRun | null = null;
   const iters = () => run?.iters ?? M.snapshotIters(st.blind === "off" ? MAX2 : BLIND_MAX);
 
+  host.classList.add("rl-2d");
   const imgs = htmlEl("div", "rl-imgs", "", host);
   const pObs = imagePanel(imgs, "observed (photons)"), pEst = imagePanel(imgs, "RL estimate");
   const pErr = imagePanel(imgs, "error: estimate − truth"), pPsf = imagePanel(imgs, "PSF: true | used", "rl-free");
@@ -87,14 +99,18 @@ function mount2d(host: HTMLElement): void {
   const psfS = select<"gauss" | "airy">(panel, "PSF", [["gauss", "Gaussian σ = 2 px"], ["airy", "Airy, NA 1.0"]], st.psf.kind as "gauss", v => { st.psf = { kind: v, width: v === "gauss" ? 2 : 1.0 }; remake(); });
   const phS = logSlider(panel, "photons at 1", 10, 1e5, st.photons, v => { st.photons = Math.round(v); remake(); }, v => fmtSci(Math.round(v)));
   const nfC = checkbox(panel, "no noise", st.noiseFree, v => { st.noiseFree = v; remake(); });
-  const bgS = slider(panel, "background", 0, 50, 1, st.bg, v => { st.bg = v; remake(); });
-  const bgC = checkbox(panel, "background in the model", st.bgModel, v => { st.bgModel = v; rerun(); });
-  const usedS = slider(panel, "PSF used ×", 0.6, 1.6, 0.05, st.used, v => { st.used = v; rerun(); }, v => v.toFixed(2));
-  const blS = select<Blind>(panel, "blind", [["off", "off (PSF given)"], ["none", "blind, no constraint"], ["size", "blind, size limit (r ≤ 6 px)"], ["gauss", "blind, Gaussian shape"]], st.blind, v => { st.blind = v; rerun(); });
   const kS = slider(panel, "iteration k", 0, 1, 1, 0, v => { st.kIdx = v; show(); }, v => String(iters()[Math.min(v, iters().length - 1)] ?? 0));
+  // rarely changed by hand (the presets set them): folded away so the demo fits the window
+  const more = htmlEl("details", "rl-more", "", panel);
+  htmlEl("summary", "", "more options (background, PSF used, blind)", more);
+  const bgS = slider(more, "background", 0, 50, 1, st.bg, v => { st.bg = v; remake(); });
+  const bgC = checkbox(more, "background in the model", st.bgModel, v => { st.bgModel = v; rerun(); });
+  const usedS = slider(more, "PSF used ×", 0.6, 1.6, 0.05, st.used, v => { st.used = v; rerun(); }, v => v.toFixed(2));
+  const blS = select<Blind>(more, "blind", [["off", "off (PSF given)"], ["none", "blind, no constraint"], ["size", "blind, size limit (r ≤ 6 px)"], ["gauss", "blind, Gaussian shape"]], st.blind, v => { st.blind = v; rerun(); });
   button(panel, "reset", () => load(p0));
-  const ro = htmlEl("div", "qb-readout", "", panel);
-  htmlEl("div", "qb-note", "Error: RMS of estimate − truth in % of the largest true value. Misfit: Poisson deviance per pixel, about 1 when the blurred estimate fits the data to the noise level. Blind: the guess is the true PSF widened by 'PSF used ×'.", panel);
+  // on a page under the plots (keeps the panel short); on a slide in the panel (the slide is wide, not tall)
+  const ro = htmlEl("div", "qb-readout", "", host.closest(".reveal") ? panel : plots);
+  htmlEl("div", "qb-note", "Error: RMS of estimate − truth in % of the largest true value. Misfit: Poisson deviance per pixel, about 1 when the blurred estimate fits the data to the noise level. Blind: the guess is the true PSF widened by 'PSF used ×'.", more);
 
   let pendingK: number | undefined;
   function load(p: Preset<S2>): void {
@@ -102,6 +118,7 @@ function mount2d(host: HTMLElement): void {
     pendingK = p.k;
     pbtns.forEach((b, i) => b.classList.toggle("active", shown[i] === p));
     objS.set(st.obj); psfS.set(st.psf.kind as "gauss"); phS.setValue(st.photons); nfC.checked = st.noiseFree; bgS.set(st.bg); bgC.checked = st.bgModel; usedS.set(st.used); blS.set(st.blind);
+    if (st.bg !== D2.bg || st.bgModel !== D2.bgModel || st.used !== D2.used || st.blind !== D2.blind) more.open = true;
     remake();
   }
 

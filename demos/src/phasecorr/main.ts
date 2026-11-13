@@ -29,6 +29,25 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .pc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .qb-demo[data-demo="${NAME}"] .pc-credit { font-size: 12px; color: var(--qb-muted); }
 .qb-demo[data-demo="${NAME}"] .pc-wide { grid-column: 1 / 3; }
+/* shift mode on pages: the figures as a 2 × 2 block (image | surface; crops and the small
+   panel below), the controls in two columns beside it. Slides keep the single row. */
+.qb-demo[data-demo="${NAME}"].pc-shift .pc-figs { flex: 0 1 min(500px, calc(100vh - 230px)); min-width: 300px; display: grid; grid-template-columns: 1fr 1fr; gap: .4em .6em; align-items: start; }
+.qb-demo[data-demo="${NAME}"].pc-shift .pc-figs .pc-img { grid-column: 1; grid-row: 1; }
+.qb-demo[data-demo="${NAME}"].pc-shift .pc-figs .pc-surf { grid-column: 2; grid-row: 1; }
+.qb-demo[data-demo="${NAME}"].pc-shift .pc-figs .pc-mid { grid-column: 1 / 3; grid-row: 2; grid-template-columns: repeat(3, 1fr); }
+.qb-demo[data-demo="${NAME}"].pc-shift .pc-figs .pc-wide { grid-column: auto; }
+.qb-demo[data-demo="${NAME}"].pc-shift figcaption { font-size: 15px; }
+.qb-demo[data-demo="${NAME}"].pc-shift .qb-panel { flex: 1 1 440px; max-width: 560px; display: block; column-count: 2; column-gap: 1em; font-size: 14.5px; }
+.qb-demo[data-demo="${NAME}"].pc-shift .qb-panel > * { break-inside: avoid; margin: 0 0 .3em; }
+.qb-demo[data-demo="${NAME}"].pc-shift .qb-panel .qb-btn { font-size: 13px; padding: .1em .45em; }
+.qb-demo[data-demo="${NAME}"].pc-shift .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"].pc-shift .qb-readout { font-size: 13px; }
+.reveal .qb-demo[data-demo="${NAME}"].pc-shift .pc-figs { display: contents; }
+.reveal .qb-demo[data-demo="${NAME}"].pc-shift .pc-figs .pc-mid { grid-template-columns: 1fr 1fr; }
+.reveal .qb-demo[data-demo="${NAME}"].pc-shift .pc-figs .pc-wide { grid-column: 1 / 3; }
+.reveal .qb-demo[data-demo="${NAME}"].pc-shift .qb-panel { display: flex; column-count: auto; flex: 1 1 250px; max-width: 320px; font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"].pc-shift .qb-panel > * { margin: 0; }
+.reveal .qb-demo[data-demo="${NAME}"].pc-shift .qb-panel .qb-btn { font-size: 14px; padding: .1em .4em; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .1em .4em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
@@ -96,18 +115,20 @@ function mount(host: HTMLElement): void {
   const tex = texture();
 
   // ---- layout ----
-  const left = htmlEl("div", "pc-img", "", host);
+  host.classList.add("pc-shift");
+  const figs = htmlEl("div", "pc-figs", "", host);
+  const left = htmlEl("div", "pc-img", "", figs);
   const big = stack(left, "drag frame B (red)", [0, 0, IMG, IMG]);
   big.cv.width = IMG; big.cv.height = IMG;
   const fa = rect(big.svg, "#1f77b4", 3), fb = rect(big.svg, "#d62728", 3);
   fb.style.cursor = "move"; fb.style.pointerEvents = "all"; fb.setAttribute("fill", "rgba(214,39,40,0.08)");
   const credit = htmlEl("div", "pc-credit", CELL_CREDIT, left);
-  const mid = htmlEl("div", "pc-mid", "", host);
+  const mid = htmlEl("div", "pc-mid", "", figs);
   const ca = stack(mid, "crop A", [0, 0, 1, 1]), cb = stack(mid, "crop B", [0, 0, 1, 1]);
   const sp = stack(mid, "", [0, 0, 1, 1]);
   sp.fig.classList.add("pc-wide");
   sp.fig.style.maxWidth = "170px"; sp.fig.style.justifySelf = "center"; sp.fig.style.width = "100%";
-  const right = htmlEl("div", "pc-surf", "", host);
+  const right = htmlEl("div", "pc-surf", "", figs);
   const sf = stack(right, "correlation surface", [-64, -64, 128, 128]);
   const panel = htmlEl("div", "qb-panel", "", host);
 

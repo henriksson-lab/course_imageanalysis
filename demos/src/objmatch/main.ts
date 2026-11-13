@@ -18,22 +18,31 @@ const NAME = "objmatch";
 const C_TP = [44, 160, 44], C_FP = [214, 39, 40], C_FN = [255, 127, 14];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .9em; }
+[data-demo="${NAME}"] { gap: .7em; }
+[data-demo="${NAME}"] .om-mid { flex: 0 1 300px; min-width: 220px; display: flex; flex-direction: column; gap: .5em; }
+.reveal [data-demo="${NAME}"] .om-mid { display: contents; }
 [data-demo="${NAME}"] figure { margin: 0; }
 [data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
-[data-demo="${NAME}"] .om-img { flex: 0 1 330px; min-width: 240px; }
+[data-demo="${NAME}"] .om-img { flex: 0 1 min(330px, calc(100vh - 330px)); min-width: 240px; }
 [data-demo="${NAME}"] .om-stage { position: relative; width: 100%; aspect-ratio: 1; }
 [data-demo="${NAME}"] .om-stage canvas, [data-demo="${NAME}"] .om-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 3px; }
 [data-demo="${NAME}"] .om-stage canvas { image-rendering: pixelated; }
 [data-demo="${NAME}"] .om-stage svg { touch-action: none; cursor: crosshair; overflow: visible; }
 [data-demo="${NAME}"] .om-key { font-size: 14px; display: flex; flex-wrap: wrap; gap: .2em .8em; margin-top: .25em; }
 [data-demo="${NAME}"] .om-key span::before { content: ""; display: inline-block; width: .9em; height: .9em; margin-right: .3em; vertical-align: -.1em; border-radius: 2px; background: var(--k); }
-[data-demo="${NAME}"] .om-table { flex: 0 1 270px; min-width: 200px; }
-[data-demo="${NAME}"] .om-table .qb-note { margin-top: .3em; }
-[data-demo="${NAME}"] .om-curve { flex: 1 1 340px; max-width: 420px; min-width: 260px; }
+[data-demo="${NAME}"] figcaption { font-size: 15px; }
+[data-demo="${NAME}"] .om-table .qb-note { margin-top: .2em; font-size: 12.5px; }
+[data-demo="${NAME}"] .om-table svg { max-height: min(240px, calc(100vh - 520px)); }
+[data-demo="${NAME}"] .om-table .qb-presets { margin-top: .2em; }
+.reveal [data-demo="${NAME}"] .om-table { flex: 0 1 270px; min-width: 200px; }
+.reveal [data-demo="${NAME}"] .om-table .qb-note { margin-top: .3em; }
+.reveal [data-demo="${NAME}"] figcaption { font-size: 17px; }
+.reveal [data-demo="${NAME}"] .om-curve { flex: 1 1 340px; min-width: 260px; }
 [data-demo="${NAME}"] .om-tabs { display: flex; gap: .35em; justify-content: center; margin-bottom: .2em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; margin-top: .4em; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 290px; gap: .35em; }
+[data-demo="${NAME}"] .qb-readout { font-size: 13px; line-height: 1.3; white-space: pre; margin-top: .3em; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 320px; gap: .25em; font-size: 15px; }
+[data-demo="${NAME}"] .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+[data-demo="${NAME}"] .qb-presets { gap: .25em; }
 [data-demo="${NAME}"] .om-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .om-hidden { display: none !important; }
 [data-demo="${NAME}"] .om-edit .qb-btn:disabled { opacity: .4; }
@@ -41,7 +50,7 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] .om-img { flex-basis: 330px; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; line-height: 1.25; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; flex-basis: 300px; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; flex: 0 1 300px; max-width: none; font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
 .reveal [data-demo="${NAME}"] .om-curve { max-width: 400px; }
 `;
@@ -99,7 +108,8 @@ function mount(host: HTMLElement): void {
   for (const [t, c] of [["TP", C_TP], ["FP", C_FP], ["FN (missed truth)", C_FN]] as const) htmlEl("span", "", t, key).style.setProperty("--k", `rgb(${c.join(",")})`);
   const ro = htmlEl("div", "qb-readout", "", imgFig);
 
-  const tabFig = htmlEl("figure", "om-table", "", host);
+  const mid = htmlEl("div", "om-mid", "", host);   // table above the curve (pages); display: contents on slides
+  const tabFig = htmlEl("figure", "om-table", "", mid);
   htmlEl("figcaption", "", "IoU table near the marker", tabFig);
   const tableSvg = svgEl("svg", { width: "100%", class: "qb-plot-svg" }, tabFig);
   const methRow = htmlEl("div", "qb-presets", "", tabFig);
@@ -107,7 +117,7 @@ function mount(host: HTMLElement): void {
   const methBtns = (["greedy", "optimal"] as const).map(m => button(methRow, m === "greedy" ? "greedy" : "optimal", () => { st.method = m; update(); }));
   htmlEl("div", "qb-note", "Rows: true objects G, columns: predictions P. Boxed: matched pairs; grey: IoU below τ. Click the image to move the marker.", tabFig);
 
-  const curveFig = htmlEl("figure", "om-curve", "", host);
+  const curveFig = htmlEl("figure", "om-curve", "", mid);
   const tabs = htmlEl("div", "om-tabs", "", curveFig);
   const tabBtns = [button(tabs, "F1 vs τ", () => { st.tab = "f1"; drawCurve(); }), button(tabs, "PR curve at τ", () => { st.tab = "pr"; drawCurve(); })];
   const plotHost = htmlEl("div", "", "", curveFig);
@@ -143,6 +153,7 @@ function mount(host: HTMLElement): void {
   if (!panels.has("image")) imgFig.classList.add("om-hidden");
   if (!panels.has("table")) tabFig.classList.add("om-hidden");
   if (!panels.has("curve")) curveFig.classList.add("om-hidden");
+  if (!panels.has("table") && !panels.has("curve")) mid.classList.add("om-hidden");
   if (!panels.has("controls")) panel.classList.add("om-hidden");
 
   function setS(k: keyof M.Settings, v: number): void {
@@ -339,7 +350,7 @@ function mount(host: HTMLElement): void {
     tabBtns.forEach((b, i) => b.classList.toggle("active", (i === 0) === (st.tab === "f1")));
     plotHost.replaceChildren();
     if (st.tab === "f1") {
-      plot = new Plot(plotHost, { x: [0.1, 0.95], y: [0, 1.02], xlabel: "IoU threshold τ", ylabel: "object F1", font, width: onSlide ? 460 : 560, height: onSlide ? 500 : 380, xticks: [0.1, 0.3, 0.5, 0.7, 0.9] });
+      plot = new Plot(plotHost, { x: [0.1, 0.95], y: [0, 1.02], xlabel: "IoU threshold τ", ylabel: "object F1", font, width: onSlide ? 460 : 380, height: onSlide ? 500 : 270, xticks: [0.1, 0.3, 0.5, 0.7, 0.9] });
       uniqueClip(plot);
       if (st.annotator) plot.band(M.TAUS, evB.f1, M.TAUS.map(() => 1.02), { color: "#888", fillOpacity: 0.25, label: "above annotator B" });
       if (st.annotator) plot.line(M.TAUS, evB.f1, { color: "#888", width: 2, label: "annotator B vs A" });
@@ -349,7 +360,7 @@ function mount(host: HTMLElement): void {
       plot.scatter([st.tau], [k >= 0 ? ev.f1[k] : ev.scores.f1], { color: seriesColor(1), r: 8 });
       plot.legend(undefined, "bl");
     } else {
-      plot = new Plot(plotHost, { x: [0, 1], y: [0, 1.02], xlabel: "recall", ylabel: "precision", font, width: onSlide ? 460 : 560, height: onSlide ? 500 : 380, title: `τ = ${f2(st.tau)}: AP ${f3(ev.pr.ap)}` });
+      plot = new Plot(plotHost, { x: [0, 1], y: [0, 1.02], xlabel: "recall", ylabel: "precision", font, width: onSlide ? 460 : 380, height: onSlide ? 500 : 270, title: `τ = ${f2(st.tau)}: AP ${f3(ev.pr.ap)}` });
       uniqueClip(plot);
       const R = [0, ...ev.pr.recall], I = [ev.pr.interp[0] ?? 1, ...ev.pr.interp];
       plot.band(R, R.map(() => 0), I, { color: seriesColor(0), fillOpacity: 0.15 });

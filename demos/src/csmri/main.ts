@@ -46,18 +46,23 @@ const CSS = `
 .qb-demo[data-demo="${NAME}"] figure { margin: 0; min-width: 0; }
 .qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; line-height: 1.15; margin: 0 0 .15em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qb-demo[data-demo="${NAME}"] canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 2px; background: #000; }
-.qb-demo[data-demo="${NAME}"] .mr-left { flex: 0 1 620px; min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .mr-left { flex: 0 1 min(620px, calc((100vh - 140px) / 0.75)); min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
 .qb-demo[data-demo="${NAME}"] .mr-big { display: grid; grid-template-columns: 1fr 1fr; gap: .4em; }
 .qb-demo[data-demo="${NAME}"] .mr-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .mr-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 330px; gap: .25em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { padding: .12em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { gap: .35em; }
+.qb-demo[data-demo="${NAME}"] details summary { cursor: pointer; font-size: 14px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .mr-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.15em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; line-height: 1.3; }
 .qb-demo[data-demo="${NAME}"] .mr-credit { font-size: 12px; color: var(--qb-muted); }
-.qb-demo[data-demo="${NAME}"][data-layout="full"] .mr-left { flex-basis: 760px; }
+.qb-demo[data-demo="${NAME}"][data-layout="full"] .mr-left { flex-basis: min(720px, calc((100vh - 140px) / 0.75)); }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .4em; }
 .reveal .qb-demo[data-demo="${NAME}"] .mr-left { flex-basis: 560px; max-width: 560px; }
 .reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 15px; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex-basis: 330px; max-width: 350px; gap: .15em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex-basis: 330px; max-width: 350px; gap: .15em; font-size: 16px; }
+.reveal .qb-demo[data-demo="${NAME}"] details { display: none; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 13px; padding: .05em .35em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-presets { gap: .2em; }
 .reveal .qb-demo[data-demo="${NAME}"] .mr-lab { display: none; }
@@ -108,7 +113,9 @@ function mount(host: HTMLElement): void {
   button(panel, "reset", () => { Object.assign(st, init); sync(); newPhantom(); presetBtns.forEach((b, i) => b.classList.toggle("active", PRESETS[i] === p0)); });
   const ro = htmlEl("div", "qb-readout", "", panel);
   const credit = htmlEl("div", "mr-credit", "", panel);
-  htmlEl("div", "qb-note", "Synthetic phantom (Shepp–Logan, a head-like test object). Scan time assumes a 3D scan of 256 × 128 phase-encoding lines at 10 ms each, divided by the acceleration.", panel);
+  const about = htmlEl("details", "", "", panel);
+  htmlEl("summary", "", "about the phantom", about);
+  htmlEl("div", "qb-note", "Synthetic phantom (Shepp–Logan, a head-like test object). Scan time assumes a 3D scan of 256 × 128 phase-encoding lines at 10 ms each, divided by the acceleration.", about);
   if (p0) presetBtns[PRESETS.indexOf(p0)].classList.add("active");
 
   function changed(): void { presetBtns.forEach(b => b.classList.remove("active")); }

@@ -28,10 +28,24 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-panel { flex: 0 1 270px; gap: .35em; }
 [data-demo="${NAME}"] .lk-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .lk-busy { font-size: 14px; color: var(--qb-c2); min-height: 1.2em; }
+/* pages: thumbnails | bars | selected image | panel in one row of ~1075 px */
+[data-demo="${NAME}"] .lk-thumbs { flex: 0 1 220px; min-width: 180px; }
+[data-demo="${NAME}"] .lk-bars { flex: 1 1 300px; max-width: 400px; min-width: 240px; }
+[data-demo="${NAME}"] .lk-pred { flex: 0 1 160px; min-width: 130px; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 260px; gap: .25em; font-size: 15px; }
+[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+[data-demo="${NAME}"] .qb-panel .qb-presets, [data-demo="${NAME}"] .lk-thumbs .qb-presets { gap: .25em; }
+[data-demo="${NAME}"] .lk-thumbs .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+[data-demo="${NAME}"] .qb-panel .qb-note { font-size: 12.5px; }
+.reveal [data-demo="${NAME}"] .lk-thumbs { flex: 0 1 250px; min-width: 200px; }
+.reveal [data-demo="${NAME}"] .lk-bars { flex: 1 1 340px; max-width: 460px; min-width: 260px; }
+.reveal [data-demo="${NAME}"] .lk-pred { flex: 0 1 190px; min-width: 150px; }
+.reveal [data-demo="${NAME}"] .qb-panel { flex: 0 1 270px; font-size: inherit; }
+.reveal [data-demo="${NAME}"] .qb-panel .qb-btn, .reveal [data-demo="${NAME}"] .lk-thumbs .qb-btn { padding: .25em .7em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 14px; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .2em; }
+.reveal [data-demo="${NAME}"] .qb-btn, .reveal [data-demo="${NAME}"] .qb-panel .qb-btn, .reveal [data-demo="${NAME}"] .lk-thumbs .qb-btn { font-size: 14px; }
+.reveal [data-demo="${NAME}"] .qb-panel, .reveal [data-demo="${NAME}"] .qb-panel.qb-panel { gap: .2em; }
 `;
 
 function injectStyle(): void {
@@ -80,7 +94,7 @@ function mount(host: HTMLElement): void {
 
   const barsF = htmlEl("figure", "lk-bars", "", host);
   htmlEl("figcaption", "", "test accuracy of each way to split", barsF);
-  const plot = new Plot(barsF, { x: [0.4, 5.6], y: [0.4, 1.04], yticks: [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], ylabel: "test accuracy", height: slide ? 460 : 380, width: slide ? 620 : 560, font: slide ? 24 : 18, xticks: [1, 2, 3, 4, 5], xfmt: v => ["", "pixels", "blocks", "buffer", "image", "day"][Math.round(v)] ?? "" });
+  const plot = new Plot(barsF, { x: [0.4, 5.6], y: [0.4, 1.04], yticks: [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1], ylabel: "test accuracy", height: slide ? 460 : 380, width: slide ? 620 : 420, font: slide ? 24 : 18, xticks: [1, 2, 3, 4, 5], xfmt: v => ["", "pixels", "blocks", "buffer", "image", "day"][Math.round(v)] ?? "" });
   uniqueClip(plot);
   const busy = htmlEl("div", "lk-busy", "", barsF);
 

@@ -31,7 +31,20 @@ const PRESETS: Preset[] = [
   { id: "nearest", label: "nearest gridding: errors everywhere", s: { ...base, mode: "direct", spokes: 90, grid: "nearest" } },
 ];
 
-const STYLE = baseCss(NAME);
+// Pages: figures in a 2 × 2 grid (image, spectrum; the comparison plot or the error image
+// below) with the control columns stacked in one column beside it, so the demo fits a
+// 1366 × 768 window. Slides keep the shared layout (figures in a row, controls below).
+const P_ = `@media (min-width: 641px) { body:not(.reveal-viewport) .qb-demo[data-demo="${NAME}"]`;
+const S_ = "min(290px, calc(50vh - 90px))";
+const STYLE = baseCss(NAME) + `
+${P_} { flex-direction: row; flex-wrap: nowrap; gap: 1em; align-items: flex-start; } }
+${P_} .rd-figs { display: grid; grid-template-columns: repeat(2, ${S_}); gap: .4em .8em; width: auto; flex: 0 0 auto; } }
+${P_} .rd-fig { max-width: none; min-width: 0; } }
+${P_} .rd-fig.wide { grid-column: span 2; justify-self: center; width: min(400px, calc(100vh - 360px)); max-width: none; } }
+${P_} .rd-ctls { flex: 0 1 300px; flex-direction: column; flex-wrap: nowrap; gap: .5em; width: auto; min-width: 240px; } }
+${P_} .rd-col { flex: none; gap: .3em; } }
+${P_} .qb-btn { padding: .15em .55em; } }
+`;
 
 function mount(host: HTMLElement): void {
   injectStyle(NAME, STYLE);

@@ -14,12 +14,24 @@ import { injectStyle, choiceRow, helperCss, fmt } from "../scorematch1d/dview";
 
 const NAME = "genmetrics";
 const S = `.qb-demo[data-demo="${NAME}"]`;
+/** Page-only selector (not inside reveal.js slides). */
+const P = `${S}:not(.reveal *)`;
 const STYLE = helperCss(NAME) + `
 ${S} { gap: .7em; }
 ${S} .gm-main { flex: 0 1 460px; min-width: 260px; }
 ${S} .gm-side { flex: 0 1 320px; min-width: 240px; display: flex; flex-direction: column; gap: .3em; }
 ${S} .qb-panel { flex: 1 1 280px; gap: .35em; }
 ${S} .qb-readout { font-size: 15px; }
+/* Pages: scatter, the two small plots stacked beside it, controls in a column on the right;
+   the scatter is sized from the window height so the demo fits a 1366x768 window. */
+@media (min-width: 641px) {
+  ${P} { flex-wrap: nowrap; gap: .6em; }
+  ${P} .gm-main { flex: 0 1 min(440px, calc(100vh - 290px)); min-width: 0; }
+  ${P} .gm-side { flex: 0 1 250px; min-width: 0; gap: 0; }
+  ${P} .qb-panel { flex: 1 1 340px; max-width: 420px; min-width: 0; gap: .3em; }
+  ${P} .qb-btn { padding: .2em .5em; }
+  ${P} .qb-note { font-size: 13px; }
+}
 .reveal ${S} { font-size: 18px; flex-wrap: nowrap; gap: .5em; }
 .reveal ${S} .gm-main { flex: 0 0 430px; }
 .reveal ${S} .gm-side { flex: 0 0 320px; }

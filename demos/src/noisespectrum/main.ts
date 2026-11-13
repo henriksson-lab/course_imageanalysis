@@ -20,14 +20,16 @@ const NAME = "noisespectrum";
 const S = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = helperCss(NAME) + `
 ${S} { gap: .7em; }
-${S} .ns-imgs { flex: 0 1 440px; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .5em; min-width: 260px; }
-${S} .ns-plots { flex: 1 1 380px; min-width: 260px; max-width: 460px; display: flex; flex-direction: column; gap: .2em; }
-${S} .qb-panel { flex: 1 1 260px; gap: .4em; }
-${S} .qb-readout { font-size: 15px; }
+${S} .ns-imgs { flex: 0 1 min(400px, calc(100vh - 300px)); display: grid; grid-template-columns: 1fr 1fr; gap: .3em .5em; min-width: 260px; }
+${S} .ns-plots { flex: 0 1 330px; min-width: 240px; display: flex; flex-direction: column; gap: .2em; }
+${S} .qb-panel { flex: 1 1 250px; max-width: 340px; gap: .3em; font-size: 15px; }
+${S} .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+${S} .qb-presets { gap: .25em; }
+${S} .qb-readout { font-size: 14px; }
 .reveal ${S} { font-size: 18px; flex-wrap: nowrap; gap: .5em; }
 .reveal ${S} .ns-imgs { flex: 0 0 400px; }
 .reveal ${S} .ns-plots { flex: 0 0 390px; }
-.reveal ${S} .qb-panel { flex: 1 1 300px; gap: .2em; }
+.reveal ${S} .qb-panel { flex: 1 1 300px; max-width: none; gap: .2em; font-size: 18px; }
 .reveal ${S} .qb-btn { font-size: 18px; padding: .05em .4em; }
 .reveal ${S} .qb-readout { font-size: 18px; padding: .2em .45em; line-height: 1.25; }
 .reveal ${S} .qb-note { display: none; }

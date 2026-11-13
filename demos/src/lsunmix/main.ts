@@ -21,12 +21,16 @@ import { L0, L1, N_PIX, P, Method, dyesFor, truthMaps, simulate as simStack, unm
 const NAME = "lsunmix";
 const CSS = COMMON_CSS + `
 [data-demo="${NAME}"] { gap: .6em; align-items: flex-start; }
-[data-demo="${NAME}"] .ls-imgs { flex: 1 1 470px; min-width: 300px; max-width: 560px; display: flex; flex-direction: column; gap: .3em; }
+[data-demo="${NAME}"] .ls-imgs { flex: 0 1 440px; min-width: 280px; display: flex; flex-direction: column; gap: .3em; }
 [data-demo="${NAME}"] .ls-row { display: flex; gap: .4em; }
 [data-demo="${NAME}"] .ls-row .um-fig { flex: 1 1 0; min-width: 0; }
 [data-demo="${NAME}"] .ls-row .um-fig canvas { cursor: crosshair; }
-[data-demo="${NAME}"] .ls-plots { flex: 1 1 320px; min-width: 260px; max-width: 400px; display: flex; flex-direction: column; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 340px; gap: .3em; }
+[data-demo="${NAME}"] .ls-plots { flex: 0 1 280px; min-width: 230px; display: flex; flex-direction: column; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .3em; font-size: 15px; }
+[data-demo="${NAME}"] .qb-presets { gap: .25em; }
+[data-demo="${NAME}"] .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+[data-demo="${NAME}"] .um-readout { font-size: 13px; }
+[data-demo="${NAME}"] .ls-row .um-fig figcaption { font-size: 14px; white-space: nowrap; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; flex-wrap: nowrap; }
 .reveal [data-demo="${NAME}"] .ls-imgs { flex: 0 0 450px; }
 .reveal [data-demo="${NAME}"] .ls-plots { flex: 0 0 330px; }
@@ -34,7 +38,7 @@ const CSS = COMMON_CSS + `
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .08em .35em; }
 .reveal [data-demo="${NAME}"] .um-fig figcaption { font-size: 16px; }
 .reveal [data-demo="${NAME}"] .um-readout { font-size: 15px; }
-.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; }
+.reveal [data-demo="${NAME}"] .qb-panel { gap: .15em; font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-slider { font-size: 17px; }
 `;
 
@@ -83,7 +87,7 @@ function mount(host: HTMLElement): void {
   const phS = slider(panel, "photons", 1, 3.7, 0.05, st.logPhot, v => { st.logPhot = v; manual(false); }, v => String(Math.round(10 ** v)));
   const autoC = checkbox(panel, "autofluorescence in M", st.auto, v => { st.auto = v; manual(true); });
   const truthC = checkbox(panel, "show true abundances", st.truth, v => { st.truth = v; drawAll(); });
-  const read = htmlEl("div", "qb-readout um-readout", "", plots);
+  const read = htmlEl("div", "qb-readout um-readout", "", imgs);
   const note = htmlEl("div", "qb-note", "Click a pixel to see its spectrum and the fit. Photons = expected count of a pixel with abundance 1, over all channels.", panel);
   void note;
 

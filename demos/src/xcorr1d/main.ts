@@ -15,11 +15,12 @@ const NAME = "xcorr1d";
 const CREDIT = "Profile: row 128 of a transmission electron micrograph (Robert M. Hunt, CC BY 3.0)";
 
 const STYLE = `
-.qb-demo[data-demo="${NAME}"] .xc-plots { flex: 1 1 600px; min-width: 0; display: grid; gap: .3em .8em; }
+.qb-demo[data-demo="${NAME}"] .xc-plots { flex: 1 1 560px; min-width: 0; display: grid; gap: .3em .8em; }
 .qb-demo[data-demo="${NAME}"].xc-direct .xc-plots { grid-template-columns: 1fr; max-width: 680px; }
 .qb-demo[data-demo="${NAME}"].xc-fft .xc-plots { grid-template-columns: 1fr 1fr; max-width: 860px; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 270px; max-width: 330px; gap: .35em; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 270px; max-width: 330px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
 .qb-demo[data-demo="${NAME}"] .xc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .qb-demo[data-demo="${NAME}"] .xc-credit { font-size: 12px; color: var(--qb-muted); }
 .qb-demo[data-demo="${NAME}"] figure { margin: 0; }

@@ -16,13 +16,21 @@ import { Gen, GEN_LABELS, TissueOptions, DEFAULT_TISSUE, makeTissue, tissueWindo
 const NAME = "celltypes";
 const P = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = sourceCss(NAME) + `
-${P} .ct-view { flex: 0 1 360px; min-width: 240px; }
-${P} .ct-main { flex: 1 1 380px; min-width: 260px; max-width: 540px; display: flex; flex-direction: column; gap: .3em; }
-${P} .qb-panel { flex: 1 1 280px; gap: .35em; }
+${P} { gap: .8em; }
+${P} .ct-view { flex: 0 1 310px; min-width: 220px; max-width: calc(100vh - 300px); }
+${P} .ct-main { flex: 0 1 420px; min-width: 260px; max-width: min(540px, calc((100vh - 230px) * 1.33)); display: flex; flex-direction: column; gap: .3em; }
+${P} .qb-panel { flex: 0 1 290px; min-width: 240px; gap: .3em; font-size: 15px; }
+body:not(.reveal-viewport) ${P} .qb-panel .qb-btn { font-size: 13.5px; padding: .12em .45em; }
+body:not(.reveal-viewport) ${P} .qb-panel .qb-readout { font-size: 13px; }
+body:not(.reveal-viewport) ${P} .ct-main .qb-btn { font-size: 14px; padding: .15em .5em; }
+${P} .ct-more { margin-top: .35em; }
+${P} .ct-more summary { cursor: pointer; font-size: .9em; color: var(--qb-muted); }
+${P} .ct-more .qb-presets { margin-top: .3em; }
+${P}.qb-wide { flex-wrap: nowrap; }
 ${P} .ct-cap { font-size: .9em; text-align: center; }
-.reveal ${P} .ct-view { flex: 0 0 360px; min-width: 0; }
-.reveal ${P} .ct-main { flex: 0 0 440px; min-width: 0; }
-.reveal ${P} .qb-panel { flex: 1 1 320px; min-width: 0; gap: .15em; }
+.reveal ${P} .ct-view { flex: 0 0 360px; min-width: 0; max-width: none; }
+.reveal ${P} .ct-main { flex: 0 0 440px; min-width: 0; max-width: 540px; }
+.reveal ${P} .qb-panel { flex: 1 1 320px; min-width: 0; gap: .15em; font-size: inherit; }
 `;
 
 const TABS: [Curve, string][] = [["cross", "cross-L"], ["L", "L of all cells"], ["mcf", "mark connection"], ["inhom", "inhomogeneous L"]];
@@ -91,7 +99,7 @@ function mount(host: HTMLElement): void {
   button(seedRow, "new seed", () => { st.t.seed++; unp(); regenerate(); draw(); });
   htmlEl("div", "ss-lab", "presets", panel);
   const presetRow = htmlEl("div", "", "", panel);
-  let pb: HTMLButtonElement[] = [], activeId = p0?.id ?? "";
+  let pb: HTMLButtonElement[] = [], activeId = p0?.id ?? "", moreOpen = false;
   function buildPresets(): void {
     presetRow.replaceChildren();
     if (onSlide) {
@@ -105,8 +113,17 @@ function mount(host: HTMLElement): void {
       pb = [];
       return;
     }
-    pb = presets(presetRow, PRESETS.map(p => ({ label: p.label, apply: () => applyPreset(p) })));
-    pb.forEach((b, i) => { b.dataset.id = PRESETS[i].id; b.classList.toggle("active", PRESETS[i].id === activeId); });
+    // on a page: the presets of the current tab as buttons, the others folded under "more presets"
+    const mine = PRESETS.filter(p => p.s.tab === st.tab), other = PRESETS.filter(p => p.s.tab !== st.tab);
+    const more = htmlEl("details", "ct-more", "");
+    more.open = moreOpen;
+    more.addEventListener("toggle", () => { moreOpen = more.open; });
+    htmlEl("summary", "", `more presets (other tabs, ${other.length})`, more);
+    const mk = (list: typeof PRESETS, parent: HTMLElement) => presets(parent, list.map(p => ({ label: p.label, apply: () => applyPreset(p) }))).map((b, i) => { b.dataset.id = list[i].id; return b; });
+    pb = [...mk(mine, presetRow)];
+    presetRow.append(more);
+    pb.push(...mk(other, more));
+    pb.forEach(b => b.classList.toggle("active", b.dataset.id === activeId));
   }
   button(panel, "reset", () => applyPreset(null));
 

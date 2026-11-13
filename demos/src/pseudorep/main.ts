@@ -17,9 +17,17 @@ import * as M from "./model";
 const NAME = "pseudorep";
 const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .pr-sp { flex: 0 1 360px; min-width: 240px; }
-[data-demo="${NAME}"] .pr-mid { flex: 1 1 330px; max-width: 420px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 260px; gap: .35em; }
+[data-demo="${NAME}"] .pr-left { flex: 0 1 290px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
+[data-demo="${NAME}"] .pr-mid { flex: 0 1 290px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 270px; max-width: 340px; gap: .25em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 13px; padding: .12em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-figure figcaption { font-size: 15px; line-height: 1.2; }
+.reveal [data-demo="${NAME}"] .pr-left { flex: 0 1 360px; }
+.reveal [data-demo="${NAME}"] .pr-mid { flex: 1 1 330px; max-width: 420px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 260px; max-width: none; font-size: inherit; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .25em .7em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-figure figcaption { font-size: 17px; }
 [data-demo="${NAME}"] .pr-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .pr-hidden { display: none !important; }
 [data-demo="${NAME}"] .qb-readout { font-size: 13.5px; white-space: pre; }
@@ -57,13 +65,13 @@ function mount(host: HTMLElement): void {
   let st: M.Settings = { ...M.DEFAULTS, ...p0.settings }, seed = p0.seed ?? 1;
   const slide = !!host.closest(".reveal"), fs = slide ? 24 : 18;
 
-  const spF = plotFigure(host, "SuperPlot: cells and experiment means", "pr-sp qb-figure");
+  const left = htmlEl("div", "pr-left", "", host);
+  const spF = plotFigure(left, "SuperPlot: cells and experiment means", "pr-sp qb-figure");
   const mid = htmlEl("div", "pr-mid", "", host);
   const ciF = plotFigure(mid, "effect with 95 % CI, three analyses");
   const runsF = plotFigure(mid, "1000 repetitions: share with p < 0.05");
   const runsCap = runsF.querySelector("figcaption")!;
-  const seF = plotFigure(host, "SE of the effect vs cells per experiment", "qb-plot qb-figure");
-  seF.style.maxWidth = "360px";
+  const seF = plotFigure(left, "SE of the effect vs cells per experiment", "qb-figure");
   const panel = htmlEl("div", "qb-panel", "", host);
   htmlEl("div", "pr-lab", "presets", panel);
   const pbtn = presets(panel, M.PRESETS.map(p => ({ label: p.label, apply: () => load(p) })));

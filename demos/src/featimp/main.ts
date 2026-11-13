@@ -18,11 +18,11 @@ const NAME = "featimp";
 
 const STYLE = `
 [data-demo="${NAME}"] { gap: .9em; align-items: flex-start; }
-[data-demo="${NAME}"] .fi-left { flex: 0 1 370px; min-width: 240px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .fi-mid { flex: 1 1 420px; min-width: 280px; max-width: 520px; }
+[data-demo="${NAME}"] .fi-left { flex: 0 1 340px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
+[data-demo="${NAME}"] .fi-mid { flex: 1 1 300px; min-width: 240px; max-width: 440px; }
 [data-demo="${NAME}"] .fi-bars { width: 100%; display: block; }
 [data-demo="${NAME}"] .fi-bars text { font-size: 16px; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 250px; gap: .35em; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 240px; gap: .35em; font-size: 15px; }
 [data-demo="${NAME}"] .fi-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .fi-feats { display: grid; grid-template-columns: 1fr 1fr; gap: .1em .6em; font-size: .9em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-line; }

@@ -26,6 +26,16 @@ ${S} .lm-row { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
 ${S} .qb-readout { font-size: 17px; white-space: pre-wrap; }
 ${S} .qb-presets { flex-basis: 100%; }
 ${S} .qb-btn.lm-on { background: var(--qb-accent); border-color: var(--qb-accent); color: #fff; }
+/* pages: field | panel | readout + sweep plot in one row of ~1075 px, presets under them */
+${S} .lm-field { flex: 0 1 390px; min-width: 240px; max-width: calc(100vh - 230px); }
+${S} .qb-panel { flex: 1 1 280px; max-width: 330px; gap: .25em; font-size: 15px; }
+${S} .qb-panel .qb-btn, ${S} .qb-presets .qb-btn { font-size: 14px; padding: .12em .5em; }
+${S} .lm-side { flex: 1 1 260px; max-width: 320px; }
+${S} .qb-readout { font-size: 14px; padding: .35em .5em; }
+.reveal ${S} .lm-field { max-width: none; }
+.reveal ${S} .qb-panel { max-width: none; font-size: inherit; }
+.reveal ${S} .lm-side { max-width: none; }
+.reveal ${S} .qb-panel .qb-btn, .reveal ${S} .qb-presets .qb-btn { font-size: 18px; padding: .02em .35em; }
 .reveal ${S} { font-size: 18px; gap: .5em; }
 .reveal ${S} .lm-field { flex: 0 0 430px; }
 .reveal ${S} .qb-panel { flex: 0 0 330px; gap: .1em; }

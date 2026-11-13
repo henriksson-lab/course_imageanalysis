@@ -18,9 +18,17 @@ import { ImgView, injectStyle, label, shownIds, TP_COL, FP_COL, FN_COL } from ".
 const NAME = "spotdetect";
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: wrap; }
-.qb-demo[data-demo="${NAME}"] .sd-main { flex: 0 1 440px; min-width: 300px; }
-.qb-demo[data-demo="${NAME}"] .sd-mid { flex: 0 1 290px; min-width: 200px; display: flex; flex-direction: column; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 380px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .sd-main { flex: 0 1 min(410px, calc(100vh - 220px)); min-width: 300px; }
+.qb-demo[data-demo="${NAME}"] .sd-mid { flex: 0 1 270px; min-width: 200px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; max-width: 380px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { grid-template-columns: auto 1fr 3em; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider input[type=range] { min-width: 4em; }
+.qb-demo[data-demo="${NAME}"] .sd-more { margin: 0; }
+.qb-demo[data-demo="${NAME}"] .sd-more > summary { cursor: pointer; font-size: 15px; color: var(--qb-muted); }
+.qb-demo[data-demo="${NAME}"] .sd-more[open] { display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .sd-mid > .qb-readout { font-size: 15px; }
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre-wrap; }
 .qb-demo[data-demo="${NAME}"] .sd-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
 .qb-demo[data-demo="${NAME}"] .sd-strip figure { margin: 0; }
@@ -90,15 +98,19 @@ function mount(host: HTMLElement): void {
   const j1S = slider(jDiv, "last level", 1, 4, 1, st.j1, v => { st.j1 = v; if (st.j0 > v) { st.j0 = v; j0S.set(v); } computeResponse(); });
   const rS = slider(panel, "window r", 1, 6, 1, st.r, v => { st.r = v; computeMaxima(); });
   const kS = slider(panel, "threshold k (noise sd)", 1, 10, 0.25, st.k, v => { st.k = v; st.filter === "atrous" ? computeResponse() : draw(); });
-  const nS = slider(panel, "noise sd", 0, 30, 1, st.noise, v => { st.noise = v; makeImage(); });
-  const cS = slider(panel, "spots", 10, 400, 10, st.count, v => { st.count = v; makeImage(); });
   const row = htmlEl("div", "", "", panel);
   row.style.display = "flex"; row.style.gap = "0 1em"; row.style.flexWrap = "wrap";
   const bgC = checkbox(row, "uneven background", st.background, v => { st.background = v; makeImage(); });
   button(row, "reset", () => { Object.assign(st, start()); presetBtns.forEach(b => b.classList.remove("active")); sync(); makeImage(); });
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  // the synthetic image: folded away so that the demo fits the window (opened when a preset changes it)
+  const more = htmlEl("details", "sd-more", "", panel);
+  htmlEl("summary", "", "more options (noise, number of spots)", more);
+  const nS = slider(more, "noise sd", 0, 30, 1, st.noise, v => { st.noise = v; makeImage(); });
+  const cS = slider(more, "spots", 10, 400, 10, st.count, v => { st.count = v; makeImage(); });
+  // on a page under the response image (keeps the panel short); on a slide in the panel
+  const ro = htmlEl("div", "qb-readout", "", host.closest(".reveal") ? panel : mid);
 
-  function load(p: Preset): void { Object.assign(st, DEFAULT, p.s); sync(); makeImage(); }
+  function load(p: Preset): void { Object.assign(st, DEFAULT, p.s); if (st.noise !== DEFAULT.noise || st.count !== DEFAULT.count) more.open = true; sync(); makeImage(); }
   function sync(): void {
     sigS.set(st.sigma); j0S.set(st.j0); j1S.set(st.j1); rS.set(st.r); kS.set(st.k); nS.set(st.noise); cS.set(st.count); bgC.checked = st.background;
     FILTERS.forEach((f, i) => filtBtns[i].classList.toggle("active", f === st.filter));

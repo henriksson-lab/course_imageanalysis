@@ -21,20 +21,33 @@ const NAME = "threecube";
 const Q = `.qb-demo[data-demo="${NAME}"]`;
 const CSS = tileCss(NAME) + `
 ${Q} { gap: .7em; align-items: flex-start; }
-${Q} .tc-tiles { flex: 0 1 150px; min-width: 110px; display: flex; flex-direction: column; gap: .25em; }
-${Q} .tc-res { flex: 1 1 300px; min-width: 220px; max-width: 360px; display: flex; flex-direction: column; gap: .25em; }
-${Q} .tc-sc { flex: 1 1 290px; min-width: 220px; max-width: 360px; }
-${Q} .qb-panel { flex: 1 1 280px; max-width: 360px; }
+${Q} .tc-main { flex: 0 1 340px; min-width: 240px; display: flex; flex-direction: column; gap: .3em; }
+${Q} .tc-tiles { display: flex; flex-direction: row; gap: .3em; align-items: flex-end; }
+${Q} .tc-tiles .fr-fig { flex: 1 1 0; }
+${Q} .tc-tiles .fr-fig figcaption { font-size: 14px; }
+${Q} .tc-res { display: flex; flex-direction: column; gap: .25em; }
+${Q} .tc-res .fr-wrap { max-width: calc(100vh - 340px); margin: 0 auto; }
+${Q} .tc-sc { flex: 0 1 300px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
+${Q} .tc-sc .qb-readout { font-size: 13px; }
+${Q} .qb-panel { flex: 0 1 310px; max-width: 340px; }
+${Q} .tc-more > summary { cursor: pointer; color: var(--qb-muted); font-size: 14px; }
+${Q} .tc-more[open] { display: flex; flex-direction: column; gap: .35em; }
 ${Q} .tc-table { width: 100%; border-collapse: collapse; font-size: 15px; }
 ${Q} .tc-table td, ${Q} .tc-table th { padding: .1em .4em; border-bottom: 1px solid var(--qb-grid); text-align: right; }
 ${Q} .tc-table td:first-child, ${Q} .tc-table th:first-child { text-align: left; }
 ${Q} .tc-full { flex: 1 1 100%; }
+${Q} .tc-full > summary { cursor: pointer; font-size: 15px; }
 ${Q} .tc-modes { display: flex; flex-wrap: wrap; gap: .25em; }
 .reveal ${Q} { flex-wrap: nowrap; }
-.reveal ${Q} .tc-tiles { flex: 0 0 150px; }
+.reveal ${Q} .tc-main { display: contents; }
+.reveal ${Q} .tc-tiles { flex: 0 0 150px; flex-direction: column; gap: .25em; align-items: stretch; }
+.reveal ${Q} .tc-tiles .fr-fig figcaption { font-size: 18px; }
 .reveal ${Q} .tc-res { flex: 0 0 300px; }
+.reveal ${Q} .tc-res .fr-wrap { max-width: none; }
 .reveal ${Q} .tc-sc { flex: 0 0 300px; }
+.reveal ${Q} .tc-sc .qb-readout { font-size: 15px; }
 .reveal ${Q} .qb-panel { flex: 0 0 340px; }
+.reveal ${Q} .tc-more > summary { font-size: 17px; }
 `;
 
 type Mode = "Fc" | "perA" | "index" | "E";
@@ -69,9 +82,10 @@ function mount(host: HTMLElement): void {
   const st: State = { ...base(), ...(pre?.s ?? {}) };
 
   // ---- layout ----
-  const tiles = htmlEl("div", "tc-tiles", "", host);
+  const main = htmlEl("div", "tc-main", "", host);
+  const tiles = htmlEl("div", "tc-tiles", "", main);
   const tDD = new Tile(tiles, "IDD"), tDA = new Tile(tiles, "IDA (FRET channel)"), tAA = new Tile(tiles, "IAA");
-  const res = htmlEl("div", "tc-res", "", host);
+  const res = htmlEl("div", "tc-res", "", main);
   const modeRow = htmlEl("div", "tc-modes", "", res);
   const modeBtns = MODES.map(([m, lab]) => button(modeRow, lab, () => { st.mode = m; manual(); }));
   const tRes = new Tile(res, "");
@@ -85,27 +99,36 @@ function mount(host: HTMLElement): void {
 
   const panel = htmlEl("div", "qb-panel", "", host);
   const PL = filterPresets(host, PRESETS);
-  const presetBtns = presets(panel, PL.map(p => ({ label: p.label, apply: () => { Object.assign(st, base(), p.s); newData(); if (p.measure) measure(); sync(); draw(); } })));
+  const presetBtns = presets(panel, PL.map(p => ({ label: p.label, apply: () => { Object.assign(st, base(), p.s); openMore(p.s); newData(); if (p.measure) measure(); sync(); draw(); } })));
   const dS = slider(panel, "bleed-through d", 0, 1, 0.01, st.d, v => { st.d = v; manual(); });
   const aS = slider(panel, "cross-excitation a", 0, 0.4, 0.005, st.a, v => { st.a = v; manual(); });
-  const gS = slider(panel, "G factor", 0.5, 4, 0.05, st.G, v => { st.G = v; manual(); });
-  const bS = slider(panel, "background subtracted", 0, 150, 1, st.bg, v => { st.bg = v; manual(); });
-  const regen = debounce(() => { newData(); draw(); }, 120);
-  const phS = slider(panel, "photons", 10, 1000, 10, st.photons, v => { st.photons = v; presetOff(); regen(); });
-  const eS = slider(panel, "true E (fusion)", 0, 0.8, 0.01, st.E, v => { st.E = v; presetOff(); regen(); });
-  const xS = slider(panel, "extra free acceptor", 0, 3, 0.1, st.extra, v => { st.extra = v; presetOff(); regen(); });
   const row = htmlEl("div", "tc-modes", "", panel);
   const cD = checkbox(row, "subtract d·IDD", st.subD, v => { st.subD = v; manual(); });
   const cA = checkbox(row, "subtract a·IAA", st.subA, v => { st.subA = v; manual(); });
-  const cS = checkbox(row, "shift IDA by 1 px", st.shift, v => { st.shift = v; presetOff(); newData(); draw(); });
   const brow = htmlEl("div", "qb-presets", "", panel);
   button(brow, "measure d, a from the controls", () => { measure(); sync(); manual(); });
   button(brow, "reset", () => { Object.assign(st, base()); presetBtns.forEach(b => b.classList.remove("active")); newData(); sync(); draw(); });
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  const more = htmlEl("details", "tc-more", "", panel);
+  htmlEl("summary", "", "more options (G, background, data)", more);
+  const gS = slider(more, "G factor", 0.5, 4, 0.05, st.G, v => { st.G = v; manual(); });
+  const bS = slider(more, "background subtracted", 0, 150, 1, st.bg, v => { st.bg = v; manual(); });
+  const regen = debounce(() => { newData(); draw(); }, 120);
+  const phS = slider(more, "photons", 10, 1000, 10, st.photons, v => { st.photons = v; presetOff(); regen(); });
+  const eS = slider(more, "true E (fusion)", 0, 0.8, 0.01, st.E, v => { st.E = v; presetOff(); regen(); });
+  const xS = slider(more, "extra free acceptor", 0, 3, 0.1, st.extra, v => { st.extra = v; presetOff(); regen(); });
+  const cS = checkbox(more, "shift IDA by 1 px", st.shift, v => { st.shift = v; presetOff(); newData(); draw(); });
+  const ro = htmlEl("div", "qb-readout", "", scBox);
   if (host.dataset.compact !== undefined) [phS, eS, xS].forEach(hideControl);
   let table: HTMLTableElement | null = null;
-  if (full) { const tb = htmlEl("div", "tc-full", "", host); table = htmlEl("table", "tc-table", "", tb); }
+  if (full) {
+    const tb = htmlEl("details", "tc-full", "", host);
+    htmlEl("summary", "", "per-cell table", tb);
+    table = htmlEl("table", "tc-table", "", tb);
+  }
 
+  // presets that change a setting kept under "more options" open that section
+  function openMore(s: Partial<State>): void { if (["G", "bg", "photons", "E", "extra", "shift"].some(k => k in s)) more.open = true; }
+  if (pre) openMore(pre.s);
   const presetOff = () => presetBtns.forEach(b => b.classList.remove("active"));
   const manual = () => { presetOff(); draw(); };
   function sync(): void {
@@ -203,9 +226,10 @@ function mount(host: HTMLElement): void {
     };
     ro.textContent = [
       `E_app, ratio of sums per class:`,
-      `  donor only ${fmt(classMean("donor"), 3)}   no FRET ${fmt(classMean("free"), 3)}`,
-      `  fusion ${fmt(classMean("fusion"), 3)} (true ${fmt(st.E, 2)})`,
-      `  binding ${fmt(classMean("binding"), 3)} (true 0.5 × 0.4 = 0.20)`,
+      `  donor only ${fmt(classMean("donor"), 3)}`,
+      `  no FRET    ${fmt(classMean("free"), 3)}`,
+      `  fusion     ${fmt(classMean("fusion"), 3)} (true ${fmt(st.E, 2)})`,
+      `  binding    ${fmt(classMean("binding"), 3)} (true 0.5×0.4 = 0.20)`,
     ].join("\n");
   }
 

@@ -20,6 +20,8 @@ import { T, W, N0, State, DEFAULT, PRESETS, K_FRAMES, simulate, analyse, Analysi
 
 const NAME = "gapclose";
 const S = `.qb-demo[data-demo="${NAME}"]`;
+/** Page-only selector (not inside reveal.js slides). */
+const P = `${S}:not(.reveal *)`;
 const STYLE = `
 ${S} { gap: .6em; }
 ${S} .gc-st { flex: 1 1 520px; min-width: 280px; max-width: 600px; }
@@ -31,7 +33,21 @@ ${S} .qb-readout { font-size: 17px; white-space: pre-wrap; }
 ${S} .qb-presets { flex-basis: 100%; }
 ${S} .qb-btn.gc-on { background: var(--qb-accent); border-color: var(--qb-accent); color: #fff; }
 ${S} .gc-key { font-size: 15px; color: var(--qb-muted); }
-.reveal ${S} { font-size: 18px; gap: .4em; }
+/* Pages: space-time view and lineage side by side, cycle histogram under them, controls in a
+   column on the right; sized so the whole demo fits a 1366x768 window. */
+@media (min-width: 641px) {
+  ${P} { display: grid; gap: .5em .8em; justify-content: start; align-items: start;
+    grid-template-columns: minmax(0, min(470px, calc((100vh - 380px) * 1.3))) minmax(0, 190px) minmax(280px, 400px);
+    grid-template-areas: "st tree panel" "cyc cyc panel" "cyc cyc pre"; grid-template-rows: auto auto 1fr; }
+  ${P} .gc-st { grid-area: st; min-width: 0; max-width: none; }
+  ${P} .gc-tree { grid-area: tree; min-width: 0; }
+  ${P} .gc-cyc { grid-area: cyc; max-width: min(360px, calc((100vh - 380px) * 0.9)); width: 100%; }
+  ${P} .qb-panel { grid-area: panel; max-width: none; }
+  ${P} > .qb-presets { grid-area: pre; }
+  ${P} .qb-readout { font-size: 15px; padding: .3em .5em; }
+  ${P} .gc-key { font-size: 13px; }
+}
+.reveal ${S} { display: flex; font-size: 18px; gap: .4em; }
 .reveal ${S} .gc-st { flex: 0 0 440px; }
 .reveal ${S} .gc-tree { flex: 0 0 240px; }
 .reveal ${S} .qb-panel { flex: 0 0 410px; max-width: 420px; gap: .05em; }

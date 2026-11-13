@@ -15,14 +15,16 @@ const NAME = "mcpixel";
 const S = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = `
 ${S} { gap: .6em; }
-${S} .mc-grid { flex: 1 1 760px; max-width: 800px; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .5em; }
-${S} .qb-panel { flex: 1 1 300px; max-width: 360px; gap: .35em; }
+${S} .mc-grid { flex: 0 1 700px; min-width: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .3em .5em; }
+${S} .qb-panel { flex: 1 1 270px; max-width: 340px; gap: .3em; font-size: 15px; }
+${S} .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+${S} .qb-presets { gap: .25em; }
 ${S} svg.mc-half { width: 100%; display: block; }
 ${S} .mc-row { display: flex; flex-wrap: wrap; gap: .3em; align-items: center; }
 ${S} .qb-readout { font-family: system-ui, sans-serif; white-space: pre; line-height: 1.3; }
 .reveal ${S} { flex-wrap: nowrap; font-size: 18px; gap: .4em; }
 .reveal ${S} .mc-grid { flex: 0 0 780px; }
-.reveal ${S} .qb-panel { flex: 0 0 340px; gap: .2em; padding: .3em .45em; }
+.reveal ${S} .qb-panel { flex: 0 0 340px; gap: .2em; padding: .3em .45em; font-size: 18px; }
 .reveal ${S} .qb-btn { font-size: 18px; padding: .02em .35em; }
 .reveal ${S} .qb-readout { font-size: 18px; padding: .2em .4em; }
 .reveal ${S} .qb-presets { gap: .2em; }

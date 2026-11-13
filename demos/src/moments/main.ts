@@ -52,14 +52,17 @@ const SIZE = 64;
 const PIXELS = [0.25, 0.35, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8];
 
 const STYLE = `
-.qb-demo[data-demo="${NAME}"] { gap: .9em; flex-wrap: wrap; align-items: flex-start; }
-.qb-demo[data-demo="${NAME}"] .mo-canvas { flex: 0 1 410px; min-width: 240px; }
-.qb-demo[data-demo="${NAME}"] .mo-out { order: 2; flex: 1 1 420px; min-width: 0; overflow-x: auto; display: flex; flex-direction: column; gap: .4em; }
-.qb-demo[data-demo="${NAME}"] .mo-ctl { order: 1; flex: 0 0 280px; display: flex; flex-direction: column; gap: .4em; }
-.qb-demo[data-demo="${NAME}"] .mo-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
-.qb-demo[data-demo="${NAME}"] .mo-ctl .qb-btn { font-size: 14px; padding: .12em .45em; }
-.qb-demo[data-demo="${NAME}"] .mo-ctl .qb-note { font-size: 13px; }
-.qb-demo[data-demo="${NAME}"] table.mo-tab { border-collapse: collapse; font-size: 14px; width: 100%; }
+.qb-demo[data-demo="${NAME}"] { gap: .7em; flex-wrap: wrap; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .mo-canvas { flex: 0 1 min(360px, calc(100vh - 260px)); min-width: 240px; }
+.qb-demo[data-demo="${NAME}"] .mo-out { order: 2; flex: 1 1 380px; min-width: 0; overflow-x: auto; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .mo-ctl { order: 1; flex: 0 0 260px; display: flex; flex-direction: column; gap: .3em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .mo-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
+.qb-demo[data-demo="${NAME}"] .mo-ctl .qb-btn { font-size: 13px; padding: .1em .4em; }
+.qb-demo[data-demo="${NAME}"] .mo-ctl .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .mo-ctl .qb-note { font-size: 12.5px; }
+.qb-demo[data-demo="${NAME}"] .mo-more > summary { font-size: 14px; color: var(--qb-muted); cursor: pointer; }
+.qb-demo[data-demo="${NAME}"] .mo-more[open] > summary { margin-bottom: .3em; }
+.qb-demo[data-demo="${NAME}"] table.mo-tab { border-collapse: collapse; font-size: 13px; line-height: 1.25; width: 100%; }
 .qb-demo[data-demo="${NAME}"] table.mo-tab td { padding: .05em .35em; border-bottom: 1px solid var(--qb-grid); }
 .qb-demo[data-demo="${NAME}"] table.mo-tab td.v { font-family: ui-monospace, monospace; text-align: right; }
 .qb-demo[data-demo="${NAME}"] table.mo-tab tr.h td { font-weight: 600; color: var(--qb-muted); border-bottom: 2px solid var(--qb-grid); }
@@ -67,6 +70,9 @@ const STYLE = `
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; flex-wrap: nowrap; }
 .reveal .qb-demo[data-demo="${NAME}"] table.mo-tab { font-size: 15px; line-height: 1.2; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-note { font-size: 14px; }
+.reveal .qb-demo[data-demo="${NAME}"] .mo-ctl { font-size: 17px; flex-basis: 270px; }
+.reveal .qb-demo[data-demo="${NAME}"] .mo-ctl .qb-btn { font-size: 15px; }
+.reveal .qb-demo[data-demo="${NAME}"] .mo-lab { font-size: 15px; }
 
 `;
 
@@ -90,7 +96,10 @@ function mount(host: HTMLElement): void {
   let px = 1, py = 1, aniso = 1, spec: ReturnType<typeof mode.build> | null = null;
   htmlEl("div", "mo-lab", "pixel size (resolution)", ctl);
   const ps = slider(ctl, "pixel", 0, PIXELS.length - 1, 1, PIXELS.indexOf(1), v => { px = PIXELS[v]; py = px * aniso; recompute(true); }, v => `${PIXELS[v]}`);
-  const shapeCtl = htmlEl("div", "", "", ctl);
+  const more = htmlEl("details", "mo-more", "", ctl);
+  htmlEl("summary", "", "shape tools (draw, rotate, scale, move)", more);
+  more.open = mode.id !== "features";   // the features mode has many controls of its own
+  const shapeCtl = htmlEl("div", "", "", more);
   shapeCtl.style.cssText = "display:flex;flex-direction:column;gap:.3em";
 
   const sc = shapeCanvas(cbox, {
@@ -142,7 +151,7 @@ function mount(host: HTMLElement): void {
   const prow = htmlEl("div", "qb-presets", "", ctl);
   const only = host.dataset.presets?.split(",").map(x => x.trim());
   const presets: MomentsPreset[] = only ? spec.presets.filter(p => only.includes(p.id)) : spec.presets;
-  if (host.dataset.shapectl === "off") shapeCtl.style.display = "none";
+  if (host.dataset.shapectl === "off") more.style.display = "none";
   const p0 = spec.presets.find(p => p.id === host.dataset.preset) ?? presets[0];
   const btns = presets.map(p => button(prow, p.label, () => load(p)));
   button(prow, "⟲ reset", () => load(p0));

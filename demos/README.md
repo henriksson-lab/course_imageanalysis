@@ -52,6 +52,33 @@ In a `.qmd` (slide or page), one raw HTML block:
 - Read per-embed settings from `data-*` attributes, so one demo serves several units.
 - 3D: WebGL2, through the shared renderer in `lib/gl3d.ts` (no 3D libraries).
 
+## Fitting the screen
+
+A demo is only usable when the figure and the controls that change it are on screen together.
+Every demo must fit a 1366×768 laptop window and a 1280×720 slide; `make check-fit` (after
+`make render`; `tools/check/fit.py`) measures every demo on the pages at 1366×768 and 1920×1080
+and on the slides at 1280×720, and lists those that break these rules:
+
+- **Height:** the whole demo is at most the window height minus 60 px (on a slide: 660 px of
+  the 1280×720 slide, and it must not overflow the slide; aim for the 1150×560 content area).
+- **Controls beside the figure, not under it.** Put the controls in a `.qb-panel` column next
+  to the main figure. A single row of buttons spanning the demo under a wide figure is fine; a
+  control column that wraps below the figure is not.
+- **Width:** on pages, `autoMount` (`lib/ui.ts`) puts every demo that sits directly in the text
+  (not inside a callout, tabset or columns) into Quarto's wide grid column
+  (`.column-screen-inset-right`: about 1075 px wide in a 1366 px window, 1630 px in a 1920 px one), and Quarto
+  folds the table of contents into an "On this page" button while it is on screen. Design for
+  that width (figure about 400–550 px, plots about 300 px, panel about 300 px), and still
+  degrade gracefully to the 800 px text column (`data-width="body"` keeps a demo there) and to a
+  phone (one column below 640 px).
+- **Shared limits in `demo.css`:** figures (`canvas`, `svg`) are at most `100vh - 200px` high
+  (SVGs keep their aspect ratio through the `viewBox`, canvases through `object-fit: contain`;
+  a demo that maps pointer positions on a canvas whose box can be letterboxed must size the
+  canvas itself so that it never is); a `.qb-panel` is at most `100vh - 100px` high and scrolls
+  beyond that. On slides the limits are in slide pixels (figures ≤ 560 px).
+- Do not make a figure grow with the width of the demo without a cap (`max-width`, or a
+  `flex-basis` with no `flex-grow`): a wider column must not make the demo taller.
+
 ## Language: TypeScript, and Rust/WebAssembly when speed is needed
 
 - Write demos in **TypeScript**, not plain JavaScript. `make typecheck` must pass.

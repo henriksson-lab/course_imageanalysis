@@ -27,10 +27,11 @@ const NAME = "flimcell";
 const SEL = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = `
 ${SEL} { gap: .6em; flex-wrap: wrap; align-items: flex-start; }
-${SEL} .fc-imgs { flex: 1 1 520px; display: flex; gap: .4em; min-width: 0; max-width: 620px; }
-${SEL} .fc-imgs > .ev-fig { flex: 1 1 50%; }
-${SEL} .fc-side { flex: 1 1 360px; min-width: 0; max-width: 460px; }
-${SEL} .qb-panel { flex: 1 1 260px; gap: .25em; }
+${SEL} .fc-imgs { flex: 0 1 min(260px, calc(50vh - 110px)); display: flex; flex-direction: column; gap: .2em; min-width: 170px; }
+${SEL} .fc-imgs > .ev-fig { flex: 0 0 auto; }
+${SEL} .fc-side { flex: 1 1 340px; min-width: 0; max-width: 420px; }
+${SEL} .fc-side > svg { max-height: calc(100vh - 330px); }
+${SEL} .qb-panel { flex: 0 1 270px; gap: .25em; font-size: 15px; }
 ${SEL} .fc-cb { max-width: 300px; }
 .reveal ${SEL} { flex-wrap: nowrap; }
 .reveal ${SEL} .fc-imgs { flex: 0 0 255px; flex-direction: column; gap: .1em; }

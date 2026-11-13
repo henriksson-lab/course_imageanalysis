@@ -52,7 +52,11 @@ const PRESETS: { id: string; label: string; image: string; p: Partial<Params> }[
 
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { display: flex; flex-wrap: wrap; gap: .8em; align-items: flex-start; }
-.qb-demo[data-demo="${NAME}"] .yn-left { flex: 1 1 460px; min-width: 260px; max-width: 580px; display: flex; flex-direction: column; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .yn-left { flex: 1 1 540px; min-width: 260px; max-width: 680px; display: flex; flex-direction: column; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .yn-top { display: flex; gap: .5em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .yn-top .yn-stage { flex: 1 1 0; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .yn-top .yn-maps { flex: 0 0 120px; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .yn-top .yn-maps figure { flex: 0 0 auto; }
 .qb-demo[data-demo="${NAME}"] .yn-stage { position: relative; width: 100%; background: #000; border-radius: 4px; overflow: hidden; }
 .qb-demo[data-demo="${NAME}"] .yn-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .qb-demo[data-demo="${NAME}"] .yn-stage canvas.yn-ov { cursor: crosshair; touch-action: none; }
@@ -63,18 +67,27 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .yn-maps canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; border: 3px solid transparent; background: #000; }
 .qb-demo[data-demo="${NAME}"] .yn-maps figure.yn-off canvas { opacity: .35; }
 .qb-demo[data-demo="${NAME}"] .yn-maps figcaption { font-size: 13px; text-align: center; line-height: 1.2; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 380px; max-width: 560px; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 380px; max-width: 560px; gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
 .qb-demo[data-demo="${NAME}"] .yn-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
 .qb-demo[data-demo="${NAME}"] .yn-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .qb-demo[data-demo="${NAME}"] select { font: inherit; font-size: .9em; padding: .1em .2em; max-width: 15em; }
 .qb-demo[data-demo="${NAME}"] .yn-dfl { width: 100%; height: auto; display: block; }
 .qb-demo[data-demo="${NAME}"] .yn-dfl text { font-size: 13px; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; line-height: 1.35; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre-wrap; line-height: 1.35; }
 .qb-demo[data-demo="${NAME}"] .qb-btn:disabled { opacity: .45; cursor: default; }
 .qb-demo[data-demo="${NAME}"] .yn-hide { display: none !important; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; gap: .5em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .05em .35em; }
-.reveal .qb-demo[data-demo="${NAME}"] .yn-left { flex: 0 1 470px; }
+.reveal .qb-demo[data-demo="${NAME}"] .yn-left { flex: 0 1 470px; max-width: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .yn-top { display: contents; }
+.reveal .qb-demo[data-demo="${NAME}"] .yn-top .yn-stage { flex: none; width: 100%; }
+.reveal .qb-demo[data-demo="${NAME}"] .yn-top .yn-maps { flex: none; flex-direction: row; gap: .4em; order: 2; }
+.reveal .qb-demo[data-demo="${NAME}"] .yn-top .yn-maps figure { flex: 1 1 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .yn-left > .yn-credit { order: 1; }
+.reveal .qb-demo[data-demo="${NAME}"] .yn-left > .yn-credit:last-child { order: 3; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 520px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 15px; padding: .05em .35em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 520px; max-width: 640px; gap: .2em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; padding: .25em .45em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-note, .reveal .qb-demo[data-demo="${NAME}"] .yn-lab { display: none; }
@@ -94,12 +107,14 @@ function mount(host: HTMLElement): void {
   injectStyle();
   // ---- DOM ------------------------------------------------------------------------------------
   const left = htmlEl("div", "yn-left", "", host);
-  const stage = htmlEl("div", "yn-stage", "", left);
+  // pages: the score maps as a column beside the image; slides: a row under it (CSS)
+  const top = htmlEl("div", "yn-top", "", left);
+  const stage = htmlEl("div", "yn-stage", "", top);
   const cImg = htmlEl("canvas", "", "", stage);
   const cOv = htmlEl("canvas", "yn-ov", "", stage);
   const busy = htmlEl("div", "yn-busy yn-hide", "", stage);
+  const maps = htmlEl("div", "yn-maps", "", top);
   const credit = htmlEl("div", "yn-credit", "", left);
-  const maps = htmlEl("div", "yn-maps", "", left);
   const mapFigs = P.STRIDES.map((s, k) => {
     const f = htmlEl("figure", "", "", maps);
     const c = htmlEl("canvas", "", "", f);
@@ -224,8 +239,8 @@ function mount(host: HTMLElement): void {
   // ---- Drawing --------------------------------------------------------------------------------
   function sizeStage(w: number, h: number): void {
     stage.style.aspectRatio = `${w} / ${h}`;
-    const maxH = host.closest(".reveal") ? 300 : 560;
-    stage.style.maxWidth = `${Math.round((maxH * w) / h)}px`;
+    // at most 300 px high on a slide; on a page at most 560 px and the window height minus room
+    stage.style.maxWidth = host.closest(".reveal") ? `${Math.round((300 * w) / h)}px` : `min(${Math.round((560 * w) / h)}px, calc((100vh - 170px) * ${(w / h).toFixed(4)}))`;
     cImg.width = cOv.width = w; cImg.height = cOv.height = h;
   }
 

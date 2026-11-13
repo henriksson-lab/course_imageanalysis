@@ -18,17 +18,20 @@ const S = 420;            // main view size
 const PW = 330, PH = 190; // plot size
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .9em; }
-[data-demo="${NAME}"] .nc-main { flex: 0 1 410px; min-width: 240px; }
+[data-demo="${NAME}"] { gap: .7em; }
+[data-demo="${NAME}"] .nc-main { flex: 0 1 min(390px, calc(100vh - 230px)); min-width: 240px; }
 [data-demo="${NAME}"] .nc-main canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 3px; }
 [data-demo="${NAME}"] .nc-cap { font-size: 16px; text-align: center; margin-bottom: .2em; }
-[data-demo="${NAME}"] .nc-mid { flex: 0 1 330px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
-[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 240px; max-width: 320px; gap: .4em; }
+[data-demo="${NAME}"] .nc-mid { flex: 0 1 300px; min-width: 220px; display: flex; flex-direction: column; gap: .3em; }
+[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 240px; max-width: 320px; gap: .3em; font-size: 15px; }
+[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+[data-demo="${NAME}"] .qb-presets { gap: .25em; }
 [data-demo="${NAME}"] .nc-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
 [data-demo="${NAME}"] .nc-credit { font-size: 12px; color: var(--qb-muted); }
 [data-demo="${NAME}"] svg text { font-size: 15px; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
+.reveal [data-demo="${NAME}"] .qb-panel { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
 .reveal [data-demo="${NAME}"] .qb-note { font-size: 14px; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .5em; }

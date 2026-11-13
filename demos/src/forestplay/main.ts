@@ -20,14 +20,14 @@ const STRIP = 6;
 
 const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
-[data-demo="${NAME}"] .fp-left { flex: 0 1 400px; min-width: 240px; }
+[data-demo="${NAME}"] .fp-left { flex: 0 1 min(380px, calc(100vh - 230px)); min-width: 240px; }
 [data-demo="${NAME}"] .fp-left .qb-plot { max-width: none; }
-[data-demo="${NAME}"] .fp-mid { flex: 1 1 340px; min-width: 240px; max-width: 440px; display: flex; flex-direction: column; gap: .3em; }
+[data-demo="${NAME}"] .fp-mid { flex: 1 1 300px; min-width: 220px; max-width: 400px; display: flex; flex-direction: column; gap: .3em; }
 [data-demo="${NAME}"] .fp-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 [data-demo="${NAME}"] .fp-strip figure { margin: 0; }
 [data-demo="${NAME}"] .fp-strip canvas { width: 100%; aspect-ratio: 1; display: block; border: 1px solid var(--qb-grid); image-rendering: pixelated; }
 [data-demo="${NAME}"] .fp-strip figcaption { font-size: 14px; text-align: center; color: var(--qb-muted); }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 290px; gap: .4em; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 0 270px; gap: .3em; font-size: 15px; }
 [data-demo="${NAME}"] .fp-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-line; }
 [data-demo="${NAME}"] .fp-cap { font-size: 15px; color: var(--qb-muted); text-align: center; }

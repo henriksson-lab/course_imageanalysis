@@ -163,10 +163,38 @@ export function numList(s: string | undefined, fallback: number[]): number[] {
   return v.every(Number.isFinite) ? v : fallback;
 }
 
-/** Mount `fn` on every <div data-demo="name"> once the page is ready. */
+/**
+ * Mount `fn` on every <div data-demo="name"> once the page is ready.
+ * On a Quarto page (not in reveal.js slides) a demo that sits directly in the text column
+ * (only <section>s between it and <main>) is widened into Quarto's page grid, as
+ * `.column-screen-inset-right`: from the text column to the right edge of the window. Quarto's
+ * own script (quarto.js, which runs after the demos mount) then folds the table of contents
+ * into an "On this page" button while such a demo is on screen. `data-width="body"` on the
+ * host keeps a demo in the text column. See demos/README.md, "Fitting the screen".
+ */
 export function autoMount(name: string, fn: (host: HTMLElement) => void): void {
   const run = () => document.querySelectorAll<HTMLElement>(`[data-demo="${name}"]:not(.qb-demo)`)
-    .forEach(host => { host.classList.add("qb-demo"); host.innerHTML = ""; fn(host); });
+    .forEach(host => {
+      host.classList.add("qb-demo");
+      host.innerHTML = "";
+      widen(host);
+      fn(host);
+    });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", run);
   else run();
+}
+
+/** Put a demo host into Quarto's wide grid column (see autoMount). */
+function widen(host: HTMLElement): void {
+  if (host.dataset.width === "body" || host.closest(".reveal")) return;
+  const main = host.closest<HTMLElement>("main#quarto-document-content");
+  if (!main || !document.getElementById("quarto-content")?.classList.contains("page-columns")) return;
+  const chain: HTMLElement[] = [];
+  for (let e = host.parentElement; e && e !== main; e = e.parentElement) {
+    if (e.tagName !== "SECTION") return;   // inside a callout, tabset, column, ...: leave as is
+    chain.push(e);
+  }
+  // What Quarto itself does for a .column-* block: every ancestor up to <main> joins the grid.
+  for (const e of [main, ...chain]) e.classList.add("page-columns", "page-full");
+  host.classList.add("column-screen-inset-right", "qb-wide");
 }

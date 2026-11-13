@@ -18,7 +18,7 @@ import { maxOverSlices } from "../lib/hough";
 
 const NAME = "ght";
 const STYLE = PANEL_CSS(NAME) + `
-[data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; }
+.qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: nowrap; }
 [data-demo="${NAME}"] .gh-left { flex: 1 1 820px; min-width: 0; display: flex; flex-direction: column; gap: .4em; }
 [data-demo="${NAME}"] .gh-figs { display: flex; gap: .6em; }
 [data-demo="${NAME}"] .gh-figs > * { flex: 1 1 0; min-width: 0; }
@@ -34,7 +34,12 @@ const STYLE = PANEL_CSS(NAME) + `
 .reveal [data-demo="${NAME}"] .gh-left { flex: 0 0 830px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex: 0 0 300px; gap: .12em; }
 .reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .06em .4em; }
-@media (max-width: 860px) { [data-demo="${NAME}"], [data-demo="${NAME}"] .gh-bottom { flex-wrap: wrap; } }
+/* Pages: the three figures no taller than the window allows (1366x768: about 250 px). */
+.qb-demo[data-demo="${NAME}"] .gh-figs { max-width: calc((100vh - 360px) * 3 + 1.2em); }
+.qb-demo[data-demo="${NAME}"] .hv-fig figcaption { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reveal .qb-demo[data-demo="${NAME}"] .gh-figs { max-width: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .hv-fig figcaption { font-size: 17px; white-space: normal; }
+@media (max-width: 860px) { .qb-demo[data-demo="${NAME}"], [data-demo="${NAME}"] .gh-bottom { flex-wrap: wrap; } }
 `;
 
 interface State {

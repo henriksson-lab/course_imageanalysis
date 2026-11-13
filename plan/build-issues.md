@@ -116,3 +116,11 @@ The MNIST copy used by `cnnviewer` (CC BY-SA 3.0) is credited.
   - Some demos take more than 30 ms per update with no Wasm: `unetseg`, the `tophat` opening at r = 20, the SVM pixel prediction, ring voting in `houghcircle`, GVF, live-wire, `instancemaps`, and `boostdetect`'s 1 s load.
   - The figure scripts for image formation, evaluation, wavelets and thresholding live only in the scratchpad, not in the repo.
   - Cross-day pointers in units owned by others still need editing; for example `seg-eval/` should point to `object-eval/`, and `kernels/` and `fourier/` should point to the edges day.
+
+## Reminders for the user
+
+- **sam2-rs on wasm32 (remind the user if still open):** `std::time::Instant::now()` panics on
+  wasm32 ("time not implemented"); sam2-rs calls it unconditionally (optional profiling) in the
+  mask decoder and prompt encoder. Workaround: a vendored, patched copy in
+  `demos/wasm/sam/vendor/sam2-rs/` (all uses through a `clock.rs` stand-in). Upstream fix in
+  henriksson-lab/sam2-rs would let us drop the copy. Check after the candle update (2026-11-13).

@@ -107,7 +107,8 @@ function mount(host: HTMLElement): void {
   const dS = slider(panel, "stain density", 0.5, 3, 0.1, st.density, v => { st.density = v; manual(true); });
   const nS = slider(panel, "noise (grey levels)", 0, 8, 0.5, st.noise, v => { st.noise = v; manual(true); });
   const truthC = checkbox(panel, "show true concentrations", st.truth, v => { st.truth = v; draw(); });
-  const read = htmlEl("div", "qb-readout um-readout", "", mid);
+  // on a slide under the concentration maps (the triangle and the matrix fill the middle column)
+  const read = htmlEl("div", "qb-readout um-readout", "", host.closest(".reveal") ? left : mid);
   const note = htmlEl("div", "qb-note", "Drag the stain vectors (circles) in the triangle. The triangle shows each pixel's optical densities divided by their sum.", panel);
   void note;
   function manual(rerender = false): void { pbtn.forEach(b => b.classList.remove("active")); if (rerender) render(); draw(); }

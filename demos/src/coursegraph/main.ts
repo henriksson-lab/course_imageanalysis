@@ -31,7 +31,7 @@ ${P} .cg-zoom .qb-btn { min-width: 2.2em; }
 ${P} .cg-view { position: relative; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #fff; }
 ${P} .cg-view svg { width: 100%; height: auto; cursor: grab; }
 ${P} .cg-view svg.cg-panning { cursor: grabbing; }
-${P} .cg-hint { position: absolute; right: .6em; bottom: .3em; font-size: .78em; color: #888; pointer-events: none; }
+${P} .cg-hint { text-align: right; padding: 0 .6em .2em; font-size: .78em; color: #888; pointer-events: none; }
 ${P} .cg-day { cursor: pointer; }
 ${P} .cg-day rect.cg-box { stroke-width: 1.5; }
 ${P} .cg-day text { font-size: 12.5px; pointer-events: none; }
@@ -43,8 +43,12 @@ ${P} .cg-day.cg-sel rect.cg-box { stroke: #111 !important; stroke-width: 3.5; }
 ${P} .cg-day.cg-planned rect.cg-box { stroke-dasharray: 5 3; }
 ${P} .cg-pip { cursor: pointer; }
 ${P} .cg-partlabel { font-size: 13px; font-weight: 700; }
-${P} .cg-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 1.2em; margin-top: .8em; }
-@media (max-width: 760px) { ${P} .cg-panel { grid-template-columns: 1fr; } }
+${P} .cg-main { display: flex; flex-wrap: wrap; gap: .8em; align-items: flex-start; }
+${P} .cg-main > .cg-view { flex: 1 1 560px; min-width: 0; }
+/* the topic and learning-path cards: a column beside the graph (wraps under it when narrow) */
+${P} .cg-panel { flex: 1 1 300px; max-width: 420px; display: flex; flex-direction: column; gap: .8em;
+  max-height: calc(100vh - 180px); overflow-y: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+@media (max-width: 760px) { ${P} .cg-panel { max-width: none; max-height: none; } }
 ${P} .cg-card { background: #f6f7f9; border-radius: 8px; padding: .7em 1em; line-height: 1.4; }
 ${P} .cg-card h4 { margin: 0 0 .4em; font-size: 1.05em; }
 ${P} .cg-card h5 { margin: .7em 0 .25em; font-size: .9em; text-transform: uppercase; letter-spacing: .03em; color: #555; }
@@ -184,7 +188,8 @@ function mount(host: HTMLElement): void {
   legend.style.marginBottom = ".4em";
 
   // ---- graph
-  const viewDiv = htmlEl("div", "cg-view", "", host);
+  const mainRow = htmlEl("div", "cg-main", "", host);
+  const viewDiv = htmlEl("div", "cg-view", "", mainRow);
   const svg = svgEl("svg", { role: "img" }, viewDiv);
   svg.setAttribute("aria-label", "Dependency graph of all days of the course; the list below the graph has the same content.");
   htmlEl("div", "cg-hint", "click a day or a unit bar · Ctrl + wheel zooms · drag pans", viewDiv);
@@ -199,7 +204,7 @@ function mount(host: HTMLElement): void {
   const gHi = svgEl("g", { fill: "none", "pointer-events": "none" }, svg);
 
   // ---- panel
-  const panel = htmlEl("div", "cg-panel", "", host);
+  const panel = htmlEl("div", "cg-panel", "", mainRow);
   const left = htmlEl("div", "cg-card", "", panel);
   const right = htmlEl("div", "cg-card", "", panel);
   right.setAttribute("aria-live", "polite");
@@ -551,18 +556,34 @@ function mount(host: HTMLElement): void {
     zoomBy(Math.exp(-ev.deltaY * 0.0025), x, y);
   }, { passive: false });
 
-  // ---- size: lay out at the container's width, 1 svg unit = 1 css pixel
-  let lastW = 0;
+  // ---- size: lay out for the container's width and the height the window allows (the svg's
+  // CSS max-height): of the layouts at widths from the container's width up, take the one that
+  // is drawn largest when scaled to fit both, and size the svg to it exactly (no letterboxing,
+  // so pointer positions map linearly).
+  let lastKey = "";
   const relayout = () => {
-    const W = Math.round(viewDiv.clientWidth || host.clientWidth || 1000);
-    if (Math.abs(W - lastW) < 8) return;
-    lastW = W;
-    L = layout(c, W);
+    const boxW = Math.round(viewDiv.clientWidth || host.clientWidth || 1000);
+    const mh = parseFloat(getComputedStyle(svg).maxHeight);
+    const maxH = Number.isFinite(mh) && mh > 100 ? mh : Infinity;
+    const key = `${Math.round(boxW / 8)}x${Math.round(maxH / 8)}`;
+    if (key === lastKey) return;
+    lastKey = key;
+    let best = layout(c, boxW), bestS = Math.min(1, maxH / best.H);
+    if (bestS < 1) {
+      for (let W = boxW + 40; W <= 3 * boxW; W += 40) {
+        const Lw = layout(c, W), sc = Math.min(boxW / W, maxH / Lw.H);
+        if (sc > bestS + 1e-3) { best = Lw; bestS = sc; }
+      }
+    }
+    L = best;
+    svg.style.width = `${Math.floor(L.W * Math.min(1, bestS, boxW / L.W))}px`;
+    svg.style.margin = "0 auto";
     view = { x: 0, y: 0, s: 1 };
     draw();
   };
   relayout();
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(relayout).observe(viewDiv);
+  window.addEventListener("resize", relayout);
 
   // initial selection from the address (#path:<day id> or #path:<folder>/)
   const m = /^#path:(.+)$/.exec(decodeURIComponent(location.hash));

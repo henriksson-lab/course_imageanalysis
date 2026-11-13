@@ -44,11 +44,14 @@ function makeShape(id: ShapeId, n: number): Contour {
 
 const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; }
-[data-demo="${NAME}"] .ss-left { flex: 0 1 380px; min-width: 240px; display: flex; flex-direction: column; gap: .3em; }
+[data-demo="${NAME}"] .ss-left { flex: 0 1 min(350px, calc(100vh - 240px)); min-width: 240px; display: flex; flex-direction: column; gap: .3em; }
 [data-demo="${NAME}"] .ss-left svg.ss-contour { width: 100%; aspect-ratio: 1; touch-action: none; background: var(--qb-panel); border-radius: 4px; }
 [data-demo="${NAME}"] .ss-cap { font-size: 17px; text-align: center; }
-[data-demo="${NAME}"] .ss-plots { flex: 0 1 360px; min-width: 240px; display: flex; flex-direction: column; gap: .1em; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; max-width: 330px; gap: .35em; }
+[data-demo="${NAME}"] .ss-plots { flex: 0 1 310px; min-width: 240px; display: flex; flex-direction: column; gap: .1em; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 300px; max-width: 330px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider input[type=range] { min-width: 4em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 [data-demo="${NAME}"] .ss-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
 [data-demo="${NAME}"] .ss-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }

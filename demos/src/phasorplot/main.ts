@@ -19,13 +19,18 @@ const NAME = "phasorplot";
 const SEL = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = `
 ${SEL} { gap: .6em; flex-wrap: wrap; align-items: flex-start; }
-${SEL} .pp-a { flex: 1 1 480px; min-width: 0; max-width: 560px; }
-${SEL} .pp-b { flex: 1 1 300px; min-width: 0; max-width: 420px; }
-${SEL} .qb-panel { flex: 1 1 280px; gap: .3em; }
+${SEL} .pp-a { flex: 0 1 420px; min-width: 0; }
+${SEL} .pp-b { flex: 0 1 280px; min-width: 0; }
+${SEL} .pp-b .fl-ro { font-size: 13px; }
+${SEL} .qb-panel { flex: 1 1 280px; max-width: 340px; gap: .25em; font-size: 15px; }
+${SEL} .qb-panel .qb-btn { font-size: 13px; padding: .15em .5em; }
+${SEL} .qb-panel .qb-presets { gap: .25em; }
 .reveal ${SEL} { flex-wrap: nowrap; }
 .reveal ${SEL} .pp-a { flex: 0 0 500px; }
 .reveal ${SEL} .pp-b { flex: 0 0 330px; }
-.reveal ${SEL} .qb-panel { flex: 1 1 280px; font-size: 17px; gap: .15em; }
+.reveal ${SEL} .pp-b .fl-ro { font-size: 16px; }
+.reveal ${SEL} .qb-panel { flex: 1 1 280px; max-width: none; font-size: 17px; gap: .15em; }
+.reveal ${SEL} .qb-panel .qb-btn { font-size: 16px; padding: .1em .45em; }
 .reveal ${SEL} .qb-readout { font-size: 16px; }
 `;
 

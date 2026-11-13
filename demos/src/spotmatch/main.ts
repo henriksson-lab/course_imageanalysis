@@ -21,9 +21,13 @@ import { ImgView, injectStyle, label, shownIds, tabRow, TP_COL, FP_COL, FN_COL }
 const NAME = "spotmatch";
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: wrap; }
-.qb-demo[data-demo="${NAME}"] .sm-main { flex: 0 1 430px; min-width: 300px; }
-.qb-demo[data-demo="${NAME}"] .sm-mid { flex: 0 1 320px; min-width: 200px; display: flex; flex-direction: column; gap: .1em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 290px; max-width: 370px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .sm-main { flex: 0 1 min(410px, calc(100vh - 250px)); min-width: 300px; }
+.qb-demo[data-demo="${NAME}"] .sm-mid { flex: 0 1 280px; min-width: 200px; display: flex; flex-direction: column; gap: .1em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; max-width: 370px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { grid-template-columns: auto 1fr 3em; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider input[type=range] { min-width: 4em; }
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre-wrap; }
 .qb-demo[data-demo="${NAME}"] .sm-busy { font-size: 14px; color: var(--qb-muted); min-height: 1.1em; }
 .qb-demo[data-demo="${NAME}"] .sm-hand svg { touch-action: none; }

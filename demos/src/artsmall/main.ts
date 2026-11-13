@@ -47,6 +47,25 @@ const STYLE = baseCss(NAME) + `
 [data-demo="${NAME}"] table.as-A td.one { color: var(--qb-c1); font-weight: 700; }
 [data-demo="${NAME}"] table.as-A td.zero { color: var(--qb-grid); }
 [data-demo="${NAME}"] .as-tab { flex: 1 1 300px; max-width: 420px; overflow-x: auto; }
+/* pages: figures left, the control columns stacked in a panel on the right (fits 1366x768) */
+.qb-demo[data-demo="${NAME}"] { flex-direction: row; flex-wrap: nowrap; align-items: flex-start; gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .rd-figs { flex: 0 1 auto; width: auto; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .rd-ctls.qb-panel { flex: 0 0 300px; width: auto; flex-direction: column; flex-wrap: nowrap; gap: .6em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .rd-ctls .rd-col { flex: 0 0 auto; }
+.qb-demo[data-demo="${NAME}"] .rd-ctls .qb-btn { font-size: 14px; padding: .15em .5em; }
+[data-demo="${NAME}"] .as-fig { max-width: min(290px, calc(100vh - 360px)); }
+[data-demo="${NAME}"] .as-fig.plane { max-width: min(380px, calc(100vh - 220px)); }
+[data-demo="${NAME}"] .as-tab { max-height: calc(100vh - 440px); min-height: 8em; overflow-y: auto; }
+@media (max-width: 640px) {
+  .qb-demo[data-demo="${NAME}"] { flex-direction: column; }
+  .qb-demo[data-demo="${NAME}"] .rd-ctls.qb-panel { flex-basis: auto; width: 100%; }
+}
+/* slides: the original layout, figures on top and a row of control columns below */
+.reveal .qb-demo[data-demo="${NAME}"] { flex-direction: column; align-items: stretch; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-ctls.qb-panel { flex: none; width: 100%; flex-direction: row; flex-wrap: wrap; max-height: none; overflow: visible; font-size: inherit; gap: .5em 1.2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-ctls .rd-col { flex: 1 1 240px; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-ctls .qb-btn { font-size: 15px; padding: .1em .45em; }
+.reveal [data-demo="${NAME}"] .as-tab { max-height: none; }
 .reveal [data-demo="${NAME}"] .as-fig { max-width: 250px; }
 .reveal [data-demo="${NAME}"] .as-fig.plane { max-width: 330px; }
 .reveal [data-demo="${NAME}"] table.as-A { font-size: 14px; }
@@ -81,6 +100,7 @@ function mount(host: HTMLElement): void {
   ePlot.svg.querySelector(".qb-axes")?.setAttribute("display", "none");
   const tab = htmlEl("div", "as-tab", "", L.figs);
   const [panel, colB, colC] = L.cols;
+  L.cols[0].parentElement!.classList.add("qb-panel");
 
   const modeRow = htmlEl("div", "as-row", "", panel);
   const modeBtns = (["pixels", "image"] as const).map(m => button(modeRow, m === "pixels" ? "mode: 2 pixels" : "mode: image", () => { mode = m; layoutMode(); }));

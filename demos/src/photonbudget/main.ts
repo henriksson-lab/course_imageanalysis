@@ -19,14 +19,21 @@ const NAME = "photonbudget";
 const SEL = `.qb-demo[data-demo="${NAME}"]`;
 const STYLE = `
 ${SEL} { gap: .6em; flex-wrap: wrap; align-items: flex-start; }
-${SEL} .pb-a { flex: 1 1 440px; min-width: 0; max-width: 520px; }
-${SEL} .pb-b { flex: 1 1 360px; min-width: 0; max-width: 460px; }
-${SEL} .qb-panel { flex: 1 1 250px; gap: .3em; }
-${SEL} .pb-vs { font-size: 14px; line-height: 1.25; }
+${SEL} .pb-a { flex: 0 1 380px; min-width: 0; }
+${SEL} .pb-b { flex: 0 1 330px; min-width: 0; }
+${SEL} .pb-a .fl-ro { font-size: 13px; }
+${SEL} .qb-panel { flex: 1 1 270px; max-width: 340px; gap: .25em; font-size: 15px; }
+${SEL} .qb-panel .qb-btn { font-size: 13px; padding: .15em .5em; }
+${SEL} .qb-panel .qb-presets { gap: .25em; }
+${SEL} .qb-panel > .fl-lab:last-child { margin-bottom: 0; }
+${SEL} .pb-vs { font-size: 13px; line-height: 1.25; }
 .reveal ${SEL} { flex-wrap: nowrap; }
 .reveal ${SEL} .pb-a { flex: 0 0 450px; }
 .reveal ${SEL} .pb-b { flex: 0 0 400px; }
-.reveal ${SEL} .qb-panel { flex: 1 1 260px; font-size: 17px; gap: .15em; }
+.reveal ${SEL} .pb-a .fl-ro { font-size: 16px; }
+.reveal ${SEL} .pb-vs { font-size: 14px; }
+.reveal ${SEL} .qb-panel { flex: 1 1 260px; max-width: none; font-size: 17px; gap: .15em; }
+.reveal ${SEL} .qb-panel .qb-btn { font-size: 16px; padding: .1em .45em; }
 `;
 
 interface State { mode: "mono" | "bi"; tau1: number; tau2: number; frac: number; N: number; bg: number }

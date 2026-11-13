@@ -42,6 +42,7 @@ const STYLE = `
 .reveal [data-demo="${NAME}"] { font-size: 17px; gap: .7em; }
 .reveal [data-demo="${NAME}"] .hx-main { flex-basis: 360px; }
 .reveal [data-demo="${NAME}"] .hx-side { flex-basis: 360px; }
+.reveal [data-demo="${NAME}"][data-mode="stack"] .hx-main { flex-basis: 320px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex-basis: 300px; gap: .25em; }
 .reveal [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
 .reveal [data-demo="${NAME}"] .qb-note, .reveal [data-demo="${NAME}"] .hx-credit, .reveal [data-demo="${NAME}"] .hx-lab { display: none; }

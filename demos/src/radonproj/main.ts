@@ -29,7 +29,23 @@ const PRESETS: Preset[] = [
   { id: "shift", label: "shift the object", obj: "disc", pts: [{ x: 10, y: 6, m: 8 }], angle: 179, shiftMode: true },
 ];
 
-const STYLE = baseCss(NAME);
+// Pages: the figures in one row and the controls in a column beside them (slides keep
+// baseCss's figures row with the control columns below it).
+const PD = `.qb-demo[data-demo="${NAME}"]:not(.reveal *)`;
+const STYLE = baseCss(NAME) + `
+${PD} { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: .8em; }
+${PD} .rd-figs { flex: 1 1 640px; width: auto; min-width: 0; gap: .6em; }
+${PD} > .qb-panel { flex: 0 1 290px; gap: .3em; font-size: 15px; }
+${PD} > .qb-panel .rd-sub { gap: .3em; }
+${PD} > .qb-panel .qb-btn { font-size: 13px; padding: .12em .5em; }
+${PD} > .qb-panel .qb-presets, ${PD} > .qb-panel .rd-row { gap: .25em; }
+${PD} .qb-readout { font-size: 13px; }
+${PD} .rd-fig figcaption { font-size: 15px; }
+@media (min-width: 900px) {
+  ${PD} .rd-figs { flex-wrap: nowrap; }
+  ${PD} .rd-fig { min-width: 0; }
+}
+`;
 
 function mount(host: HTMLElement): void {
   injectStyle(NAME, STYLE);
@@ -39,7 +55,13 @@ function mount(host: HTMLElement): void {
   const st = { obj: start.obj, pts: [] as Pt[], angle: 0, full360: false, shiftMode: false, shift: [0, 0] as [number, number], playing: false, mass: 1 };
 
   // ---- layout ----
-  const L = layout(host, 3);
+  const onSlide = !!host.closest(".reveal");
+  let L: { figs: HTMLElement; cols: HTMLElement[] };
+  if (onSlide) L = layout(host, 3);
+  else {
+    const figs = htmlEl("div", "rd-figs", "", host), side = htmlEl("div", "qb-panel", "", host);
+    L = { figs, cols: [0, 1, 2].map(() => htmlEl("div", "rd-sub", "", side)) };
+  }
   const imgP = imagePanel(L.figs, "click: add a point · blue bar: detector", N, 14, "rd-fig img");
   const credit = htmlEl("div", "rd-credit", CELL_CREDIT, imgP.fig);
   const profFig = plotFigure(L.figs, "projection", "rd-fig prof");

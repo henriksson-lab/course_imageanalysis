@@ -21,6 +21,8 @@ import {
 const NAME = "intensityfeat";
 const SAT_OFF = 1000;
 
+/** Page-only selector (not inside reveal.js slides). */
+const PG = `.qb-demo[data-demo="${NAME}"]:not(.reveal *)`;
 const STYLE = `
 [data-demo="${NAME}"] { gap: .8em; }
 [data-demo="${NAME}"] .if-view { display: contents; }
@@ -42,6 +44,27 @@ const STYLE = `
 [data-demo="${NAME}"] .if-plate { flex: 1 1 300px; min-width: 240px; max-width: 420px; }
 [data-demo="${NAME}"] select { font: inherit; font-size: 15px; }
 [data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre-wrap; }
+/* Pages: all views in one row with the controls beside them (no wrapping), sized to fit a
+   1366x768 window; the feature table scrolls. */
+@media (min-width: 641px) {
+  ${PG} { flex-wrap: nowrap; gap: .6em; }
+  ${PG} .if-img { flex: 0 1 min(280px, calc(100vh - 300px)); min-width: 0; }
+  ${PG} .if-plots { flex: 0 1 240px; min-width: 0; gap: .2em; }
+  ${PG} figcaption { font-size: 14px; line-height: 1.2; }
+  ${PG} .if-table { flex: 0 1 250px; min-width: 0; max-height: calc(100vh - 140px); }
+  ${PG} table { font-size: 13px; }
+  ${PG} > .qb-panel { flex: 0 1 270px; min-width: 0; max-width: none; gap: .25em; }
+  ${PG} .qb-panel .qb-panel { gap: .25em; min-width: 0; max-height: none; overflow: visible; }
+  ${PG} .qb-btn { padding: .15em .5em; }
+  ${PG} .qb-slider { grid-template-columns: auto minmax(3em, 1fr) 3em; gap: .4em; }
+  ${PG} .qb-slider input[type=range] { min-width: 3em; }
+  ${PG} .if-key { font-size: 13px; }
+  ${PG} .if-img .if-key { margin-top: .4em; }
+  ${PG} .if-pop { flex: 0 1 min(380px, calc(100vh - 240px)); min-width: 0; }
+  ${PG} .if-scatter { flex: 1 1 320px; min-width: 0; max-width: 420px; }
+  ${PG} .if-plate { flex: 1 1 260px; min-width: 0; }
+  ${PG} .if-view > .qb-readout { flex: 0 1 220px; min-width: 0; }
+}
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 15px; gap: .5em; }
 .reveal .qb-demo[data-demo="${NAME}"] .if-img { flex: 0 1 300px; }
 .reveal .qb-demo[data-demo="${NAME}"] .if-plots { flex: 0 0 265px; max-width: 265px; }
@@ -182,7 +205,8 @@ function mount(host: HTMLElement): void {
   const ringS = slider(cellCtl, "rings", 2, 8, 1, cs.rings, v => { cs.rings = v; runCell(); });
   const centreBox = checkbox(cellCtl, "rings around the intensity maximum", cs.centre === "max", v => { cs.centre = v ? "max" : "centroid"; runCell(); });
   button(cellCtl, "reset", () => { Object.assign(cs, IDEAL); syncCell(); newCell(); presetBtns.forEach(b => b.classList.remove("active")); });
-  htmlEl("div", "if-key", "Yellow: mask outline; cyan: edge band; tints: rings; white +: centroid; red dot: intensity-weighted centroid; arrow: mass displacement. Δ: change against the ideal measurement (no offset, gain 1, no noise, no saturation, exact mask).", cellCtl);
+  // the colour key: on a page under the image (room there), on a slide in the panel (hidden)
+  htmlEl("div", "if-key", "Yellow: mask outline; cyan: edge band; tints: rings; white +: centroid; red dot: intensity-weighted centroid; arrow: mass displacement. Δ: change against the ideal measurement (no offset, gain 1, no noise, no saturation, exact mask).", onSlide ? cellCtl : imgFig);
 
   const popCtl = htmlEl("div", "qb-panel", "", panel);
   popCtl.style.flex = "none";

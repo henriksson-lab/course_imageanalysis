@@ -41,12 +41,23 @@ const STYLE = `
 [data-demo="${NAME}"] .qb-panel { flex: 1 1 250px; max-width: 320px; gap: .4em; }
 [data-demo="${NAME}"] .ls-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
+/* pages: 3D view | top view | panel in one row of ~1075 px, figures capped by the window height */
+[data-demo="${NAME}"] .ls-view { flex: 0 1 350px; min-width: 240px; max-width: calc((100vh - 270px) * 1.1); }
+[data-demo="${NAME}"] .ls-top { flex: 0 1 310px; min-width: 220px; max-width: calc(100vh - 250px); }
+[data-demo="${NAME}"] .ls-top .ls-cap { font-size: 15px; }
+[data-demo="${NAME}"] .qb-panel { flex: 1 1 260px; gap: .3em; }
+[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .12em .5em; }
+[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+[data-demo="${NAME}"] .qb-panel .qb-note { font-size: 13px; }
+.reveal [data-demo="${NAME}"] .ls-view, .reveal [data-demo="${NAME}"] .ls-top { max-width: none; }
+.reveal [data-demo="${NAME}"] .ls-top .ls-cap { font-size: 17px; }
+.reveal [data-demo="${NAME}"] .qb-panel .qb-presets { gap: .35em; }
 .reveal [data-demo="${NAME}"] { font-size: 17px; }
 .reveal [data-demo="${NAME}"] .ls-view { flex-basis: 400px; }
 .reveal [data-demo="${NAME}"] .ls-top { flex-basis: 330px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
 .reveal [data-demo="${NAME}"] .qb-panel { gap: .25em; }
-.reveal [data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .15em .5em; }
+.reveal [data-demo="${NAME}"] .qb-btn, .reveal [data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 15px; padding: .15em .5em; }
 `;
 
 function injectStyle(): void {

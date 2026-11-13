@@ -40,6 +40,12 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; white-space: pre; overflow-x: auto; }
 .qb-demo[data-demo="${NAME}"] .sv-extra { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: .8em; }
 .qb-demo[data-demo="${NAME}"] .sv-extra > div { flex: 1 1 300px; min-width: 0; max-width: 480px; }
+/* cross-validation / kernel-matrix mode: the extra panels are a third column beside the panel */
+.qb-demo[data-demo="${NAME}"].sv-three .qb-panel { flex: 0 1 270px; max-width: 300px; }
+.qb-demo[data-demo="${NAME}"].sv-three .qb-readout { font-size: 13px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"].sv-three .sv-extra { flex: 0 1 320px; min-width: 240px; flex-direction: column; gap: .5em; }
+.qb-demo[data-demo="${NAME}"].sv-three .sv-extra > div { flex: 0 0 auto; width: 100%; }
+.qb-demo[data-demo="${NAME}"].sv-three .sv-extra .qb-note { font-size: 13px; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
 .reveal .qb-demo[data-demo="${NAME}"] .sv-left { flex: 0 0 490px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 15px; padding: .1em .45em; }
@@ -98,13 +104,15 @@ function mount(host: HTMLElement): void {
 
   // extra panels below: kernel matrix, CV curves and map
   const extra = htmlEl("div", "sv-extra", "", host);
+  if (cvMode || kOffer) host.classList.add("sv-three");
+  if (!cvMode) extra.style.display = "none";   // shown with the kernel matrix
   const kmBox = htmlEl("div", "", "", extra);
   let curve: Plot | null = null, cvBox: HTMLElement | null = null, cvMap: HTMLElement | null = null;
   let sweepBtns: HTMLButtonElement[] = [];
   if (cvMode) {
     const cb = htmlEl("div", "", "", extra);
     sweepBtns = presets(cb, [{ label: "error against C", apply: () => { st.sweep = "C"; drawCurve(); } }, { label: "error against γ", apply: () => { st.sweep = "gamma"; drawCurve(); } }]);
-    curve = new Plot(cb, { width: 480, height: 260, x: [0.01, 1000], y: [0, 0.5], xlog: true, xlabel: "C", ylabel: "error", yfmt: v => (100 * v).toFixed(0) + "%", margin: { l: 70 }, ariaLabel: "training and test error" });
+    curve = new Plot(cb, { width: 400, height: 250, x: [0.01, 1000], y: [0, 0.5], xlog: true, xlabel: "C", ylabel: "error", yfmt: v => (100 * v).toFixed(0) + "%", margin: { l: 70 }, ariaLabel: "training and test error" });
     cvBox = htmlEl("div", "", "", extra);
     const row = htmlEl("div", "qb-presets", "", cvBox);
     button(row, "5-fold CV over (C, γ)", () => runCV());
@@ -223,8 +231,8 @@ function mount(host: HTMLElement): void {
 
   function drawKernelMatrix(pts: LPoint[], sp: KernelSpec): void {
     kmBox.replaceChildren();
-    if (!st.kmat) { kmBox.style.display = "none"; return; }
-    kmBox.style.display = "";
+    if (!st.kmat) { kmBox.style.display = "none"; if (!cvMode) extra.style.display = "none"; return; }
+    kmBox.style.display = ""; extra.style.display = "";
     const P = [...pts].sort((a, b) => a.c - b.c).slice(0, 80), n = P.length;
     const X = new Float64Array(2 * n);
     P.forEach((p, i) => { X[2 * i] = p.x; X[2 * i + 1] = p.y; });

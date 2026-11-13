@@ -23,20 +23,25 @@ const Z = 3;
 
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { gap: .8em; align-items: flex-start; }
-.qb-demo[data-demo="${NAME}"] .cb-img { flex: 0 1 330px; min-width: 200px; margin: 0; }
-.qb-demo[data-demo="${NAME}"] .cb-img canvas { width: 100%; aspect-ratio: 1; display: block; border-radius: 3px; }
-.qb-demo[data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
-.qb-demo[data-demo="${NAME}"] .cb-main { flex: 1 1 400px; min-width: 260px; max-width: 520px; }
+.qb-demo[data-demo="${NAME}"] .cb-left { flex: 0 1 280px; min-width: 180px; display: flex; flex-direction: column; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .cb-img { margin: 0; }
+.qb-demo[data-demo="${NAME}"] .cb-img canvas { width: 100%; max-width: min(280px, calc(100vh - 460px)); min-width: 160px; aspect-ratio: 1; display: block; margin: 0 auto; border-radius: 3px; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; text-align: center; margin: 0 0 .2em; }
+.qb-demo[data-demo="${NAME}"] .cb-main { flex: 1 1 380px; min-width: 260px; max-width: min(430px, calc((100vh - 250px) * 1.4)); }
 .qb-demo[data-demo="${NAME}"] .cb-tabs { display: flex; flex-wrap: wrap; gap: .25em; margin-bottom: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 290px; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre; }
-.qb-demo[data-demo="${NAME}"] .cb-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.2em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 320px; gap: .25em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { padding: .12em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { gap: .35em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 13px; white-space: pre-wrap; line-height: 1.3; }
+.qb-demo[data-demo="${NAME}"] .cb-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.1em; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; gap: .5em; flex-wrap: nowrap; }
-.reveal .qb-demo[data-demo="${NAME}"] .cb-img { flex: 0 0 260px; min-width: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .cb-left { flex: 0 0 260px; min-width: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .cb-img canvas { max-width: 260px; }
 .reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
-.reveal .qb-demo[data-demo="${NAME}"] .cb-main { flex: 0 0 430px; min-width: 0; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 380px; gap: .12em; min-width: 0; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 18px; line-height: 1.2; padding: .25em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"] .cb-main { flex: 0 0 430px; min-width: 0; max-width: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 380px; gap: .12em; min-width: 0; font-size: 18px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 18px; line-height: 1.2; padding: .25em .45em; white-space: pre; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 18px; padding: .05em .35em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-presets { gap: .2em; }
 .reveal .qb-demo[data-demo="${NAME}"] .cb-lab { font-size: 18px; }
@@ -81,10 +86,12 @@ function mount(host: HTMLElement): void {
   let sc: ObjScene = makeObjScene(st);
   let clCache: ReturnType<typeof crossL> | null = null;
 
-  const imgFig = htmlEl("figure", "cb-img", "", host);
+  const left = htmlEl("div", "cb-left", "", host);
+  const imgFig = htmlEl("figure", "cb-img", "", left);
   const imgCap = htmlEl("figcaption", "", "", imgFig);
   const cv = htmlEl("canvas", "", "", imgFig);
   cv.width = S * Z; cv.height = S * Z;
+  const ro = htmlEl("div", "qb-readout", "", left);
 
   const main = htmlEl("div", "cb-main", "", host);
   const tabsEl = htmlEl("div", "cb-tabs", "", main);
@@ -93,7 +100,7 @@ function mount(host: HTMLElement): void {
   const pl = new Plot(pf, { width: 460, height: 330, x: [0, 800], y: [0, 10], font: FS, margin: { l: 3.5 * FS, b: 2.8 * FS, t: 12, r: 26 } });
 
   const panel = htmlEl("div", "qb-panel", "", host);
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  if (onSlide) panel.prepend(ro);   // slides: the wide panel holds the readout (pages: under the image)
   const pairB = presets(panel, [
     { label: "nearest neighbour", apply: () => { st.oneToOne = false; draw(); } },
     { label: "one-to-one", apply: () => { st.oneToOne = true; draw(); } },

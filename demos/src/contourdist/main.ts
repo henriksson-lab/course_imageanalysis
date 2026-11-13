@@ -12,20 +12,23 @@ import * as M from "./model";
 
 const NAME = "contourdist";
 const STYLE = `
-[data-demo="${NAME}"] { gap: 1em; }
 [data-demo="${NAME}"] figure { margin: 0; }
 [data-demo="${NAME}"] figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
-[data-demo="${NAME}"] .cd-view { flex: 0 1 430px; min-width: 260px; }
+[data-demo="${NAME}"] { gap: .8em; }
+[data-demo="${NAME}"] .cd-view { flex: 0 1 min(410px, calc(100vh - 230px)); min-width: 260px; }
 [data-demo="${NAME}"] .cd-view svg { width: 100%; aspect-ratio: 1; background: var(--qb-panel); border-radius: 4px; touch-action: none; }
-[data-demo="${NAME}"] .cd-right { flex: 1 1 300px; max-width: 420px; display: flex; flex-direction: column; gap: .4em; }
-[data-demo="${NAME}"] .cd-num { display: grid; grid-template-columns: repeat(5, auto); gap: .1em .9em; font-size: 15px; justify-content: start; }
+[data-demo="${NAME}"] .cd-right { flex: 1 1 280px; max-width: 340px; display: flex; flex-direction: column; gap: .4em; }
+[data-demo="${NAME}"] .cd-num { display: grid; grid-template-columns: repeat(5, auto); gap: .1em .7em; font-size: 14px; justify-content: start; }
 .reveal [data-demo="${NAME}"] .cd-num { font-size: 16px; gap: .1em .5em; }
+[data-demo="${NAME}"] .cd-num b { font-size: 19px; font-family: ui-monospace, monospace; font-weight: 600; }
 .reveal [data-demo="${NAME}"] .cd-num b { font-size: 18px; }
-[data-demo="${NAME}"] .cd-num b { font-size: 22px; font-family: ui-monospace, monospace; font-weight: 600; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 260px; gap: .4em; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 250px; gap: .35em; font-size: 15px; }
+[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .2em; }
+[data-demo="${NAME}"] .qb-panel .qb-btn { padding: .12em .5em; }
 [data-demo="${NAME}"] .cd-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 .reveal [data-demo="${NAME}"] { font-size: 18px; }
 .reveal [data-demo="${NAME}"] .cd-view { flex-basis: 420px; }
+.reveal [data-demo="${NAME}"] .qb-panel { font-size: 18px; }
 .reveal [data-demo="${NAME}"] .cd-right { flex-basis: 300px; max-width: 340px; }
 .reveal [data-demo="${NAME}"] .qb-panel { flex-basis: 250px; }
 .reveal [data-demo="${NAME}"] .qb-note { display: none; }
@@ -82,7 +85,7 @@ function mount(host: HTMLElement): void {
   htmlEl("div", "qb-note", "Hausdorff, HD95 and ASD in pixels.", right);
   const histHost = htmlEl("div", "", "", right);
   const slide = !!host.closest(".reveal");
-  const hist = new Plot(histHost, { x: [0, 5], y: [0, 1], xlabel: "boundary distance (px)", ylabel: "share of points", width: slide ? 420 : 560, height: slide ? 360 : 300, font: slide ? 26 : 18 });
+  const hist = new Plot(histHost, { x: [0, 5], y: [0, 1], xlabel: "boundary distance (px)", ylabel: "share of points", width: 420, height: slide ? 360 : 320, font: slide ? 26 : 18 });
   uniqueClip(hist);
 
   const panel = htmlEl("div", "qb-panel", "", host);

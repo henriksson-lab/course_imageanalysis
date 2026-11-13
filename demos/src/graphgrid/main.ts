@@ -30,6 +30,21 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] svg text { font-size: 20px; }
 .qb-demo[data-demo="${NAME}"] svg text.gg-val { font-size: 22px; font-weight: 600; }
 .qb-demo[data-demo="${NAME}"] svg text.gg-w { font-size: 18px; }
+/* Pages: grid, edge list and controls side by side, the presets as a row under them, so the
+   demo fits a 1366x768 window. */
+@media (min-width: 641px) {
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) { flex-wrap: wrap; gap: .5em .7em; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .gg-fig { flex: 1 1 400px; max-width: min(560px, calc((100vh - 290px) * 1.25)); min-width: 0; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .gg-fig svg { max-height: calc(100vh - 290px); }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .gg-list { flex: 0 0 165px; font-size: 15px; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .qb-panel { flex: 0 1 300px; min-width: 0; gap: .25em; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .qb-readout { font-size: 15px; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .qb-slider { grid-template-columns: auto minmax(3em, 1fr) 2.2em; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .qb-slider input[type=range] { min-width: 3em; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .qb-note { font-size: 13px; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .gg-pre { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .gg-pre .gg-lab { margin: 0; }
+}
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; flex-wrap: nowrap; }
 .reveal .qb-demo[data-demo="${NAME}"] .gg-fig { flex: 0 0 540px; }
 .reveal .qb-demo[data-demo="${NAME}"] .gg-list { flex: 0 0 180px; font-size: 18px; }
@@ -75,8 +90,10 @@ function mount(host: HTMLElement): void {
   const svg = svgEl("svg", {}, fig);
   const listEl = htmlEl("div", "gg-list", "", host);
   const panel = htmlEl("div", "qb-panel", "", host);
-  htmlEl("div", "gg-lab", "presets", panel);
-  const pb = presets(panel, P.map(p => ({ label: p.label, apply: () => load(p) })));
+  // On a page the presets go in a row under the grid (fits the window); on a slide in the panel.
+  const preBox = host.closest(".reveal") ? panel : htmlEl("div", "gg-pre", "", host);
+  htmlEl("div", "gg-lab", "presets", preBox);
+  const pb = presets(preBox, P.map(p => ({ label: p.label, apply: () => load(p) })));
   htmlEl("div", "gg-lab", "algorithm", panel);
   const arow = htmlEl("div", "qb-presets", "", panel);
   const ALGOS: [Algo, string][] = [["kruskal", "Kruskal"], ["single", "single linkage"], ["fh", "FH"], ["prim", "Prim from markers"], ["path", "minimax path"]];

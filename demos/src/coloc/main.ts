@@ -29,7 +29,26 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre; }
 .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 250px; gap: .3em; }
 .qb-demo[data-demo="${NAME}"] .co-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
-.reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; gap: .5em; flex-wrap: nowrap; }
+/* pages: image and 2D histogram side by side, the readout and the randomisation histogram
+   under them, the panel in a column on the right (fits 1366x768) */
+.qb-demo[data-demo="${NAME}"] { display: grid; gap: .5em .8em; align-items: start; justify-content: start;
+  grid-template-columns: minmax(200px, min(300px, calc(100vh - 440px))) minmax(220px, min(320px, calc(100vh - 420px))) minmax(250px, 290px); }
+.qb-demo[data-demo="${NAME}"] .co-img, .qb-demo[data-demo="${NAME}"] .co-sc { grid-row: 1; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .co-side { grid-row: 2; grid-column: 1 / span 2; flex-direction: row; flex-wrap: wrap; align-items: flex-start; max-width: none; min-width: 0; gap: .8em; }
+.qb-demo[data-demo="${NAME}"] .co-side .qb-readout { flex: 0 0 auto; font-size: 14px; }
+.qb-demo[data-demo="${NAME}"] .co-side .qb-figure { flex: 0 1 280px; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { grid-row: 1 / span 2; grid-column: 3; min-width: 0; gap: .25em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; }
+body:not(.reveal-viewport) .qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 13.5px; padding: .12em .45em; }
+body:not(.reveal-viewport) .qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+@media (max-width: 640px) {
+  .qb-demo[data-demo="${NAME}"] { grid-template-columns: minmax(0, 1fr); }
+  .qb-demo[data-demo="${NAME}"] .co-img, .qb-demo[data-demo="${NAME}"] .co-sc, .qb-demo[data-demo="${NAME}"] .co-side, .qb-demo[data-demo="${NAME}"] .qb-panel { grid-row: auto; grid-column: auto; }
+}
+.reveal .qb-demo[data-demo="${NAME}"] { display: flex; font-size: 18px; gap: .5em; flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .co-side { flex-direction: column; flex-wrap: nowrap; gap: .3em; }
+.reveal .qb-demo[data-demo="${NAME}"] .co-side .qb-readout { flex: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { font-size: inherit; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 18px; line-height: 1.25; padding: .3em .45em; }
 .reveal .qb-demo[data-demo="${NAME}"] .co-img { flex: 0 0 255px; min-width: 0; }
 .reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }

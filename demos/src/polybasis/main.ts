@@ -28,6 +28,14 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .12em .45em; }
 .qb-demo[data-demo="${NAME}"] .pb-note { font-size: 15px; }
 .qb-demo[data-demo="${NAME}"] .pb-gram { text-align: center; font-size: 16px; }
+@media (min-width: 900px) {
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) { grid-template-columns: 220px minmax(0, 1.45fr) minmax(0, 1fr); gap: .6em .8em; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .pb-ctl { grid-column: auto; grid-row: 1 / span 2; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: .3em; font-size: 15px; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .pb-lab { margin-bottom: -.2em; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .pb-note { font-size: 13px; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .pb-gram { font-size: 14px; }
+  .qb-demo[data-demo="${NAME}"]:not(.reveal *) .pb-gram svg { max-width: min(100%, 290px, calc(100vh - 420px)); margin: 0 auto; }
+}
 @media (max-width: 700px) { .qb-demo[data-demo="${NAME}"] { grid-template-columns: 1fr; } }
 `;
 

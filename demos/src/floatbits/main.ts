@@ -40,6 +40,10 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 360px; gap: .4em; }
 .qb-demo[data-demo="${NAME}"] .qb-slider { grid-template-columns: 5.2em 1fr 5em; }
 .qb-demo[data-demo="${NAME}"] svg text { font-size: 15px; }
+@media (min-width: 641px) { .qb-demo[data-demo="${NAME}"] .fb-main { flex-wrap: nowrap; } .qb-demo[data-demo="${NAME}"] .fb-main > .qb-panel { flex: 0 0 340px; } }
+.reveal .qb-demo[data-demo="${NAME}"] .fb-main { flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .fb-main > .qb-panel { flex: 0 0 360px; }
+.reveal .qb-demo[data-demo="${NAME}"] .fb-plot { max-width: 600px; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 19px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; }
 .reveal .qb-demo[data-demo="${NAME}"] .fb-main > .qb-readout { font-size: 17px; }

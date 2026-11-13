@@ -29,23 +29,37 @@ const PRESETS: Preset[] = [
 ];
 
 const STYLE = `
-.qb-demo[data-demo="${NAME}"] { flex-direction: column; gap: .5em; }
-.qb-demo[data-demo="${NAME}"] .ws-imgs { display: flex; flex-wrap: wrap; gap: .6em; width: 100%; }
-.qb-demo[data-demo="${NAME}"] .ws-fig { flex: 1 1 230px; max-width: 340px; min-width: 0; margin: 0; }
-.qb-demo[data-demo="${NAME}"] .ws-fig figcaption { font-size: 17px; text-align: center; margin-bottom: .15em; }
+.qb-demo[data-demo="${NAME}"] { flex-direction: row; flex-wrap: wrap; gap: .8em; align-items: flex-start; }
+.qb-demo[data-demo="${NAME}"] .ws-main { flex: 1 1 560px; max-width: 980px; min-width: 0; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .ws-imgs { display: flex; flex-wrap: nowrap; gap: .6em; width: 100%; }
+.qb-demo[data-demo="${NAME}"] .ws-fig { flex: 1 1 0; max-width: min(340px, calc(100vh - 240px)); min-width: 0; margin: 0; }
+.qb-demo[data-demo="${NAME}"] .ws-fig figcaption { font-size: 16px; text-align: center; margin-bottom: .15em; }
 .qb-demo[data-demo="${NAME}"] .ws-fig canvas { width: 100%; aspect-ratio: 1; display: block; image-rendering: pixelated; touch-action: none; border-radius: 3px; }
 .qb-demo[data-demo="${NAME}"] .ws-fig canvas.click { cursor: crosshair; }
-.qb-demo[data-demo="${NAME}"] .ws-ctl { display: flex; flex-wrap: wrap; gap: .5em 1.4em; width: 100%; align-items: flex-start; }
-.qb-demo[data-demo="${NAME}"] .ws-col { display: flex; flex-direction: column; gap: .35em; flex: 1 1 250px; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .qb-panel.ws-side { flex: 0 1 320px; min-width: 260px; gap: .45em; }
+.qb-demo[data-demo="${NAME}"] .ws-side .qb-btn, .qb-demo[data-demo="${NAME}"] .ws-examples .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .ws-side .qb-presets, .qb-demo[data-demo="${NAME}"] .ws-examples .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .ws-examples { margin-top: .3em; }
+.qb-demo[data-demo="${NAME}"] .ws-ctl { display: flex; flex-direction: column; gap: .45em; width: 100%; }
+.qb-demo[data-demo="${NAME}"] .ws-col { display: flex; flex-direction: column; gap: .3em; min-width: 0; }
 .qb-demo[data-demo="${NAME}"] .ws-lab { font-size: 15px; color: var(--qb-muted); }
 .qb-demo[data-demo="${NAME}"] .ws-credit { font-size: 12px; color: var(--qb-muted); }
-.qb-demo[data-demo="${NAME}"] .ws-row { display: flex; flex-wrap: wrap; gap: .35em .8em; align-items: center; }
-.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .3em; }
-.reveal .qb-demo[data-demo="${NAME}"] .ws-fig { flex-basis: 250px; max-width: 262px; }
-.reveal .qb-demo[data-demo="${NAME}"] .ws-imgs { flex-wrap: nowrap; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 14px; padding: .08em .4em; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; }
-.reveal .qb-demo[data-demo="${NAME}"] .ws-col { gap: .2em; }
+.qb-demo[data-demo="${NAME}"] .ws-row { display: flex; flex-wrap: wrap; gap: .3em .6em; align-items: center; }
+.qb-demo[data-demo="${NAME}"] .ws-side .qb-readout { font-size: 14px; }
+@media (max-width: 640px) { .qb-demo[data-demo="${NAME}"] .ws-imgs { flex-wrap: wrap; } .qb-demo[data-demo="${NAME}"] .ws-fig { flex: 1 1 160px; } }
+/* Slides: figures on top, three control columns and the examples row below (fits 1150 x 560). */
+.reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .3em; flex-direction: column; flex-wrap: nowrap; }
+.reveal .qb-demo[data-demo="${NAME}"] .ws-main { display: contents; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel.ws-side { display: contents; }
+.reveal .qb-demo[data-demo="${NAME}"] .ws-fig { flex: 1 1 250px; max-width: 262px; }
+.reveal .qb-demo[data-demo="${NAME}"] .ws-fig figcaption { font-size: 17px; }
+.reveal .qb-demo[data-demo="${NAME}"] .ws-ctl { flex-direction: row; flex-wrap: wrap; gap: .5em 1.4em; align-items: flex-start; }
+.reveal .qb-demo[data-demo="${NAME}"] .ws-col { flex: 1 1 250px; gap: .2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .ws-examples { order: 1; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-note { order: 2; }
+.reveal .qb-demo[data-demo="${NAME}"] .ws-examples { margin-top: 0; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-btn, .reveal .qb-demo[data-demo="${NAME}"] .ws-side .qb-btn, .reveal .qb-demo[data-demo="${NAME}"] .ws-examples .qb-btn { font-size: 14px; padding: .08em .4em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-readout, .reveal .qb-demo[data-demo="${NAME}"] .ws-side .qb-readout { font-size: 14px; }
 `;
 
 function injectStyle(): void {
@@ -69,7 +83,8 @@ function mount(host: HTMLElement): void {
   let input: Grey = createGrey(N, N, 128), cell: Grey | null = null, land: Float32Array = new Float32Array(N * N), res: WsRun | null = null;
   let landMax = 1, landKey = "", inputKey = "";
 
-  const imgs = htmlEl("div", "ws-imgs", "", host);
+  const main = htmlEl("div", "ws-main", "", host);
+  const imgs = htmlEl("div", "ws-imgs", "", main);
   const fig = (title: string) => {
     const f = htmlEl("figure", "ws-fig", "", imgs);
     htmlEl("figcaption", "", title, f);
@@ -79,9 +94,13 @@ function mount(host: HTMLElement): void {
   };
   const pIn = fig("input (click: marker)"), pLand = fig("landscape + markers"), pRes = fig("watershed");
   pIn.c.classList.add("click"); pRes.c.classList.add("click");
-  const credit = htmlEl("div", "ws-credit", "", host);
+  const credit = htmlEl("div", "ws-credit", "", main);
 
-  const ctl = htmlEl("div", "ws-ctl", "", host);
+  // pages: examples under the figures, the other controls in a column beside them;
+  // slides: figures, then three control columns, then the examples (CSS order)
+  const prow = htmlEl("div", "ws-row ws-examples", "", main);
+  const side = htmlEl("div", "qb-panel ws-side", "", host);
+  const ctl = htmlEl("div", "ws-ctl", "", side);
   const col1 = htmlEl("div", "ws-col", "", ctl), col2 = htmlEl("div", "ws-col", "", ctl), col3 = htmlEl("div", "ws-col", "", ctl);
   const imgBtns = presets(col1, [
     { label: "test image", apply: () => { st.img = "synth"; st.clicks = []; void recompute(); } },
@@ -110,11 +129,10 @@ function mount(host: HTMLElement): void {
   const ro = htmlEl("div", "qb-readout", "", col3);
   ro.style.whiteSpace = "pre-line";
 
-  const prow = htmlEl("div", "ws-row", "", host);
   htmlEl("span", "ws-lab", "examples", prow);
   const presetBtns = presets(prow, PRESETS.map(p => ({ label: p.label, apply: () => load(p) })));
   button(prow, "reset", () => load(p0));
-  const note = htmlEl("div", "qb-note", "", host);
+  const note = htmlEl("div", "qb-note", "", main);
 
   async function load(p: Preset): Promise<void> {
     st.img = p.img; st.land = p.land; st.sigma = p.sigma; st.h = p.h; st.noise = p.noise; st.mode = p.mode;

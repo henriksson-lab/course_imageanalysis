@@ -26,9 +26,15 @@ import { ImgView, injectStyle, label, shownIds, logSlider, tabRow } from "../spo
 const NAME = "spotfit";
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: wrap; }
-.qb-demo[data-demo="${NAME}"] .sf-main { flex: 0 1 430px; min-width: 300px; }
-.qb-demo[data-demo="${NAME}"] .sf-mid { flex: 0 1 320px; min-width: 200px; display: flex; flex-direction: column; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 290px; max-width: 370px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .sf-main { flex: 0 1 min(410px, calc(100vh - 250px)); min-width: 300px; }
+.qb-demo[data-demo="${NAME}"] .sf-mid { flex: 0 1 280px; min-width: 200px; display: flex; flex-direction: column; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; max-width: 370px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { grid-template-columns: auto 1fr 3.2em; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider input[type=range] { min-width: 4em; }
+.qb-demo[data-demo="${NAME}"] .sf-mid > .qb-readout { font-size: 14px; }
+.qb-demo[data-demo="${NAME}"] .sf-mid .sf-legend { font-size: 15px; line-height: 1.35; }
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre-wrap; }
 .qb-demo[data-demo="${NAME}"] .sf-legend { font-size: 16px; line-height: 1.5; }
 .qb-demo[data-demo="${NAME}"] .sf-legend span { display: inline-block; margin-right: .7em; white-space: nowrap; }
@@ -125,7 +131,8 @@ function mount(host: HTMLElement): void {
   button(brow, "all steps", () => { st.step = -1; run(); });
   button(brow, "new noise", () => { st.seed++; run(); });
   button(brow, "reset", () => { Object.assign(st, start()); presetBtns.forEach(b => b.classList.remove("active")); sync(); run(); });
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  // on a page under the residual (keeps the panel short); on a slide in the panel
+  const ro = htmlEl("div", "qb-readout", "", host.closest(".reveal") ? panel : mid);
 
   function load(p: Preset): void { Object.assign(st, DEFAULT, p.s); sync(); run(); }
   function sync(): void { nS.setValue(st.N); bS.set(st.b); aS.set(st.a); mS.set(st.m); airyC.checked = st.airy; bgC.checked = st.subBg; }

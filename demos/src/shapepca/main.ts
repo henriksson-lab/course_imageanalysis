@@ -30,11 +30,18 @@ const PRESETS: Preset[] = [
 
 const STYLE = `
 [data-demo="${NAME}"] { gap: .7em; }
-[data-demo="${NAME}"] .sp-left { flex: 0 1 300px; min-width: 220px; display: flex; flex-direction: column; gap: .2em; }
-[data-demo="${NAME}"] .sp-main { flex: 0 1 430px; min-width: 260px; }
+[data-demo="${NAME}"] .sp-left { flex: 0 1 260px; min-width: 200px; display: flex; flex-direction: column; gap: .2em; }
+[data-demo="${NAME}"] .sp-main { flex: 0 1 min(410px, calc(100vh - 240px)); min-width: 260px; }
 [data-demo="${NAME}"] .sp-main svg { touch-action: none; }
 [data-demo="${NAME}"] .sp-cap { font-size: 16px; text-align: center; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 360px; gap: .3em; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; max-width: 360px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { grid-template-columns: auto 1fr 3.4em; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider input[type=range] { min-width: 4em; }
+[data-demo="${NAME}"] .sp-more { margin: 0; }
+[data-demo="${NAME}"] .sp-more > summary { cursor: pointer; font-size: 15px; color: var(--qb-muted); }
+[data-demo="${NAME}"] .sp-more[open] { display: flex; flex-direction: column; gap: .3em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 [data-demo="${NAME}"] .sp-noaxes .qb-axes { display: none; }
 [data-demo="${NAME}"] .sp-noaxes { background: var(--qb-panel); border-radius: 4px; }
@@ -102,14 +109,17 @@ function mount(host: HTMLElement): void {
   const famRow = htmlEl("div", "sp-row", "", panel);
   const famBtns = ["hand", "nucleus", "leaf"].map(f => button(famRow, f, () => { st.o.family = f; rebuild(); }));
   const viewBtns = (["raw", "aligned"] as const).map(v => button(famRow, v, () => { st.view = v; draw(); }));
-  const cntS = slider(panel, "shapes", 3, 60, 1, st.o.count, v => { st.o.count = v; rebuild(); });
-  const noiseS = slider(panel, "landmark noise", 0, 0.06, 0.005, st.o.noise, v => { st.o.noise = v; rebuild(); });
   const keepS = slider(panel, "modes kept", 1, K, 1, st.kKeep, v => { st.kKeep = v; draw(); });
-  const opt = htmlEl("div", "sp-row", "", panel);
+  const unlimBox = checkbox(panel, "unlimited (no ±3 limit)", st.unlimited, v => { st.unlimited = v; draw(); });
+  // the training set: folded away so that the demo fits the window (opened by presets that change it)
+  const more = htmlEl("details", "sp-more", "", panel);
+  htmlEl("summary", "", "more options (training set)", more);
+  const cntS = slider(more, "shapes", 3, 60, 1, st.o.count, v => { st.o.count = v; rebuild(); });
+  const noiseS = slider(more, "landmark noise", 0, 0.06, 0.005, st.o.noise, v => { st.o.noise = v; rebuild(); });
+  const opt = htmlEl("div", "sp-row", "", more);
   const alignBox = checkbox(opt, "align (GPA)", st.o.align, v => { st.o.align = v; rebuild(); });
   const corruptBox = checkbox(opt, "bad correspondence", st.o.corrupt > 0, v => { st.o.corrupt = v ? 0.2 : 0; rebuild(); });
-  const unlimBox = checkbox(opt, "unlimited", st.unlimited, v => { st.unlimited = v; draw(); });
-  const ro = htmlEl("div", "qb-readout", "", panel);
+  const ro = htmlEl("div", "qb-readout", "", left);   // under the variance plot: keeps the panel short
 
   function clearActive(): void { presetBtns.forEach(x => x.classList.remove("active")); }
 
@@ -120,6 +130,7 @@ function mount(host: HTMLElement): void {
     b.fill(0);
     if (p.b) p.b.forEach((v, k) => (b[k] = v));
     presetBtns.forEach((x, i) => x.classList.toggle("active", PRESETS[i] === p));
+    if (st.o.count !== BASE.count || st.o.noise !== BASE.noise || st.o.align !== BASE.align || st.o.corrupt !== BASE.corrupt) more.open = true;
     rebuild(false);
     if (p.anim !== undefined) startAnim(p.anim);
   }

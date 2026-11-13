@@ -15,12 +15,14 @@ import { injectStyle, label, shownIds, TP_COL, FP_COL } from "../spotdetect/comm
 const NAME = "peaks1d";
 const STYLE = `
 .qb-demo[data-demo="${NAME}"] { gap: .8em; flex-wrap: wrap; }
-.qb-demo[data-demo="${NAME}"] .pk-plots { flex: 1 1 760px; min-width: 0; display: flex; flex-direction: column; gap: .1em; }
-.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 1 340px; gap: .3em; }
-.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 16px; white-space: pre-wrap; }
+.qb-demo[data-demo="${NAME}"] .pk-plots { flex: 0 1 680px; min-width: 0; display: flex; flex-direction: column; gap: .1em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 280px; max-width: 340px; gap: .25em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 13.5px; padding: .12em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre-wrap; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 18px; flex-wrap: nowrap; }
 .reveal .qb-demo[data-demo="${NAME}"] .pk-plots { flex: 0 0 770px; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 0 350px; gap: .15em; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 0 0 350px; max-width: none; gap: .15em; font-size: 18px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .06em .35em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 18px; padding: .2em .4em; }
 `;

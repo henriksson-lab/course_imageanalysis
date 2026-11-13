@@ -35,6 +35,35 @@ const PRESETS: Preset[] = [
 const STYLE = baseCss(NAME) + `
 [data-demo="${NAME}"] .bp-plots { flex: 1 1 230px; max-width: 320px; display: flex; flex-direction: column; gap: .1em; }
 [data-demo="${NAME}"] .bp-plots figure { margin: 0; }
+/* pages: sinogram and reconstruction side by side, the two small plots under them, the
+   control columns stacked in a panel on the right (fits 1366x768) */
+.qb-demo[data-demo="${NAME}"] { flex-direction: row; flex-wrap: nowrap; align-items: flex-start; gap: 1em; }
+.qb-demo[data-demo="${NAME}"] .rd-figs { flex: 0 1 auto; width: auto; min-width: 0; display: grid; gap: .5em .8em;
+  grid-template-columns: minmax(0, 420px) minmax(0, min(360px, calc(100vh - 440px))); grid-template-areas: "sino rec" "plots plots"; justify-content: start; }
+.qb-demo[data-demo="${NAME}"] .rd-figs .rd-fig { max-width: none; min-width: 0; }
+.qb-demo[data-demo="${NAME}"] .bp-sino { grid-area: sino; }
+.qb-demo[data-demo="${NAME}"] .bp-rec { grid-area: rec; }
+.qb-demo[data-demo="${NAME}"] .bp-plots { grid-area: plots; max-width: none; flex-direction: row; gap: .8em; }
+.qb-demo[data-demo="${NAME}"] .bp-plots figure { flex: 0 1 min(330px, calc(55vh - 120px)); min-width: 0; }
+body:not(.reveal-viewport) .qb-demo[data-demo="${NAME}"] .bp-plots figcaption { font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .rd-ctls.qb-panel { flex: 0 0 300px; width: auto; flex-direction: column; flex-wrap: nowrap; gap: .6em; font-size: 15px; }
+.qb-demo[data-demo="${NAME}"] .rd-ctls .rd-col { flex: 0 0 auto; }
+.qb-demo[data-demo="${NAME}"] .rd-ctls .qb-btn { font-size: 14px; padding: .15em .5em; }
+@media (max-width: 640px) {
+  .qb-demo[data-demo="${NAME}"] { flex-direction: column; }
+  .qb-demo[data-demo="${NAME}"] .rd-figs { grid-template-columns: minmax(0, 1fr); grid-template-areas: "sino" "rec" "plots"; }
+  .qb-demo[data-demo="${NAME}"] .rd-ctls.qb-panel { flex-basis: auto; width: 100%; }
+}
+/* slides: the original layout, one row of figures and a row of control columns below */
+.reveal .qb-demo[data-demo="${NAME}"] { flex-direction: column; align-items: stretch; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-figs { display: flex; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-figs .rd-fig { max-width: 300px; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-figs .rd-fig.wide { max-width: 400px; }
+.reveal .qb-demo[data-demo="${NAME}"] .bp-plots { flex: 1 1 230px; max-width: 320px; flex-direction: column; gap: .1em; }
+.reveal .qb-demo[data-demo="${NAME}"] .bp-plots figure { flex: none; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-ctls.qb-panel { flex: none; width: 100%; flex-direction: row; flex-wrap: wrap; max-height: none; overflow: visible; font-size: inherit; gap: .5em 1.2em; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-ctls .rd-col { flex: 1 1 240px; }
+.reveal .qb-demo[data-demo="${NAME}"] .rd-ctls .qb-btn { font-size: 15px; padding: .1em .45em; }
 `;
 
 function mount(host: HTMLElement): void {
@@ -56,6 +85,8 @@ function mount(host: HTMLElement): void {
   const recP = imagePanel(L.figs, "reconstruction", N, 0, "rd-fig");
   const credit = htmlEl("div", "rd-credit", CELL_CREDIT, recP.fig);
   const [colA, colB, colC] = L.cols;
+  sinoP.fig.classList.add("bp-sino"); recP.fig.classList.add("bp-rec");
+  colA.parentElement!.classList.add("qb-panel");
 
   htmlEl("div", "rd-lab", "presets", colA);
   const presetBtns = presets(colA, PRESETS.map(p => ({ label: p.label, apply: () => load(p.s, p) })));

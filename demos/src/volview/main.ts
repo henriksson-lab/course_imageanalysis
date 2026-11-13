@@ -44,6 +44,13 @@ const STYLE = `
 .qb-demo[data-demo="${NAME}"] .vv-lab { font-size: 15px; color: var(--qb-muted); margin-bottom: -.25em; }
 .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 .qb-demo[data-demo="${NAME}"] .qb-slider { font-size: 15px; }
+/* volumes3d mode on pages: three columns that fit the wide column (~1075 px) */
+.qb-demo[data-demo="${NAME}"].vv-vol .vv-3d { flex: 0 1 300px; min-width: 200px; }
+.qb-demo[data-demo="${NAME}"].vv-vol .vv-grid { flex: 0 1 380px; min-width: 240px; max-width: calc(100vh - 220px); }
+.qb-demo[data-demo="${NAME}"].vv-vol .qb-panel { flex: 0 1 320px; }
+.qb-demo[data-demo="${NAME}"].vv-vol .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"].vv-vol .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"].vv-vol .qb-readout { font-size: 13px; white-space: pre-wrap; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 17px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-btn { font-size: 16px; padding: .1em .45em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-note { display: none; }
@@ -51,9 +58,11 @@ const STYLE = `
 .reveal .qb-demo[data-demo="${NAME}"] .vv-3d { max-width: 340px; }
 .reveal .qb-demo[data-demo="${NAME}"] .vv-grid { max-width: 430px; }
 .reveal .qb-demo[data-demo="${NAME}"] { gap: .6em; flex-wrap: nowrap; }
-.reveal .qb-demo[data-demo="${NAME}"] .vv-3d { flex: 0 0 300px; }
-.reveal .qb-demo[data-demo="${NAME}"] .vv-grid { flex: 0 0 370px; gap: .2em .4em; }
-.reveal .qb-demo[data-demo="${NAME}"] .qb-panel { flex: 1 1 420px; max-width: 440px; }
+.reveal .qb-demo[data-demo="${NAME}"] .vv-3d, .reveal .qb-demo[data-demo="${NAME}"].vv-vol .vv-3d { flex: 0 0 300px; }
+.reveal .qb-demo[data-demo="${NAME}"] .vv-grid, .reveal .qb-demo[data-demo="${NAME}"].vv-vol .vv-grid { flex: 0 0 370px; gap: .2em .4em; max-width: 430px; }
+.reveal .qb-demo[data-demo="${NAME}"] .qb-panel, .reveal .qb-demo[data-demo="${NAME}"].vv-vol .qb-panel { flex: 1 1 420px; max-width: 440px; }
+.reveal .qb-demo[data-demo="${NAME}"].vv-vol .qb-panel .qb-btn { font-size: 16px; padding: .1em .45em; }
+.reveal .qb-demo[data-demo="${NAME}"].vv-vol .qb-readout { font-size: 15px; white-space: pre; }
 .reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 16px; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-readout { font-size: 15px; padding: .3em .5em; }
 .reveal .qb-demo[data-demo="${NAME}"] .qb-slider { font-size: 16px; }
@@ -106,6 +115,7 @@ function mountVolumes3d(host: HTMLElement): void {
   const st = { ...p0, centre: p0.centre as Vec3 | null, pick: null as [number, number, number] | null };
 
   // ---- layout ----
+  host.classList.add("vv-vol");
   const v3 = htmlEl("div", "vv-3d", "", host);
   const cam = new OrbitCamera({ distance: 2.3, azimuth: 0.7, elevation: 0.45 });
   const view = new GLView(v3, { aspect: 1, viewports: [{ x: 0, y: 0, w: 1, h: 1, camera: cam }], fallback: "The 2D panels show the same slices." });

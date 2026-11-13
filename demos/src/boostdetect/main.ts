@@ -29,7 +29,7 @@ const STYLE = `
 [data-demo="${NAME}"] canvas { width: 100%; display: block; image-rendering: pixelated; border-radius: 3px; }
 [data-demo="${NAME}"] .bd-left { flex: 0 1 330px; min-width: 220px; display: flex; flex-direction: column; gap: .4em; }
 [data-demo="${NAME}"] .bd-mid { flex: 1 1 400px; min-width: 0; max-width: 480px; display: flex; flex-direction: column; gap: .2em; }
-[data-demo="${NAME}"] .qb-panel { flex: 0 1 270px; gap: .4em; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 280px; gap: .4em; }
 [data-demo="${NAME}"] .bd-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.25em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; }
 [data-demo="${NAME}"] .bd-tabs .qb-btn { font-weight: 600; }
@@ -115,8 +115,10 @@ function mount(host: HTMLElement): void {
   const glC = checkbox(faceOpts, "train without glasses", st.noGlasses, v => { st.noGlasses = v; resetAll(); render(); });
   button(panel, "reset", () => { pbtns.forEach(b => b.classList.remove("active")); Object.assign(st, { noGlasses: false, rotated: false, mono: false }); resetAll(); render(); });
   const status = htmlEl("div", "bd-busy", "", panel);
-  const ro = htmlEl("div", "qb-readout", "", leftBox);
-  const note = htmlEl("div", "qb-note", "", leftBox);
+  // pages: the readout and the note go in the panel, so the left column is no taller than its figure
+  const roBox = host.closest(".reveal") ? leftBox : panel;
+  const ro = htmlEl("div", "qb-readout", "", roBox);
+  const note = htmlEl("div", "qb-note", "", roBox);
 
   // ---- data and models (built lazily) ----
   const pool: FeatureSpec[] = makePool();

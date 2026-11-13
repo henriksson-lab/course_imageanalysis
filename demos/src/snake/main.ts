@@ -48,19 +48,29 @@ const IMAGES: { id: ImageId; label: string }[] = [
 ];
 
 const STYLE = `
-[data-demo="${NAME}"] { gap: .9em; }
-[data-demo="${NAME}"] .sn-fig { flex: 0 1 430px; min-width: 260px; margin: 0; }
+[data-demo="${NAME}"] { gap: .8em; }
+[data-demo="${NAME}"] .sn-fig { flex: 0 1 min(410px, calc(100vh - 230px)); min-width: 260px; margin: 0; }
 [data-demo="${NAME}"] .sn-fig figcaption { font-size: 17px; text-align: center; margin: 0 0 .2em; }
 [data-demo="${NAME}"] .sn-stage { position: relative; width: 100%; aspect-ratio: 1; }
 [data-demo="${NAME}"] .sn-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; border-radius: 3px; }
 [data-demo="${NAME}"] .sn-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
-[data-demo="${NAME}"] .sn-mid { flex: 0 1 300px; min-width: 220px; display: flex; flex-direction: column; gap: .4em; }
-[data-demo="${NAME}"] .qb-panel { flex: 1 1 300px; max-width: 360px; gap: .35em; }
+[data-demo="${NAME}"] .sn-mid { flex: 0 1 270px; min-width: 220px; display: flex; flex-direction: column; gap: .4em; }
+[data-demo="${NAME}"] .qb-panel { flex: 0 1 330px; max-width: 360px; gap: .3em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-btn { font-size: 14px; padding: .15em .5em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-presets { gap: .25em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider { grid-template-columns: auto 1fr 3em; gap: .4em; }
+.qb-demo[data-demo="${NAME}"] .qb-panel .qb-slider input[type=range] { min-width: 4em; }
+[data-demo="${NAME}"] .sn-more { margin: 0; }
+[data-demo="${NAME}"] .sn-tools { display: flex; flex-direction: column; gap: .3em; margin-top: .4em; }
+[data-demo="${NAME}"] .sn-tools .qb-btn { font-size: 14px; padding: .15em .5em; }
+.reveal .qb-demo[data-demo="${NAME}"] .sn-tools { flex-direction: row; flex-wrap: wrap; gap: .3em .8em; margin-top: .2em; }
+[data-demo="${NAME}"] .sn-more > summary { cursor: pointer; font-size: 15px; color: var(--qb-muted); }
+[data-demo="${NAME}"] .sn-more[open] { display: flex; flex-direction: column; gap: .3em; }
 [data-demo="${NAME}"] .qb-readout { font-size: 14px; white-space: pre; }
 [data-demo="${NAME}"] .sn-lab { font-size: 14px; color: var(--qb-muted); margin-bottom: -.2em; }
 [data-demo="${NAME}"] .sn-credit { font-size: 12px; color: var(--qb-muted); }
 [data-demo="${NAME}"] .sn-row { display: flex; flex-wrap: wrap; gap: .35em; align-items: center; }
-[data-demo="${NAME}"] .sn-matcap { font-size: 15px; text-align: center; }
+[data-demo="${NAME}"] .sn-matcap { font-size: 14px; text-align: center; line-height: 1.2; }
 .reveal .qb-demo[data-demo="${NAME}"] figcaption { font-size: 18px; }
 .reveal .qb-demo[data-demo="${NAME}"] { font-size: 16px; gap: .6em; }
 .reveal .qb-demo[data-demo="${NAME}"] .sn-fig { flex-basis: 420px; }
@@ -140,23 +150,28 @@ function mount(host: HTMLElement): void {
   sl.tau = slider(panel, "τ step", 0.05, 4, 0.05, st.s.tau, v => setS({ tau: v }));
   sl.sigma = slider(panel, "σ smoothing", 0.5, 6, 0.5, st.s.sigma, v => setS({ sigma: v }));
   sl.w = slider(panel, "w image", 0, 8, 0.1, st.s.w, v => setS({ w: v }));
-  sl.n = slider(panel, "n points", 8, 160, 1, st.s.n, v => { st.s.n = v; st.start = resample(st.start, v); restart(); });
   if (all) sl.kappa = slider(panel, "κ balloon", -1, 1.5, 0.05, st.s.kappa, v => setS({ kappa: v }));
+  // rarely changed by hand (presets set them): folded away so that the demo fits the window
   sl.resample = slider(panel, "resample every", 0, 50, 1, st.s.resample, v => setS({ resample: v }), v => (v === 0 ? "off" : String(v)));
-  sl.noise = slider(panel, "noise", 0, 0.3, 0.01, st.noise, v => { st.noise = v; makeImage(); });
+  const more = htmlEl("details", "sn-more", "", panel);   // (n is also in the figure caption)
+  htmlEl("summary", "", "more options (points, noise)", more);
+  sl.n = slider(more, "n points", 8, 160, 1, st.s.n, v => { st.s.n = v; st.start = resample(st.start, v); restart(); });
+  sl.noise = slider(more, "noise", 0, 0.3, 0.01, st.noise, v => { st.noise = v; makeImage(); });
   const row1 = htmlEl("div", "sn-row", "", panel);
   const ruleBtns = (["explicit", "implicit"] as const).map(r => button(row1, r === "explicit" ? "explicit" : "semi-implicit", () => setS({ rule: r })));
   const forceBtns = all ? (["edge", "gvf"] as const).map(f => button(row1, f === "edge" ? "edge force" : "GVF", () => setS({ force: f }))) : [];
-  const row2 = htmlEl("div", "sn-row", "", panel);
+  // image, view and placement: a toolbar under the figure (keeps the panel short)
+  const tools = htmlEl("div", "sn-tools", "", fig);
+  const row2 = htmlEl("div", "sn-row", "", tools);
   const imgSel = htmlEl("select", "qb-btn", "", row2);
   for (const im of IMAGES) { const o = htmlEl("option", "", im.label, imgSel); o.value = im.id; }
   imgSel.addEventListener("change", () => { st.image = imgSel.value as ImageId; imgSel.blur(); makeImage(); });
   const viewBtns = (["image", "edge"] as const).map(v => button(row2, v === "image" ? "image" : "edge map", () => { st.view = v; drawImage(); sync(); }));
-  const row3 = htmlEl("div", "sn-row", "", panel);
+  const row3 = htmlEl("div", "sn-row", "", tools);
   const placeBtns = (["circle", "draw"] as const).map(m => button(row3, m === "circle" ? "drag: circle" : "drag: draw", () => { st.place = m; sync(); }));
   checkbox(row3, "forces", st.arrows, v => { st.arrows = v; drawOverlay(); });
   checkbox(row3, "field", st.field, v => { st.field = v; drawField(); });
-  const note = htmlEl("div", "qb-note", "Drag on the image to place a new start (a circle, or draw a closed curve). Blue arrows: internal force, red: image force (+ balloon), both × 10.", panel);
+  const note = htmlEl("div", "qb-note", "Drag on the image to place a new start (a circle, or draw a closed curve). Blue arrows: internal force, red: image force (+ balloon), both × 10.", tools);
   void note;
 
   function setS(p: Partial<Settings>): void {
@@ -194,7 +209,7 @@ function mount(host: HTMLElement): void {
     }
     const base = st.image === "cell" ? cloneGrey(cellImg!) : cleanImage(st.image);
     img = st.noise > 0 ? addNoise(base, st.noise) : base;
-    credit.style.visibility = st.image === "cell" ? "visible" : "hidden";
+    credit.style.display = st.image === "cell" ? "" : "none";
     F = null;
     refreshFields();
     restart();
@@ -307,7 +322,7 @@ function mount(host: HTMLElement): void {
     matBox.replaceChildren();
     const cell = Math.max(2, Math.min(40, 300 / n));
     const hm = heatmapGrid(matBox, A, n, n, { map: diverging, lo: -m, hi: m, cell, numbers: n <= 12, gridLines: n <= 40, fmt: v => (Math.abs(v) < 1e-12 ? "0" : Math.abs(v) >= 10 ? v.toFixed(1) : v.toFixed(2).replace(/\.?0+$/, "")) });
-    hm.svg.style.maxWidth = "300px";
+    hm.svg.style.maxWidth = host.closest(".reveal") ? "300px" : "240px";   // pages: fits under the energy plot
     // outline the cyclic corner entries (the wrap-around of the closed contour)
     const off = 4, corner = (r: number, c: number) => svgEl("rect", { x: off + c * cell, y: off + r * cell, width: cell, height: cell, fill: "none", stroke: "#ff8c00", "stroke-width": Math.max(1, cell / 10) }, hm.svg);
     if (n >= 5) { corner(0, n - 2); corner(0, n - 1); corner(1, n - 1); corner(n - 2, 0); corner(n - 1, 0); corner(n - 1, 1); }
