@@ -90,6 +90,67 @@ The same ideas on a picture: a drawn cell (with an "F" in the corner, so mirror 
 **E4.** In the horizontal direction each input pixel now covers two output pixels. With bilinear interpolation the edges become soft ramps: output pixels between a dark and a bright input pixel get in-between grey levels that were not in the input. Nearest-neighbour lookup would instead copy the closest input pixel, so edges would look blocky and staircase-like but every output value would be one of the input values. For a label image (every value is an object number) only nearest neighbour is correct: an averaged label is the number of a different object, or of no object at all.
 :::
 
+## Code (optional) {#code}
+
+For those who want to write the algorithms themselves, in Rust. Do the questions above first;
+nothing later in the course depends on this part. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `images/src/exercise.rs`.
+
+Positions in the code are `(x, y)` = (column, row), counted from 0, and `y` points **down**: a
+rotation by a positive angle turns the picture clockwise on the screen.
+
+**C1.** `nearest(img, x, y)` and `bilinear(img, x, y)`: read the image at a position between
+pixels (0 outside the image). Bilinear interpolation, as in B4:
+
+```
+x0 = floor(x),  y0 = floor(y)            # the pixel square the position lies in
+a  = x − x0,    b  = y − y0              # where inside it, both between 0 and 1
+return (1−a)(1−b)·I(x0, y0)   + a(1−b)·I(x0+1, y0)
+     + (1−a)b·I(x0, y0+1)     + ab·I(x0+1, y0+1)
+```
+
+The check uses the four pixels of B4.
+
+**C2.** Homogeneous $3\times3$ matrices: `mat3_mul`, `apply` (a matrix times $(x, y, 1)$),
+`translation`, `rotation` and `rotate_about`, which is "shift $\mathbf p$ to the origin, rotate,
+shift back". The checks are B5, B6 and B7.
+
+**C3.** `invert_affine`: the transform that undoes an affine map, or none when $\det = 0$.
+
+**C4.** `warp(img, m, interp)`: transform an image **backwards**, with `nearest` or `bilinear`:
+
+```
+back = invert_affine(m)
+for every output pixel (x, y):
+    (sx, sy) = back · (x, y, 1)          # where did this pixel come from?
+    out(x, y) = interp(I, sx, sy)
+```
+
+Then `cargo run -p images` and open the pictures in `out/images/`.
+
+**C5.** Compare `zoom-nearest.png` with `zoom-bilinear.png`, and `rotate30-nearest.png` with
+`rotate30-bilinear.png`. Then change `main.rs` to rotate the micrograph by 30° **twelve times**
+in a row (a full turn), once with each kind of lookup. What do you expect, and what do you get?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `images/src/solution.rs` in the download.
+
+**C5.** Enlarged, nearest neighbour gives $8 \times 8$ blocks and bilinear gives smooth ramps,
+as on the slide "Computing the output: go backwards". Rotated by 30°, nearest neighbour gives
+jagged staircase edges, while bilinear is smooth and slightly blurred.
+
+After twelve rotations the image is upright again, but:
+
+- **The corners are gone.** Each rotation turns the corners out of the square frame; they read
+  0 from outside the image, and the black corners grow with every step. What remains is a disc.
+- **Bilinear blurs a little more each time.** Every lookup between pixels is a weighted average,
+  a small blur, and twelve small blurs add up to a visible one.
+- **Nearest neighbour stays sharp, but rearranges pixels.** At every step some pixels are
+  duplicated and others dropped, so fine detail gets jagged and scrambled.
+
+Better: compose the twelve rotations into **one** matrix, and interpolate once.
+:::
+
 ## Where this leads
 
 Finding the matrix that aligns two images (**registration**) is an optimisation problem over the entries of $A$ and $\mathbf{t}$; this unit only applies a given transform. Next: changing pixel **values** using their neighbours ([filtering](../kernels/lec.qmd)).

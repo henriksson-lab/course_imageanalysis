@@ -20,6 +20,12 @@ One folder per unit, each with
 
 Every demo also goes on `demos.qmd`, the gallery page.
 
+Optional coding exercises (Rust) live in `code/`, a Cargo workspace: the course library
+`code/imgcourse/`, a `starter/` project, and one project per unit with exercises
+(`code/<unit>/`: `src/exercise.rs` with `todo!()` stubs, `src/solution.rs`, `tests/check.rs`,
+`src/main.rs`). Students download it as one zip from the page `code.qmd`; the exercise page's
+`## Code (optional) {#code}` section describes the tasks in pseudocode. See `plan/code-plan.md`.
+
 ### Course structure: `days.yml`
 
 The course is one self-study sequence of days in themed parts (no electives). The structure
@@ -82,6 +88,8 @@ make preview   # start a live-reload preview server
 make clean     # delete docs/, demos/dist/ and the Quarto cache
 make test      # correctness tests of the demo algorithms (demos/test/)
 make check     # after a render: broken links/anchors, then console errors on every page
+make code-test # the Rust coding exercises (code/): model solutions, templates, clippy
+make code-zip  # pack code/ into downloads/imageanalysis-code.zip (make render does this)
 ```
 
 You will need [Quarto](https://quarto.org/docs/get-started/) and Node.js. The network demos

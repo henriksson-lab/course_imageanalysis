@@ -247,6 +247,8 @@ def head_items():
     items = [('Home', 'index.qmd'), ('All interactive demos', 'demos.qmd')]
     if os.path.isfile(os.path.join(ROOT, 'overview.qmd')):
         items.append(('Overview: prerequisites and learning paths', 'overview.qmd'))
+    if os.path.isfile(os.path.join(ROOT, 'code.qmd')):
+        items.append(('Coding exercises: getting started', 'code.qmd'))
     return items
 
 

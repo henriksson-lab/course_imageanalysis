@@ -1,13 +1,13 @@
-.PHONY: all render preview clean gitadd help demos typecheck test wasm models check-prereqs sidebar check check-links check-console check-fit
+.PHONY: all render preview clean gitadd help demos typecheck test wasm models check-prereqs sidebar check check-links check-console check-fit code-test code-zip
 
 # Default: render the site, then stage every source file in git.
 all: render gitadd
 
-render: demos
+render: demos code-zip
 	quarto render
 	@touch docs/.nojekyll
 
-preview: demos
+preview: demos code-zip
 	quarto preview
 
 # Build the interactive demos (TypeScript, demos/src/) into demos/dist/.
@@ -93,9 +93,23 @@ wasm:
 models:
 	python3 tools/models/fetch.py $(MODELS_ARGS)
 
+# The students' Rust code (code/: the imgcourse library, the starter project and one project
+# per unit with coding exercises). code-test runs every check against the model solutions
+# (--all-features turns on each unit's "solution" feature), checks that the empty exercise
+# templates still compile, and runs clippy. code-zip packs code/ into
+# downloads/imageanalysis-code.zip (git-ignored; render copies it to docs/downloads/).
+code-test:
+	cd code && cargo test --workspace --all-features
+	cd code && cargo build --workspace --all-targets
+	cd code && cargo clippy --workspace --all-targets --all-features -- -D warnings
+	cd code && cargo clippy --workspace --all-targets -- -D warnings
+
+code-zip:
+	python3 tools/code_zip.py
+
 # Remove the rendered site, the built demos and Quarto's cache.
 clean:
-	rm -rf docs .quarto demos/dist
+	rm -rf docs .quarto demos/dist downloads code/target code/out
 
 # Stage every source file AND the built HTML (docs/) so the committed site is
 # always current. The .quarto/ cache is never added (it is .gitignored).
@@ -112,6 +126,8 @@ help:
 	@echo "  make test      run the correctness tests of the demo algorithms"
 	@echo "  make wasm      build the Rust/WebAssembly crates into demos/dist/wasm/"
 	@echo "  make models    fetch and convert model weights and sample images into demos/dist/models/"
+	@echo "  make code-test test the course's Rust code (code/) against the model solutions"
+	@echo "  make code-zip  pack code/ into downloads/imageanalysis-code.zip for students"
 	@echo "  make check-prereqs  validate days.yml (prerequisites, order, sidebar current)"
 	@echo "  make sidebar   regenerate the sidebar in _quarto.yml from days.yml"
 	@echo "  make check     check the rendered site: links and anchors, then browser console errors"

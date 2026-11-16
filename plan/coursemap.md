@@ -241,6 +241,10 @@ Applied:
 
 ## Future work (queued 2026-11-13, not yet planned)
 
+- **Optional Rust code for every day** (decided 2026-11-16): pseudocode on slides, coding
+  exercises last on the exercise page, our own small library `code/imgcourse`. Day 1 done;
+  the rest by the pattern in `plan/code-plan.md`.
+
 - **Fine-tuning strategies for neural network models** (day, placed after "Networks for cells
   and objects"). Currently only one slide in `attention/` (frozen features vs fine-tuning) and
   scattered mentions in the networks day. Scope: when to fine-tune vs use as is vs train from
