@@ -1,6 +1,6 @@
 # Image analysis: the code
 
-Optional coding exercises for the image analysis course, in Rust. The course website explains
+Coding exercises for the image analysis course, in Rust. The course website explains
 how to install Rust and use this folder (page "Coding exercises: getting started").
 
 ```

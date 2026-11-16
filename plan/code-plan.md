@@ -53,7 +53,7 @@ in `code/Cargo.toml` and to the list on `code.qmd`.
   `Cargo.toml` for one's own project, just enough Rust.
 - Lecture: one pseudocode slide per unit (`## <algorithm> as pseudocode`), a plain code
   block, with a note pointing to the coding exercise.
-- Exercise page: `## Code (optional) {#code}` after Explore, before "Where this leads":
+- Exercise page: `## Code {#code}` after Explore, before "Where this leads":
   tasks C1, C2, ... with pseudocode, then questions about what the program shows, and a
   collapsed "Solutions (code)" callout.
 

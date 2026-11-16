@@ -35,9 +35,11 @@ API.
     the math (a loop over pixels, a sum), in a plain code block. At most one or two
     pseudocode blocks per deck, for the algorithm the deck is about.
   - **Coding exercises** (Rust, with the course library `imgcourse` in `code/`) go
-    in a `## Code (optional) {#code}` section at the **end** of the exercise page,
+    in a `## Code {#code}` section at the **end** of the exercise page,
     after the pen-and-paper questions and the demo, before "Where this leads".
     Each task gives the pseudocode; the Rust lives in the download, not on the page.
+    Student material does not call the code optional (that is internal); it just
+    comes last.
   - Nothing in a unit, and nothing later in the course, may depend on the code.
   - The library is written to be **read**: plain loops, `img[(x, y)]`, `f32` grey
     values in [0, 1]. It does only the plumbing (storage, files, border rules,

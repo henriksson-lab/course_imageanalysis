@@ -24,7 +24,7 @@ Optional coding exercises (Rust) live in `code/`, a Cargo workspace: the course 
 `code/imgcourse/`, a `starter/` project, and one project per unit with exercises
 (`code/<unit>/`: `src/exercise.rs` with `todo!()` stubs, `src/solution.rs`, `tests/check.rs`,
 `src/main.rs`). Students download it as one zip from the page `code.qmd`; the exercise page's
-`## Code (optional) {#code}` section describes the tasks in pseudocode. See `plan/code-plan.md`.
+`## Code {#code}` section describes the tasks in pseudocode. See `plan/code-plan.md`.
 
 ### Course structure: `days.yml`
 
