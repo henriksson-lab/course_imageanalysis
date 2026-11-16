@@ -7,9 +7,13 @@
 //! - `y` is the row, counted from the top, `0..height`;
 //! - grey values are `f32` between 0 (black) and 1 (white).
 //!
-//! The library only does the plumbing: storing pixels, reading and writing files,
-//! the border rules, complex numbers, random numbers and test images. The image
-//! analysis itself is what you write in the exercises.
+//! The library only does the plumbing: storing pixels (`Image`, and `Volume` for 3D),
+//! reading and writing files, the border rules, complex numbers, random numbers and test
+//! images. The image analysis itself is what you write in the exercises.
+//!
+//! For later days it also has tools that earlier days taught you to write yourself:
+//! a fast Fourier transform (`fft`) and small linear algebra (`linalg`: solving equations,
+//! least squares, eigenvectors of a symmetric matrix).
 //!
 //! ```
 //! use imgcourse::*;
@@ -25,13 +29,17 @@
 
 mod border;
 mod complex;
+pub mod fft;
 mod image;
 pub mod io;
+pub mod linalg;
 mod random;
 pub mod samples;
+mod volume;
 
 pub use border::Border;
 pub use complex::Complex;
 pub use image::Image;
-pub use io::{load_gray, load_rgb, save_gray, save_gray_signed, save_gray_stretched, save_rgb};
+pub use io::{gray_to_rgb, load_gray, load_rgb, save_gray, save_gray_signed, save_gray_stretched, save_labels, save_rgb};
 pub use random::Rng;
+pub use volume::Volume;

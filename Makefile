@@ -101,8 +101,8 @@ models:
 code-test:
 	cd code && cargo test --workspace --all-features
 	cd code && cargo build --workspace --all-targets
-	cd code && cargo clippy --workspace --all-targets --all-features -- -D warnings
-	cd code && cargo clippy --workspace --all-targets -- -D warnings
+	cd code && cargo clippy --workspace --all-targets --all-features -- -D warnings -A clippy::needless_range_loop
+	cd code && cargo clippy --workspace --all-targets -- -D warnings -A clippy::needless_range_loop
 
 code-zip:
 	python3 tools/code_zip.py

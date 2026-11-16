@@ -89,3 +89,36 @@ pub fn save_rgb(img: &Image<[f32; 3]>, path: impl AsRef<Path>) {
         .save(path)
         .unwrap_or_else(|e| panic!("could not write {}: {e}", path.display()));
 }
+
+/// A colour for every label (0 is black, every other number a fixed bright colour), for
+/// looking at label images: connected components, watershed basins, segmentations.
+pub fn label_colours(labels: &Image<u32>) -> Image<[f32; 3]> {
+    labels.map(|l| {
+        if l == 0 {
+            return [0.0; 3];
+        }
+        // golden-ratio steps around the colour circle, so that neighbouring numbers differ
+        let h = (l as f32 * 0.618_034).fract() * 6.0;
+        let f = h.fract();
+        let (a, b, c) = (0.95, 0.95 * (1.0 - 0.75 * f), 0.95 * (1.0 - 0.75 * (1.0 - f)));
+        let lo = 0.95 * 0.25;
+        match h as u32 {
+            0 => [a, c, lo],
+            1 => [b, a, lo],
+            2 => [lo, a, c],
+            3 => [lo, b, a],
+            4 => [c, lo, a],
+            _ => [a, lo, b],
+        }
+    })
+}
+
+/// Save a label image with one colour per label (0 = black background).
+pub fn save_labels(labels: &Image<u32>, path: impl AsRef<Path>) {
+    save_rgb(&label_colours(labels), path);
+}
+
+/// A grey image as colour (the same value in red, green and blue), e.g. to draw on it.
+pub fn gray_to_rgb(img: &Image<f32>) -> Image<[f32; 3]> {
+    img.map(|v| [v, v, v])
+}
