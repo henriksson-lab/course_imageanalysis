@@ -1,0 +1,201 @@
+---
+title: "Exercise: regularisation and data augmentation"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- say why small microscopy data sets overfit, and what weight decay, dropout and early stopping can and cannot do about it,
+- carry out flips, rotations, elastic deformations and intensity changes by hand and in code,
+- choose augmentations that are safe for a task, and spot the ones that destroy the label,
+- place augmentation correctly in the training loop (after the split, on the fly, the same transformation for image and mask),
+- *(math)* state invariance and equivariance, and the effect of weight decay with Adam.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Augmentation | training on randomly modified copies of the images, made anew each time; the label stays the same (or is transformed with the image) |
+| Geometric | flips, rotations, scaling, crops, elastic deformation: the pixels move |
+| Intensity | gain and offset $av + b$, gamma $v^\gamma$, noise, blur: the values change |
+| Inverse mapping | output pixel $\mathbf p$ reads the input at $T^{-1}\mathbf p$ (bilinear between pixels) |
+| Elastic deformation | a smooth random displacement field (blurred noise, strength $\alpha$ pixels, smoothness $\sigma$) |
+| Invariant / equivariant | the label does not change / changes in the same way as the image |
+
+## By hand
+
+**B1.** Flips and rotations of the $3\times3$ image with rows $(0.1, 0.2, 0.3)$, $(0.4, 0.5, 0.6)$, $(0.7, 0.8, 0.9)$.
+(a) Write the image flipped left–right.
+(b) Write it rotated by 90° clockwise.
+(c) How many different images can you make with flips and rotations by multiples of 90°?
+
+**B2.** Rotation by inverse mapping. For a clockwise rotation by $\theta$ about the centre, the output pixel at offset $(d_x, d_y)$ from the centre reads the input at offset $(\cos\theta\,d_x + \sin\theta\,d_y,\ -\sin\theta\,d_x + \cos\theta\,d_y)$ ($y$ down).
+(a) $\theta = 90°$: from where does the output pixel just right of the centre, $(1, 0)$, read? Is that consistent with B1(b)?
+(b) $\theta = 30°$, output offset $(10, 0)$: where does it read? Why is interpolation needed?
+
+**B3.** Pixel size. Nuclei are 10 µm across; the microscope has 0.2 µm per pixel.
+(a) How many pixels across is a nucleus?
+(b) A zoom augmentation by 1.5. How large does the nucleus look, in pixels and in µm at the true pixel size?
+(c) The network is to tell normal nuclei (10 µm) from enlarged ones (14 µm). Which zoom range is safe?
+
+**B4.** Intensity. (a) A grey value 0.25 with gain 2, offset 0.1 and gamma 0.5: $2 \cdot 0.25^{0.5} + 0.1 = ?$ (b) Which of gain, offset and gamma change the **order** of grey values (which pixel is brighter)?
+
+**B5.** Elastic deformation. The local stretch is roughly strength / smoothness, $\alpha/\sigma$.
+(a) Compare $\alpha = 4$ px, $\sigma = 10$ px with $\alpha = 6$ px, $\sigma = 3$ px.
+(b) Why does a stretch near 1 tear or fold the image?
+
+**B6.** Safe or not? For each task, say whether the augmentation is safe and why.
+(a) Nucleus segmentation in fluorescence images; random rotations.
+(b) Classifying the polarity of migrating cells (front to the left or to the right); left–right flips.
+(c) Counting dividing cells; elastic deformation of 3 px.
+(d) Measuring the expression level of a GFP reporter from mean intensity; gain ±30 %.
+(e) Detecting mitochondria in electron micrographs at a fixed pixel size; zoom ×0.5 to ×2.
+
+**B7.** Weight decay as a factor. Plain gradient descent with $\eta = 0.01$ and weight decay $\lambda = 0.01$ (penalty $\lambda\sum w^2$).
+(a) By which factor is every weight multiplied in each step, before the usual step?
+(b) If the data gradient were 0, what would be left of a weight after 1000 steps?
+
+**B8.** A colleague rotates and flips every image of the data set 8 ways (B1c), then splits the 8000 images at random into training and test sets. What is wrong, and what will the test accuracy show?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Rows $(0.3, 0.2, 0.1)$, $(0.6, 0.5, 0.4)$, $(0.9, 0.8, 0.7)$. (b) The left column becomes the top row, read from the bottom: rows $(0.7, 0.4, 0.1)$, $(0.8, 0.5, 0.2)$, $(0.9, 0.6, 0.3)$. The top-left value 0.1 is now top-right. (c) 8: 4 rotations, each with or without a flip (the symmetries of a square).
+
+**B2.** (a) $\cos 90° = 0$, $\sin 90° = 1$: offset $(0, -1)$, the pixel just **above** the centre. In B1(b) the centre-right pixel of the output is 0.2, the old top-middle: consistent (clockwise: top goes to the right). (b) $(10\cos 30°, -10\sin 30°) = (8.66, -5)$: between pixels, so the value comes from interpolating the four neighbours.
+
+**B3.** (a) $10/0.2 = 50$ pixels. (b) 75 pixels, which at 0.2 µm per pixel means 15 µm. (c) The classes differ by a factor 1.4 in size; a zoom by 1.4 turns one into the other. Only zooms within the real natural variation (a few percent) are safe, or none: the pixel size is fixed and known.
+
+**B4.** (a) $2 \cdot 0.5 + 0.1 = 1.1$. (b) None of them, for gain $> 0$ and any gamma $> 0$: all are increasing functions. They change brightness and contrast, not which pixel is brighter. (A negative gain would invert the image.)
+
+**B5.** (a) 0.4 against 2: the first bends gently, the second moves neighbouring pixels by very different amounts. (b) If neighbouring pixels move by more than their distance in opposite directions, the mapping folds over: two output pixels read from swapped places, and edges tear. Real cells do not deform like that.
+
+**B6.** (a) Safe: nuclei have no preferred direction in a culture dish. Rotate the mask with the image. (b) Not safe: a flip turns "front left" into "front right" while keeping the label: the labels contradict each other. (Flipping and also swapping the label would be fine.) (c) Safe if mild: a dividing cell slightly deformed is still dividing. (d) Not safe: intensity is the readout; the network would learn to ignore exactly what you want to measure. (e) Not safe: at a fixed pixel size, size is information (mitochondria have a typical size range); zoom ×2 creates objects that never occur.
+
+**B7.** (a) The gradient of the penalty is $2\lambda w$, so $w \leftarrow w - 2\eta\lambda w = (1 - 0.0002)w$. (b) $0.9998^{1000} = 0.82$.
+
+**B8.** Copies of the same image end up in training and test sets: the network has seen rotated versions of almost every test image. The test accuracy will be far too optimistic. Split first (by image, or better by experiment), then augment only the training set on the fly ([leakage unit](../leakage/lec.qmd)).
+:::
+
+### Math questions
+
+**B9.** *(math)* A classifier $f$ and a transformation $T$ of images. Define invariance of the task ($y(T\mathbf x) = y(\mathbf x)$) and equivariance of a segmentation ($s(T\mathbf x) = T s(\mathbf x)$). Show that if the task is invariant under $T_1$ and $T_2$, it is invariant under $T_1 T_2$: so the set of safe transformations is closed under composition. Why does that make "flips + 90° rotations" a set of exactly 8?
+
+**B10.** *(math)* Adam with L2 penalty: the gradient becomes $\mathbf g + 2\lambda\mathbf w$, and the step $-\eta\,\hat{\mathbf m}/\sqrt{\hat{\mathbf v}}$. Assume a weight's data gradient is steady at $g$ and $|g| \gg 2\lambda|w|$. Show that the decay's share of its step is about $2\lambda w/|g|$: small for weights with large gradients. What does AdamW do instead?
+
+**B11.** *(math)* Show that augmenting with a transformation $T$ that leaves the label unchanged turns training into minimising the expected loss $\mathbb E_T[\ell(f(T\mathbf x), y)]$ over the random $T$, and that a model which is exactly invariant ($f(T\mathbf x) = f(\mathbf x)$) has the same loss with and without augmentation.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B9.** *(math)* $y(T_1T_2\mathbf x) = y(T_2\mathbf x)$ (invariance under $T_1$, applied to the image $T_2\mathbf x$) $= y(\mathbf x)$ (invariance under $T_2$). Equivariance composes the same way: $s(T_1T_2\mathbf x) = T_1 s(T_2\mathbf x) = T_1T_2 s(\mathbf x)$. The flips and 90° rotations of a square form a group, closed under composition: all compositions of them are again one of the 8 symmetries of the square (the dihedral group of order 8).
+
+**B10.** *(math)* With a steady gradient, $\hat m \approx g + 2\lambda w$ and $\sqrt{\hat v} \approx |g + 2\lambda w| \approx |g|$. The step is $-\eta(g + 2\lambda w)/|g|$, of which the decay part is $-\eta\,2\lambda w/|g|$: divided by the size of the weight's gradient, so weights with large gradients are hardly decayed. AdamW subtracts $\eta\lambda w$ directly, outside the division, so every weight decays at the same rate.
+
+**B11.** *(math)* Each step draws a random $T$ and takes a gradient step on $\ell(f(T\mathbf x), y)$, an unbiased estimate of $\nabla\mathbb E_T[\ell(f(T\mathbf x), y)]$ (averaged also over the data): stochastic gradient descent on that expected loss. If $f(T\mathbf x) = f(\mathbf x)$ for every $T$, then $\ell(f(T\mathbf x), y) = \ell(f(\mathbf x), y)$ and the expectation is the plain loss: augmentation only changes models that are not yet invariant, pushing them towards invariance.
+:::
+
+## Explore: augmentations of a micrograph {#explore}
+
+The course micrograph with augmentations applied live: flips, zoom, rotation, elastic deformation (strength in pixels and smoothness, with a red grid that shows how the image is moved), gain, offset, gamma, blur and noise. **8 random copies** draws augmentations within fixed ranges.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="augmentlab" data-view="explore" data-preset="elastic"></div>
+<script src="../demos/dist/augmentlab.js"></script>
+```
+
+**E1.** Preset **original**, then rotate by 30° and by 90°. What happens at the corners for 30°? Where do their values come from?
+
+**E2.** Preset **elastic** (3 px, smoothness 10), then **elastic, too strong** (10 px, smoothness 3). Look at the grid and at the cell membrane. Lower the smoothness at a fixed strength of 3 px: what happens to the grid? Compare with B5.
+
+**E3.** Preset **zoom 1.5 (other pixel size)**. If this micrograph had 10 nm per pixel, what would a structure of 100 pixels appear to measure after the zoom? When is this augmentation harmful?
+
+**E4.** Preset **dimmer, gamma 0.6**, then **blur + noise**. Which of these could a real microscope produce from the same sample?
+
+**E5.** Press **8 random copies** a few times. Do all copies still look like plausible micrographs? Which setting would you weaken first?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** At 30° the corners of the output read from outside the original image; the demo mirrors the image at its borders, so the corners show reflected structures (visible as mirror-symmetric patterns). At 90° no interpolation and no border are needed: the square maps onto itself.
+
+**E2.** At 3 px and smoothness 10 the grid lines bend gently and the membrane stays a smooth curve: a plausible cell. "Too strong" (10 px, smoothness 3) folds the grid and tears the membrane into fragments. Lowering the smoothness at strength 3 makes the grid lines kink more and more, and at small smoothness they fold: as B5 predicts, trouble starts when the stretch $\alpha/\sigma$ approaches 1.
+
+**E3.** 100 pixels become 150 pixels: at 10 nm per pixel, 1.5 µm instead of 1 µm. Harmful when size carries information at a fixed, known pixel size (organelle size, nucleus size classes); useful only to cover real variation in magnification or object size.
+
+**E4.** Lower gain, an offset and a gamma: different exposure, laser power, detector settings. Blur: slightly out of focus. Noise: shorter exposure or another camera. All are plausible, in moderation.
+
+**E5.** Most copies look plausible; with rotations by any angle the mirrored corners are the least realistic part, and the combination of zoom and strong elastic deformation sometimes looks artificial. Weaken (or crop away) what produces unrealistic images.
+:::
+
+## Explore: training with and without augmentation {#explore-train}
+
+The crop experiment of the lecture: 20 training crops (round and elongated cells, the elongated ones all lying), 200 validation crops (any direction, brightness 0.5–1.1). A network $256 \to 32 \to 2$ trained with Adam for 300 epochs, without augmentation (blue and red) and with the chosen setting (green and orange). The runs were recorded with the demo's own code; the augmented crops shown are drawn live.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="augmentlab" data-view="train" data-setting="geom"></div>
+<script src="../demos/dist/augmentlab.js"></script>
+```
+
+**T1.** Setting **flips + rotations**. Compare the four curves. How many epochs does the training loss need to get near 0 with and without augmentation? What is the validation accuracy at the end?
+
+**T2.** Settings **weight decay 0.01 only** and **gain + noise only**. Do they help? Why not, in this experiment?
+
+**T3.** Settings **flips + rotations + gain + noise** and **flips + rotations + elastic**. Which is best at the end? Look at the augmented crops: what does elastic deformation do to a $16\times16$ crop?
+
+**T4.** Settings **lying vs standing: flips** and **lying vs standing: rotations**. Explain the difference.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**T1.** Without augmentation the training loss is below 0.02 after 25 epochs; with flips and rotations it is still 0.56 at epoch 25 and reaches about 0.03 by epoch 300: every epoch shows new versions of the crops, so they cannot be memorised as quickly. Validation: 68 % without, 89 % with augmentation (lowest validation loss 0.25 at epoch 252, against 0.67 at epoch 5).
+
+**T2.** No: both end at 68 %. Weight decay keeps the validation loss lower (1.4 instead of 3.1) but cannot show the network elongated cells in other directions; gain and noise vary what was not the problem.
+
+**T3.** With elastic deformation: 92 % (lowest validation loss 0.18); with gain and noise: 88 %. On a small crop, elastic deformation bends and slightly changes the length and width of the ellipse: more variety in shape, which the validation crops also have.
+
+**T4.** The class is the direction. Flips keep lying cells lying and standing cells standing: 100 % correct as without augmentation. Rotations by any angle turn standing cells into lying ones with the label "standing": the labels contradict each other, the training accuracy drops to 80 % and validation to 54 %, near guessing.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `training/src/augmentation/exercise.rs`.
+
+**C1.** `flip_horizontal(img)`: output pixel $(x, y)$ is input pixel $(w - 1 - x, y)$. The check is B1(a).
+
+**C2.** `rotate(img, degrees)`: clockwise about the centre, by inverse mapping with bilinear interpolation and mirrored borders:
+
+```
+cx = (w − 1)/2,  cy = (h − 1)/2,  c = cos(angle),  s = sin(angle)
+for every output pixel (x, y):
+    dx = x − cx,  dy = y − cy
+    out(x, y) = bilinear(in, cx + c·dx + s·dy,  cy − s·dx + c·dy)
+```
+
+The check is B1(b) and B2.
+
+**C3.** `elastic(img, alpha, sigma, seed)`: two fields of normal random numbers, blurred with a Gaussian of `sigma` pixels (the library's `gaussian_blur`), scaled to root mean square `alpha`; then $\text{out}(x, y) = \text{in}(x + u, y + v)$. Checks: `alpha = 0` changes nothing, a flat image stays flat, the same seed gives the same result.
+
+**C4.** `intensity(img, gain, offset, gamma)`. The check is B4(a).
+
+**C5.** `augment(img, settings, rng)`: random flips, a random angle, a random gain, noise, in a fixed order.
+
+Then `cargo run -p training -- augmentation` and open the pictures in `out/augmentation/`. The program augments the micrograph, then repeats the crop experiment with the course network ($256 \to 32 \to 2$, Adam 0.003, batches of 10, 300 epochs; its own random crops, so the numbers differ from the demo's): no augmentation, weight decay 0.01, flips + rotations, flips + rotations + gain + noise, gain + noise only; then the lying-vs-standing task with no augmentation, flips, and rotations.
+
+**C6.** Compare the five settings: validation loss and accuracy at epochs 25, 100 and 300, and the lowest validation loss. Which settings help?
+
+**C7.** Lying vs standing: what are the three validation accuracies, and why?
+
+**C8.** Look at `cell-elastic.png` and `random-*.png`. Would these copies be plausible training images for a nucleus segmentation network? Which change would you make for a task where intensity is the readout?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `training/src/augmentation/solution.rs` in the download.
+
+**C6.** No augmentation: the training loss is 0.017 at epoch 25 and 0.000 at 300; validation 1.31, 1.90, 2.38 (73–74 % correct), lowest 0.68 at epoch 4. Weight decay 0.01: validation loss stays near 1.2, accuracy 72 %. Flips + rotations: validation 0.47, 0.50, 0.60 with 78, 82, 83 % correct, lowest 0.39 at epoch 57. Adding gain + noise: 82 % at the end, lowest 0.38 at epoch 116. Gain + noise only: like no augmentation (73 %). Only the geometric augmentations help, because the training set lacks directions, not brightness: the same conclusion as the demo's run (68 % → 89 %).
+
+**C7.** No augmentation 100 %, flips 100 %, rotations 60 % (training accuracy 80 %): rotations make the labels contradict each other.
+
+**C8.** Yes for segmentation, with mild settings, as long as the masks get the same flips, rotations and deformation (nearest-neighbour sampling for labels). Where intensity is the readout, drop the gain (and gamma) from `augment`; keep the geometric changes and perhaps noise.
+:::
+
+## Where this leads
+
+[Reading training curves](../training-curves/lec.qmd) shows what overfitting and its cures look like in practice. Augmentation returns as the heart of **self-supervised learning** (the day "Learning without labels"): there two augmented views of the same image must give the same features, so the augmentations decide what the features ignore. The [evaluation day](../leakage/lec.qmd) shows how augmenting before the split leaks, and domain shift (the [normalisation unit](../normalisation/lec.qmd)) is the problem intensity augmentation helps with.

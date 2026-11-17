@@ -1,0 +1,180 @@
+---
+title: "Exercise: reading training curves"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- tell healthy curves, underfitting and overfitting apart, and a learning rate that is too high or too low,
+- recognise the signatures of bugs: a loss stuck at $\ln K$, labels that do not match the inputs,
+- see through class imbalance with per-class recall, and use class weights or the focal loss,
+- run the checklist: inputs, loss at initialisation, overfit one batch, seeds, a validation set,
+- *(math)* derive the loss of guessing and the effect of class weights.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Training curve, validation curve | the mean loss on the training and on the validation set, after every epoch |
+| Loss of guessing | the cross-entropy of a network that only knows the class frequencies: $\ln K$ for $K$ balanced classes |
+| Recall of class $k$ | of the examples of class $k$, the share predicted as $k$ |
+| Class weights | each example's loss multiplied by $N/(Kn_k)$, $n_k$ the number of examples of its class |
+| Focal loss | $-(1 - p)^\gamma\ln p$, $p$ the probability of the true class |
+| Smoothing | moving average $s_t = \beta s_{t-1} + (1 - \beta)x_t$ |
+| Early stopping with patience | stop when the validation loss has not improved for `patience` epochs; keep the best weights |
+
+## By hand
+
+**B1.** Diagnose each run from its numbers (training / validation loss at epochs 5, 50 and 200 unless stated; three classes, $\ln 3 = 1.10$; the runs of the demo):
+(a) 0.42/0.53, 0.14/0.35, 0.12/0.34.
+(b) 1.10/1.10, 1.10/1.10, 1.10/1.10.
+(c) 0.42/0.68, 0.01/3.28, 0.00/4.31.
+(d) 1.11/1.11, 0.68/0.73, 0.45/0.57 (and still falling).
+(e) epochs 50, 100, 200: 0.53/0.62, 0.50/0.61, 0.49/0.61.
+(f) 1.07/1.24, 1.02/1.24, 1.00/1.20.
+
+**B2.** The loss of guessing.
+(a) 2 balanced classes? 10?
+(b) A network for 4 balanced classes starts at a loss of 9.2. What does that suggest?
+(c) Two classes with 90 % and 10 % of the examples: what loss does a network reach that has learnt only the frequencies? Is a training loss of 0.33 good news?
+
+**B3.** Class weights $w_k = N/(Kn_k)$.
+(a) Compute them for 240, 50 and 10 examples.
+(b) Check that the weights summed over all examples give $N$.
+(c) Why is accuracy a poor measure here? Which number would you report instead?
+
+**B4.** Focal loss with $\gamma = 2$. Compute the loss for $p = 0.9$, 0.5 and 0.1, and compare with the cross-entropy. Which examples lose most of their weight?
+
+**B5.** Early stopping. Validation losses per epoch (from epoch 0): 0.90, 0.70, 0.60, 0.55, 0.56, 0.58, 0.57, 0.60, 0.62.
+(a) With patience 3: which epoch is best, and at which epoch does training stop?
+(b) With patience 10?
+
+**B6.** Smoothing with $\beta = 0.5$, starting at $s_0 = x_0$: smooth the batch losses 1, 0, 1, 0.
+
+**B7.** The checklist. For each failure, which check would have caught it first?
+(a) The masks were loaded in a different order than the images.
+(b) The images were 16-bit (values up to 65535) and fed to the network unscaled.
+(c) Two runs with "the same settings" give different curves and you cannot tell whether your change helped.
+(d) The final model is chosen by the best score on the test set.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Healthy: fast fall, flat, a modest gap. (b) Stuck exactly at $\ln 3$: the inputs carry nothing (a loading bug). (c) Overfitting: training loss 0, validation loss climbing. (d) Learning rate too low: smooth, together, still falling. (e) Underfitting: high and flat, together. (f) Labels shuffled against the inputs: training below $\ln 3$, validation above.
+
+**B2.** (a) $\ln 2 = 0.693$; $\ln 10 = 2.303$. (b) Far above $\ln 4 = 1.39$: the network starts out confidently wrong, its initial outputs are too large (initial weights too large, or inputs not normalised). (c) $-0.9\ln 0.9 - 0.1\ln 0.1 = 0.325$. A loss of 0.33 is no better than knowing the frequencies: nothing learnt.
+
+**B3.** (a) $N = 300$, $K = 3$: $300/720 = 0.417$, $300/150 = 2$, $300/30 = 10$. (b) $240 \cdot 0.417 + 50 \cdot 2 + 10 \cdot 10 = 100 + 100 + 100 = 300$. (c) Always answering class 1 is 80 % correct; a classifier that never finds class 3 can still be above 90 %. Report the recall (and precision, or F1) of every class, or a confusion matrix.
+
+**B4.** $p = 0.9$: $0.1^2 \cdot 0.105 = 0.00105$ (cross-entropy 0.105, 100 times less). $p = 0.5$: $0.25 \cdot 0.693 = 0.173$ (4 times less). $p = 0.1$: $0.81 \cdot 2.303 = 1.865$ (barely less). The easy, already well-classified examples lose most of their weight.
+
+**B5.** (a) Best at epoch 3 (0.55); epochs 4, 5, 6 do not improve, so training stops at epoch 6 and keeps epoch 3. (b) It never waits 10 epochs: it runs to the last epoch (8) and keeps epoch 3.
+
+**B6.** $1$, $0.5 \cdot 1 + 0.5 \cdot 0 = 0.5$, $0.25 + 0.5 = 0.75$, $0.375$.
+
+**B7.** (a) Look at the inputs (images and masks side by side), and overfit one batch: mismatched pairs show at once. (b) Look at the inputs (value range), and the loss at initialisation (far above $\ln K$, or NaN). (c) Fix the seeds. (d) Keep a validation set for all choices; the test set is used once, at the end.
+:::
+
+### Math questions
+
+**B8.** *(math)* Class frequencies $f_k$ and constant predicted probabilities $q_k$ ($\sum q_k = 1$). Show that $-\sum_k f_k\ln q_k$ is smallest for $q_k = f_k$, and that its value is then $\ln K$ for balanced classes.
+
+**B9.** *(math)* Show that with class weights $w_k = N/(Kn_k)$ the weighted mean loss $\frac1N\sum_n w_{y_n}\ell_n$ equals $\frac1K\sum_k \bar\ell_k$, the average over classes of each class's mean loss $\bar\ell_k$.
+
+**B10.** *(math)* The derivative of the focal loss with respect to the score $z_c$ of the true class, for two classes with $p = \sigma(z_c)$ (sigmoid): show that for $\gamma = 0$ it is $p - 1$, and that the factor $(1 - p)^\gamma$ makes it vanish faster as $p \to 1$.
+
+**B11.** *(math)* An exponential moving average with $\beta$: show that $s_t = (1 - \beta)\sum_{k=1}^{t}\beta^{t-k}x_k + \beta^t x_0$, and that a step in $x$ is followed by $s$ with a time constant of about $1/(1 - \beta)$ steps (20 for $\beta = 0.95$).
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** *(math)* Gibbs' inequality: $-\sum_k f_k\ln q_k - (-\sum_k f_k\ln f_k) = \sum_k f_k\ln(f_k/q_k) = \mathrm{KL}(f\|q) \ge 0$, with equality iff $q = f$. (Or Lagrange: $\partial/\partial q_k[-\sum f_j\ln q_j + \mu(\sum q_j - 1)] = -f_k/q_k + \mu = 0$ gives $q_k = f_k$.) For $f_k = 1/K$: $-\sum_k\frac1K\ln\frac1K = \ln K$.
+
+**B9.** *(math)* $\frac1N\sum_n w_{y_n}\ell_n = \frac1N\sum_k\frac{N}{Kn_k}\sum_{n: y_n = k}\ell_n = \frac1K\sum_k\frac{1}{n_k}\sum_{n: y_n = k}\ell_n = \frac1K\sum_k\bar\ell_k$.
+
+**B10.** *(math)* $\ell = -(1 - p)^\gamma\ln p$, $dp/dz = p(1 - p)$. Then $d\ell/dz = \big[\gamma(1 - p)^{\gamma - 1}\ln p - (1 - p)^\gamma/p\big]p(1 - p) = (1 - p)^\gamma\big[\gamma p\ln p - (1 - p)\big]$. For $\gamma = 0$: $-(1 - p) = p - 1$. For $\gamma > 0$ the extra factor $(1 - p)^\gamma$ goes to 0 as $p \to 1$, so confident correct examples contribute almost no gradient.
+
+**B11.** *(math)* Unrolling $s_t = \beta s_{t-1} + (1 - \beta)x_t$ from $s_0 = x_0$ gives the sum. After a step from $a$ to $b$ at time 0, $s_t = b + (a - b)\beta^t$; the remaining difference falls by the factor $e$ after $t = -1/\ln\beta \approx 1/(1 - \beta)$ steps: 19.5 for $\beta = 0.95$.
+:::
+
+## Explore {#explore}
+
+Eight recorded training runs of a small network on a three-armed spiral (three classes): healthy, or with one thing wrong. Play a run (blue: training loss, red: validation loss, dashed: $\ln 3$, the loss of guessing), choose a diagnosis, read the explanation and the settings, then **apply the fix** to see the repaired run on top. The readout gives the final accuracies and the recall of each class on the validation set.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="curvedoctor" data-run="1"></div>
+<script src="../demos/dist/curvedoctor.js"></script>
+```
+
+**E1.** Diagnose all eight runs before you look at the answers. Write down for each the one feature of the curves that decided it.
+
+**E2.** Run 1. At which epoch is the validation loss lowest, and what would early stopping keep? Apply the fix: what happens to the gap between the curves?
+
+**E3.** Runs 6 and 8 both end with high losses. How do you tell them apart from the curves alone?
+
+**E4.** Runs 2 and 7 both have to do with $\ln 3$. Where are their curves relative to the dashed line, and what is wrong in each case?
+
+**E5.** Run 5. Why are the curves no help here? Which line of the readout gives it away? Apply the fix: what does it cost?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 1 overfitting (training to 0, validation climbing), 2 inputs carry nothing (both exactly on $\ln 3$), 3 learning rate too high (jumpy, never settles), 4 healthy (fast fall, flat, small gap), 5 class imbalance (healthy curves, but recall 10 % for class 3), 6 underfitting (high, flat, together), 7 labels shuffled (training below $\ln 3$, validation above), 8 learning rate too low (smooth and still falling at the end).
+
+**E2.** Lowest at epoch 4 (0.65); early stopping would keep epoch 4. Afterwards the validation loss rises to 4.6 while the training loss is 0; final validation accuracy 74 %. With 10 times more data and weight decay the curves end at 0.12 and 0.34: a small gap, 87 % correct.
+
+**E3.** Run 6 (underfitting) flattens early: the curves have stopped changing long before the end (0.49 and 0.61). Run 8 (learning rate 0.0001) is still falling at the end (0.45 and 0.57 at epoch 200): it would improve with more steps or a larger learning rate.
+
+**E4.** Run 2 lies exactly on $\ln 3$ (1.0986) for all 200 epochs: every input is 0, so the network can only learn the class frequencies. Run 7: the training loss slowly falls below $\ln 3$ (to 1.00) while the validation loss stays above it (about 1.2), and validation accuracy is 22 %: the network memorises training labels that have nothing to do with the inputs.
+
+**E5.** The curves look healthy: low losses, a small gap, 92.7 % validation accuracy. But 80 % of the points are class 1, and the recall line shows class 3 found in 10 % of cases. With class weights the recall of class 3 rises to 60 %, class 2 from 86 to 92 %, while class 1 drops from 98 to 92 % and the overall accuracy from 92.7 to 90.7 %.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `training/src/training_curves/exercise.rs`.
+
+**C1.** `smooth(x, beta)`: the moving average $s_0 = x_0$, $s_t = \beta s_{t-1} + (1 - \beta)x_t$. The check is B6.
+
+**C2.** `early_stopping(val, patience)`: returns the best epoch and the epoch at which training stops:
+
+```
+best = 0
+for t = 1, 2, …, last:
+    if val[t] < val[best]: best = t
+    if t − best ≥ patience: return (best, t)
+return (best, last)
+```
+
+The check is B5.
+
+**C3.** `chance_loss(counts)`: $-\sum_k f_k\ln f_k$ with $f_k$ the class frequencies. The check is B2.
+
+**C4.** `class_weights(counts)`: $N/(Kn_k)$. The check is B3.
+
+**C5.** `focal_loss(p, true_class, gamma)`. The check is B4.
+
+Then `cargo run -p training -- training-curves` and open the plots in `out/training-curves/`. The program trains the course network (in `training/src/common.rs`) on a three-armed spiral in the cases of the lecture: healthy, too simple, learning rate too high and too low, inputs all 0, labels shuffled, overfitting with early stopping, class imbalance with and without class weights; then it overfits one batch of 8 examples, with and without the bug, and smooths the mini-batch losses of the healthy run. Its random numbers differ from the demo's, so the numbers differ a little.
+
+**C6.** Compare the eight cases with your diagnoses of the demo. Do the same signatures appear?
+
+**C7.** Overfitting: where is the validation loss lowest, and what do patience 10 and patience 50 keep? Which would you choose?
+
+**C8.** Imbalance: compare accuracy and per-class recall with and without class weights.
+
+**C9.** Overfit one batch: what are the losses after 300 steps, with and without the bug? Why does the bugged run not end at exactly $\ln 3$?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `training/src/training_curves/solution.rs` in the download.
+
+**C6.** Yes. Healthy: 0.166 and 0.255 at epoch 200 (93 % and 91 % correct). Too simple: levels off at 0.556 and 0.593. Learning rate 0.3: drops to 0.47 by epoch 20, then rises to 0.92 (training) by epoch 200: the steps throw the weights out of the valley. Learning rate 0.0001: 0.485 and 0.525, still falling. Inputs 0: 1.099 throughout. Labels shuffled: training 1.33 → 0.82 (below $\ln 3$), validation 1.24 → 1.29 (above).
+
+**C7.** The validation loss is lowest at epoch 4 with patience 10 (0.616, 70 % correct; it stops at epoch 14); with patience 50 the run goes on to a lower minimum at epoch 38 (0.550, 83 %) and stops at epoch 88. After that it climbs to 1.73 by epoch 1000, while the training loss is 0. The longer patience finds the better weights here; a too short patience stops at an early noisy dip.
+
+**C8.** Plain loss: 94.7 % correct, recall 98, 86 and 70 %. Class weights (0.417, 2, 10): 92.0 %, recall 94, 86 and 80 %: the rare class gains, the common class pays a little, and the accuracy falls although the classifier is more useful.
+
+**C9.** 1.102 → 0.0003 (100 % correct) without the bug; with all inputs 0: 1.099 → 1.082 (38 % correct). With zero inputs the network can only learn the frequencies of the 8 labels, which are not exactly balanced (3, 3 and 2): the loss approaches $-\sum f_k\ln f_k = 1.082$, not $\ln 3 = 1.099$.
+:::
+
+## Where this leads
+
+The [evaluation day](../object-eval/lec.qmd) turns from the loss to the measures that matter for the application (object-level F1, agreement with annotators) and to honest validation: [leakage](../leakage/lec.qmd), splits by experiment and domain shift. The networks of the later days ([VAE](../vae/lec.qmd), [cell networks](../cellnets-compare/lec.qmd), [diffusion models](../diffusion/lec.qmd)) are all trained by watching exactly these curves.

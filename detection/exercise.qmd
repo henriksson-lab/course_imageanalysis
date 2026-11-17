@@ -9,6 +9,7 @@ By the end of this exercise you should be able to:
 - compute the **IoU** of two boxes, and say how sensitive it is for small objects,
 - run **greedy non-maximum suppression** by hand and predict the effect of its threshold,
 - explain why boxes and NMS fail in **crowded** images of elongated cells,
+- say which level of a **feature pyramid** suits an object of a given size, and what the top-down path adds,
 - say where candidate boxes come from (a grid of guesses), knowing that anchors and centre heat maps are taught on the next day ([single-shot detection](../yolo/lec.qmd)).
 
 Do the pen-and-paper part first, then the demo. Questions marked *(math)* are for those who want the derivations; the concept questions do not depend on them.
@@ -53,28 +54,36 @@ The true cells lie under $b_1$ and under $b_3$; $b_5$ is a false detection.
 (b) Explain why no NMS threshold both removes duplicates and keeps all bacteria.
 (c) Which instance route of the [previous unit](../instances/lec.qmd) would you use instead?
 
+**B4.** Objects of every size. A $512 \times 512$ image holds spots of 3 px, nuclei of 16 px and cell clusters of 160 px. A detector with a feature pyramid predicts boxes at strides 4, 8, 16 and 32.
+(a) How many cells across does each kind of object cover at stride 4 and at stride 32? Which level suits which object, if an object should cover a few cells?
+(b) Instead, the whole network is run on an image pyramid: the image at ×2, ×1 and ×½. How many times the cost of one pass is that?
+(c) A network without the top-down path predicts the spots directly from its stride-4 backbone map. What goes wrong, and what does the top-down path add to that map?
+(d) U-Net also has a top-down path with lateral inputs. What does a feature pyramid do differently, and why does a detector need it?
+
 ::: {.callout-note collapse="true" title="Solutions"}
 **B1.** (a) Intersection $[2, 4]^2$: 4; union $16 + 16 - 4 = 28$; IoU $= 0.143$. (b) Right by one: intersection $3 \times 4 = 12$, union 20, IoU 0.6. Right and down: $3 \times 3 = 9$, union 23, IoU 0.39. (c) Intersection $1 \times 2 = 2$, union 6, IoU 0.33. A shift of one pixel already fails the matching threshold 0.5 for a $2 \times 2$ object, while a $40 \times 40$ object hardly notices it. For small objects (spots, small cells) IoU thresholds are too strict; a distance between centres is a better matching rule.
 
 **B2.** (a) $b_1b_2$: $9 \times 10 = 90$, union 110, 0.818. $b_1b_3$: $2 \times 10 = 20$, union 180, 0.111. $b_1b_4$: $1 \times 9 = 9$, union 191, 0.047. $b_2b_3$: $3 \times 10 = 30$, union 170, 0.176. $b_3b_4$: $9 \times 9 = 81$, union 119, 0.681. (b) $t = 0.3$: keep $b_1$, delete $b_2$ (0.818); keep $b_3$ (0.111 with $b_1$), delete $b_4$ (0.681); keep $b_5$. Kept $b_1, b_3, b_5$: TP 2, FP 1 ($b_5$), FN 0. $t = 0.7$: keep $b_1$, delete $b_2$; keep $b_3$; $b_4$ survives (0.681 < 0.7); keep $b_5$. Kept $b_1, b_3, b_4, b_5$: TP 2, FP 2 ($b_4$ is a duplicate: it cannot be matched a second time), FN 0. (c) $t = 0.1$: keep $b_1$, delete $b_2$ **and $b_3$** (0.111 > 0.1); $b_4$ survives (0.047 with $b_1$); keep $b_5$. The second cell is represented by $b_4$, a shifted duplicate; its IoU with the true cell (the box of $b_3$) is 0.68, so here it still counts as a TP, but the best box of the cell was deleted because it touched the first cell. (d) It removes $b_5$ before NMS: one FP fewer in every case; the duplicates and the lost box are unchanged.
 
 **B3.** (a) A rod at 45° fills only a small part of its box (two triangles of background), and the boxes of rods lying side by side overlap almost entirely even though the rods themselves do not touch much. (b) Duplicate boxes of one rod overlap by, say, 0.6–0.9; boxes of neighbouring rods overlap by a similar amount. Any $t$ that deletes the duplicates also deletes the neighbours, and any $t$ that keeps the neighbours keeps duplicates. (c) Flows (long, touching, possibly bent cells) or, for straight rods, a distance map; the evaluation then uses masks, not boxes.
+
+**B4.** (a) Stride 4: spot 0.75 cells, nucleus 4, cluster 40. Stride 32: spot 0.09 (about 1/100 of a cell's area), nucleus 0.5, cluster 5. Spots belong on stride 4, nuclei on stride 4 or 8 (4 or 2 cells), clusters on stride 16 or 32 (10 or 5 cells). Twice the size, one level coarser: the object then covers about the same number of cells. (b) The ×2 image has 4 times the pixels, the ×½ image a quarter: $4 + 1 + \tfrac14 = 5.25$ passes, against one pass plus a few cheap layers for the feature pyramid. (c) The stride-4 backbone map comes after a few layers: each cell sees a small region and responds to any small bright thing (a spot, a speck of debris, noise, the edge of a nucleus); without context it cannot tell them apart, so false positives. The top-down path adds the upsampled coarse maps, which have seen a large region and know what is there; the sum is sharp **and** knows what it sees. (d) U-Net concatenates the copied maps and predicts one mask on the finest level only. A feature pyramid adds the lateral maps (after a 1×1 convolution) and predicts boxes on **every** level: a large cluster gets a few cells on a coarse level instead of hundreds of cells on the finest, each of which would have to guess the box of something much larger than its view.
 :::
 
 ### Math questions
 
-**B4.** *(math)* Derive the closed form of the IoU of two axis-aligned boxes and show that it is invariant to scaling both boxes by the same factor and to translating both.
+**B5.** *(math)* Derive the closed form of the IoU of two axis-aligned boxes and show that it is invariant to scaling both boxes by the same factor and to translating both.
 
-**B5.** *(math)* Consider $L = 1 - \mathrm{IoU}(A, B)$ as a function of the position of box $B$. Show that its gradient is zero whenever the boxes do not overlap. What does that mean for training with this loss alone?
+**B6.** *(math)* Consider $L = 1 - \mathrm{IoU}(A, B)$ as a function of the position of box $B$. Show that its gradient is zero whenever the boxes do not overlap. What does that mean for training with this loss alone?
 
-**B6.** *(math)* Show that greedy NMS gives the same result if all scores are replaced by $g(\text{score})$ for any strictly increasing $g$, and that its cost is $O(n^2)$ IoU evaluations for $n$ candidates.
+**B7.** *(math)* Show that greedy NMS gives the same result if all scores are replaced by $g(\text{score})$ for any strictly increasing $g$, and that its cost is $O(n^2)$ IoU evaluations for $n$ candidates.
 
 ::: {.callout-note collapse="true" title="Solutions (math)"}
-**B4.** The intersection of $[a_0, a_1] \times [b_0, b_1]$ and $[c_0, c_1] \times [d_0, d_1]$ is $[\max(a_0, c_0), \min(a_1, c_1)] \times [\max(b_0, d_0), \min(b_1, d_1)]$ when both intervals are non-empty; its area is $wh$ with $w = \max(0, \min(a_1, c_1) - \max(a_0, c_0))$ and $h$ likewise. Union $= |A| + |B| - wh$ (inclusion–exclusion). Translating both boxes adds the same constant to all coordinates: $w$, $h$ and the areas are unchanged. Scaling all coordinates by $s > 0$ multiplies $w$ and $h$ by $s$, every area by $s^2$; the ratio is unchanged.
+**B5.** The intersection of $[a_0, a_1] \times [b_0, b_1]$ and $[c_0, c_1] \times [d_0, d_1]$ is $[\max(a_0, c_0), \min(a_1, c_1)] \times [\max(b_0, d_0), \min(b_1, d_1)]$ when both intervals are non-empty; its area is $wh$ with $w = \max(0, \min(a_1, c_1) - \max(a_0, c_0))$ and $h$ likewise. Union $= |A| + |B| - wh$ (inclusion–exclusion). Translating both boxes adds the same constant to all coordinates: $w$, $h$ and the areas are unchanged. Scaling all coordinates by $s > 0$ multiplies $w$ and $h$ by $s$, every area by $s^2$; the ratio is unchanged.
 
-**B5.** If the boxes do not overlap, then $w = 0$ or $h = 0$, and this remains so for every small shift of $B$ (the max with 0 is in its flat part), so the intersection is 0 in a neighbourhood and $L = 1$ there: the gradient is zero. A network trained with this loss alone gets no signal from boxes that miss the object, however close or far they are; hence regression losses on the coordinates (or IoU variants with a distance term).
+**B6.** If the boxes do not overlap, then $w = 0$ or $h = 0$, and this remains so for every small shift of $B$ (the max with 0 is in its flat part), so the intersection is 0 in a neighbourhood and $L = 1$ there: the gradient is zero. A network trained with this loss alone gets no signal from boxes that miss the object, however close or far they are; hence regression losses on the coordinates (or IoU variants with a distance term).
 
-**B6.** NMS only uses the **order** of the scores (which box is "the best remaining"), and a strictly increasing $g$ keeps the order (ties included). Each round keeps one box and compares it with the remaining ones: at most $n - 1 + n - 2 + \dots = O(n^2)$ IoUs (fewer when many boxes are deleted early).
+**B7.** NMS only uses the **order** of the scores (which box is "the best remaining"), and a strictly increasing $g$ keeps the order (ties included). Each round keeps one box and compares it with the remaining ones: at most $n - 1 + n - 2 + \dots = O(n^2)$ IoUs (fewer when many boxes are deleted early).
 :::
 
 ## Explore {#explore}
@@ -116,7 +125,7 @@ The demo has four modes on a $128 \times 128$ synthetic cell image; the question
 ## Code {#code}
 
 Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
-[coding exercises: getting started](../code.qmd). Your code goes in `day39-moderndl/src/detection/exercise.rs`.
+[coding exercises: getting started](../code.qmd). Your code goes in `moderndl/src/detection/exercise.rs`.
 A box is $[x_0, x_1] \times [y_0, y_1]$ with a score.
 
 **C1.** `iou(a, b)`: the IoU of two boxes in closed form:
@@ -148,7 +157,7 @@ highest score down; a box is a true positive if its best IoU with a true box **n
 matched** is at least $t$ (that true box is then matched), else a false positive; true boxes
 left over are false negatives. The check counts TP, FP and FN of B2 (b).
 
-Then `cargo run -p day39 -- detection` and open the pictures in `out/detection/`. A simulated detector
+Then `cargo run -p moderndl -- detection` and open the pictures in `out/detection/`. A simulated detector
 gives every true nucleus 5 jittered boxes (each side moved by about a pixel, the score higher
 the better the box fits) and adds 3 false boxes with low scores. The program runs NMS for $t$
 from 0.1 to 0.9 on a sparse image (12 nuclei) and a crowded one (45 nuclei, many touching or
@@ -163,7 +172,7 @@ on the sparse image, and why is no $t$ perfect? Use the printed largest IoU betw
 boxes. Count the cost: how many IoUs does NMS compute at most for the 223 candidates?
 
 ::: {.callout-note collapse="true" title="Solutions (code)"}
-The model solution is `day39-moderndl/src/detection/solution.rs` in the download.
+The model solution is `moderndl/src/detection/solution.rs` in the download.
 
 **C5.** The 11 visible nuclei (one of the 12 is hidden under another) get 58 candidates.
 $t = 0.1$: 13 boxes, F1 0.92; $t = 0.2$ to $0.5$: 14 boxes, TP 11, FP 3, FN 0, F1 0.88: every

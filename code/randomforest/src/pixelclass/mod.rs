@@ -1,0 +1,21 @@
+//! Coding exercises for the unit "Pixel classification with a forest".
+//!
+//! Write your code in `src/pixelclass/exercise.rs`. Check it with `cargo test -p randomforest pixelclass::`, and run it with
+//! `cargo run -p randomforest -- pixelclass` (pictures in `out/pixelclass/`).
+//! `src/pixelclass/solution.rs` is a model solution: `cargo test -p randomforest --features solution pixelclass::`.
+
+#[cfg(not(feature = "solution"))]
+mod exercise;
+#[cfg(not(feature = "solution"))]
+pub use exercise::*;
+
+#[cfg(feature = "solution")]
+mod solution;
+#[cfg(feature = "solution")]
+pub use solution::*;
+
+// A small random forest (from the forest unit; filled in, in `src/common.rs`).
+pub use crate::common::{argmax, Forest, Settings, Tree};
+
+/// The program of this unit: `cargo run -p randomforest -- pixelclass`.
+pub mod run;

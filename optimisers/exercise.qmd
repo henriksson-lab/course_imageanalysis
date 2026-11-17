@@ -1,0 +1,174 @@
+---
+title: "Exercise: optimisers and learning rates"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain why one learning rate is awkward when the loss is steep in one direction and flat in another,
+- take steps of plain gradient descent, momentum and Adam by hand,
+- say what Adam's per-weight step sizes and bias correction do, and why Adam does not care about the scale of the loss,
+- choose a learning-rate schedule and say why warm-up and decay help,
+- *(math)* derive the stability limit $\eta < 2/\lambda_{\max}$ and the bias correction of Adam.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Plain gradient descent | $w \leftarrow w - \eta g$ for every weight, $g$ its gradient |
+| Momentum ($\beta = 0.9$) | velocity $v \leftarrow \beta v + g$, then $w \leftarrow w - \eta v$ |
+| Adam | running means $m \leftarrow 0.9m + 0.1g$ and $v \leftarrow 0.999v + 0.001g^2$; divided by $1 - 0.9^t$ and $1 - 0.999^t$ (bias correction, $t$ = step number from 1); $w \leftarrow w - \eta\,\hat m/(\sqrt{\hat v} + 10^{-8})$ |
+| Schedule | the learning rate as a function of the step: warm-up (rising), step decay, cosine decay |
+| Long valley | the loss $0.1a^2 + 5b^2$ of the demo: gradient $(0.2a, 10b)$, minimum at $(0, 0)$ |
+
+## By hand
+
+**B1.** The long valley $\mathcal L = 0.1a^2 + 5b^2$, start $(a, b) = (-1.8, 0.8)$.
+(a) Compute the gradient at the start.
+(b) One step of plain gradient descent with $\eta = 0.1$. Where do you land? With $\eta = 0.3$?
+(c) For which $\eta$ does a step along $b$ alone land past the valley floor ($b$ changes sign)? For which does $|b|$ grow?
+
+**B2.** Momentum with $\beta = 0.9$ and a constant gradient $g = 1$, starting from $v = 0$, $w = 0$, $\eta = 0.1$.
+(a) Give $v$ after steps 1, 2, 3, and $w$ after step 3.
+(b) What value does $v$ approach? How much larger than a plain step is the step then?
+(c) Now the gradient alternates $+1, -1, +1, -1, \dots$ Compute $v$ for the first four steps. What does momentum do to such a direction?
+
+**B3.** Adam, first step ($t = 1$, $m = v = 0$ before it), $\eta = 0.1$.
+(a) The gradient of one weight is $g = 2$. Compute $m$, $v$, $\hat m$, $\hat v$ and the step.
+(b) Repeat for $g = 0.001$ and $g = -1000$. What do you notice?
+(c) The same step without bias correction (use $m$ and $v$ directly). How much longer is it?
+
+**B4.** Adam with $\eta = 1$: the gradient is $+1$ at step 1 and $-1$ at step 2.
+(a) Compute $m$ and $v$ after each step, and both steps (with bias correction).
+(b) Compare the second step with the first. Why is it so small?
+
+**B5.** A schedule with linear warm-up over the first 30 of 300 steps, then cosine decay, largest learning rate 0.1: $\eta_t = 0.1(t + 1)/30$ for $t < 30$, then $\eta_t = 0.05\,(1 + \cos(\pi(t - 30)/270))$.
+(a) Compute $\eta$ at steps 0, 9, 29, 30, 165 and 299.
+(b) Why start small? Why end small?
+
+**B6.** The loss is multiplied by 100 (for example by summing over 100 pixels instead of averaging).
+(a) What happens to each gradient? To the step of plain gradient descent? Was $\eta = 0.19$ still stable on the valley (B1)?
+(b) What happens to Adam's step? (Use B3.)
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $(0.2 \cdot (-1.8),\ 10 \cdot 0.8) = (-0.36, 8)$. (b) $\eta = 0.1$: $(-1.8 + 0.036,\ 0.8 - 0.8) = (-1.764, 0)$: one step lands exactly on the floor of the valley in $b$ (because $10\eta = 1$), but $a$ moved only 2 %. $\eta = 0.3$: $b = 0.8 - 2.4 = -1.6$: twice as far on the other side. (c) Along $b$ a step multiplies $b$ by $1 - 10\eta$. It changes sign for $\eta > 0.1$ (the zig-zag) and grows in size for $\eta > 0.2$ (divergence).
+
+**B2.** (a) $v = 1, 1.9, 2.71$; $w = -0.1(1 + 1.9 + 2.71) = -0.561$. (b) $v \to 1/(1 - 0.9) = 10$: the step becomes 10 times a plain step. (c) $v = 1, -0.1, 0.91, -0.181$: the velocity stays small and alternating. Momentum damps directions in which the gradient keeps changing sign (across the valley) and speeds up those in which it agrees (along the valley).
+
+**B3.** (a) $m = 0.1 \cdot 2 = 0.2$, $v = 0.001 \cdot 4 = 0.004$, $\hat m = 0.2/0.1 = 2$, $\hat v = 0.004/0.001 = 4$; step $-0.1 \cdot 2/2 = -0.1$. (b) Again $\hat m = g$ and $\hat v = g^2$, so the step is $-0.1 \cdot g/|g|$: $-0.1$ for $g = 0.001$, $+0.1$ for $g = -1000$. The first step is $\eta$ in every weight, whatever the size of the gradient. (c) $m/\sqrt v = 0.2/\sqrt{0.004} = 3.16$: step $-0.316$, 3.16 times longer.
+
+**B4.** (a) Step 1: $m = 0.1$, $v = 0.001$, $\hat m = 1$, $\hat v = 1$, step $-1$. Step 2: $m = 0.09 - 0.1 = -0.01$, $v = 0.000999 + 0.001 = 0.001999$, $\hat m = -0.01/0.19 = -0.0526$, $\hat v = 0.001999/0.001999 = 1$, step $+0.0526$. (b) About 19 times smaller: the running mean of the gradient has almost cancelled ($+1$ and $-1$), while the mean square has not. Adam slows down where the gradient's sign is unsure.
+
+**B5.** (a) Step 0: $0.1/30 = 0.0033$; step 9: $0.0333$; step 29: $0.1$; step 30: $0.05(1 + 1) = 0.1$; step 165: $0.05(1 + \cos(\pi/2)) = 0.05$; step 299: $0.05(1 + \cos(0.9963\pi)) = 0.0000034$. (b) Start small: the weights are random and Adam's averages are based on few gradients, so large first steps can throw the network into a bad region (dead or saturated units). End small: with noisy mini-batch gradients the weights jiggle around the minimum by an amount that grows with $\eta$; a small final $\eta$ lets them settle.
+
+**B6.** (a) Every gradient is 100 times larger, and so is every step of plain gradient descent: like using $\eta = 19$ on the original loss. Along $b$ the factor is $1 - 100 \cdot 0.19 \cdot 10 = -189$: it diverges at once. (b) $\hat m$ and $\sqrt{\hat v}$ are both 100 times larger: their ratio, and so Adam's step, is unchanged.
+:::
+
+### Math questions
+
+**B7.** *(math)* Near a minimum, $\mathcal L(\mathbf w) = \tfrac12\mathbf e^\top H\mathbf e$ with $\mathbf e = \mathbf w - \mathbf w^*$ and $H$ symmetric positive definite with eigenvalues $\lambda_1 \le \dots \le \lambda_n$. Show that one step of plain gradient descent gives $\mathbf e \leftarrow (I - \eta H)\mathbf e$, that it converges from every start if and only if $0 < \eta < 2/\lambda_n$, and that the slowest direction then shrinks by at least the factor $|1 - \eta\lambda_1|$ per step.
+
+**B8.** *(math)* Momentum with constant gradient $\mathbf g$: show that $\mathbf v_t = \frac{1 - \beta^t}{1 - \beta}\mathbf g$.
+
+**B9.** *(math)* The gradients $g_1, g_2, \dots$ of one weight are random with the same mean $\mu$ and mean square $s$. Show that $\mathbb E[m_t] = (1 - \beta_1^t)\mu$ and $\mathbb E[v_t] = (1 - \beta_2^t)s$ for Adam's running means started at 0, so that dividing by $1 - \beta^t$ removes the bias.
+
+**B10.** *(math)* Show that Adam's update (without $\epsilon$) is unchanged when the loss is multiplied by a constant $c > 0$, and that plain gradient descent with learning rate $\eta$ on $c\mathcal L$ is the same as with $c\eta$ on $\mathcal L$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** *(math)* $\nabla\mathcal L = H\mathbf e$, so $\mathbf e \leftarrow \mathbf e - \eta H\mathbf e = (I - \eta H)\mathbf e$. In the eigenbasis of $H$, $e_i \leftarrow (1 - \eta\lambda_i)e_i$, so after $k$ steps $e_i = (1 - \eta\lambda_i)^k e_i^{(0)}$. This goes to 0 for every start if and only if $|1 - \eta\lambda_i| < 1$ for all $i$, i.e. $0 < \eta\lambda_i < 2$; the tightest is $\eta < 2/\lambda_n$. The slowest component shrinks by $\max_i|1 - \eta\lambda_i|$, which is at least $|1 - \eta\lambda_1|$; for small $\eta$ that is $1 - \eta\lambda_1$, close to 1 when $\lambda_1 \ll \lambda_n$.
+
+**B8.** *(math)* By induction: $\mathbf v_1 = \mathbf g$, and if $\mathbf v_{t-1} = \frac{1 - \beta^{t-1}}{1 - \beta}\mathbf g$ then $\mathbf v_t = \beta\frac{1 - \beta^{t-1}}{1 - \beta}\mathbf g + \mathbf g = \frac{\beta - \beta^t + 1 - \beta}{1 - \beta}\mathbf g = \frac{1 - \beta^t}{1 - \beta}\mathbf g$.
+
+**B9.** *(math)* Unrolling, $m_t = (1 - \beta_1)\sum_{k=1}^t\beta_1^{t-k}g_k$, so $\mathbb E[m_t] = (1 - \beta_1)\mu\sum_{j=0}^{t-1}\beta_1^j = (1 - \beta_1)\mu\frac{1 - \beta_1^t}{1 - \beta_1} = (1 - \beta_1^t)\mu$. The same with $g_k^2$, $s$ and $\beta_2$ for $v_t$. Hence $\mathbb E[m_t/(1 - \beta_1^t)] = \mu$ and $\mathbb E[v_t/(1 - \beta_2^t)] = s$.
+
+**B10.** *(math)* Every gradient becomes $c g_k$, so $m_t \to c\,m_t$ and $v_t \to c^2 v_t$ (both are linear in $g$ and $g^2$), and $\hat m/\sqrt{\hat v} \to c\hat m/(c\sqrt{\hat v})$: unchanged. Plain descent: $\mathbf w - \eta\nabla(c\mathcal L) = \mathbf w - (c\eta)\nabla\mathcal L$.
+:::
+
+## Explore {#explore}
+
+The optimiser race: plain gradient descent (red), momentum (orange) and Adam (purple) start from the same point (black dot; click the map to move it) on one of four loss surfaces. Each has its own learning rate. **Gradient noise** adds random numbers to every gradient, as mini-batches do; **loss ×** multiplies the loss by 1, 10 or 100; the schedule buttons set how the learning rate changes over the 200 steps. The plot shows the loss above the minimum, on a log scale; the readout gives the step from which each optimiser stays within 0.001 of the minimum.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="optrace" data-preset="valley"></div>
+<script src="../demos/dist/optrace.js"></script>
+```
+
+**E1.** Preset **long valley, each at its best η**. Run 200 steps. How many steps does each optimiser need? Describe the three paths.
+
+**E2.** Preset **long valley, all η = 0.03**. Which optimiser is now much slower, and why? Then raise $\eta$ of plain descent step by step (0.1, 0.19, 0.21). What happens at 0.21 (preset **plain descent over the edge**)? Compare with B1(c).
+
+**E3.** Preset **the loss × 100**. What happens to each optimiser? Compare with B6.
+
+**E4.** Preset **saddle** (all $\eta = 0.03$). Where does each optimiser go, and how long does plain descent stay near the saddle? Then move the start further from the axis by clicking (e.g. at $b = 0.5$): what changes?
+
+**E5.** Preset **curved valley**. Which optimisers reach the minimum within 200 steps? Try plain descent with $\eta = 0.1$.
+
+**E6.** Presets **noisy gradients, constant η** and **noisy gradients, warm-up + cosine**. Compare the ends of the paths and the loss plots. Then try **step decay**.
+
+**E7.** Preset **Adam without bias correction**. Compare the first steps of Adam with the preset **long valley, each at its best η** (use **10 steps**). Compare with B3(c).
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Plain descent ($\eta = 0.19$) 75 steps, zig-zagging across the valley with shrinking jumps; momentum ($\eta = 0.03$) 78 steps, sweeping in wide arcs that overshoot the minimum and swing back; Adam ($\eta = 0.1$) 69 steps, first diagonally (equal steps in $a$ and $b$), then along the valley floor.
+
+**E2.** Plain descent: after 200 steps it is still far from the minimum (loss above the minimum 0.029; it needs 481 steps): with $\eta = 0.03$ it shrinks $a$ by only $1 - 0.03 \cdot 0.2 = 0.994$ per step. Momentum (78 steps) and Adam (89) hardly care. At $\eta = 0.21$ the factor across the valley is $1 - 2.1 = -1.1$: every jump across is 10 % larger than the last, and the path leaves the map (it counts as diverged after 148 steps).
+
+**E3.** Plain descent and momentum diverge within a few steps: their steps are 100 times longer. Adam's path is exactly the same as before (69 steps): its step does not depend on the scale of the gradients.
+
+**E4.** All three first run to the saddle along the $a$ axis. Plain descent then sits near the saddle: after 200 steps its loss is still 0.19 above the minimum (it needs 278 steps to roll off). Momentum (92 steps) and Adam (97) roll off to the upper minimum. From a start further from the axis, all three leave the saddle region quickly: the trouble is the tiny gradient near the saddle.
+
+**E5.** Momentum (84 steps) and Adam (81) reach the minimum $(1, 1)$; plain descent with $\eta = 0.03$ creeps along the curved floor (needs 401 steps), and with $\eta = 0.1$ it diverges: the walls of this valley are steep where $|a|$ is large.
+
+**E6.** With a constant learning rate the paths reach the minimum and keep wandering around it; the loss curves stop falling at a noisy level. With warm-up and cosine decay the first steps are short, the middle ones long, and the last steps tiny: the paths end in a tight cluster at the minimum and the loss curves keep falling to the end. Over 20 runs, plain descent ends at a loss of 0.054 with a constant $\eta$ and 0.011 with the schedule (slide "Noisy gradients"). Step decay settles in two jumps at steps 100 and 150.
+
+**E7.** Without bias correction Adam's first step is $(+0.316, -0.316)$ instead of $(+0.1, -0.1)$, then about $(+0.42, -0.41)$: 3 to 4 times too long, as in B3(c). On this smooth surface it still arrives (75 steps instead of 69); with a large network such early jumps can do damage.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `training/src/optimisers/exercise.rs`.
+
+**C1.** `gd_step(w, g, eta)`: one plain step, `w[i] -= eta * g[i]`. The check is B1.
+
+**C2.** `momentum_step(w, v, g, eta, beta)`: update the velocity, then the weights. The check is B2.
+
+**C3.** `adam_step(w, state, g, eta)`: one step of Adam with the running means kept in an `AdamState` (with a switch for the bias correction):
+
+```
+t = t + 1
+for every weight i:
+    m[i] = beta1 · m[i] + (1 − beta1) · g[i]
+    v[i] = beta2 · v[i] + (1 − beta2) · g[i]²
+    m_hat = m[i] / (1 − beta1^t),   v_hat = v[i] / (1 − beta2^t)     # if bias correction is on
+    w[i] = w[i] − eta · m_hat / (sqrt(v_hat) + eps)
+```
+
+The checks are B3 and B4.
+
+**C4.** `learning_rate(step, total, warmup, eta_max)`: linear warm-up, then cosine decay to 0. The check is B5.
+
+Then `cargo run -p training -- optimisers` and open the pictures in `out/optimisers/`. The program races the three optimisers on the surfaces of the demo (valley, saddle, curved valley) for six learning rates each and prints the number of steps; then the valley with the loss × 100, Adam's first steps with and without bias correction, and plain descent, momentum and Adam on the bowl with gradient noise 1, with a constant learning rate and with warm-up + cosine (300 steps, mean of 20 runs).
+
+**C5.** Read the table for the valley. For each optimiser, which learning rate is best, and over which range of $\eta$ is it within 100 steps?
+
+**C6.** The saddle and the curved valley: is there one optimiser that wins everywhere? Which one is the safest choice if you can try only one learning rate?
+
+**C7.** The noisy bowl: by how much does the schedule lower the final loss for each optimiser? Why does it help all three?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `training/src/optimisers/solution.rs` in the download.
+
+**C5.** Plain descent: best at 0.19 (75 steps), and 0.3 diverges; only 0.19 of the six is within 100 steps. Momentum: best at 0.19 (77), within 100 steps from 0.03 to 0.3. Adam: best at 0.3 (68), within 100 steps from 0.03 to 0.3. The step counts are the same as in the demo, whose code uses the same rules.
+
+**C6.** No. On the saddle plain descent with a large step is fastest (30 steps at 0.3), on the curved valley momentum at 0.01 (84) and Adam at 0.3 (81); plain descent and momentum diverge on the curved valley for $\eta \ge 0.1$, Adam never does in this table. Adam is the safest single choice: no divergence anywhere, and for $\eta$ between 0.1 and 0.3 never more than 3 times slower than the best.
+
+**C7.** Plain descent 0.0466 → 0.0117, momentum 0.0479 → 0.0140, Adam 0.0454 → 0.0130: three to four times lower. The jiggle around the minimum comes from the noise in each step, and its size grows with the learning rate; a small learning rate at the end lets every optimiser settle, whatever its step rule.
+:::
+
+## Where this leads
+
+The next unit, [initialisation and normalisation](../normalisation/lec.qmd), asks why deep networks are hard to train at all: signals and gradients shrink or explode through many layers, and normalisation layers and residual connections fix that. [Reading training curves](../training-curves/lec.qmd) shows how a learning rate that is too high or too low looks in practice. Every network trained later in the course (the [VAE](../vae/lec.qmd), [cell networks](../cellnets-compare/lec.qmd), [diffusion models](../diffusion/lec.qmd)) uses Adam or one of its relatives with a schedule.

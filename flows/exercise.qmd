@@ -1,0 +1,157 @@
+---
+title: "Exercise: normalising flows"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute a density through an invertible map with the change of variables, in 1D and 2D,
+- run an affine coupling layer forwards and backwards by hand, with its log-determinant,
+- explain the two terms of a flow's training loss,
+- name what flows are good for and where their likelihood misleads,
+- *(math)* derive the change of variables and the determinant of a coupling layer.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Flow | an invertible map $f$ from data $x$ to noise $z = f(x)$, with $z \sim \mathcal N(0, I)$ |
+| Change of variables | $p_X(x) = p_Z(f(x))\,\lvert\det J\rvert$, $J = \partial f/\partial x$; in 1D $p_X(x) = p_Z(z)\,\lvert dz/dx\rvert$ |
+| Standard normal | $\mathcal N(z) = e^{-z^2/2}/\sqrt{2\pi}$ in 1D; in 2D $e^{-\lvert z\rvert^2/2}/(2\pi)$ |
+| Affine coupling | keep $x_o$; $y_d = x_d\,e^{s(x_o)} + t(x_o)$; inverse $x_d = (y_d - t(y_o))\,e^{-s(y_o)}$; $\log\lvert\det J\rvert = s$ |
+| Training loss | mean of $-\log p(x) = \tfrac12\lvert z\rvert^2 + \log 2\pi - \sum s$ (2D) |
+
+## By hand
+
+**B1.** $z \sim \mathcal N(0, 1)$ and $x = 2z + 1$.
+(a) Which $z$ gives $x = 1$, and $x = 3$?
+(b) Compute $p_X(1)$ and $p_X(3)$. Which distribution is $x$?
+
+**B2.** $x = e^z$ (a positive measurement, e.g. an intensity, made from Gaussian noise).
+(a) What is $dx/dz$? Compute $p_X(1)$ and $p_X(e)$.
+(b) Why does $p_X(x) \to 0$ as $x \to 0$, although $z \to -\infty$ is not impossible?
+
+**B3.** **A coupling layer by hand.** It changes the second coordinate: $s(x_1) = \ln 2$, $t(x_1) = 1$ (constant).
+(a) Map $x = (0.5, 1)$ forwards. Give $y$ and $\log|\det J|$.
+(b) Map $y = (0.5, 3)$ backwards.
+(c) Using this one layer as the whole flow, compute $p_X(0.5, 1)$.
+
+**B4.** Two layers: the layer of B3, then a layer that changes the first coordinate with $s = 0$ and $t(x_2) = -x_2$.
+(a) Map $x = (0.5, 1)$ through both. What is the total log-determinant?
+(b) Compute $\log p_X(0.5, 1)$ and compare with B3(c). Did the second layer change volume?
+
+**B5.** The training loss $\tfrac12|z|^2 + \log 2\pi - \sum s$.
+(a) A "cheating" flow shrinks everything: $z = x/10$ (so $s = -\ln 10$ for each of the two coordinates). For a data point $x = (1, 1)$, compute the loss with this map and with the identity $z = x$.
+(b) Which term stops the cheat?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $z = (x - 1)/2$: 0 and 1. (b) $p_X(x) = p_Z(z)/2$: $p_X(1) = 0.399/2 = 0.199$, $p_X(3) = 0.242/2 = 0.121$. $x \sim \mathcal N(1, 2^2)$.
+
+**B2.** (a) $dx/dz = e^z = x$, so $p_X(x) = \mathcal N(\ln x)/x$: $p_X(1) = 0.399$, $p_X(e) = 0.242/2.718 = 0.089$ (the log-normal density). (b) Near $x = 0$, a tiny interval of $x$ corresponds to an infinite stretch of very negative $z$, which carries almost no probability: $\mathcal N(\ln x)$ falls faster than $1/x$ grows.
+
+**B3.** (a) $y_1 = 0.5$, $y_2 = 1 \cdot 2 + 1 = 3$: $y = (0.5, 3)$, $\log|\det J| = \ln 2 = 0.693$. (b) $x_1 = 0.5$, $x_2 = (3 - 1)/2 = 1$. (c) $p_X = \mathcal N_2((0.5, 3)) \cdot 2 = \frac{e^{-(0.25 + 9)/2}}{2\pi} \cdot 2 = 0.00156 \cdot 2 = 0.0031$.
+
+**B4.** (a) After B3: $(0.5, 3)$; second layer: $y_1 = 0.5 + t(3) = 0.5 - 3 = -2.5$, $y_2 = 3$: $z = (-2.5, 3)$. Total $\log|\det| = \ln 2 + 0 = 0.693$. (b) $\log p_X = -\tfrac12(6.25 + 9) - \ln 2\pi + \ln 2 = -7.625 - 1.838 + 0.693 = -8.77$ ($p = 1.55 \cdot 10^{-4}$), much lower than B3(c): the second layer moved the point away from the centre of the Gaussian, without changing volume ($s = 0$: a shear).
+
+**B5.** (a) Shrinking: $\tfrac12(0.01 + 0.01) + 1.838 + 2\ln 10 = 0.01 + 1.838 + 4.605 = 6.45$. Identity: $\tfrac12 \cdot 2 + 1.838 - 0 = 2.84$. (b) The log-determinant term $-\sum s$: shrinking makes $|z|^2$ small but costs $-\log$ of the volume factor, so the density it implies is spread thinly, not concentrated.
+:::
+
+### Math questions
+
+**B6.** *(math)* Derive the 1D change of variables for an increasing differentiable $g$, $x = g(z)$: start from $P(X \le x) = P(Z \le g^{-1}(x))$ and differentiate.
+
+**B7.** *(math)* Write the Jacobian of the affine coupling layer in 2D (changing coordinate 2) and show that its determinant is $e^{s(x_1)}$, whatever $t$ is.
+
+**B8.** *(math)* A linear flow $z = A(x - \mu)$ with invertible $A$. Show that $p_X$ is the Gaussian $\mathcal N(\mu, (A^\top A)^{-1})$. What does maximum-likelihood training of this flow fit?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** *(math)* $F_X(x) = F_Z(g^{-1}(x))$; differentiating, $p_X(x) = p_Z(g^{-1}(x))\cdot\frac{d}{dx}g^{-1}(x) = p_Z(z)/g'(z)$. For a decreasing $g$ the sign flips, hence $|\cdot|$.
+
+**B7.** *(math)* $y_1 = x_1$, $y_2 = x_2e^{s(x_1)} + t(x_1)$: $J = \begin{pmatrix}1 & 0\\ x_2s'(x_1)e^{s} + t'(x_1) & e^{s(x_1)}\end{pmatrix}$, lower triangular, so $\det J = 1 \cdot e^{s(x_1)}$.
+
+**B8.** *(math)* $p_X(x) = \mathcal N(A(x - \mu); 0, I)\,|\det A| = (2\pi)^{-n/2}|\det A|\,e^{-\frac12(x - \mu)^\top A^\top A(x - \mu)}$, the Gaussian with covariance $\Sigma = (A^\top A)^{-1}$ (and $|\det A| = \det\Sigma^{-1/2}$). Maximum likelihood fits the sample mean and covariance: a linear flow is a Gaussian fit, and the nonlinear layers are what bend it.
+:::
+
+## Explore {#explore}
+
+Six affine coupling layers trained on two moons (each layer's $s, t$ is a small network, 1 → 24 → 24 → 2). The demo steps through stored weights at 0, 300, 1 000 and 5 000 training steps, computed with the same code. Left: the exact density $p(x)$, held-out data points and (optionally) samples. Right: the data points after the first $k$ layers. Click the left plot to probe a point.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="flow2d" data-preset="untrained"></div>
+<script src="../demos/dist/flow2d.js"></script>
+```
+
+**F1.** Preset **untrained: almost the identity**. What does the density look like, and the points after 6 layers? Read the held-out $-\log p$.
+
+**F2.** Preset **trained: data to noise, layer by layer**. Move $k$ from 0 to 6. Which coordinate does each layer change? Do the colours (the original $x$ position) stay in order?
+
+**F3.** Preset **trained: all six layers**. Do the transformed points look like a standard Gaussian? Compare the held-out $-\log p$ with F1 and with the preset **after 300 steps**.
+
+**F4.** Preset **sampling: noise to data**. Where do the samples land? Look for samples between the moons, and explain them.
+
+**F5.** Preset **density: a point off the moons**. Read $z$, $\log\mathcal N(z)$, $\sum s$ and $\log p$ for the probe $(0.5, 1.2)$, then click a point on a moon. Why is $\sum s$ positive near the data?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**F1.** A single Gaussian blob around the origin, ignoring the moons; the points after 6 layers are the moons almost unchanged (the layers start near the identity). Held-out $-\log p = 3.09$.
+
+**F2.** Layer 1 changes $x$, layer 2 $y$, and so on, alternating; each moves points only horizontally or only vertically, by amounts that depend on the other coordinate. The colours stay in order: the map is continuous and invertible, nothing is torn or folded.
+
+**F3.** Yes, a round cloud filling the circles of radius 1 and 2, with the colours in bands. Held-out $-\log p$: 1.58 after 5 000 steps, against 3.09 untrained and 1.82 after 300 steps.
+
+**F4.** On the two moons. A few land off them (in the figure of the lecture, 6 of 400 samples are more than 0.3 from every data point), some between the moons or beyond their ends: a flow cannot tear the connected Gaussian into two pieces, it can only make the connecting regions thin.
+
+**F5.** $z = (0.44, 3.10)$, $\log\mathcal N(z) = -6.73$, $\sum s = 2.62$, $\log p = -4.11$. On the moon at $(0.5, 0.3)$: $z = (0.62, 0.77)$, $\log\mathcal N = -2.33$, $\sum s = 0.96$, $\log p = -1.37$. Near the data the layers stretch (positive $s$): the thin moons are blown up into the wide Gaussian, so a lot of $z$-probability per area of $x$: high density.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gans/src/flows/exercise.rs`.
+
+A `Coupling` has the coordinate `d` it changes (0 or 1) and two functions `s` and `t` of the
+other coordinate. The program's flow is three such layers with fixed, hand-chosen functions
+(not trained) that bend a Gaussian into a banana.
+
+**C1.** `coupling_forward(layer, x)`: returns $y$ and the log-determinant $s(x_o)$. The check is B3(a).
+
+**C2.** `coupling_inverse(layer, y)`. The checks are B3(b) and inverse(forward($x$)) $= x$ for random points.
+
+**C3.** `log_density(flow, x)`:
+
+```
+z = x;  logdet = 0
+for every layer, in order:  (z, s) = coupling_forward(layer, z);  logdet += s
+return −|z|²/2 − log(2π) + logdet
+```
+
+The checks are B3(c) and that the density of the banana flow integrates to 1.
+
+**C4.** `sample(flow, rng)`: $z$ = two standard normal numbers (`gauss(rng)`), then `coupling_inverse` through the layers in reverse order. The check compares the share of samples in a square with the integral of the density there.
+
+Then `cargo run -p gans -- flows`. The program prints B3, the largest error of inverse(forward($x$)) over 1 000 samples, the log-determinant against a numerical Jacobian, the integral of $p$ over a large rectangle, and a comparison of $p \times$ bin area with a histogram of 200 000 samples in 0.2 × 0.2 bins; pictures `density.png` and `histogram.png` in `out/flows/`.
+
+**C5.** How large is the error of inverse(forward($x$))? What limits it?
+
+**C6.** Compare $\sum s$ with $\log|\det|$ of the numerical Jacobian at $(0.7, -0.4)$. Why is it enough to add up the $s$ values?
+
+**C7.** The fullest bin and the summed difference: does the change-of-variables density predict the histogram? Name two reasons why the two are not identical.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gans/src/flows/solution.rs` in the download.
+
+**C5.** $1.3 \cdot 10^{-15}$: rounding of 64-bit floating point. The inverse is exact algebra; nothing is approximated.
+
+**C6.** Both are $-0.04183$. Each coupling layer has a triangular Jacobian, whose determinant is $e^{s}$ (B7); determinants of a chain multiply, so log-determinants add.
+
+**C7.** Fullest bin: 0.0056 of the samples against $p \times$ area 0.0053; half the summed absolute difference over the 1 600 bins is 0.023 (0 would be identical). Yes: the density predicts the histogram. Differences come from (1) sampling noise (200 000 samples), (2) evaluating $p$ only at the bin centre instead of integrating over the bin, and (3) the samples outside the histogram's rectangle (the density integrates to 0.9999 over the larger rectangle).
+:::
+
+## Where this leads
+
+- **Continuous flows**: let the number of layers go to infinity and the map becomes an ordinary differential equation; the deterministic sampler of diffusion models is such a flow ([samplers](../diffusion-sampling/lec.qmd)).
+- **Flows as parts**: flexible posteriors in VAEs, priors over latent codes, and likelihoods for [inverse problems](../regularise/lec.qmd).
+- **Four ways to generate**: the VAE, GAN, flow and diffusion compared on the [diffusion-models day](../score-matching/lec.qmd).

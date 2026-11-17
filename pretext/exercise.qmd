@@ -1,0 +1,177 @@
+---
+title: "Exercise: pretext tasks and masked image modelling"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- say what a pretext task forces a network to learn, and spot the shortcuts it may take instead,
+- explain why masked image modelling hides whole patches, and most of them,
+- fill a hidden part of a window with a linear (PCA) model, by hand on a small example,
+- explain why reconstructions are blurry, and why features are judged by a probe, not by the reconstruction,
+- derive the linear fill and the conditional-mean result *(math)*.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Pretext task | a made-up task whose answers come with the images (rotation, jigsaw, hidden patches) |
+| Downstream task | the real task (classify, segment), trained afterwards with few labels on the learnt features |
+| Masked image modelling | hide a large random fraction of the patches; predict their pixels; loss on the hidden patches only |
+| Shortcut | an easy cue that solves the pretext task without the knowledge we want (edges of jigsaw tiles, vignetting) |
+| Linear probe | logistic regression on frozen features, a test of how useful they are |
+| PCA window model | mean window plus the leading principal components of many windows (day 1), learnt without labels |
+
+## By hand
+
+**B1.** For each pretext task, say what a network must know to solve it, and one shortcut it could use instead.
+(a) Predict the rotation (0°, 90°, 180°, 270°) of fluorescence images of round cells in suspension, recorded with uneven illumination.
+(b) Put nine shuffled tiles of an image back in order; the tiles touch each other.
+(c) Predict one hidden pixel from its 8 neighbours.
+
+**B2.** A row of pixels: $10, 10, ?, ?, ?, 90, 90$. The three hidden pixels are part of a sharp step from 10 to 90; the step can be at any of the 4 places (before the first hidden pixel, after the first, after the second, after the third), equally likely.
+(a) Linear interpolation between 10 and 90: what values does it give?
+(b) Compute the average of the four possible fillings, pixel by pixel. Compare with (a).
+(c) Which filling has the smallest expected squared error? Why do masked models produce blurry reconstructions?
+
+**B3.** A PCA window model of 2 × 2 windows: mean window $(1, 1, 1, 1)$, one component $\mathbf u = (0.5, 0.5, 0.5, 0.5)$ with variance $2/3$.
+(a) A new window has visible pixels 1 and 3 equal to 1.4, pixels 2 and 4 hidden. Find the coefficient $c$ that fits the visible pixels exactly, and the filled pixels.
+(b) With a ridge, $c = \dfrac{\sum_V u_i(x_i - \mu_i)}{\sum_V u_i^2 + \lambda/\text{variance}}$. Compute $c$ and the fill for $\lambda/\text{variance} = 0.5$. What does the ridge do?
+(c) With $k = 0$ components, what is the fill?
+
+**B4.** An image of 224 × 224 pixels in 16 × 16 patches, 75 % hidden.
+(a) How many patches does the encoder see?
+(b) Self-attention costs about (number of tokens)². How much cheaper is the encoder than one that sees all patches?
+
+**B5.** Two encoders pretrained on your images: A reconstructs hidden patches with 24 dB, B with 21 dB. A linear probe trained with 20 labelled cells reaches 71 % accuracy on A's features and 84 % on B's. Which encoder do you use, and why can this happen?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) It should know the shape of cells; but round cells look the same at every rotation, so the only cue is the illumination gradient: the network learns to read the vignetting (a shortcut), nothing about cells. (b) It should know how parts of objects fit together; shortcut: match the pixel values across the touching tile edges (or chromatic aberration, vignetting). Leave gaps between the tiles and jitter them. (c) It should know local image structure, but the average of the neighbours is already a good answer: the task is too easy and teaches little (interpolation, B2).
+
+**B2.** (a) $30, 50, 70$. (b) The fillings are $(90, 90, 90)$, $(10, 90, 90)$, $(10, 10, 90)$, $(10, 10, 10)$: averages $(10 \cdot 3 + 90)/4 = 30$, $(10 \cdot 2 + 90 \cdot 2)/4 = 50$, $(10 + 90 \cdot 3)/4 = 70$: exactly the linear interpolation. (c) The average (30, 50, 70): with a squared error the best prediction is the mean of the plausible fillings (math B6), which is never one of them: a blur. Each sharp filling is wrong by 80 in at least one pixel whenever the step is elsewhere.
+
+**B3.** (a) The fit: $1 + 0.5c = 1.4$, so $c = 0.8$; filled pixels $1 + 0.5 \cdot 0.8 = 1.4$: the model knows that these windows vary only as a whole. (b) $\sum_V u_i(x_i - \mu_i) = 2 \cdot 0.5 \cdot 0.4 = 0.4$, $\sum_V u_i^2 = 0.5$: $c = 0.4/(0.5 + 0.5) = 0.4$, fill $1.2$: the ridge pulls the coefficient towards 0, i.e. the fill towards the mean window, more strongly the fewer pixels are visible. (c) The mean window: 1.
+
+**B4.** (a) $14 \times 14 = 196$ patches, a quarter visible: 49. (b) $49^2/196^2 = 1/16$: sixteen times cheaper per attention layer (four times for the per-token parts).
+
+**B5.** B: the features are what the downstream task uses, and B's give the better probe. A's sharper reconstructions may come from memorising textures or local detail that do not help to tell the classes apart; the pretext score and the usefulness of the features are different things.
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that for a random vector $\mathbf y$ (the hidden part) and any fixed prediction $\hat{\mathbf y}$, $\mathbb E\|\hat{\mathbf y} - \mathbf y\|^2 = \|\hat{\mathbf y} - \mathbb E\mathbf y\|^2 + \mathrm{tr}\,\mathrm{Cov}(\mathbf y)$. Conclude that the best prediction given the visible part is the conditional mean.
+
+**B7.** *(math)* Derive $\hat{\mathbf c} = (U_V^\top U_V + \sigma^2\Lambda^{-1})^{-1}U_V^\top(\mathbf x - \boldsymbol\mu)_V$ by setting the gradient of $\|(\boldsymbol\mu + U\mathbf c - \mathbf x)_V\|^2 + \sigma^2\sum_a c_a^2/\lambda_a$ to zero. Check B3(b) with it.
+
+**B8.** *(math)* If every pixel is visible and $\sigma^2 = 0$, show that the fitted window is the projection of $\mathbf x - \boldsymbol\mu$ onto the span of the components, plus $\boldsymbol\mu$: the PCA reconstruction, i.e. a linear autoencoder. Why does the ridge matter when few pixels are visible?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** *(math)* Write $\mathbf y - \hat{\mathbf y} = (\mathbf y - \mathbb E\mathbf y) + (\mathbb E\mathbf y - \hat{\mathbf y})$; the cross term has expectation $2(\mathbb E\mathbf y - \hat{\mathbf y})^\top\mathbb E[\mathbf y - \mathbb E\mathbf y] = 0$, and $\mathbb E\|\mathbf y - \mathbb E\mathbf y\|^2 = \mathrm{tr}\,\mathrm{Cov}(\mathbf y)$. The first term is minimised (to 0) by $\hat{\mathbf y} = \mathbb E\mathbf y$. Applied to the distribution of the hidden part given the visible part: the conditional mean. The trace term is the error no predictor can avoid.
+
+**B7.** *(math)* Gradient: $2U_V^\top(U_V\mathbf c - (\mathbf x - \boldsymbol\mu)_V) + 2\sigma^2\Lambda^{-1}\mathbf c = 0$, so $(U_V^\top U_V + \sigma^2\Lambda^{-1})\mathbf c = U_V^\top(\mathbf x - \boldsymbol\mu)_V$. B3(b): $U_V^\top U_V = 0.25 + 0.25 = 0.5$, $\sigma^2/\lambda = 0.5$, right side $0.5 \cdot 0.4 + 0.5 \cdot 0.4 = 0.4$: $c = 0.4$.
+
+**B8.** *(math)* With $V$ = all pixels, $U^\top U = I$ (orthonormal components) and $\sigma^2 = 0$: $\hat{\mathbf c} = U^\top(\mathbf x - \boldsymbol\mu)$, the fitted window is $\boldsymbol\mu + UU^\top(\mathbf x - \boldsymbol\mu)$: encode (project), decode (combine). With few visible pixels $U_V^\top U_V$ is small or singular (more unknowns than equations, or nearly): without the ridge the coefficients can become huge and the fill wild; the ridge keeps each coefficient within its usual range (the prior variance $\lambda_a$).
+:::
+
+## Explore: fill the hidden patches {#explore}
+
+A 120 × 120 test image cut into 6 × 6 patches; a fraction of the inner patches (or of the single pixels) is hidden. Two fills: **interpolation** (a Gaussian-weighted mean of the visible pixels nearby) and a **learnt** linear model: the mean and the first $k$ principal components of 18 × 18 windows from **other** images of the same kind, fitted to the visible pixels of each hidden patch's window. The PSNR is measured on the hidden pixels only. The model is learnt when the demo starts (about a second).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="maskfill" data-preset="p75"></div>
+<script src="../demos/dist/maskfill.js"></script>
+```
+
+**E1.** Presets **25 % of the patches hidden**, **75 % hidden** and **90 % hidden**. Note both PSNRs for each. Where does the learnt model help most, and where does everything fail? Look at how the outlines of the nuclei are continued across the holes.
+
+**E2.** Preset **75 % of the pixels: easy**. Compare with **75 % hidden** (patches). Why is this so much easier? What would a network learn from it?
+
+**E3.** Preset **k = 0: the average window**, then raise $k$ step by step to 4, 8, 16 and 32. How does the PSNR change? What do the first eight components look like?
+
+**E4.** Preset **micrograph: texture**. Compare the two fills and the components with the nuclei. Why does the learnt model lose here?
+
+**E5.** On **75 % hidden**, press **new random mask** a few times. How much do the two PSNRs vary from mask to mask? Is the comparison of the two methods stable?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 25 %: interpolation 19.80 dB, learnt 24.46 dB. 75 %: 18.48 against 20.53 dB. 90 %: 15.66 against 17.05 dB. The learnt model helps most when there is enough context to fix the shape (25 %): it continues edges and curved outlines across the hole, while interpolation smears them. At 90 % most windows have almost nothing visible, and both fall back towards an average.
+
+**E2.** Interpolation 23.66 dB, learnt 29.02 dB, against 18.48 and 20.53 for patches. A hidden pixel nearly always has visible neighbours, and images are smooth at the scale of one pixel: interpolation is almost enough. A network trained on this would learn local smoothing, not shapes; hiding whole patches forces it to use the context.
+
+**E3.** $k = 0$: 13.32 dB (the same average window everywhere, whatever is visible). $k = 4$: 17.25, 8: 18.37, 16: 20.08, 32: 20.53 dB. The first component is a bright blob, the next ones edges in two directions, then curved outlines and pairs of blobs: the typical shapes of these images, learnt without labels.
+
+**E4.** Interpolation 17.01 dB, learnt 14.61 dB. The grainy texture of the micrograph cannot be predicted from the surroundings, so the best one can do is a smooth average, which interpolation already gives; the learnt model, fitted to 760 windows of very varied content, adds structure that is wrong here. Its components are a uniform window and slow ramps, not shapes. The reconstruction error is a poor measure of what a model knows.
+
+**E5.** The next five masks give interpolation 17.15, 18.08, 17.01, 16.87, 17.71 dB and the learnt model 18.28, 20.36, 19.65, 18.16, 18.52 dB: each value moves by more than a dB (which nuclei happen to be hidden matters), but the learnt model stays ahead every time, by 0.8 to 2.6 dB. For an honest comparison, compare on the same masks and average over several.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `selfsup/src/pretext/exercise.rs`.
+
+A mask is an `Image<f32>` with 1 for hidden pixels and 0 for visible ones.
+
+**C1.** `fill_interp(img, mask, sigma)`: normalised convolution, keeping the visible pixels.
+
+```
+visible = 1 − mask
+num = gaussian_blur(img · visible, sigma),   den = gaussian_blur(visible, sigma)
+out = num / den at hidden pixels, img elsewhere
+```
+
+**C2.** `windows(img, side, stride)`: all `side × side` windows, flattened row by row.
+
+**C3.** `learn_model(windows, side, k)`: the mean window, the covariance matrix of the windows,
+and its `k` leading eigenvectors (with `linalg::sym_eigen`). The check is the rank-one example of B3.
+
+**C4.** `complete_window(model, window, visible, lambda)`: the ridge fit of B3 and B7.
+
+```
+for p, q < k:  A[p][q] = sum over visible i of u_p[i] · u_q[i]
+               b[p]    = sum over visible i of u_p[i] · (window[i] − mean[i])
+A[p][p] += lambda / variance[p]
+c = solve(A, b)
+return mean + sum over p of c[p] · u_p
+```
+
+**C5.** `hidden_psnr(result, truth, mask)`: the PSNR (peak 1) over the hidden pixels.
+
+Then `cargo run -p selfsup -- pretext` and open the pictures in `out/pretext/`. The program learns
+the window model (18 × 18 windows, 32 components) on one synthetic nuclei image and on the
+micrograph's upper half, hides 6 × 6 patches (or pixels) of a test crop, and prints the PSNR of
+interpolation and of the model with $k$ = 0, 8 and 32.
+
+**C6.** Nuclei: compare interpolation with $k = 32$ for 25 %, 75 % and 90 % of the patches, and
+for 75 % of the pixels. Do you find the demo's pattern?
+
+**C7.** What does $k = 0$ give, and why is it so poor? Look at `nuclei-components.png`.
+
+**C8.** Micrograph: which method wins, and why? What do the first variances printed for the two
+image kinds tell you?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `selfsup/src/pretext/solution.rs` in the download.
+
+**C6.** Interpolation / $k = 32$: 25 % of the patches 20.89 / 24.95 dB, 75 % 17.93 / 18.30 dB,
+90 % 14.28 / 14.59 dB; 75 % of the pixels 22.08 / 27.24 dB. The same pattern as the demo (its
+images are drawn by a different generator, so the numbers differ): the learnt model helps most
+with some context, hidden pixels are much easier than hidden patches, and at 90 % both fail.
+
+**C7.** About 12 dB: the mean window is the same blurry blob everywhere, whatever the visible
+pixels say. The components are a central blob, edges and curved outlines: the model's knowledge
+of nuclei, learnt without labels; $k = 8$ already reaches 21.92 dB at 25 %.
+
+**C8.** Interpolation wins for patches (75 %: 16.44 against 13.84 dB); for 75 % of the pixels
+they are close (18.10 and 18.61 dB). The micrograph's first variance (8.5) is followed by much
+smaller ones (1.0, 0.5, 0.4, …): apart from the overall brightness of a window, its variation is
+spread over many weak components, i.e. texture that cannot be predicted. For the nuclei the
+second and third variances are a quarter of the first (11.9, 3.0, 2.8): strong shared structure.
+:::
+
+## Where this leads
+
+The [next unit](../contrastive/lec.qmd) learns features by comparing two views of the same image instead of predicting pixels; the [self-distillation unit](../self-distillation/lec.qmd) shows the large models built from both ideas. Noise2Void in the [self-supervised denoising unit](../self-denoise/lec.qmd) is masked image modelling with one-pixel masks, used for denoising. Inpainting with a generative model, which draws a sharp plausible filling instead of the blurry average, is part of the [diffusion day](../score-matching/lec.qmd).

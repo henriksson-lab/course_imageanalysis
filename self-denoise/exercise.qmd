@@ -1,0 +1,199 @@
+---
+title: "Exercise: self-supervised denoising"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain why a second noisy image is as good a training target as a clean one (Noise2Noise),
+- explain why a denoiser trained on one noisy image needs a **blind spot**, and what it costs,
+- put the pixel back with a known noise level, and compute the mixing weight,
+- recognise **correlated noise** and say why it breaks Noise2Void,
+- derive the noisy-target loss decomposition and the optimal mix of two estimates *(math)*.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Noise2Noise | train on pairs of noisy images of the same scene: input one, target the other |
+| Noise2Void | train on one noisy image: predict every pixel from its neighbours only (blind spot), with the noisy pixel as the target |
+| Blind spot | the pixel itself is hidden from the input (left out, or replaced by a neighbour's value) |
+| Independent noise | the noise of a pixel says nothing about the noise of any other pixel (Gaussian read noise, Poisson photon noise) |
+| Correlated noise | neighbouring pixels share part of their noise (blurred noise, stripes, row offsets) |
+| Putting the pixel back | out = prediction + c (pixel − prediction), c = 1 − σ²/mean(pixel − prediction)² |
+
+## By hand
+
+**B1.** A pixel has the clean value 100; every noisy image of it has Gaussian noise with σ = 10, independent of everything else. Two denoisers always output 100 and 104 for this pixel.
+(a) What is the expected squared error of each against the **clean** value?
+(b) What is the expected squared error of each against a **noisy** target (a second noisy image)?
+(c) Which denoiser does each loss prefer, and by how much?
+
+**B2.** You can record either one image with 400 ms exposure, or two images of 200 ms each (half the photons each). Which would you take to train a denoiser, and why?
+
+**B3.** A row of a noisy image: $(102, 96, 130, 98, 104)$; the clean row is about 100 everywhere.
+(a) A blind-spot filter predicts a pixel as the mean of its two neighbours. Predict the middle pixel (130), and give its squared error against the noisy value and against the clean value 100.
+(b) A filter that may use the pixel itself: the identity (output = the pixel). Same two errors.
+(c) Trained on the noisy image as its own target, which of the two filters has the lower training loss on this pixel? Why does the blind spot make the comparison fair?
+
+**B4.** (a) A camera adds one random offset per **row** (stripes) plus independent noise. A blind-spot filter predicts a pixel from its 5 × 5 neighbourhood. Which neighbours give away part of the pixel's noise? What will the trained filter do with the stripes?
+(b) How would you change the blind spot to fix this?
+
+**B5.** Two noise samples from a background region, each 6 pixels along a row, mean 0:
+$n = (2, -1, 0, 1, -2, 0)$ and $m = (2, 2, 1, -1, -2, -2)$.
+For each, compute $\sum_i n_i n_{i+1} / \sum_i n_i^2$ (5 products, 6 squares). Which sample is safe for Noise2Void?
+
+**B6.** Putting the pixel back, with the noise level σ = 0.1 (grey values in [0, 1]).
+(a) Over the image, the mean of (pixel − blind-spot prediction)² is 0.02. Compute $c$. A pixel has the value 0.6, its prediction is 0.4: what is the output?
+(b) What does $c$ become if the mean is 0.011? If it is 0.009? What would you suspect in the last case?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Clean: $0$ and $4^2 = 16$. (b) Noisy target $y = 100 + n$: $\mathbb E[(100 - y)^2] = \sigma^2 = 100$ and $\mathbb E[(104 - y)^2] = 16 + 100 = 116$. (c) Both prefer the first denoiser, by the same 16: the noise adds 100 to both, which changes nothing about which is better.
+
+**B2.** Two images of 200 ms: they show the same scene with independent noise, so they are a Noise2Noise pair (one input, one target). A single image cannot be its own target without a blind spot. (Each image is noisier, but the network learns the same thing; and the two can be averaged later for display.)
+
+**B3.** (a) $(96 + 98)/2 = 97$: error $(97 - 130)^2 = 1089$ against the noisy value, $(97 - 100)^2 = 9$ against the clean one. (b) The identity gives 130: error $0$ against the noisy value, $900$ against the clean one. (c) The identity: its training loss is 0 on every pixel, so training on noisy targets without a blind spot simply learns to copy. With the blind spot no filter can see the pixel's own noise, so the noisy target can only be predicted through the signal it shares with its neighbours.
+
+**B4.** (a) The neighbours in the **same row** share the row offset: the filter learns large weights along the row, predicts the offset and keeps the stripes (the demo: 19.81 dB, worse than the noisy 20.16 dB). (b) Hide the whole row segment of the window (a blind line instead of a blind pixel): then no input shares the pixel's noise. The vertical neighbours still carry the signal.
+
+**B5.** $n$: products $-2, 0, 0, -2, 0$, sum $-4$; squares sum $10$: $-0.4$, small and of no consistent sign (for a long sample of independent noise it is near 0). $m$: products $4, 2, -1, 2, 4$, sum 11; squares 18: $0.61$: neighbours share their noise. $n$ is safe for Noise2Void, $m$ is not (with long samples one would want the value within a few hundredths of 0).
+
+**B6.** (a) $c = 1 - 0.01/0.02 = 0.5$; output $0.4 + 0.5 \cdot 0.2 = 0.5$. (b) $c = 1 - 0.01/0.011 = 0.09$: the prediction is very good (its own error variance is only 0.001), so the pixel gets little weight. With 0.009, $1 - 0.01/0.009 < 0$, clipped to 0: the pixel and its prediction agree better than the noise allows. Either σ is wrong (smaller than assumed), or the neighbours predict the noise: correlated noise.
+:::
+
+### Math questions
+
+**B7.** *(math)* Target $y = s + n$ with $\mathbb E[n] = 0$, $\mathrm{Var}(n) = \sigma^2$, and $n$ independent of the input $x$. Show that $\mathbb E[(f(x) - y)^2] = \mathbb E[(f(x) - s)^2] + \sigma^2$. Where exactly is the independence used? What goes wrong without the blind spot when the input contains $y$ itself?
+
+**B8.** *(math)* Two independent estimates of $s$: $\hat s = s + e$ with $\mathbb E[e] = 0$, $\mathbb E[e^2] = v$, and $y = s + n$ with $\mathrm{Var}(n) = \sigma^2$. Find the $c$ that minimises the error variance of $\hat s + c(y - \hat s)$, and show that the minimum is $v\sigma^2/(v + \sigma^2)$. Show that $\mathbb E[(y - \hat s)^2] = v + \sigma^2$, which gives the formula for $c$ on the slides.
+
+**B9.** *(math)* A linear blind-spot filter $\hat y_i = \sum_{j \neq i} w_j\, y_{i+j}$ is fitted by least squares to the noisy image itself. Write the normal equations. Show that, in expectation, they are the same as the normal equations with the clean target $s_i$, when the noise is zero-mean and independent between pixels. Why does this fail when the centre is included?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** *(math)* $(f - y)^2 = (f - s)^2 - 2(f - s)n + n^2$. Taking expectations: $\mathbb E[(f - s)n] = \mathbb E[f(x) - s]\,\mathbb E[n] = 0$, because $n$ is independent of $x$ (and of the fixed $s$): here the independence is used. $\mathbb E[n^2] = \sigma^2$. Without a blind spot the input contains $y = s + n$ itself; then $f(x) = y$ is allowed, $f - s = n$ is not independent of $n$, $\mathbb E[(f - s)n] = \sigma^2$, and the noisy-target loss of the copy is $\sigma^2 - 2\sigma^2 + \sigma^2 = 0$: the best possible.
+
+**B8.** *(math)* $\hat s + c(y - \hat s) - s = (1 - c)e + cn$, variance $(1 - c)^2v + c^2\sigma^2$ (the cross term vanishes by independence). Derivative $-2(1 - c)v + 2c\sigma^2 = 0$ gives $c = v/(v + \sigma^2)$; inserting: $\frac{\sigma^4 v + v^2\sigma^2}{(v + \sigma^2)^2} = \frac{v\sigma^2}{v + \sigma^2}$. Finally $y - \hat s = n - e$, so $\mathbb E[(y - \hat s)^2] = \sigma^2 + v$, and $c = v/(v + \sigma^2) = 1 - \sigma^2/(v + \sigma^2) = 1 - \sigma^2/\mathbb E[(y - \hat s)^2]$.
+
+**B9.** *(math)* Minimise $\sum_i(y_i - \sum_{j \neq 0}w_j y_{i+j})^2$: for every offset $k \neq 0$, $\sum_{j \neq 0} w_j \sum_i y_{i+k}y_{i+j} = \sum_i y_{i+k}y_i$. In expectation, with $y = s + n$: for $j, k \neq 0$, $\mathbb E[y_{i+k}y_{i+j}] = s_{i+k}s_{i+j} + \sigma^2[j = k]$ (the same on both sides as for a clean target, whose normal equations have the same left side), and on the right $\mathbb E[y_{i+k}y_i] = s_{i+k}s_i$, because $k \neq 0$: the noises at $i + k$ and $i$ are independent and zero-mean. That is exactly the right side for the clean target $s_i$. With the centre included, the equation for $k = 0$ has $\mathbb E[y_i^2] = s_i^2 + \sigma^2$ on the right: the target's noise is correlated with the input, and the solution moves towards the identity.
+:::
+
+## Explore: Noise2Void on one image {#explore}
+
+A crop of the micrograph (or a test image) with noise added, so that the clean image is known for the PSNR. A **linear** filter on a 5 × 5 window (25 weights and a bias) is fitted by least squares over all pixels of the one noisy image. **training** chooses the target and whether the centre is blind; the table lists the PSNR of every kind of training, and the heat map shows the learned weights (× marks the blind spot).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="blindspot" data-preset="n2v"></div>
+<script src="../demos/dist/blindspot.js"></script>
+```
+
+**E1.** Preset **Noise2Void: one noisy image**. Read the PSNR of the noisy and the filtered image. Describe the learned weights: which pixels get the largest weights, and what do they add up to? Compare the result with the Gaussian blur.
+
+**E2.** Preset **no blind spot: it learns to copy**. What are the weights now, and the PSNR? Explain with B3.
+
+**E3.** Preset **Noise2Noise: two noisy images**. Compare its PSNR and centre weight with **supervised (clean target)** in the table. Then compare Noise2Void with **supervised, blind spot**. What do the two comparisons show?
+
+**E4.** Preset **put the pixel back**. Read $c$ and the PSNR. Then set σn to 10 and to 50 (the table updates): how do Noise2Void alone and $c$ change, and why? Is Noise2Void alone always better than the noisy image?
+
+**E5.** Preset **against non-local means** (the test image). Compare the best linear filter in the table with non-local means. Look at the step and the dot lattice: what can a linear filter not do?
+
+**E6.** Preset **correlated noise: it learns the noise**. Compare the PSNR with the noisy image. What do the weights look like now? Compare Noise2Void with **supervised, blind spot** and with Noise2Noise in the table.
+
+**E7.** Preset **stripes**. Look at the filtered image and the weights. Which weights are larger, those in the pixel's row or in its column? What happens with **put the pixel back**?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Noisy 20.24 dB, Noise2Void 21.10 dB. The four direct neighbours get the largest weights (0.17 to 0.20), the diagonal ones 0.04 to 0.08, the outer ring almost 0; they add up to 1.00 (an average: the brightness is kept). The Gaussian blur (σ 0.8) reaches 23.00 dB: it may use the pixel itself, the blind-spot filter may not, so it must blur more.
+
+**E2.** Centre weight 1.00, all others 0: the noisy image comes out unchanged (20.24 dB). With the noisy image as its own target, copying the pixel gives zero training loss (B3b); nothing can beat that.
+
+**E3.** Noise2Noise 23.75 dB with centre weight 0.45; supervised 23.76 dB: a second noisy image is as good a target as the clean one (B1, B7). Noise2Void 21.10 dB, supervised with a blind spot 21.11 dB: among blind-spot filters, the noisy target finds the same filter as the clean target (B9). The gap between 21.1 and 23.8 dB is the price of the blind spot, not of the noisy target.
+
+**E4.** $c = 0.45$, 23.75 dB, the same as Noise2Noise and supervised. σn = 10: Noise2Void alone gives 22.13 dB, **worse** than the noisy image (28.20 dB), because the micrograph's fine texture cannot be predicted from the neighbours; $c = 0.80$ trusts the pixel and gives 29.20 dB. σn = 50: Noise2Void 19.86 dB against noisy 14.22 dB, $c = 0.21$, 20.93 dB. The noisier the image, the more the neighbours are worth compared with the pixel. No: at low noise the blind-spot prediction alone is worse than doing nothing.
+
+**E5.** The best linear filters reach about 24.85 dB (Noise2Void + pixel 24.85, supervised 24.87), non-local means 28.22 dB. A linear filter applies the same weights everywhere: it either smooths the flat regions and blurs the step and the dots, or keeps them and leaves the noise. Non-local means (and a network) choose the weights by the content.
+
+**E6.** Noise2Void gives 18.56 dB, worse than the noisy image (20.17 dB). The direct neighbours get weights of 0.35 to 0.38, with negative weights further out: a filter that predicts the blobs of the noise, so it reproduces them. The supervised blind-spot filter (19.76 dB) differs from Noise2Void now: the noisy target no longer finds the best blind-spot filter, because the pixel's noise is correlated with its neighbours. Noise2Noise is not affected (22.06 dB): the second image's noise is independent of the input.
+
+**E7.** The stripes stay; 19.81 dB against 20.16 for the noisy image. The weights of the two row neighbours (about 0.30) are larger than those of the column neighbours (about 0.21), and the next pixels in the row still get 0.07, while the corners two rows up and down get small negative weights: the filter uses the row to predict the row offset. Putting the pixel back gives 21.03 dB: better, but the stripes are still there, and $c$ is computed from a residual that is too small, as in B6(b).
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `selfsup/src/self_denoise/exercise.rs`.
+
+A `Filter` holds the $(2r + 1)^2$ weights of a window, row by row, and a bias.
+
+**C1.** `neighbourhood(img, x, y, radius, blind)`: the window values around $(x, y)$, row by row,
+with the mirror border; without the centre when `blind`. The check uses a 3 × 3 image.
+
+**C2.** `fit_filter(input, target, radius, blind)`: the least-squares filter.
+
+```
+rows = [], targets = []
+for every pixel (x, y):
+    rows.append( neighbourhood(input, x, y, radius, blind) followed by a 1 )
+    targets.append( target(x, y) )
+solution = least squares of rows · w ≈ targets
+weights = solution without its last entry (with a 0 put in at the centre if blind)
+bias = the last entry
+```
+
+Noise2Void is `fit_filter(noisy, noisy, r, true)`; Noise2Noise `fit_filter(noisy, noisy2, r, false)`.
+The checks: without the blind spot the filter is the identity; with it, the centre weight is 0,
+the weights add up to about 1 and the PSNR improves; Noise2Noise is as good as the clean target.
+
+**C3.** `apply_filter(img, filter)`: the weighted sum over the window plus the bias.
+
+**C4.** `mix_back(noisy, prediction, sigma)`: put the pixel back (B6):
+
+```
+r2 = mean over all pixels of (noisy − prediction)²
+c = max(0, 1 − sigma² / r2)
+out = prediction + c · (noisy − prediction)
+```
+
+Then `cargo run -p selfsup -- self-denoise` and open the pictures in `out/self-denoise/`. The program
+adds noise of standard deviation 0.1 to a 128 × 128 crop of the micrograph (grey values in
+[0, 1]), once independent from pixel to pixel and once correlated (blurred white noise), and
+fits 5 × 5 filters in five ways. It prints the PSNR (peak 1) of every result, next to the best
+Gaussian blur and non-local means, and the learned Noise2Void weights.
+
+**C5.** Independent noise. Compare Noise2Void with "supervised blind spot", and Noise2Noise with
+"supervised". What does each pair show? What happened without the blind spot?
+
+**C6.** Put the pixel back: compare its PSNR and $c$ with Noise2Noise, the Gaussian blur and
+non-local means. Which of these methods needed something besides the one noisy image?
+
+**C7.** Correlated noise. Compare Noise2Void with the noisy image and with "supervised blind
+spot", read the weights, and explain $c$.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `selfsup/src/self_denoise/solution.rs` in the download.
+
+**C5.** Noisy 19.98 dB. Noise2Void 21.06 dB and supervised blind spot 21.06 dB: with independent
+noise the noisy target finds the best blind-spot filter (B9). Noise2Noise 23.45 dB and
+supervised 23.46 dB, both with centre weight 0.44: a second noisy image is as good as a clean
+one (B7). Without the blind spot the filter is the identity (centre weight 1.00) and the
+result is the noisy image (19.98 dB). The Noise2Void weights are 0.17 to 0.18 on the direct
+neighbours, 0.05 to 0.07 on the diagonals, nearly 0 further out, and add up to 1.00.
+
+**C6.** Put back: 23.45 dB with $c = 0.43$: as good as Noise2Noise and the supervised filter,
+better than the best Gaussian blur (23.06 dB at σ 0.75, and that σ was chosen with the truth)
+and non-local means (23.20 dB). Noise2Noise needs a second image, the supervised filter the
+clean image, the Gaussian's σ was chosen with the clean image; Noise2Void with the pixel put
+back needs only the noisy image and the noise level σ.
+
+**C7.** Noise2Void 18.45 dB, **below** the noisy 20.00 dB; supervised blind spot 19.62 dB, so the
+noisy target no longer finds the best blind-spot filter. The weights are 0.35 to 0.38 on the
+direct neighbours and about −0.07 two pixels away: the filter predicts the correlated noise
+from the neighbours and keeps it. The residual pixel − prediction is then smaller than the
+noise, $1 - \sigma^2/r^2 < 0$, and $c = 0$ (B6b). Noise2Noise still works: 21.85 dB.
+:::
+
+## Where this leads
+
+Denoising returns in the [diffusion models day](../score-matching/lec.qmd), where a denoiser trained on many noise levels becomes a generative model; there the clean images exist and the noise is added on purpose. For the classical alternatives and the rules for measuring on restored images, see the [denoising unit](../denoise/lec.qmd). The [fine-tuning day](../transfer/lec.qmd) adapts pretrained networks, including denoisers, to new images.

@@ -1,0 +1,171 @@
+---
+title: "Exercise: few labels"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- read a learning curve and estimate what more labels would buy *(math: fit a power law)*,
+- plan sparse annotation and say what the loss does with unmarked pixels,
+- run the human-in-the-loop cycle and an active-learning loop, and say when uncertainty sampling fails,
+- keep the test set honest in an annotation campaign.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Learning curve | accuracy or error against the number of labelled examples |
+| Sparse annotation | a few objects outlined completely plus some background strokes; the rest unmarked |
+| Human in the loop | predict, let a person correct, retrain, repeat |
+| Active learning | the model proposes which examples to label next |
+| Uncertainty | how close a prediction is to a toss-up; two classes: $1 - \lvert 2p - 1\rvert$ |
+| Most different | the unlabelled example farthest from every labelled one |
+
+## By hand
+
+**B1.** A learning curve. Error rates of a network trained from scratch on 6, 30 and 300 labels: 38 %, 18 % and 3 %.
+(a) Plot $\log(\text{error})$ against $\log N$ roughly. Is it close to a line?
+(b) From 30 to 300 labels the error fell from 18 % to 3 %. If the slope stays, what error would 3000 labels give?
+(c) A frozen probe reaches 2.7 % with 15 labels and stays there up to 300. What limits it, and what would help?
+
+**B2.** Sparse annotation. An image of 400 × 400 pixels has 60 nuclei of about 300 pixels each. You outline 6 nuclei and paint background strokes covering 2000 pixels.
+(a) How many pixels enter the loss, and what fraction of the image is that?
+(b) How many nucleus pixels and background pixels are marked? Suggest class weights that make both classes count equally.
+(c) What goes wrong if the 54 unmarked nuclei are counted as background?
+
+**B3.** Uncertainty. Five unlabelled cells have $p(\text{class B}) = 0.9, 0.45, 0.6, 0.55, 0.02$.
+(a) Compute $1 - \lvert 2p - 1\rvert$ for each. Which is labelled next by "most uncertain"? (Ties to the first.)
+(b) The fifth cell is in fact class B. Will "most uncertain" ever pick it soon? What does that say about the 0.02?
+
+**B4.** Most different. Labelled cells at $(0, 0)$ and $(1, 1)$; unlabelled at $(0.1, 0)$, $(0.5, 0.5)$, $(0, 0.9)$. Which is farthest from its nearest labelled cell?
+
+**B5.** Results of the demo's rules (mean of 6 starts; test accuracy, and in brackets the fraction of rare cells correct):
+
+| labels | 10 | 20 | 40 |
+|---|---|---|---|
+| random | 80.3 % (31) | 85.4 % (50) | 91.5 % (73) |
+| most uncertain | 83.9 % (0) | 88.3 % (0) | 91.3 % (0) |
+| uncertain + different | 81.7 % (49) | 92.8 % (71) | 94.3 % (74) |
+| the model's mistakes | 80.5 % (70) | 90.8 % (78) | 96.5 % (87) |
+
+(a) Which rule is best with 10 labels, and which with 40?
+(b) Why does "most uncertain" end where random ends, although it led at 10 and 20?
+(c) "The model's mistakes" needs something the others do not. What?
+
+**B6.** A colleague picks the test cells with the same active-learning rule that picked the training cells, "to test on the interesting cells". Give two reasons why the reported accuracy would mislead.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $\log_{10}N$ = 0.78, 1.48, 2.48 and $\log_{10}$ error = −0.42, −0.74, −1.52: slopes $-0.32/0.70 = -0.46$ and $-0.78/1.0 = -0.78$; roughly a line, steepening (real curves bend). (b) One decade divided the error by 6, so another decade gives about $3/6 = 0.5$ %, if nothing flattens it. (c) Its fixed features: the probe cannot do better than the features allow (a floor). Tuning the backbone, or better features, not more labels.
+
+**B2.** (a) $6 \cdot 300 + 2000 = 3800$ of $160{,}000$ pixels: 2.4 %. (b) 1800 nucleus and 2000 background pixels: almost balanced; weights $w \propto 1/\text{count}$, e.g. $1/1800$ and $1/2000$ (normalised: 1.05 and 0.95). (c) 16,200 nucleus pixels would be labelled background: the network learns to call nuclei background, and misses them.
+
+**B3.** (a) 0.2, 0.9, 0.8, 0.9, 0.04. The second cell (0.45) is picked (tie with 0.55, which comes later). (b) No: with uncertainty 0.04 it is near the end of the queue. The model is confidently wrong; uncertainty sampling cannot see such mistakes.
+
+**B4.** Distances to the nearest labelled cell: $(0.1, 0)$: 0.1; $(0.5, 0.5)$: 0.71; $(0, 0.9)$: $\min(0.9, \sqrt{1 + 0.01}) = 0.9$. The third, $(0, 0.9)$.
+
+**B5.** (a) With 10: most uncertain (83.9 %); with 40: the model's mistakes (96.5 %), then uncertain + different (94.3 %). (b) It keeps labelling the boundary between the two big classes, which is learnt after about 20 labels, and never finds the rare subtype (0 % correct): the remaining errors are exactly the cells it never asks about. (c) A person must look at the predictions for every cell and know the true class to spot the mistakes: the human in the loop.
+
+**B6.** The test cells are not a random sample of the cells you will analyse: hard, unusual cells are over-represented, so the accuracy is not the accuracy on your images (here probably too low; in general it is simply not interpretable). And they were chosen with the help of the model being tested: the choice depends on the training set and the model, so the test set is not independent of them (the [leakage unit](../leakage/lec.qmd)).
+:::
+
+### Math questions
+
+**B7.** *(math)* Fit $\text{error} = aN^{-b}$ to two points $(N_1, e_1)$, $(N_2, e_2)$: give $b$ and $a$. Apply it to $(30, 0.18)$ and $(300, 0.03)$. How many labels does halving the error then need?
+
+**B8.** *(math)* For two classes, show that the margin $1 - \lvert 2p - 1\rvert$, the entropy $H(p)$ and the least confidence $1 - \max(p, 1 - p)$ are all decreasing functions of $\lvert p - 0.5\rvert$, so they pick the same cell.
+
+**B9.** *(math)* The sparse loss is $\mathcal L = \sum_i m_i\ell_i / \sum_i m_i$. Show that the gradient with respect to the network output at an unmarked pixel is 0. What is the gradient at a marked pixel?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** *(math)* $b = \log(e_1/e_2)/\log(N_2/N_1)$, $a = e_1N_1^b$. Here $b = \log 6/\log 10 = 0.778$, $a = 0.18 \cdot 30^{0.778} = 2.53$. Halving needs $2^{1/b} = 2^{1.29} = 2.4$ times as many labels.
+
+**B8.** *(math)* Let $t = \lvert p - 0.5\rvert \in [0, 0.5]$. Margin: $1 - 2t$. Least confidence: $1 - (0.5 + t) = 0.5 - t$. Entropy: $H(0.5 + t) = H(0.5 - t)$ is symmetric about 0.5 and strictly concave, so it decreases in $t$. All three are strictly decreasing in $t$: the cell with the smallest $t$ maximises all three.
+
+**B9.** *(math)* $\partial\mathcal L/\partial\hat y_i = m_i\,\ell'(\hat y_i, y_i)/\sum_j m_j$, which is 0 when $m_i = 0$; at a marked pixel it is the usual per-pixel gradient divided by the number of marked pixels.
+:::
+
+## Explore: which cell next? {#explore}
+
+A pool of 500 unlabelled cells, each described by two features. Two classes (blue A and orange B), and a small **rare subtype** of class B in the top-left corner (30 cells). The classifier (logistic regression on smooth bumps) starts from 4 labelled cells and is retrained after every new label; the background shows its $p(\text{B})$ and the black line its boundary. Choose the rule for the next label: **random**, **most uncertain**, **most different** (farthest from all labels), **uncertain + different** (in turn), or **the model's mistakes** (a person who sees all predictions labels a cell the model gets wrong). The red ring shows the proposed cell; **label 1** or **label 10** accepts proposals; clicking a cell labels it yourself. Right: test accuracy on 600 other cells; the lines are the mean of 6 runs from different starts, the dots this run.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="activelearn" data-preset="uncertain"></div>
+<script src="../demos/dist/activelearn.js"></script>
+```
+
+**E1.** Presets **random** and **most uncertain** (20 labels each). Compare where the labelled cells lie, and the test accuracy.
+
+**E2.** Preset **uncertain misses the rare cells** (40 labels, true classes shown). How many rare cells were labelled? How is the rare subtype predicted, and why does uncertainty sampling never ask about it?
+
+**E3.** Preset **uncertain + different** (40 labels). Where do the "different" labels go? Compare accuracy and rare cells with E2.
+
+**E4.** Preset **a person fixes mistakes** (20 labels). Compare with the curves of the other rules at 20 labels. What is the catch?
+
+**E5.** Start again and label cells yourself by clicking: try to beat 92 % with 15 labels. Which cells did you choose?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Random: labels spread over the whole pool, 82.7 % after 20 labels. Most uncertain: labels crowd along the boundary between the moons, where they move it most: 88.2 %. (From this start; the mean curves: 85.4 and 88.3 %.)
+
+**E2.** None of the 40 labelled cells is rare. The rare subtype sits deep in the region the model calls A, with $p(\text{B})$ near 0: the model is sure, and wrong, so the rare cells are never uncertain. Test accuracy 91.0 %, rare subtype 0 % correct.
+
+**E3.** The "different" labels go to the corners and edges of the pool, far from all earlier labels, including the rare cluster: 4 rare cells are labelled, after which the model learns the corner. Accuracy 95.0 %, rare subtype 81 %.
+
+**E4.** 92.0 % (rare 86 %) with 20 labels; the mean curves at 20: random 85.4 %, uncertain 88.3 %, uncertain + different 92.8 %, mistakes 90.8 %. The catch: someone has to look at the predictions for all cells and recognise the mistakes, which is the human-in-the-loop work; the automatic rules need no person until a cell is proposed.
+
+**E5.** Possible with about 2 labels per region: a few along the middle of each moon's boundary, the ends of both moons, and one or two in the rare cluster. You used both rules at once: uncertainty (near the boundary) and diversity (unexplored regions).
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `finetuning/src/few_labels/exercise.rs`.
+
+`finetuning/src/few_labels/model.rs` gives the pool of cells (as in the demo) and the classifier
+(`Model::fit(cells, labelled)`, `model.prob(x, y)`, `model.score(test)`).
+
+**C1.** `uncertainty(p)`: $1 - \lvert 2p - 1\rvert$. The check is B3(a).
+
+**C2.** `most_uncertain(probs, labelled)`: the unlabelled cell with the largest uncertainty (ties to the lowest index; `None` if all are labelled). The check is B3.
+
+**C3.** `most_different(cells, labelled)`:
+
+```
+best = none
+for every unlabelled cell j:
+    d = smallest distance from j to a labelled cell
+    if d > the best distance so far: best = j
+return best
+```
+
+The check is B4.
+
+**C4.** `entropy(p)`: $-p\log_2 p - (1 - p)\log_2(1 - p)$, with $0\log 0 = 0$. The check is math question B8's numbers.
+
+Then `cargo run -p finetuning -- few-labels`. The program prints uncertainty and entropy for a
+few values, the accuracy with all 500 cells labelled, and the learning curves (mean of 5 starts)
+of four rules: random, most uncertain, most different, and both in turn. It saves the pool after
+40 labels with each rule in `out/few-labels/`.
+
+**C5.** Compare the uncertainty and the entropy of $p = 0.7$ and $0.9$. Do they rank cells the same way?
+
+**C6.** Which rule is best at 10 labels, and which at 40? Look at the rare-subtype column of "most uncertain", and open `most-uncertain-40.png` and `both-in-turn-40.png`.
+
+**C7.** With all 500 cells labelled the accuracy is 97.3 %. How close does the best rule get with 40?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `finetuning/src/few_labels/solution.rs` in the download.
+
+**C5.** Uncertainty: 1.00, 0.60, 0.20, 0.02 for $p$ = 0.5, 0.7, 0.9, 0.99; entropy: 1.00, 0.88, 0.47, 0.08 bits. Different numbers, the same order (math question B8).
+
+**C6.** At 10 labels: most different 83.5 %, most uncertain 83.3 %, both 82.7 %, random 77.5 %. At 40: both in turn 95.3 %, most different 93.7 %, most uncertain 93.3 %, random 91.9 %. The rare subtype: most uncertain gets 0 % at 10 and 15 labels and 20 % from then on (one of the five starts happens to label a rare cell); both in turn 79 % at 40. In the pictures, most uncertain's labels line the boundary, and the rare corner is coloured as class A; both in turn has labels in the corners too.
+
+**C7.** Both in turn: 95.3 % with 40 labels, 2 points below all 500 (97.3 %), with 8 % of the labels.
+:::
+
+## Where this leads
+
+The labels you collect are only valid for the images they came from. The [next unit](../domain-shift/lec.qmd) asks what happens when a model trained on one microscope meets another, and how a few labelled images of the new one help.

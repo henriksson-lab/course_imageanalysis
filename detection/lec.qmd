@@ -24,6 +24,7 @@ format:
 
 - **Boxes**: the simplest object description; **IoU** of two boxes in closed form.
 - Where candidate boxes come from: a **grid of guesses** (in detail on the next day).
+- Objects of every size: a **feature pyramid** inside the network.
 - Every object gets many candidates: **non-maximum suppression** (NMS) keeps one, and what it gets wrong in a crowd.
 - How detections are scored: recalled from the [evaluation day](../object-eval/lec.qmd).
 
@@ -101,6 +102,49 @@ In detail, with a real network: [Networks for cells and objects: single-shot det
 :::
 ::::
 
+## Objects of every size {#fpn-problem}
+
+:::: {.columns}
+::: {.column width="48%"}
+- One micrograph can hold spots of 3 px, nuclei of 15 px and **clusters** of 100 px.
+- A CNN's **early layers** are fine grids (stride 4–8), but each cell sees a small region and knows little (edges, blobs).
+- Its **deep layers** see large regions and know *what* is there, but on a coarse grid (stride 32): a spot is 1/100 of a cell.
+- The old answer, from [scale space](../scale-space/lec.qmd): run the detector on an **image pyramid** (the image at ×2, ×1, ×½). It works, but the whole network runs once per level: $4 + 1 + \tfrac14 \approx 5$ passes.
+:::
+::: {.column width="52%"}
+![](fig-fpnscale.png){fig-alt="A synthetic fluorescence image with small spots, single nuclei and one large cluster of nuclei, twice. Left: the stride-8 grid of an early layer; one cell (yellow) on a spot and the 40-pixel region it sees (orange dashed): it sees the spot but not the cluster. Right: the stride-32 grid of a deep layer; one cell on the cluster and the 140-pixel region it sees: the whole cluster, but a spot is 1/100 of one cell." width="100%"}
+:::
+::::
+
+## A pyramid inside the network {#fpn}
+
+:::: {.columns}
+::: {.column width="56%"}
+- The CNN already makes a pyramid: its maps at strides 4, 8, 16, 32 (**bottom-up**). Coarse maps know what is there; fine maps are sharp but know little.
+- **Feature pyramid network** (FPN; Lin et al., 2017), a **top-down** path: upsample the coarsest map ×2 and **add** the finer map, brought to the same channels by a **1×1 convolution** (the lateral connection). Repeat to the finest level.
+- Every level is now sharp **and** knows what it sees. The same box head runs on **every** level: small objects on fine levels, large on coarse. Cost: one pass, plus a few cheap layers.
+- Coarse to fine, adding detail level by level: how a [Laplacian pyramid](../scale-space/lec.qmd) is added back up. Like [U-Net's skip connections](../unet/lec.qmd), but U-Net predicts on the finest level only, FPN on every level.
+:::
+::: {.column width="44%"}
+![](fig-fpn.svg){fig-alt="Diagram of a feature pyramid network. Left, bottom-up: the CNN's maps at strides 4, 8, 16 and 32, smaller and darker (knowing more) going up. Right, top-down: maps of the same sizes, all dark; each is the 1×1-converted map from the left (green arrows) plus the ×2-upsampled map from above (blue arrows, plus signs). Orange arrows: boxes are predicted from every level, small spots from stride 4, nuclei from stride 8, large clusters from stride 32." width="100%"}
+:::
+::::
+
+## The math: the top-down path, and which level an object goes to {.math}
+
+Backbone maps $C_2, \dots, C_5$ (stride $2^k$); $W_k$ a 1×1 convolution (the same linear map of the channels at every pixel); $\mathrm{up}$ = ×2 upsampling:
+
+$$P_5 = W_5 C_5, \qquad P_k = W_k C_k + \mathrm{up}(P_{k+1}), \quad k = 4, 3, 2.$$
+
+The Laplacian pyramid's reconstruction is the same recursion, $g_i = l_i + \mathrm{up}(g_{i+1})$, with fixed details $l_i$; here the "details" $W_k C_k$ are learned. A 3×3 convolution on each $P_k$ smooths the blocky upsampling.
+
+An object of size $s = \sqrt{wh}$ goes to level $k = \lfloor k_0 + \log_2(s / s_0) \rfloor$, clamped to $2, \dots, 5$; in the original paper $s_0 = 224$, $k_0 = 4$:
+
+- $s = 224$: $k = 4$ (stride 16); $s = 448$: $k = 5$; $s = 112$: $k = 3$. Twice the size, one level coarser: the object always covers about $224/16 = 14$ cells.
+- A 20 px nucleus: $\lfloor 4 + \log_2(20/224) \rfloor = \lfloor 0.51 \rfloor = 0$, clamped to $k = 2$ (stride 4, 5 cells).
+
+Many single-shot detectors instead let the training choose the level ([next day](../yolo/lec.qmd)).
+
 ## Many candidates per object
 
 Whatever proposes the boxes, every object gets **several** overlapping candidates: neighbouring grid cells, neighbouring pixels of a peak, jittered guesses.
@@ -171,6 +215,7 @@ A centre heat map's peak picking (next day) is the Hough version; box NMS is a d
 
 - A box is 4 numbers + score; IoU of boxes has a closed form; poor for diagonal or long objects.
 - Candidates come from a **grid of guesses** (anchors or centre peaks: [next day](../yolo/lec.qmd)).
+- Objects of every size: a **feature pyramid** (top-down path with lateral 1×1 connections) gives sharp maps that know what they see at every stride; boxes are predicted at every level, small objects on fine levels.
 - Every object gets many candidates; **greedy NMS** keeps the best and deletes overlaps above $t$.
 - In crowds, one $t$ cannot both remove duplicates and keep touching neighbours.
 - Scoring (matching, F1, AP) comes from the [evaluation day](../object-eval/lec.qmd).

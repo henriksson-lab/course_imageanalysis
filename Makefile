@@ -45,7 +45,8 @@ TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts \
   demos/test/stardist-test.ts demos/test/cellpose-test.ts demos/test/yolo-test.ts \
   demos/test/sam-test.ts demos/test/cellnets-compare-test.ts \
   demos/test/wasm-test.ts demos/test/maxflow-wasm-test.ts demos/test/stardist-wasm-test.ts \
-  demos/test/cellpose-wasm-test.ts demos/test/yolo-wasm-test.ts demos/test/sam-wasm-test.ts
+  demos/test/cellpose-wasm-test.ts demos/test/yolo-wasm-test.ts demos/test/sam-wasm-test.ts \
+  demos/test/training-test.ts demos/test/gans-test.ts demos/test/maskfill-test.ts demos/test/contrastive-test.ts demos/test/blindspot-test.ts demos/test/transfercurves-test.ts demos/test/lowrank-test.ts demos/test/activelearn-test.ts demos/test/domainshift-test.ts demos/test/drifting-test.ts
 test:
 	@for t in $(TESTS); do echo "== $$t"; \
 	  js=$$(node_modules/.bin/esbuild $$t --bundle --platform=node --log-level=warning) && printf '%s\n' "$$js" | node || exit 1; \

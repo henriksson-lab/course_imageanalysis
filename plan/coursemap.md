@@ -1,7 +1,7 @@
 # Course map (decisions, 2026-11-12)
 
 > **Decided 2026-11-13: this is a self-study course with no cap on the number of days. There
-> are no electives.** Every day belongs to one sequence of 51 days, sorted into nine themed parts
+> are no electives.** Every day belongs to one sequence of 55 days, sorted into nine themed parts
 > by prerequisites (applied 2026-11-13, see "Self-study restructure" at the end). The machine-readable
 > structure is `days.yml` at the repo root; this file keeps the rationale.
 
@@ -22,11 +22,11 @@ is the teaching order; day numbers are global (1–51). Each day's plan is named
 | II | Transforms and reconstruction | 7. Wavelets (`haar/` `filterbank/` `dwt2d/` `shrinkage/`) · 8. Image compression (`entropy/` `lossless/` `dct/` `jpeg/` `compress-science/`) · 9. Radon transform and tomography (`radon/` `backprojection/` `fbp/` `algebraic-recon/`) · 10. Edge-preserving smoothing and PDEs (`heat-equation/` `perona-malik/` `tv-flow/` `bilateral-nlm/` `inpainting/` `smoothers/`) · 11. Sparse representations (`sparsity/` `ista/` `compressed-sensing/` `cs-mri/` `dictionaries/`) |
 | III | From pixels to objects | 12. Thresholding (`histogram/` `otsu/` `local-threshold/` `seg-eval/`) · 13. Morphology (`morph-binary/` `morph-openclose/` `morph-grey/` `morph-reconstruct/`) · 14. Labelling (`label-connectivity/` `regionprops/` `shape-features/` `label-measure/`) · 15. Watershed (`ws-landscape/` `ws-flooding/` `ws-gradient/` `ws-distance/`) · 16. Measurements (`intensity-features/` `texture-features/` `relations/`) · 17. Skeletons (`skel-thinning/` `skel-medialaxis/` `skel-graph/` `skel-neurovessel/`) · 18. Moments (`moments-basis/` `moment-invariants/` `orthogonal-moments/` `zernike/`) · 19. Spatial statistics of objects (`point-patterns/` `nn-functions/` `ripley-k/` `envelopes/` `marked-patterns/`) |
 | IV | Detecting points, lines and features | 20. Point detection (`spot-filters/` `spot-threshold/` `spot-fit/` `spot-crowd/`) · 21. Hough transform (`hough-lines/` `hough-circles/` `ght/` `ransac/`) · 22. Integral images (`integral-image/` `box-filters/` `rect-features/` `viola-jones/`) |
-| V | Aligning images and motion | 23. FFT registration (`matching/` `xcorr-fft/` `phasecorr/` `stitching/`) · 24. Keypoints and descriptors (`keypoints/` `descriptors/` `feature-matching/` `feature-alignment/`) · 25. Optical flow (`flow-constraint/` `lucas-kanade/` `horn-schunck/` `nonrigid-reg/`) · 26. Tracking (`track-linking/` `track-predict/` `track-events/` `track-analysis/`) |
+| V | Aligning images and motion | 23. FFT registration (`matching/` `xcorr-fft/` `phasecorr/` `stitching/`) · 24. Keypoints and descriptors (`keypoints/` `descriptors/` `feature-matching/` `feature-alignment/` `icp/`) · 25. Optical flow (`flow-constraint/` `lucas-kanade/` `horn-schunck/` `nonrigid-reg/`) · 26. Tracking (`track-linking/` `track-predict/` `track-events/` `track-analysis/`) |
 | VI | Segmentation as optimisation | 27. Graph cuts (`seg-energy/` `maxflow/` `graphcut-seg/` `ncut/`) · 28. Ising model and Markov random fields (`ising/` `mcmc/` `mrf-denoise/` `gmrf/`) · 29. Graph-based segmentation (`random-walker/` `mst-seg/` `ws-msf/` `merge-trees/` `superpixels/`) · 30. Snakes and active shape models (`snakes/` `snake-matrix/` `shape-models/` `asm/`) · 31. Level sets (`implicit/` `levelset-eq/` `geodesic/` `chanvese/`) · 32. Dynamic programming (`dp-paths/` `polar-boundary/` `livewire/` `fastmarching/`) |
-| VII | Learning from examples | 33. Random forests (`dtree/` `forest/` `forest-objects/` `pixelclass/`) · 34. Support vector machines (`classify/` `maxmargin/` `kernel-trick/` `pixel-classify/`) · 35. Gaussian mixtures (`kmeans/` `gaussian-mixture/` `em/` `gmm-images/`) · 36. Neural networks (`neuralnet/` `backprop/` `cnn/` `unet/`) · 37. Evaluation and statistics (`object-eval/` `agreement/` `leakage/` `replicates/`) · 38. Variational autoencoders (`autoencoder/` `vae/` `vae-gen/`) · 39. Modern deep learning (`instances/` `detection/` `attention/` `diffusion/`) · 40. Networks for cells and objects *(planned)* (`stardist/` `cellpose/` `yolo/` `sam/` `cellnets-compare/`) · 41. Diffusion models (`score-matching/` `diffusion-sampling/` `guidance/` `diffusion-inverse/`) |
-| VIII | Colour and fluorescence | 42. Colour (`colour-vision/` `rgb-linear/` `colour-perceptual/` `colour-display/`) · 43. Spectral unmixing (`crosstalk/` `lsunmix/` `endmembers/` `stain-unmixing/`) · 44. Colocalisation (`coloc/` `coloc-null/` `coloc-objects/` `coloc-confounds/`) · 45. FRET (`fret-physics/` `sensitised-emission/` `acceptor-bleach/` `ratiometric/`) · 46. Fluorescence lifetime imaging (FLIM) (`lifetime/` `decayfit/` `phasor/` `flim-fret/`) |
-| IX | 3D and computing | 47. Marching cubes (`volumes3d/` `isocontour/` `marchingcubes/` `surface-measure/`) · 48. 3D graphics (`pipeline3d/` `rasterise/` `gpuformats/` `volrender/`) · 49. Geometry from multiple images (`cameras/` `two-view/` `stereo/` `sfm/`) · 50. Ray tracing (`raycast/` `whitted/` `bvh/` `pathtrace/`) · 51. How GPUs work (`gpu-parallel/` `gpu-memory/` `gpu-patterns/` `gpu-fit/`) |
+| VII | Learning from examples | 33. Random forests (`dtree/` `forest/` `forest-objects/` `pixelclass/`) · 34. Support vector machines (`classify/` `maxmargin/` `kernel-trick/` `pixel-classify/`) · 35. Gaussian mixtures (`kmeans/` `gaussian-mixture/` `em/` `gmm-images/`) · 36. Neural networks (`neuralnet/` `backprop/` `cnn/` `unet/`) · 37. Training networks in practice (`optimisers/` `normalisation/` `augmentation/` `training-curves/`) · 38. Evaluation and statistics (`object-eval/` `agreement/` `leakage/` `replicates/`) · 39. Variational autoencoders (`autoencoder/` `vae/` `vae-gen/`) · 40. GANs and normalising flows (`gan/` `gan-training/` `image-translation/` `flows/`) · 41. Modern deep learning (`instances/` `detection/` `attention/` `diffusion/`) · 42. Learning without labels (`pretext/` `contrastive/` `self-distillation/` `self-denoise/`) · 43. Networks for cells and objects (`stardist/` `cellpose/` `yolo/` `sam/` `cellnets-compare/`) · 44. Fine-tuning and transfer learning (`transfer/` `finetune-strategies/` `few-labels/` `domain-shift/`) · 45. Diffusion models (`score-matching/` `diffusion-sampling/` `guidance/` `diffusion-inverse/` `drifting/`) |
+| VIII | Colour and fluorescence | 46. Colour (`colour-vision/` `rgb-linear/` `colour-perceptual/` `colour-display/`) · 47. Spectral unmixing (`crosstalk/` `lsunmix/` `endmembers/` `stain-unmixing/`) · 48. Colocalisation (`coloc/` `coloc-null/` `coloc-objects/` `coloc-confounds/`) · 49. FRET (`fret-physics/` `sensitised-emission/` `acceptor-bleach/` `ratiometric/`) · 50. Fluorescence lifetime imaging (FLIM) (`lifetime/` `decayfit/` `phasor/` `flim-fret/`) |
+| IX | 3D and computing | 51. Marching cubes (`volumes3d/` `isocontour/` `marchingcubes/` `surface-measure/`) · 52. 3D graphics (`pipeline3d/` `rasterise/` `gpuformats/` `volrender/`) · 53. Geometry from multiple images (`cameras/` `two-view/` `stereo/` `sfm/`) · 54. Ray tracing (`raycast/` `whitted/` `bvh/` `pathtrace/`) · 55. How GPUs work (`gpu-parallel/` `gpu-memory/` `gpu-patterns/` `gpu-fit/`) |
 
 Why this order (refined from the proposal in "Self-study restructure"):
 
@@ -86,6 +86,13 @@ slide with a pointer.
 | Sparsity priors in general (ℓ0/ℓ1, lasso, ISTA, compressed sensing, dictionaries) | Sparse representations (wavelet shrinkage stays on the wavelets day as the first special case) |
 | Nonlinear diffusion, TV flow, explicit-scheme stability for diffusion, bilateral/NLM in depth, classical inpainting | Edge-preserving smoothing and PDEs (`gmrf/` owns TV as a prior; `denoise/` first introduces the denoisers) |
 | Point operations, gamma/log, histogram equalisation, CLAHE, histogram matching; the cumulative histogram | `contrast/` (day 3); `histogram/` recalls the cumulative histogram |
+| Optimisers (momentum, Adam, schedules), initialisation, batch/layer normalisation, residual connections and ResNet, augmentation, reading training curves | Training networks in practice (`optimisers/` `normalisation/` `augmentation/` `training-curves/`) |
+| GANs, mode collapse, image-to-image translation and hallucination, normalising flows | GANs and normalising flows |
+| Self-supervised learning (pretext tasks, masked modelling, contrastive/InfoNCE, self-distillation, foundation features), self-supervised denoising | Learning without labels |
+| Transfer learning, fine-tuning strategies, LoRA/adapters, catastrophic forgetting, annotation strategy and active learning, domain shift | Fine-tuning and transfer learning |
+| Drifting fields (one-step generation, dataset distillation) | `drifting/` (Diffusion models day) |
+| Point-set alignment (ICP) | `icp/` (Keypoints and descriptors day) |
+| Feature pyramid networks | `detection/` (Modern deep learning day) |
 
 ## Conventions
 
@@ -224,7 +231,7 @@ that hard prerequisites come first. Learners pick a topic and follow its prerequ
 prerequisite map makes that easy).
 
 Applied:
-1. **Part structure**: nine parts, 51 days ("Parts and days" above). Refinements of the first
+1. **Part structure**: nine parts, 55 days ("Parts and days" above). Refinements of the first
    proposal: the transforms form their own Part II ("Transforms and reconstruction") right after
    Part I; detection (point detection, Hough, integral images) is its own Part IV; keypoints
    moved to "Aligning images and motion" (matching and registration); geometry from multiple
@@ -247,4 +254,6 @@ Applied:
 
 - **More machine learning** (requested 2026-11-17): training practicalities, GANs and normalising
   flows, self-supervised and contrastive learning, fine-tuning and transfer learning (absorbs the
-  earlier fine-tuning entry). Four new days; see `plan/ml-additions-plan.md`.
+  earlier fine-tuning entry). Four new days; see `plan/ml-additions-plan.md`. **Built 2026-11-17**
+  (days 37, 40, 42, 44, plus the `drifting` unit, ResNet, the VAE-as-tokenizer slide and feature
+  pyramids).

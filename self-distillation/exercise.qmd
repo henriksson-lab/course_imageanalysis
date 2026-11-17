@@ -1,0 +1,161 @@
+---
+title: "Exercise: self-distillation and foundation models"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- describe self-distillation: student, teacher, moving average, stop-gradient,
+- explain the two kinds of collapse and how centring and sharpening prevent them, with numbers,
+- use frozen features with k nearest neighbours and a linear probe, and spot batch effects,
+- judge when a pretrained (foundation) model's features can be trusted for your images,
+- derive the gradient of the distillation loss and the moving average as a weighted sum *(math)*.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+This unit has no demo of its own (a self-distillation model is too large to train live in a page); the Explore section uses the frozen-feature demo of the [attention unit](../attention/exercise.qmd#explore-embedprobe) with new questions.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Student, teacher | two networks of the same shape; the student is trained to match the teacher's output on another view |
+| Moving average (EMA) | teacher weights = m · teacher weights + (1 − m) · student weights, after every step |
+| Prototypes | the $K$ outputs of the networks, turned into probabilities by a softmax |
+| Centring | subtract a running mean of the teacher's scores before its softmax |
+| Sharpening | a low teacher temperature (e.g. 0.04 against 0.1 for the student) |
+| Foundation model | a very large network pretrained without labels on very many images, used through its features |
+| Batch effect | a technical difference (plate, day, microscope) that the features capture as if it were biology |
+
+## By hand
+
+**B1.** A student weight jumps from 0 to 1 and stays there. The teacher's copy starts at 0 and is updated with the moving average after every step.
+(a) With $m = 0.99$: what is the teacher's weight after 1, 10 and 100 steps?
+(b) How many steps until the teacher has followed half of the jump, for $m = 0.99$ and $m = 0.996$?
+
+**B2.** A teacher's scores for one image are $(2, 1, 0)$ over three prototypes.
+(a) Compute the softmax with temperature 1.
+(b) With temperature 0.5 (sharpening).
+(c) With the centre $(1, 0, 0)$ subtracted first, temperature 1.
+(d) The centre is the running mean of the scores over many images. Why does subtracting it stop the first prototype from winning for every image?
+
+**B3.** Match each failure to its cause and its fix:
+(a) every image gets the same prototype with probability 1;
+(b) every image gets the uniform distribution $1/K$;
+causes: only sharpening, only centring; fixes: add centring, add sharpening.
+
+**B4.** Frozen features of five labelled cells in 2D: mitotic at $(0.9, 0.1)$, $(0.8, 0.3)$; interphase at $(0.1, 0.9)$, $(0.2, 0.7)$, $(0.3, 0.8)$. A new cell has the embedding $(0.6, 0.4)$.
+(a) Classify it with 1-NN and 3-NN (Euclidean distance).
+(b) A second new cell at $(0.45, 0.55)$: 3-NN? How sure would you be?
+
+**B5.** Embeddings of control cells: plate A mean $(0.5, 0.2)$, plate B mean $(0.1, 0.6)$. A treated cell on plate A has the embedding $(0.7, 0.3)$, one on plate B $(0.3, 0.7)$.
+(a) Centre each per plate. Are the two treated cells alike?
+(b) Without centring, which would a clustering group together?
+
+**B6.** You have 40 labelled cells of three phenotypes and a foundation model trained on photographs. Order these by what you would try first, and say what each needs: (a) fine-tune the whole model; (b) k-NN on frozen features; (c) a linear probe on frozen features; (d) a hand-made feature set (size, intensity, texture) with a random forest.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $1 - 0.99^n$: $0.010$, $0.096$, $0.634$. (b) $1 - m^n = 0.5$, $n = \ln 0.5/\ln m$: $69$ steps for $m = 0.99$, $173$ for $m = 0.996$.
+
+**B2.** (a) $e^2, e^1, e^0 = 7.39, 2.72, 1$, sum 11.11: $(0.665, 0.245, 0.090)$. (b) Scores $(4, 2, 0)$: $54.6, 7.39, 1$, sum 63.0: $(0.867, 0.117, 0.016)$: more confident. (c) $(1, 1, 0)$: $(0.422, 0.422, 0.155)$: the first prototype lost its advantage. (d) A prototype that scores high for every image has a high mean; subtracting the mean removes exactly the part that every image shares, so only what is particular to an image decides its prototype.
+
+**B3.** (a) is caused by sharpening without centring (a shared advantage is amplified into a sure choice for all) and fixed by adding centring. (b) is caused by centring without sharpening (all shared preference removed, nothing makes an image commit) and fixed by adding sharpening. In the coding exercise: sharpened only, entropy 0 for each cell and for the batch mean; centred only, 2.07 and 2.08 ≈ ln 8; both, 0.90 and 1.93.
+
+**B4.** (a) Distances: to $(0.8, 0.3)$ $\sqrt{0.04 + 0.01} = 0.22$, to $(0.9, 0.1)$ $0.42$, to $(0.3, 0.8)$ $0.50$, to $(0.2, 0.7)$ $0.50$, to $(0.1, 0.9)$ $0.71$. 1-NN: mitotic; 3-NN: two mitotic, one interphase: mitotic. (b) Distances: $(0.8, 0.3)$ 0.43, $(0.9, 0.1)$ 0.64, $(0.2, 0.7)$ 0.29, $(0.3, 0.8)$ 0.29, $(0.1, 0.9)$ 0.49: the three nearest are two interphase and one mitotic: interphase, but the cell lies between the groups; with five labelled cells this is a guess.
+
+**B5.** (a) A: $(0.7 - 0.5, 0.3 - 0.2) = (0.2, 0.1)$; B: $(0.3 - 0.1, 0.7 - 0.6) = (0.2, 0.1)$: identical: the same response to the treatment. (b) Without centring the two cells are far apart, $\sqrt{0.16 + 0.16} = 0.57$, and each sits close to its own plate's controls: a clustering would group them by plate.
+
+**B6.** (b) and (c) first: no training of the network, minutes of work; k-NN needs nothing but the labels, the probe a few dozen labels (with weight decay). (d) as the baseline to beat: interpretable, needs a segmentation. (a) last: 40 cells are few for fine-tuning a large model (risk of overfitting and forgetting), and it needs a validation set and care (the [fine-tuning day](../transfer/lec.qmd)).
+:::
+
+### Math questions
+
+**B7.** *(math)* With $P_s = \mathrm{softmax}(\mathbf g/\tau_s)$ and a fixed $P_t$, show that $\partial\big(-\sum_k P_{t,k}\ln P_{s,k}\big)/\partial\mathbf g = (P_s - P_t)/\tau_s$. Show also that the loss equals $H(P_t) + \mathrm{KL}(P_t\,\|\,P_s)$.
+
+**B8.** *(math)* Unroll the moving average: show that after $n$ steps $\theta_t = m^n\theta_t^{(0)} + (1 - m)\sum_{j=0}^{n-1} m^j\theta_s^{(n-j)}$. What is the sum of the weights of the students? Roughly how many recent students does the teacher average for $m = 0.996$?
+
+**B9.** *(math)* Show that subtracting the same vector $\mathbf c$ from the scores of every image does not change any image's softmax at temperature $\tau$ if $\mathbf c = a\mathbf 1$ (all components equal), and does change it otherwise. Why must the centre therefore be a vector over the prototypes, not a single number?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** *(math)* $-\sum_k P_{t,k}\ln P_{s,k} = -\sum_k P_{t,k}g_k/\tau_s + \ln\sum_j e^{g_j/\tau_s}$ (using $\sum_k P_{t,k} = 1$). Derivative: $-P_{t,k}/\tau_s + P_{s,k}/\tau_s$. And $-\sum P_t\ln P_s = -\sum P_t\ln P_t + \sum P_t\ln(P_t/P_s) = H(P_t) + \mathrm{KL}(P_t\|P_s)$.
+
+**B8.** *(math)* By induction: $\theta_t^{(n)} = m\theta_t^{(n-1)} + (1 - m)\theta_s^{(n)}$; inserting the formula for $n - 1$ gives the formula for $n$. The weights of the students sum to $(1 - m)\sum_{j=0}^{n-1}m^j = 1 - m^n \to 1$. The weights fall by a factor $e$ in $1/(1 - m)$ steps: about 250 recent students for $m = 0.996$.
+
+**B9.** *(math)* $\mathrm{softmax}((\mathbf g - a\mathbf 1)/\tau)_k = e^{(g_k - a)/\tau}/\sum_j e^{(g_j - a)/\tau} = e^{g_k/\tau}/\sum_j e^{g_j/\tau}$: the factor $e^{-a/\tau}$ cancels. A centre with different components changes the relative scores of the prototypes: that is what removes a prototype's shared advantage. A single number would do nothing.
+:::
+
+## Explore: frozen features and a probe {#explore}
+
+The frozen-feature demo of the attention unit: a synthetic image of nuclei among debris and fibres, three per-pixel embeddings (raw $9 \times 9$ patches, a hand-made filter stack, and a tiny encoder trained **without labels** with a contrastive loss), a linear probe trained on painted strokes, a click as a prompt, and sliders that change the "microscope" after training.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="embedprobe" data-preset="few"></div>
+<script src="../demos/dist/embedprobe.js"></script>
+```
+
+**F1.** Preset **five strokes, learned features**. How many labelled grid pixels does the probe use, and what Dice does it reach? Switch the embedding to raw and to the filter stack. In the language of this unit: which of the three is a (very small) self-supervised model used as a frozen feature extractor, and how does it compare with the hand-made features?
+
+**F2.** Preset **new microscope: probe kept**. Read the Dice for the three embeddings. Which training choice of the self-supervised encoder explains why its features survive blur and noise?
+
+**F3.** Switch the image to the **micrograph** and click inside the nucleus in similarity mode with the learned features. What does this say about using a pretrained model on images unlike its training images?
+
+**F4.** Suppose the encoder had been trained on images from one microscope only, and you apply the probe to a plate imaged on another. What would you check first, and how could you correct it without new labels?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**F1.** 69 labelled grid pixels; Dice 0.55 with the learned features, 0.39 with raw patches, 0.53 with the filter stack. The learned features are the self-supervised model's frozen embeddings (trained with two views and a contrastive loss, no labels); here a tiny encoder is about as good as a good hand-made filter stack, and much better than raw pixels. Large pretrained models make the gap to hand-made features larger.
+
+**F2.** Learned 0.58, raw 0.37, filter stack 0.55. The encoder was trained with blur and noise augmentations: its features were made to ignore exactly these changes (the contrastive unit's rule: the augmentations decide what is ignored).
+
+**F3.** The learned similarity map is weak and streaky: the encoder was trained mostly on synthetic images, so its features do not describe this texture. A pretrained model is only as good as the match between its training images and yours: test it with a probe on your own images before relying on it.
+
+**F4.** Check for a batch effect: compare the embeddings (or the probe's outputs) of control cells on the two microscopes, e.g. their means and a 2D map coloured by microscope. Correct by centring (and scaling) the embeddings per microscope or plate with control cells (B5); then evaluate on held-out plates.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `selfsup/src/self_distillation/exercise.rs`.
+
+**C1.** `softmax_t(logits, centre, tau)`: the softmax of $(\mathbf g - \mathbf c)/\tau$, with the largest
+value subtracted before `exp`. The checks are B2.
+
+**C2.** `distill_loss(t, student_logits, tau_s)`: the loss $-\sum_k t_k\ln s_k$ with
+$s = \mathrm{softmax}(\text{student logits}/\tau_s)$, and its gradient $(s - t)/\tau_s$ (B7). The check
+compares with finite differences.
+
+**C3.** `ema(teacher, student, m)`: the moving average, weight by weight. The check is B1.
+
+**C4.** `entropy(p)`: $-\sum p\ln p$, with $0\ln 0 = 0$.
+
+Then `cargo run -p selfsup -- self-distillation`. Part 1 takes the 8 output scores of an untrained
+network for the 64 synthetic cells of the contrastive unit, adds a drift that all cells share
+(towards prototype 0: the start of a collapse), and treats them four ways. Part 2 follows a
+student weight that jumps from 0 to 1 with three values of $m$.
+
+**C5.** Part 1: read the two entropies and the number of prototypes used for each treatment.
+Which treatment collapses to one prototype, which to the uniform distribution, and which does
+neither? Relate to B3.
+
+**C6.** Part 2: compare with B1. Which $m$ would you choose for a teacher that should average
+over about the last hundred students?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `selfsup/src/self_distillation/solution.rs` in the download.
+
+**C5.** Plain softmax: entropy per cell 1.981, of the batch mean 1.987 (ln 8 = 2.079), and one
+prototype is every cell's top choice (the shared drift). Sharpened only: 0.000 and 0.000, one
+prototype: collapse to one prototype. Centred only: 2.073 and 2.079, seven prototypes are
+somebody's top choice but every cell is almost uniform: collapse to uniform. Centred and
+sharpened: 0.897 per cell (confident) and 1.932 for the batch mean (spread over the prototypes),
+seven of eight used: neither.
+
+**C6.** $m = 0.9$: 0.100, 0.651, 1.000, 1.000 after 1, 10, 100, 1000 steps; $m = 0.99$: 0.010, 0.096,
+0.634, 1.000; $m = 0.996$: 0.004, 0.039, 0.330, 0.982. An average over about the last $1/(1 - m)$
+students (B8): $m = 0.99$ for about a hundred.
+:::
+
+## Where this leads
+
+The [last unit of this day](../self-denoise/lec.qmd) learns denoising without clean images. The [fine-tuning day](../transfer/lec.qmd) adapts pretrained networks, including foundation models, when frozen features are not enough. Frozen self-supervised features also measure the distance between generated and real images in the [drifting unit](../drifting/lec.qmd) of the diffusion day.

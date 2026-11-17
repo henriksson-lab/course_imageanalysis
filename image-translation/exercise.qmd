@@ -1,0 +1,167 @@
+---
+title: "Exercise: image-to-image translation and hallucination"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- say what a translator trained with squared error, absolute error or as a conditional GAN outputs where its input is ambiguous,
+- compute the error and the realism of each, and explain why they pull in opposite directions,
+- explain what unpaired, cycle-consistent training can and cannot learn,
+- design a check for a virtual-staining network before measuring on its output,
+- *(math)* prove which estimate each loss converges to.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** are for students who want the full treatment.
+
+## Background
+
+The unit reduces translation to **one pixel**: an input value $x$ (label-free) and a target value $y$ (a stain). In the demo and the code, $y = 0.2 + 0.4x$ plus noise (sd 0.03); for $x > 0.5$ a marker that the input does not show adds a **gap** (0.3) in a share $q$ of the cells.
+
+| Word | Meaning |
+|---|---|
+| Conditional mean | average of the targets seen with (nearly) the same input; what squared error converges to |
+| Conditional median | middle value of those targets; what absolute error converges to |
+| Conditional sample | one of those targets, drawn at random; what a perfect conditional GAN outputs |
+| Realistic | a value a real cell could have (within 3 noise sd of a branch) |
+| Quantile map | unpaired translation in 1D: send $x$ to the target value of the same rank |
+
+## By hand
+
+**B1.** Four training cells with the same input $x = 0.7$ have targets 0.6, 0.6, 0.9 and 0.9 (marker off, off, on, on).
+(a) What does a translator trained with squared error output for $x = 0.7$? With absolute error? A perfect conditional GAN?
+(b) Which of these outputs could a real cell have?
+
+**B2.** Same four cells as truth.
+(a) The mean output for all four: what is the RMSE?
+(b) A conditional GAN outputs 0.6, 0.9, 0.9, 0.6 for the four cells (in order). RMSE?
+(c) With the model of the Background at $x = 0.7$ (gap 0.3), the two clean values are 0.48 and 0.78. Which of the outputs 0.48, 0.63, 0.78 are realistic?
+
+**B3.** **The treated-cells trap.** The translator was trained on control cells, 20 % marker-on. Treated cells: 80 % marker-on, but their input looks the same.
+(a) A perfect conditional GAN translates 1 000 treated cells. About how many show the marker?
+(b) The squared-error translator: what does it output for every treated cell with $x = 0.7$ (gap 0.3)? If you count a cell as "on" when the output is above the midpoint 0.63, how many are on?
+(c) What would you need to see the treatment effect?
+
+**B4.** Unpaired translation. Inputs $(1, 2, 3, 4)$, targets $(10, 20, 30, 40)$, not paired.
+(a) The increasing quantile map: where does $x = 2.5$ go? $x = 1$?
+(b) The decreasing map: where does $x = 1$ go?
+(c) Both maps send the four inputs exactly onto the four targets. Which is right?
+
+**B5.** Disagreement. You run the conditional GAN 16 times on one cell.
+(a) At $x = 0.3$ (no marker possible), what spread do you expect?
+(b) At $x = 0.7$ with half the training cells marker-on (gap 0.3)?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Squared error: the mean 0.75. Absolute error: any value between 0.6 and 0.9 is a median of two 0.6 and two 0.9; in practice one branch (the coding exercise takes the first value at which half the weight is reached, 0.6). Conditional GAN: 0.6 or 0.9 at random, each half the time. (b) 0.6 and 0.9; 0.75 is a value no cell has.
+
+**B2.** (a) Every error is 0.15: RMSE 0.15. (b) Errors 0, 0.3, 0, 0.3: RMSE $\sqrt{(0.09 + 0.09)/4} = 0.212$, $\sqrt 2$ times the mean's. (c) 0.48 and 0.78 (on a branch); 0.63 is halfway, 0.15 from both, more than 3 × 0.03 = 0.09: not realistic.
+
+**B3.** (a) About 200 (20 %): it paints the training share, whatever the treatment. (b) $0.48 + 0.2 \cdot 0.3 = 0.54$ for every cell, below 0.63: none are on. (c) Measured stains of treated cells (the marker is not in the input), or an input that shows the marker.
+
+**B4.** (a) Two of four inputs are below 2.5: rank 2 (from 0), so 30. $x = 1$: rank 0, so 10. (b) The opposite rank: 40. (c) Unpaired data cannot tell: both match the distributions perfectly and both can be undone. Only pairs decide.
+
+**B5.** (a) About the noise, 0.03: the input decides the target. (b) Half the outputs near 0.48, half near 0.78: a standard deviation of about 0.15. The jump in spread marks where the input does not decide the output.
+:::
+
+### Math questions
+
+**B6.** *(math)* Show that $\mathbb E(Y - c)^2$ is minimised by $c = \mathbb E[Y]$ and $\mathbb E|Y - c|$ by a median of $Y$.
+
+**B7.** *(math)* $\hat Y$ and $Y$ are independent with the same distribution. Show $\mathbb E(\hat Y - Y)^2 = 2\operatorname{Var}(Y)$.
+
+**B8.** *(math)* $X$ has a continuous increasing cumulative distribution $F_A$, and $F_B$ is another one. Show that $F_B^{-1}(F_A(X))$ and $F_B^{-1}(1 - F_A(X))$ both have the distribution $F_B$.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** *(math)* $\mathbb E(Y - c)^2 = \operatorname{Var}(Y) + (\mathbb E Y - c)^2$, smallest at $c = \mathbb E Y$. For the absolute error, $\frac{d}{dc}\mathbb E|Y - c| = P(Y < c) - P(Y > c)$, which is $\le 0$ below a median and $\ge 0$ above: a minimum at the median.
+
+**B7.** *(math)* $\mathbb E(\hat Y - Y)^2 = \mathbb E\hat Y^2 - 2\,\mathbb E\hat Y\,\mathbb EY + \mathbb EY^2 = 2(\mathbb EY^2 - (\mathbb EY)^2) = 2\operatorname{Var}(Y)$.
+
+**B8.** *(math)* $U = F_A(X)$ is uniform on $[0, 1]$ (for continuous increasing $F_A$), and so is $1 - U$. For uniform $U$, $P(F_B^{-1}(U) \le y) = P(U \le F_B(y)) = F_B(y)$.
+:::
+
+## Explore {#explore}
+
+One pixel, 400 training pairs (grey). For each translator the demo shows what it would output after perfect training on these pairs: the conditional **mean** (orange), the **median** (green), **samples** of a conditional GAN (blue, one per held-out test cell) and the two **unpaired** quantile maps (purple). Below: the spread of 16 samples per input. The readout scores everything against 400 held-out test pairs.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="translate1d" data-preset="visible"></div>
+<script src="../demos/dist/translate1d.js"></script>
+```
+
+**E1.** Preset **target visible in the input** (gap 0). Compare the three errors. Why is the samples' error larger even here?
+
+**E2.** Preset **hidden marker** (gap 0.3, half the cells on). Read the errors and the shares of realistic predictions. Which translator would you use to estimate the average stain intensity of many cells? Which to make images that look like real stains?
+
+**E3.** Turn on **samples**. Look at the spread plot: where does it jump, and from what to what?
+
+**E4.** Preset **treated test cells** (training 20 % marker-on, test 80 %). What share of marker-on cells do the samples report? What do the error and realism numbers say, and do they warn you?
+
+**E5.** Preset **unpaired**. Compare the two purple maps with the pairs. What is the unpaired error, and why is it not larger?
+
+**E6.** Move the gap slider from 0 to 0.4 (hidden marker). How do the mean's realism and the samples' error change?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Mean 0.030, median 0.031, samples 0.045. Even with nothing hidden, a sample adds the noise of another cell to the noise of this one: about $\sqrt 2$ times the noise sd (0.03).
+
+**E2.** Mean 0.113 (50 % realistic), median 0.131 (99 %), samples 0.160 (98 %). For averages over many cells: the mean (unbiased, smallest error). For realistic-looking images: samples, knowing that in the ambiguous part every second one is wrong.
+
+**E3.** At $x = 0.5$, where the marker becomes possible: from about 0.03 (the noise) to about 0.14 (the two branches, sd 0.15).
+
+**E4.** The samples say 28 % (truth 78 %): close to the training share of 20 %. Errors grow (mean 0.145, samples 0.177), but realism stays high (samples 99 %) and nothing in a single image looks wrong. Only the comparison with measured treated cells shows the effect has vanished.
+
+**E5.** The increasing map climbs through the middle of the data, the decreasing one runs the wrong way; both follow neither branch. Error of the increasing map: 0.131, close to the median's, because the target mostly rises with the input; the decreasing map would be far worse, and unpaired training cannot tell them apart.
+
+**E6.** At gap 0.1 the mean is still realistic (100 %: the branches are within the noise) and the errors are close (mean 0.048, samples 0.068). At 0.4 the mean is realistic only where there is no marker (49 %), and the samples' error is 0.210 against 0.148 for the mean.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gans/src/image_translation/exercise.rs`.
+
+A `Pair` holds `x`, `y` and whether the marker was on. `weights(train, x, h)` (given) returns
+the kernel weight $e^{-\frac12((x_i - x)/h)^2}$ of every training pair at the input $x$; the
+program uses $h = 0.04$.
+
+**C1.** `cond_mean(train, x, h)`: $\sum_i w_i y_i / \sum_i w_i$. The check is B1(a).
+
+**C2.** `cond_median(train, x, h)`:
+
+```
+sort the pairs by y
+walk through them, adding up their weights
+return the first y at which the sum reaches half of the total weight
+```
+
+The check is B1(a).
+
+**C3.** `cond_sample(train, x, h, rng)`: pick a training pair with probability proportional to its weight and return its $y$ (draw $u$ uniform in [0, total weight], walk through the pairs subtracting weights until $u \le 0$). The check draws 2 000 samples for B1.
+
+**C4.** `quantile_map(xs, ys, x, decreasing)`: $u$ = share of the inputs below $x$ (or $1 - u$ if decreasing); return the target at position $\lfloor u \cdot n\rfloor$ (at most $n - 1$) of the sorted targets. The check is B4.
+
+**C5.** `rmse(pred, truth)` and `is_real(x, y, gap)` (within 0.09 of $0.2 + 0.4x$, or for $x > 0.5$ of $0.2 + 0.4x + \text{gap}$). The check is B2.
+
+Then `cargo run -p gans -- image-translation`. The program simulates three scenarios (400 training and 400 test pairs), scores the four translators against the test pairs and prints errors, realism and the share of marker-on cells; pictures in `out/image-translation/`.
+
+**C6.** "Hidden marker": write down the four errors and three realism shares. Do they agree with the demo's (E2)?
+
+**C7.** "Treated test cells": compare the marker-on share of the truth and of the samples, and the mean's realism with E4. Why is the mean realistic here, though it was not with half the cells on?
+
+**C8.** In which scenario would held-out errors alone have fooled you, and what extra comparison exposes it?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gans/src/image_translation/solution.rs` in the download.
+
+**C6.** Mean 0.110, median 0.130, samples 0.155, unpaired 0.137; realistic: mean 50 %, median 100 %, samples 99 %. The demo (other random numbers) gives 0.113, 0.131, 0.160, 0.131 and 50 %, 99 %, 98 %: the same picture.
+
+**C7.** Truth 78 % marker-on, samples 22 % (demo: 78 % and 28 %). The mean is 100 % realistic here: with only 20 % marker-on in training, the mean is $0.2 \cdot 0.3 = 0.06$ above the lower branch, within the 0.09 tolerance. It looks like a marker-off cell, which is wrong for most treated cells.
+
+**C8.** "Treated test cells": all errors grow somewhat (mean 0.158, samples 0.180), but nothing says the effect disappeared. Comparing the **readout** (the marker-on share) on measured and translated treated cells exposes it, which requires measured treated cells.
+:::
+
+## Where this leads
+
+- **Diffusion models** translate and restore too, and their samples hallucinate in the same way: [which details are real](../diffusion/lec.qmd), and [what virtual staining can know](../diffusion-inverse/lec.qmd) with an exact posterior and a coverage check.
+- **Uncertainty** of a network (ensembles, calibration) is treated on the [modern deep learning day](../attention/lec.qmd); the honest way to evaluate on held-out experiments on the [evaluation day](../leakage/lec.qmd).
+- Next: [normalising flows](../flows/lec.qmd), generators that also give the exact probability of their output.

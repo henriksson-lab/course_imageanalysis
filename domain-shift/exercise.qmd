@@ -1,0 +1,168 @@
+---
+title: "Exercise: domain shift and adaptation"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain why a model trained on one microscope fails on another, and detect a shift without labels,
+- apply and judge the remedies: normalisation, re-estimated statistics, augmentation, fine-tuning on a few images,
+- recognise the trap of each remedy, in particular a change of the class balance *(math: covariate and label shift)*,
+- design an honest evaluation across microscopes and experiments.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Domain | where the images come from: microscope, stain, lab, cell line |
+| Domain shift | the images (or the cells) of the new domain differ from the training images |
+| Shift score | here: the largest difference of feature means between A and B, in A's standard deviations |
+| Standardise | $(f - \text{mean})/\text{SD}$, with the statistics of the images at hand |
+| Re-estimated statistics | a network's normalisation layers use the means and variances of the new images |
+| Label shift | the share of each class changes, the look of each class does not |
+
+## By hand
+
+**B1.** On microscope A, interphase cells have a mean intensity of about 0.42 and mitotic cells 0.62. Microscope B measures $0.56 \cdot I + 0.096$ (the demo's shift 0.8).
+(a) What do the two kinds of cell measure on B?
+(b) A rule learnt on A calls a cell mitotic above 0.52. What does it call both kinds of cell on B?
+
+**B2.** Standardisation per microscope. On A the intensities of all cells have mean 0.52 and SD 0.12 (half the cells mitotic).
+(a) What are the mean and SD on B (same cells, B's measurement of B1)?
+(b) Standardise a mitotic cell on A ($I = 0.62$) and on B. Compare.
+(c) Why does any gain $g > 0$ and offset drop out?
+
+**B3.** The class-balance trap. Microscope B is identical to A, but only 20 % of its cells are mitotic.
+(a) What is B's mean intensity (classes at 0.42 and 0.62)?
+(b) The class SD is 0.08 in both classes, so B's overall SD is about 0.11. Standardise an interphase cell (0.42) and a mitotic cell (0.62) with B's statistics and with A's (mean 0.52, SD 0.12). Which way does B's normalisation push the interphase cells?
+(c) What does the shift score report, although the microscope did not change?
+
+**B4.** A normalisation unit in a network stores the mean 2 and SD 1 of its input $z$ (measured on A) and outputs $(z - 2)/1$. On microscope B its input is $z_B = 0.5\,z_A$.
+(a) A cell gives $z_A = 3$ on A. What does it give on B, and what does the unit output with the stored statistics?
+(b) Re-estimate the statistics on B (mean and SD of $z_B$) and recompute. Compare with A.
+
+**B5.** Choose a remedy (or several) and explain:
+(a) A new camera on the same microscope; you have hundreds of unlabelled images.
+(b) A new cell line in which mitotic cells are larger than before.
+(c) Your model will be used by other labs with microscopes you do not know.
+(d) Your training images are fluorescence; the new ones stained tissue sections.
+
+**B6.** You adapted a model to microscope B with 30 labelled images from one B slide, and want to report how well it works on B. Which images do you test on, and what do you report?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Interphase $0.56 \cdot 0.42 + 0.096 = 0.331$; mitotic $0.56 \cdot 0.62 + 0.096 = 0.443$. (b) Both lie below 0.52: everything is called interphase; every mitotic cell is missed.
+
+**B2.** (a) Mean $0.56 \cdot 0.52 + 0.096 = 0.387$, SD $0.56 \cdot 0.12 = 0.067$. (b) A: $(0.62 - 0.52)/0.12 = 0.83$; B: $(0.443 - 0.387)/0.067 = 0.83$: the same. (c) $(gI + o - (g\mu + o))/(g\sigma) = (I - \mu)/\sigma$: the offset cancels in the difference, the gain in the ratio.
+
+**B3.** (a) $0.8 \cdot 0.42 + 0.2 \cdot 0.62 = 0.46$. (b) With B's statistics: interphase $(0.42 - 0.46)/0.11 = -0.36$, mitotic $(0.62 - 0.46)/0.11 = 1.45$; with A's: $-0.83$ and $0.83$. B's normalisation pushes interphase cells from $-0.83$ to $-0.36$, towards the mitotic side, and a classifier trained on standardised A features calls more of them mitotic. (c) $(0.52 - 0.46)/0.12 = 0.5$ SD: a "shift" caused by biology, not by the microscope (the demo's score: 0.37 for its cells).
+
+**B4.** (a) $z_B = 1.5$; output $(1.5 - 2)/1 = -0.5$, while on A the same cell gives $(3 - 2)/1 = 1$. (b) On B the mean is $0.5 \cdot 2 = 1$ and the SD $0.5$: output $(1.5 - 1)/0.5 = 1$, as on A.
+
+**B5.** (a) Re-estimate the normalisation statistics (or standardise per microscope) on the unlabelled images; check on a few labelled ones. (b) Fine-tune on a few labelled images of the new line: the cells really look different (a change of $p(\mathbf x \mid y)$ that no normalisation undoes). (c) Train with strong augmentation (intensity, blur, noise, pixel size) and evaluate on held-out labs; advise users to check on an annotated subset. (d) Fine-tune all layers on labelled tissue images (a new modality is not an augmentation of the old one).
+
+**B6.** Test on labelled B images from other slides or days than the 30 used for fine-tuning; report the B score with the split level, and the A score separately (to see what was forgotten), not a pooled mean.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that if microscope B measures every feature as $g_kf_k + o_k$ with $g_k > 0$, and the population of cells is the same, then standardising each microscope with its own statistics gives identical features. Which assumption fails in B3?
+
+**B8.** *(math)* Label shift. A calibrated classifier trained on A (50 % mitotic) gives $p_A(\text{mitotic} \mid \mathbf x) = 0.6$. On B, 20 % of the cells are mitotic, and $p(\mathbf x \mid y)$ is unchanged. Using Bayes' rule, show $p_B(y \mid \mathbf x) \propto p_A(y \mid \mathbf x)\,p_B(y)/p_A(y)$ and compute $p_B(\text{mitotic} \mid \mathbf x)$.
+
+**B9.** *(math)* A linear unit $z = \mathbf w\cdot\mathbf x + b$ is followed by a normalisation with stored $(\mu, \sigma)$. On B every input is $\mathbf x_B = g\,\mathbf x_A + o\,\mathbf 1$. Show that $z_B = g\,z_A + c$ for a constant $c$, and that re-estimating $(\mu, \sigma)$ on B restores the normalised output exactly.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** *(math)* Over the same population, the mean on B is $g_k\mu_k + o_k$ and the SD $g_k\sigma_k$, so $(g_kf_k + o_k - g_k\mu_k - o_k)/(g_k\sigma_k) = (f_k - \mu_k)/\sigma_k$. In B3 the population is not the same (fewer mitotic cells), so B's mean and SD differ from A's for a reason that is not a measurement change, and the standardised features of a given cell differ between A and B.
+
+**B8.** *(math)* $p_B(y \mid \mathbf x) = p(\mathbf x \mid y)p_B(y)/p_B(\mathbf x)$ and $p(\mathbf x \mid y) = p_A(y \mid \mathbf x)p_A(\mathbf x)/p_A(y)$; terms not depending on $y$ go into the proportionality constant. Odds: $\frac{0.6}{0.4} \cdot \frac{0.2/0.5}{0.8/0.5} = 1.5 \cdot 0.25 = 0.375$, so $p_B = 0.375/1.375 = 0.27$.
+
+**B9.** *(math)* $z_B = \mathbf w\cdot(g\mathbf x_A + o\mathbf 1) + b = g(\mathbf w\cdot\mathbf x_A + b) + o\,\mathbf w\cdot\mathbf 1 + b(1 - g) = g z_A + c$. Over the same population, $\mu_B = g\mu_A + c$ and $\sigma_B = \lvert g\rvert\sigma_A$; for $g > 0$, $(z_B - \mu_B)/\sigma_B = (z_A - \mu_A)/\sigma_A$. (After a ReLU the next layer's inputs are no longer an exact affine map of A's, so deeper layers are corrected only approximately: hence layer by layer.)
+:::
+
+## Explore: two microscopes {#explore}
+
+Each cell is two numbers: its mean intensity and its size. A classifier (a line in this plane) is trained on 400 cells of microscope A (hollow dots), half of them mitotic. Microscope B (filled dots) measures the intensity on another scale: the **shift** slider goes from no change to a dimmer, raised scale (intensity × 0.45 + 0.12 at shift 1). The **mitotic share in B** slider changes B's population. The remedies: **as is**; **normalise per microscope** (each microscope's features standardised with its own mean and SD; the classifier was trained on standardised A features); **trained with augmentation** (A's intensities randomly scaled and shifted during training); **fine-tuned on 10 B cells** (5 of each class, black dots). The dashed line is the A classifier, the solid line the chosen remedy's, both drawn in B's measurements. Right: accuracy on B against the shift for all remedies, and a shift score that needs no labels.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="domainshift" data-preset="shift"></div>
+<script src="../demos/dist/domainshift.js"></script>
+```
+
+**E1.** Preset **same microscope**, then move the shift slider to 1. Watch the B cloud and the accuracy of "as is". At which shift does it drop below 80 %?
+
+**E2.** Preset **dimmer microscope B** (shift 0.8). Read the shift score and the four accuracies. Which remedy line moves with the B cloud?
+
+**E3.** Preset **normalise per microscope**. Why is its accuracy the same at every shift (the blue curve is flat)?
+
+**E4.** Preset **fewer mitoses in B** (a fifth). What happens to the normalised remedy, also at shift 0? What does the shift score say at shift 0?
+
+**E5.** Preset **fine-tune on 10 B cells**. Compare with the other remedies in the right panel. Where are the 10 cells, and how far does the line move from the dashed A line?
+
+**E6.** Select **trained with augmentation**. How does its line differ from the A line, and what does that cost on microscope A (shift 0, mitotic share 0.5)?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** At shift 0 "as is" gets 92.5 % (on these B cells; 96 % on A's own cells). It reaches 80.0 % at shift 0.65 and falls below at 0.7 (77.3 %), to 59.8 % at shift 1. The B cloud slides left (dimmer) and squeezes, and the mitotic cells cross the dashed line.
+
+**E2.** Shift score 1.01 SD. As is 71.0 %, normalised 93.0 %, augmented 85.0 %, fine-tuned 93.0 %. The normalised line (drawn in B's measurements) and the fine-tuned line follow the B cloud; the augmented line is steep (it relies on size) and does not need to move.
+
+**E3.** Standardising B with B's own mean and SD undoes any gain and offset exactly (B2, B7): the standardised B cells are the same numbers at every shift, so the classifier sees the same input: 93.0 %.
+
+**E4.** Normalised: 83.3 % at every shift, also at shift 0 where as is gets 91.8 %: B's lower mean intensity is real (fewer bright cells), and normalisation shifts every B cell towards "mitotic" (B3). The shift score is 0.37 at shift 0: it cannot tell a biological change from a microscope change. As is falls to 85.8 % at shift 0.8, augmented 89.5 %.
+
+**E5.** Fine-tuned: 91.3 % at shift 0.8 with a fifth mitotic, and about 90 to 91 % at every shift: the best remedy here. The 10 labelled cells sit in the B cloud; the line is pulled from the A line to between the B classes (the penalty keeps it close to the A line where the 10 cells allow).
+
+**E6.** The augmented line is nearly horizontal: the classifier relies mostly on size, because intensity was made unreliable in training. On A-like images (shift 0, half mitotic) it reaches about 89 % against 92.5 % for the plain classifier: the price of ignoring an informative feature.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `finetuning/src/domain_shift/exercise.rs`.
+
+`finetuning/src/domain_shift/model.rs` gives the cells of the two microscopes (as in the demo:
+`cells_a`, `to_b`) and the classifier (`Linear::fit`, `accuracy`; with a prior and a penalty
+it fine-tunes another classifier).
+
+**C1.** `stats(cells)`: the mean and SD (divided by $n$) of each feature. The check is a two-cell example.
+
+**C2.** `standardise(cells, mean, sd)`: $(f - \text{mean})/\text{SD}$ for each feature; the class is kept.
+
+**C3.** `shift_score(a, b)`: $\max_k \lvert\text{mean}_k^B - \text{mean}_k^A\rvert / \text{SD}_k^A$.
+
+**C4.** `augment(cells, copies, seed)`:
+
+```
+for every cell, `copies` times:
+    gain = 0.4 + 0.8 · uniform();  offset = −0.05 + 0.25 · uniform()
+    new cell: intensity = gain · intensity + offset, same size, same class
+```
+
+Then `cargo run -p finetuning -- domain-shift`. The program prints A's statistics, the accuracy
+of the plain and the augmented classifier on A, their weights, and for shifts 0 to 1 the shift
+score and the accuracy on B of the four remedies, with B's mitotic share 0.5 and 0.2.
+
+**C5.** Compare the weights of the plain and the augmented classifier. Which feature does each rely on?
+
+**C6.** Mitotic share 0.5: describe how each remedy behaves as the shift grows.
+
+**C7.** Mitotic share 0.2: which remedy is best at shift 0, and which at shift 1? Why is normalisation worst at shift 0?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `finetuning/src/domain_shift/solution.rs` in the download.
+
+The program prints A's mean intensity 0.523 (SD 0.123) and size 0.484 (SD 0.128); the plain classifier gets 95.0 % on A, the augmented one 88.2 %.
+
+**C5.** Plain: (−6.2, 28.8, −17.8) for (constant, intensity, size): it relies more on intensity. Augmented: (7.3, 7.0, −21.6): it relies mostly on size, which augmentation left alone.
+
+**C6.** As is: 94.0, 94.2, 84.0, 72.8, 58.0 % at shifts 0, 0.25, 0.5, 0.75, 1. Normalised: 94.8 % at every shift. Augmented: 89.2 % falling slowly to 84.2 %. Fine-tuned on 10 B cells: 92.2 to 94.8 %. The shift score grows from 0.07 to 1.35.
+
+**C7.** Shift 0: as is and fine-tuned (92.5 and 92.8 %); shift 1: fine-tuned (94.0 %), then augmented (89.2 %), as is 84.0 %, normalised 77.2 % at every shift. Normalisation moves B's cells by the difference of the population means, which here is biology (fewer bright mitotic cells), not the microscope; the shift score is 0.49 already at shift 0.
+:::
+
+## Where this leads
+
+Domain shift is why the [cell-networks day](../cellnets-compare/lec.qmd) insisted on testing every network on an annotated subset of your own images, and why the [leakage unit](../leakage/lec.qmd) splits by experiment and day. The [self-supervised day](../pretext/lec.qmd) shows another remedy: pretraining on unlabelled images of your own domain, so that the features fit before any label is spent.

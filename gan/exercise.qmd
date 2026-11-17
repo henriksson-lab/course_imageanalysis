@@ -1,0 +1,172 @@
+---
+title: "Exercise: generative adversarial networks"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain the roles of the generator and the discriminator, and what each one sees,
+- compute the best discriminator $p/(p + q)$ and the discriminator's loss at the end of the game,
+- take one discriminator step and one generator step by hand, with the chain rule through $D$,
+- say why the non-saturating generator loss is used,
+- *(math)* derive the best discriminator and the Jensen–Shannon divergence behind the game.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Generator $G$ | turns noise $z \sim \mathcal N(0, I)$ into a sample $G(z)$; here a line, $x = az + b$ |
+| Discriminator $D$ | a classifier: $D(x)$ = probability that $x$ is real; here $D(x) = \sigma(c_0 + c_1x + c_2x^2)$ with $\sigma(s) = 1/(1 + e^{-s})$ |
+| Discriminator loss | $-\log D(\text{real}) - \log(1 - D(\text{fake}))$, averaged over each batch |
+| Generator loss | non-saturating: $-\log D(G(z))$; original (minimax): $\log(1 - D(G(z)))$ |
+| Local derivatives | $\partial[-\log\sigma(s)]/\partial s = \sigma(s) - 1$; $\partial[-\log(1 - \sigma(s))]/\partial s = \sigma(s)$ |
+| Best discriminator | $D^*(x) = p(x)/(p(x) + q(x))$, $p$ = data density, $q$ = generator density |
+
+## By hand
+
+**B1.** The best discriminator.
+(a) At $x_1$ the data density is 0.4 and the generator density 0.1; at $x_2$ both are 0.2; at $x_3$ the data density is 0 and the generator density 0.3. Give $D^*$ at the three points.
+(b) Where does $D^*$ equal 1? What does that tell the generator?
+
+**B2.** The discriminator's loss for one real and one generated sample.
+(a) $D$ says 0.5 to both. Compute the loss.
+(b) $D$ says 0.99 to the real and 0.01 to the generated sample. Compute the loss.
+(c) Which of the two is the end of a successful game, and why is the loss there not 0?
+
+**B3.** **One discriminator step by hand.** $c = (c_0, c_1, c_2) = (0, 0, 0)$, one real sample $x = 1$, one generated sample $x = -1$.
+(a) What is $D$ at both points, and the loss?
+(b) Compute the gradient of the loss with respect to $c_0$, $c_1$, $c_2$. (For the real sample $\partial\text{loss}/\partial s = D - 1$, for the generated one $D$; and $\partial s/\partial c = (1, x, x^2)$.)
+(c) Step with learning rate 0.5. Give the new $c$, the new $D(1)$ and $D(-1)$, and the new loss.
+
+**B4.** **One generator gradient by hand.** The discriminator of B3(c), $c = (0, 0.5, 0)$; the generator $a = 1$, $b = -1$.
+(a) Noise $z = 0$ gives $x = -1$. Compute $D(x)$, the logit's slope $s'(x) = c_1 + 2c_2x$ and the gradient of the non-saturating loss with respect to $b$ and $a$.
+(b) The same for the original loss $\log(1 - D)$.
+(c) Two noise values, $z = 1$ and $z = -1$ (average the two gradients). Which way do $b$ and $a$ move after a gradient step? Explain the sign of the change of $a$.
+
+**B5.** Saturation. Early in training $D(G(z)) = 0.01$.
+(a) What is the push $\partial\ell/\partial s$ on the logit for the original and for the non-saturating loss? By what factor do they differ?
+(b) Late in training $D(G(z)) = 0.5$. Compare again.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $0.4/0.5 = 0.8$; $0.2/0.4 = 0.5$; $0/0.3 = 0$. (b) Where only real data lie and the generator puts no mass ($q = 0$, $p > 0$). Such regions are what the generator still has to reach; but it gets a gradient only from where its samples are, so it has to see the slope of $D$ near its own samples.
+
+**B2.** (a) $-\ln 0.5 - \ln 0.5 = 2\ln 2 = 1.386$. (b) $-\ln 0.99 - \ln 0.99 = 0.020$. (c) (a): when the generator matches the data, no discriminator can do better than guessing, so its loss is $2\ln 2$. A loss near 0 (b) means the discriminator wins easily: the generator is still bad.
+
+**B3.** (a) $D = \sigma(0) = 0.5$ at both; loss $2\ln 2 = 1.386$. (b) Real: $D - 1 = -0.5$; generated: $D = 0.5$. $\partial/\partial c_0 = -0.5 + 0.5 = 0$; $\partial/\partial c_1 = -0.5 \cdot 1 + 0.5 \cdot (-1) = -1$; $\partial/\partial c_2 = -0.5 \cdot 1 + 0.5 \cdot 1 = 0$. (c) $c = (0, 0.5, 0)$; $D(1) = \sigma(0.5) = 0.622$, $D(-1) = \sigma(-0.5) = 0.378$; loss $2 \cdot (-\ln 0.622) = 0.948$. The discriminator has learnt "larger x is more real".
+
+**B4.** (a) $D(-1) = 0.378$, $s'(-1) = 0.5$. Non-saturating: $\partial\ell/\partial s = -(1 - 0.378) = -0.622$, so $\partial\ell/\partial x = -0.311$, $\partial\ell/\partial b = -0.311$ and $\partial\ell/\partial a = -0.311 \cdot z = 0$. (b) Original: $\partial\ell/\partial s = -D = -0.378$, $\partial\ell/\partial b = -0.189$, $\partial\ell/\partial a = 0$. (c) $z = 1$: $x = 0$, $D = 0.5$, $\partial\ell/\partial x = -0.5 \cdot 0.5 = -0.25$; $z = -1$: $x = -2$, $D = \sigma(-1) = 0.269$, $\partial\ell/\partial x = -0.731 \cdot 0.5 = -0.366$. Mean: $\partial\ell/\partial b = -0.308$, $\partial\ell/\partial a = (-0.25 \cdot 1 + (-0.366)(-1))/2 = +0.058$. A step moves $b$ up (right, towards the real side) and $a$ down: the left sample is pushed harder than the right one, so the samples move closer together.
+
+**B5.** (a) Original: $-D = -0.01$; non-saturating: $-(1 - D) = -0.99$; a factor of 99. (b) Both $-0.5$: the same.
+:::
+
+### Math questions
+
+**B6.** *(math)* For fixed densities $p$ and $q$, maximise $p\log D + q\log(1 - D)$ over $D \in (0, 1)$ and show $D^* = p/(p + q)$.
+
+**B7.** *(math)* Insert $D^*$ into $V = \int p\log D + q\log(1 - D)\,dx$ and show $V = -\log 4 + 2\,\mathrm{JS}(p\,\|\,q)$ with $\mathrm{JS}(p\,\|\,q) = \tfrac12\mathrm{KL}(p\,\|\,m) + \tfrac12\mathrm{KL}(q\,\|\,m)$, $m = (p + q)/2$.
+
+**B8.** *(math)* For data $\mathcal N(\mu, \sigma^2)$ and a generator $\mathcal N(b, a^2)$, show that $\log(p/q)$ is a quadratic in $x$, so that $D^*$ is exactly of the form $\sigma(c_0 + c_1x + c_2x^2)$. Give $c_2$, and its sign when the generator is wider than the data.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** *(math)* $f(D) = p\log D + q\log(1 - D)$, $f'(D) = p/D - q/(1 - D) = 0 \iff p(1 - D) = qD \iff D = p/(p + q)$; $f'' < 0$, a maximum.
+
+**B7.** *(math)* $V = \int p\log\frac{p}{p + q} + q\log\frac{q}{p + q} = \int p\log\frac{p}{2m} + q\log\frac{q}{2m} = -2\log 2 + \mathrm{KL}(p\,\|\,m) + \mathrm{KL}(q\,\|\,m) = -\log 4 + 2\,\mathrm{JS}$.
+
+**B8.** *(math)* $\log p - \log q = -\frac{(x - \mu)^2}{2\sigma^2} + \frac{(x - b)^2}{2a^2} + \log\frac a\sigma$, a quadratic with $c_2 = \frac1{2a^2} - \frac1{2\sigma^2}$. Since $D^* = p/(p + q) = \sigma(\log p - \log q)$, the logistic quadratic is exact. A wider generator ($a > \sigma$) gives $c_2 < 0$: $D^*$ is high near the data and low in the tails, and its slope pushes samples inwards (shrinking $a$).
+:::
+
+## Explore {#explore}
+
+The GAN of B3 and B4, trained live: data $\mathcal N(1, 0.5^2)$ (grey), generator $\mathcal N(b, a^2)$ (blue), discriminator $D(x)$ (red; dashed: the best one, $p/(p + q)$). Right: the path of $(b, a)$ towards the data's $(1, 0.5)$ (black dot), and the two losses (dashed line: $2\ln 2$). Batches of 128, plain gradient descent; every change restarts from $a = 1$, $b = -1$.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="gan1d" data-preset="converge"></div>
+<script src="../demos/dist/gan1d.js"></script>
+```
+
+**E1.** Preset **the game settles** (learning rates 0.03 for $G$ and 0.5 for $D$, 5 $D$ steps per $G$ step). Run it. Read $a$ and $b$ at steps 25, 100 and the end. Where does the discriminator loss settle, and what does $D(x)$ look like then?
+
+**E2.** Pause at about step 100 of E1 (or use **10 steps**). The generator is a little too narrow. Describe $D(x)$: where is it above and below one half, and which way does its slope push the samples?
+
+**E3.** Preset **always the best discriminator**: $D$ is replaced by $p/(p + q)$ at every step. Compare the path with E1. What does this tell you about the trouble in E1?
+
+**E4.** Preset **original loss: a slow start**. Compare $b$ after 100 steps with E1. What does the generator do first, and why (B5)?
+
+**E5.** Preset **generator too fast** (learning rate 0.3 for $G$, one $D$ step). What happens to $a$ during the first 50 steps? What does the generator's density look like then? Does it recover?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Step 25: $a = 0.41$, $b = 0.55$; step 100: $a = 0.43$, $b = 1.06$; from step 500: $a = 0.50$, $b = 1.00$, the data's values. The discriminator loss settles at 1.39 $= 2\ln 2$ and $D(x)$ is flat at about 0.5: it cannot tell the two apart any more.
+
+**E2.** $D$ dips below one half in the middle (too many generated samples there) and rises towards 1 in both tails (more real data than samples). Its slope points outwards on both sides, so the generator's samples are pushed apart: $a$ grows towards 0.5.
+
+**E3.** The path runs smoothly to $(1, 0.5)$ by step 100, without the overshoot to $a = 0.22$. The game itself has the right end point; the detours in E1 come from a discriminator that is learned step by step from batches and lags behind the generator.
+
+**E4.** $b$ is 0.02 after 100 steps (E1: 1.06). The generator first widens ($a$ up to 1.38 at step 50) while barely moving: its samples are recognised easily, $D(G(z))$ is small, and the original loss gives a push of only $D$ (B5). Once some samples reach the data, it moves quickly and ends at the same $a = 0.50$, $b = 1.00$.
+
+**E5.** $a$ collapses: 0.38 at step 10, 0.02 at step 50. The generator's density becomes a narrow spike at $b \approx 1.13$: every sample is (almost) the same number. It recovers ($a = 0.50$ at step 200) but overshoots ($a = 0.66$ at step 300). This collapse is the subject of the [next unit](../gan-training/lec.qmd).
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gans/src/gan/exercise.rs`.
+
+The GAN of the by-hand questions: generator $x = az + b$, discriminator
+$D(x) = \sigma(c_0 + c_1x + c_2x^2)$. A `LineGan` holds `a`, `b` and `c`; `Settings` holds the
+learning rates, the number of discriminator steps, the batch size and the generator loss.
+
+**C1.** `discriminator(c, x)`: $\sigma(c_0 + c_1x + c_2x^2)$. The check is B3(c).
+
+**C2.** `optimal_discriminator(p_data, p_gen)`: $p/(p + q)$, and $\tfrac12$ where both are 0. The check is B1.
+
+**C3.** `loss_d(c, real, fake)` and `grad_d(c, real, fake)`: the discriminator's loss (mean over the real points plus mean over the generated points) and its gradient with respect to $c$:
+
+```
+gradient = (0, 0, 0)
+for every real x:       d = D(x) − 1;  gradient += d · (1, x, x²) / number of real points
+for every generated x:  d = D(x);      gradient += d · (1, x, x²) / number of generated points
+```
+
+The checks are B3(a)–(b) and a comparison with finite differences.
+
+**C4.** `grad_g(gan, zs, loss)`: the mean gradient of the generator's loss with respect to $(a, b)$:
+
+```
+for every noise value z:
+    x = a·z + b
+    d_s = −(1 − D(x))  for the non-saturating loss,  −D(x)  for the original loss
+    d_x = d_s · (c1 + 2·c2·x)                   # through the discriminator
+    gradient of a += d_x · z / number of z;   gradient of b += d_x / number of z
+```
+
+The checks are B4(a)–(c).
+
+**C5.** `train_step(gan, data, settings, rng)`: `k_d` discriminator steps, each on a fresh batch of real samples (`data.sample(rng)`) and generated samples ($a \cdot$ `gauss(rng)` $+ b$), then one generator step on fresh noise. The check trains 1000 steps from $a = 1$, $b = -1$ and expects $a \approx 0.5$, $b \approx 1$.
+
+Then `cargo run -p gans -- gan`. The program prints the by-hand numbers, then trains from the start of the demo with both generator losses (learning rates 0.03 and 0.5, five $D$ steps, batches of 128) and prints $a$, $b$, the discriminator's loss and $D(1)$; pictures of the densities and $D$ at steps 0, 50, 200 and 2000 go to `out/gan/`.
+
+**C6.** Non-saturating run: at which step is $a$ smallest among the printed ones, and what does that mean for the samples? Where do the discriminator's loss and $D(1)$ end?
+
+**C7.** Compare $b$ at step 100 for the two losses. Which run's discriminator loss is far below $2\ln 2$ during the first 100 steps, and why does that slow the generator?
+
+**C8.** Your numbers differ slightly from the demo's (another random number generator), but the end points agree. Which numbers in the run are random, and which would be the same for any seed?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gans/src/gan/solution.rs` in the download.
+
+**C6.** At step 50, $a = 0.225$ (step 25: 0.382, step 100: 0.437): the generator overshoots to a distribution half as wide as the data; its samples crowd the centre. At the end $a = 0.498$, $b = 0.998$; the discriminator's loss is 1.386 $= 2\ln 2$ and $D(1) = 0.503$: it is guessing.
+
+**C7.** Non-saturating: $b = 1.055$ at step 100; original: $b = 0.035$. The original run's discriminator loss is 0.69–0.94 during the first 100 steps (far below 1.386): $D$ recognises the samples easily, $D(G(z))$ is small, and the original loss pushes with a factor $D$ only (B5). From step 200 ($a = 0.501$, $b = 0.911$) both runs are near the end point.
+
+**C8.** The batches (real samples and noise) are random, so the path differs from seed to seed, including the exact overshoot. The end point $a = 0.5$, $b = 1$, the loss $2\ln 2$ and $D = \tfrac12$ are properties of the game (B1, B2, B7), the same for any seed.
+:::
+
+## Where this leads
+
+- **What goes wrong**: generators that collapse onto a few outputs, games that oscillate, and how to measure the variety of samples: the [next unit](../gan-training/lec.qmd).
+- **Translation**: a GAN that turns one kind of image into another (label-free into fluorescence), and why generated detail must not be measured: [image-to-image translation](../image-translation/lec.qmd).
+- **Exact likelihoods**: [normalising flows](../flows/lec.qmd) give what GANs cannot, the probability of an image. **Diffusion models** ([introduction](../diffusion/lec.qmd), [in depth](../score-matching/lec.qmd)) have largely replaced GANs for image generation; they train with one stable loss.

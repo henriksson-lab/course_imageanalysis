@@ -1,0 +1,187 @@
+---
+title: "Exercise: fine-tuning strategies"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- choose which layers to train and with which learning rates, and say why one rate for all fails,
+- recognise catastrophic forgetting and name ways to limit it,
+- count the numbers of a full and a low-rank weight change, and choose a rank from the singular values,
+- fit a low-rank change $BA$ *(math: why the truncated SVD is the best one, and the gradients of $B$ and $A$)*.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Layer-wise learning rates | a smaller rate for layers nearer the input, the largest for the new head |
+| Warm-up | the learning rate starts tiny and rises over the first steps |
+| Catastrophic forgetting | the fine-tuned network loses the old task |
+| Pull to the start | the penalty $\lambda\|\mathbf w - \mathbf w_0\|^2$ towards the pretrained weights $\mathbf w_0$ |
+| Adapter | a small trained network inserted between frozen layers |
+| LoRA | a low-rank change $\Delta W = BA$ of a frozen weight matrix $W_0$; $B$ is $m \times r$, $A$ is $r \times n$ |
+| Singular values | the sizes $\sigma_1 \ge \sigma_2 \ge \dots$ of the independent "directions" of a matrix (its SVD) |
+
+## By hand
+
+**B1.** Numbers to store for a change of a weight matrix.
+(a) The toy's layer 1 ($32 \times 100$): full, and rank 1, 3, 8.
+(b) The toy's layer 2 ($16 \times 32$): full and rank 2.
+(c) A $768 \times 768$ matrix of a transformer: full and rank 8. What fraction is that?
+
+**B2.** A rank-1 change. $\mathbf u = (1, 2)^\top$, $\mathbf v = (3, 0, -1)^\top$, $\Delta W = \mathbf u\mathbf v^\top$.
+(a) Write $\Delta W$. What is its rank?
+(b) Give $B$ and $A$ with $\Delta W = BA$, $r = 1$. How many numbers do they hold, against $\Delta W$?
+(c) Apply $\Delta W$ to $\mathbf x = (1, 1, 1)^\top$ in two ways: $\Delta W\mathbf x$, and $B(A\mathbf x)$. Which needs fewer multiplications?
+
+**B3.** $\Delta W = \begin{pmatrix} 3 & 0 \\ 0 & 1\end{pmatrix}$.
+(a) What is the best rank-1 approximation, and its relative error $\|\Delta W - \Delta W_1\|/\|\Delta W\|$ (square root of the sum of squares)?
+(b) Someone proposes the rank-1 matrix $\begin{pmatrix} 2 & 1 \\ 2 & 1\end{pmatrix}$ instead. Compute its error.
+
+**B4.** The toy, 9 labels, 300 steps, all layers tuned (new task / old task with the old head put back):
+
+| rates (layer 1 / layer 2 / head) | new task | old task |
+|---|---|---|
+| 0.003 / 0.003 / 0.003 | 80.7 % | 35 % |
+| 0.0005 / 0.0005 / 0.0005 | 83.0 % | 43 % |
+| 0.0003 / 0.001 / 0.003 | 94.3 % | 68 % |
+| frozen / frozen / 0.003 | 96.7 % | 98 % |
+
+(a) Why does lowering every rate help the new task only a little?
+(b) Why does the layer-wise setting help both tasks?
+(c) The frozen backbone is best here. When would you still tune the backbone?
+
+**B5.** The new-task loss of one weight is $(w - 2)^2$; its pretrained value is $w_0 = 1$. With the pull to the start, the loss is $(w - 2)^2 + \lambda(w - 1)^2$.
+(a) Find the minimiser for $\lambda = 0$, $1$, $3$. What happens as $\lambda \to \infty$?
+(b) The weight is now at $w = 1.5$. How much does the pull add to its gradient for $\lambda = 0.1$?
+
+**B6.** The singular values of the toy's layer-1 change (all layers tuned on 300 labels) are 3.69, 2.59, 2.27, 1.79, 1.10, 0.66 and a tail with $\sum_{k>6}\sigma_k^2 \approx 0.66$.
+(a) Compute the relative error of the best rank-3 approximation.
+(b) Keeping rank 3 gives 98.0 % accuracy (the full change 98.7 %, no change 60 %). What does that say about the rest of the change?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Full $3200$; rank 1: $132$; rank 3: $396$; rank 8: $1056$. (b) Full $512$; rank 2: $2 \cdot 48 = 96$. (c) $589{,}824$; rank 8: $8 \cdot 1536 = 12{,}288$, about 2 %.
+
+**B2.** (a) $\Delta W = \begin{pmatrix} 3 & 0 & -1 \\ 6 & 0 & -2\end{pmatrix}$: rank 1 (the second row is twice the first). (b) $B = \mathbf u = (1, 2)^\top$ ($2 \times 1$), $A = \mathbf v^\top = (3, 0, -1)$ ($1 \times 3$): 5 numbers against 6 (the saving grows with the size: $r(m + n)$ against $mn$). (c) $\Delta W\mathbf x = (2, 4)^\top$: 6 multiplications. $A\mathbf x = 2$ (3 multiplications), then $B \cdot 2 = (2, 4)^\top$ (2 more): 5. For $m = n = 768$, $r = 8$: 12,288 against 589,824.
+
+**B3.** (a) Keep the larger singular value: $\Delta W_1 = \begin{pmatrix} 3 & 0 \\ 0 & 0\end{pmatrix}$, error $\sqrt{1}/\sqrt{9 + 1} = 0.316$. (b) $\Delta W - M = \begin{pmatrix} 1 & -1 \\ -2 & 0\end{pmatrix}$, error $\sqrt{6/10} = 0.775$: much worse.
+
+**B4.** (a) The pretrained layers want small steps, but the new head, which starts random, then learns too slowly: lower rates protect the features (old task 35 → 43 %) but the head is not finished after 300 steps. (b) Small steps where the weights are already good (the old task is kept better, 68 %, and the features are not overwritten by 9 examples), large steps where they are random (the head learns fast). (c) With more labels, or when the images differ from the pretraining images: there the frozen features underfit (the other modality of the last unit: 73 % frozen, 89 % all layers tuned).
+
+**B5.** (a) Derivative $2(w - 2) + 2\lambda(w - 1) = 0$: $w^* = (2 + \lambda)/(1 + \lambda)$: 2, 1.5, 1.25; as $\lambda \to \infty$, $w^* \to 1 = w_0$ (frozen). (b) $2\lambda(w - w_0) = 2 \cdot 0.1 \cdot 0.5 = 0.1$.
+
+**B6.** (a) $\sum_k \sigma_k^2 = 13.62 + 6.71 + 5.15 + 3.20 + 1.21 + 0.44 + 0.66 = 30.99$; the part beyond rank 3 is $3.20 + 1.21 + 0.44 + 0.66 = 5.51$; relative error $\sqrt{5.51/30.99} = 0.42$ (the demo: 42.0 %). (b) 42 % of the change (in size) is left out, yet the accuracy hardly changes: the rest of the change is mostly noise from fitting the training images, not needed for the new task. Three directions per layer carry what matters.
+:::
+
+### Math questions
+
+**B7.** *(math)* $\Delta W = \sum_k\sigma_k\mathbf u_k\mathbf v_k^\top$ (orthonormal $\mathbf u_k$, $\mathbf v_k$). Show that $\|\Delta W\|_F^2 = \sum_k\sigma_k^2$, and that the truncation to the $r$ largest terms has the relative error $\sqrt{\sum_{k>r}\sigma_k^2/\sum_k\sigma_k^2}$. (That no other rank-$r$ matrix does better is the Eckart–Young theorem; you may quote it.)
+
+**B8.** *(math)* $f(B, A) = \|BA - \Delta W\|_F^2$. Show $\partial f/\partial B = 2EA^\top$ and $\partial f/\partial A = 2B^\top E$ with $E = BA - \Delta W$. At the LoRA start $B = 0$: what are the two gradients, and why must $A$ not also start at 0?
+
+**B9.** *(math)* Adam divides each weight's running gradient average by the square root of its running squared average. Show that multiplying all gradients of a layer by $c > 0$ leaves Adam's steps unchanged (ignoring the small $\varepsilon$). What does this mean for layer-wise learning rates?
+
+**B10.** *(math)* One step of gradient descent on a layer changes $W$ by $-\eta\sum_n\boldsymbol\delta_n\mathbf a_n^\top$ (B8 of the [backprop unit](../backprop/exercise.qmd)). With $K = 3$ classes and a softmax head, what is the rank of the change of the **head** from one step, at most? What does this suggest for the layers below?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** *(math)* $\|M\|_F^2 = \operatorname{tr}(M^\top M)$. With $M = \sum_k\sigma_k\mathbf u_k\mathbf v_k^\top$: $M^\top M = \sum_{k,l}\sigma_k\sigma_l\mathbf v_k\mathbf u_k^\top\mathbf u_l\mathbf v_l^\top = \sum_k\sigma_k^2\mathbf v_k\mathbf v_k^\top$, with trace $\sum_k\sigma_k^2$. The leftover after truncation is $\sum_{k>r}\sigma_k\mathbf u_k\mathbf v_k^\top$, so its squared norm is $\sum_{k>r}\sigma_k^2$; divide and take the square root.
+
+**B8.** *(math)* $f = \sum_{ij}E_{ij}^2$ with $E_{ij} = \sum_k B_{ik}A_{kj} - \Delta W_{ij}$. $\partial f/\partial B_{ik} = \sum_j 2E_{ij}A_{kj} = 2(EA^\top)_{ik}$; $\partial f/\partial A_{kj} = \sum_i 2E_{ij}B_{ik} = 2(B^\top E)_{kj}$. At $B = 0$: $E = -\Delta W$, $\partial f/\partial B = -2\Delta WA^\top$ (non-zero if $A$ is random), $\partial f/\partial A = 0$. If both started at 0, both gradients would be 0 and nothing would ever move (a saddle point).
+
+**B9.** *(math)* With gradients $c\,g_t$: $m_t \to c\,m_t$, $v_t \to c^2v_t$, so $m_t/\sqrt{v_t}$ is unchanged. Each weight's step is about $\eta$ times a number of size about 1, whatever the scale of its gradient. To make a layer learn more slowly with Adam one must give it a smaller $\eta$, not a smaller gradient.
+
+**B10.** *(math)* The head's change is $-\eta\sum_n\boldsymbol\delta_n\mathbf a_n^\top$ with $\boldsymbol\delta_n = \mathbf p_n - \mathbf y_n \in \mathbb R^3$, and $\sum_k\delta_{nk} = 0$ (probabilities and one-hot vectors both sum to 1): all $\boldsymbol\delta_n$ lie in a 2-dimensional subspace, so the change has rank at most 2. The layers below receive $\boldsymbol\delta$s that are linear images of these (times the ReLU's 0/1 pattern): their changes are dominated by a few directions, which is why the toy's fine-tuning change is nearly low rank.
+:::
+
+## Explore: a change and its low-rank approximation {#explore}
+
+Top: a weight change $\Delta W$, its best rank-$r$ approximation $BA$ (the $r$ largest terms of its SVD), and what is left out, in one colour scale (blue negative, red positive). Bottom left: the singular values; the kept ones are red. The panel gives the numbers to store and the relative error, and plots the error against the rank. The two **real fine-tuning** presets use the change that tuning all layers of the [transfer unit](../transfer/exercise.qmd#explore)'s toy network on 300 labels made; they also show the network's accuracy when its change (in both layers) is cut to rank $r$, and its old-task accuracy.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="lowrank" data-preset="rank2"></div>
+<script src="../demos/dist/lowrank.js"></script>
+```
+
+**E1.** Preset **a rank-2 change**. How many singular values are not zero? What is the error at rank 1, and at rank 2? How many numbers does rank 2 store, against the full change?
+
+**E2.** Preset **rank 2 + noise**. Where is the "knee" of the singular values? Read the error at rank 1, 2 and 6. Is rank 6 worth it?
+
+**E3.** Preset **a random (full-rank) change**. Compare the singular values and the error curve with E2. Which rank brings the error below a third?
+
+**E4.** Preset **real fine-tuning: layer 1**. Read the error and the accuracy at ranks 0 to 4. Which rank would you choose? What happens to the old task as the rank grows?
+
+**E5.** Preset **real fine-tuning: layer 2**. Compare its singular values with layer 1's. Why might the change of a $16 \times 32$ layer have a lower effective rank?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Two (3 and 1.5). Rank 1: 44.7 % ($1.5/\sqrt{3^2 + 1.5^2}$, as in B3); rank 2: 0 %. Rank 2: $2 \cdot 48 = 96$ numbers against 576 (17 %).
+
+**E2.** After the second singular value (2.98, 1.57, then 0.46, 0.38, 0.34, …): the noise adds a flat tail. Error 53.5 % at rank 1, 30.0 % at rank 2, 20.9 % at rank 6. From rank 2 to 6 the error falls slowly, because the extra directions only reproduce noise: rank 2 captures the change, the rest is not worth storing (nor learning).
+
+**E3.** The singular values fall slowly (5.61, 4.92, 4.55, 4.25, …): no knee. The error falls slowly too: 72.7 % at rank 4, 49.9 % at 8; it drops below a third only at rank 12 (31.0 %), half the full size. A random change cannot be compressed; a low-rank update only works because real changes are not random.
+
+**E4.** Error 100, 74.9, 58.6, 42.0, 27.1 % for ranks 0 to 4; accuracy 60.3, 59.7, 76.3, 98.0, 98.7 % (the full change 98.7 %). Rank 3 is enough: 396 of 3200 numbers for layer 1. The old task falls as the rank grows (98, 96, 82, 42, 36 %): the directions that make the new task work are the ones that break the old one.
+
+**E5.** Layer 2: 2.68, 2.46, then 0.82, 0.58, …: two large values, so the error is 71.2 % at rank 1 but 30.4 % at rank 2 (layer 1: 58.6 %). The layer feeds a 3-class head: its useful change only has to move the 16 features in the 2 directions that separate 3 classes (math question B10).
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `finetuning/src/finetune_strategies/exercise.rs`.
+
+The program uses the toy of the [transfer unit](../transfer/exercise.qmd#code) (`common.rs`):
+the pretrained network with a new 3-class head, trained by full-batch gradient descent with one
+learning rate per layer.
+
+**C1.** `add_pull_to_start(g, net, start, lambda)`: add the gradient of the pull to the start,
+$2\lambda(w - w_0)$, to the gradient of every weight of the backbone (all layers but the last;
+not the biases). The check is B5(b).
+
+**C2.** `param_counts(m, n, r)`: $(mn,\ r(m + n))$. The check is B1.
+
+**C3.** `fit_low_rank(delta, r, steps, lr, seed)`: fit $BA$ to $\Delta W$ by gradient descent:
+
+```
+A = 0.1 · random normal numbers (r × n);  B = 0 (m × r)
+repeat steps times:
+    E = B·A − ΔW
+    grad B = 2 · E · Aᵀ;   grad A = 2 · Bᵀ · E      # both from the same E
+    B = B − lr · grad B;   A = A − lr · grad A
+return B, A
+```
+
+The checks: a rank-1 change is fitted exactly; $\operatorname{diag}(3, 1)$ at rank 1 has the error of B3.
+
+**C4.** `rel_error(delta, b, a)`: $\|BA - \Delta W\| / \|\Delta W\|$.
+
+Then `cargo run -p finetuning -- finetune-strategies`. The program fine-tunes the pretrained toy
+network on 9 and on 300 labels (500 steps, rate 0.05) with: the head only, the last layers, all
+layers with one rate, all layers with rates divided by 10 / 3 / 1, and all layers with your pull
+to the start ($\lambda = 0.2$). It prints the new-task and the old-task accuracy. Then it takes
+the change of layer 1 from tuning all layers on 300 labels, prints its singular values, and for
+ranks 1 to 8 the best possible error, the error your `fit_low_rank` reaches (3000 steps), and
+the accuracy of the network when layer 1's change is replaced by your $BA$.
+
+**C5.** Which strategy keeps the old task best, apart from the head only? Compare the pull to the start with one rate.
+
+**C6.** Compare the error of gradient descent with the best possible error at each rank. Where do they differ, and why (look at the singular values the extra ranks would add)?
+
+**C7.** From which rank is the accuracy as good as with the full change? How many numbers is that, out of 3200?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `finetuning/src/finetune_strategies/solution.rs` in the download.
+
+**C5.** 9 labels (new / old): head only 97.0 / 98.8 %, last layers 98.3 / 95.8 %, all layers one rate 97.7 / 94.0 %, layer-wise 98.3 / 97.5 %, pull to the start 97.7 / 97.2 %. 300 labels: 98.0 / 98.8, 98.3 / 97.2, 98.7 / 92.8, 98.0 / 96.2, 98.0 / 97.0 %. The layer-wise rates and the pull keep the old task nearly as well as freezing the lower layers, at almost no cost on the new task. (Plain gradient descent at this rate forgets less than the demo's Adam: here one rate loses 5 to 6 points of the old task, in the demo two thirds.)
+
+**C6.** The singular values are 0.76, 0.57, 0.36, 0.22, 0.19, 0.15, 0.12, 0.10. Up to rank 3, gradient descent reaches the best possible error exactly (71.6, 48.9, 36.1 %). At rank 4 it reaches 32.1 % against 29.9 %, at rank 8 26.1 % against 13.4 %: the extra directions have small singular values, and gradient descent learns a direction at a speed proportional to its singular value squared, so they are not finished after 3000 steps.
+
+**C7.** From rank 3 the accuracy is 98.7 %, as with the full change (rank 1: 97.3 %, rank 2: 98.0 %): 396 numbers out of 3200 for layer 1.
+:::
+
+## Where this leads
+
+Fine-tuning needs labels. The [next unit](../few-labels/lec.qmd) asks how few are enough and which ones to annotate, with the human in the loop. The [domain-shift unit](../domain-shift/lec.qmd) uses fine-tuning on a few images of a new microscope as one of its remedies.

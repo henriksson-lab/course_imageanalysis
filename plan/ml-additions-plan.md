@@ -1,5 +1,10 @@
 # Plan: more machine learning (training, GANs and flows, self-supervision, fine-tuning)
 
+**Status: built 2026-11-17** (one worker per day, `plan/ml-build-brief.md`). Units without a
+live demo of their own: `self-distillation` (figures; reuses the attention demo). Demos that
+replay recorded runs instead of training live: `augmentation` (train view), `training-curves`,
+`flows` (stepped weights).
+
 Requested 2026-11-17: add **GANs**, **self-supervised and contrastive pretraining**,
 **fine-tuning and transfer learning**, **training practicalities**, and **normalising flows**.
 This plan replaces the "Fine-tuning strategies" entry under Future work in `coursemap.md`.
@@ -38,7 +43,7 @@ What every network on the later days relies on, and what goes wrong when trainin
 2. **Initialisation and normalisation.** Signals that shrink or explode through many layers;
    vanishing gradients; sensible initial weights (variance ∝ 1/fan-in). Batch normalisation and
    layer normalisation: what they compute, why training gets easier, and the batch-statistics
-   trap at test time (one image, other microscope). Residual connections in one picture. *Demo:*
+   trap at test time (one image, other microscope). Residual connections and ResNet, properly (added 2026-11-17: not explained anywhere before): the degradation problem, the residual block y = x + F(x), why gradients pass through many blocks, the ResNet architecture as the backbone of later networks, and the difference from U-Net's skip connections; demo: a deep plain stack vs the same stack with residual connections. *Demo:*
    activations layer by layer in a deep stack, with and without normalisation and with different
    initial scales.
 3. **Regularisation and data augmentation.** Overfitting on small microscopy data sets; weight
@@ -188,8 +193,15 @@ drifting.
 
 - **neuralnet / backprop (day "Neural networks"):** point forward to A for optimisers,
   normalisation and augmentation; keep momentum there as a first look.
-- **vae-gen:** the GAN mention links to B1.
+- **vae-gen:** the GAN mention links to B1; plus a slide "The autoencoder as a tokenizer"
+  (added 2026-11-17): a trained (V)AE reused as the compression stage of other models (latent
+  diffusion, drifting, VQ codebooks giving discrete tokens for transformers and image–text
+  generators); the compression and the decoder's habits are shared by everything on top.
 - **attention:** the frozen-features slide links to C and D.
+- **detection** (added 2026-11-17): feature pyramid networks (top-down path with lateral
+  connections, predictions on every level; linked to the image and Laplacian pyramids of
+  scale-space and to U-Net's skips), with a quiz and an exercise question; **yolo** says its
+  "neck" is a feature pyramid.
 - **denoise (day "Deconvolution"):** links to C4.
 - **cellnets-compare:** links to D (adapting the networks to your data).
 - **Diffusion models day:** a short slide "Five ways to generate" (VAE, GAN, flow, diffusion, drifting:
@@ -216,6 +228,14 @@ usual checks (all programs, tests, clippy) and the output comparison against a b
 Watch for day ids that clash with a unit module inside them (day `diffusion` contains a unit
 `diffusion`? no: the unit `diffusion` is in day `moderndl`; check all) and with crates.io names
 (irrelevant for path dependencies, but avoid `image`).
+
+## Demos: keep them small (owner's note, 2026-11-17)
+
+Demos for these units may be too hard to do well. Keep them small (2D toys, tiny networks,
+precomputed results stepped through), and leave a unit without a live demo (figures instead)
+where it would be fragile or huge. The course owner is writing **Rust ML packages** that later
+demos can use (via WebAssembly, like the cell networks); units without a demo record here what
+a demo should show, for then.
 
 ## How to build it
 

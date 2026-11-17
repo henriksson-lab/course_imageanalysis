@@ -1,0 +1,199 @@
+---
+title: "Exercise: transfer learning"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- name the ways to reuse a pretrained network and count the weights each one trains,
+- choose between them from the number of labels and how much your images differ from the pretraining images,
+- read training and validation curves of fine-tuning runs: memorising, underfitting, early stopping,
+- train a linear probe on frozen features *(math: why it is convex and what it costs)*.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Pretrained network | trained by someone else on a large labelled (or unlabelled) image collection: the **old task** |
+| Backbone | all layers but the last; its outputs are the **features** |
+| Head | the last layer, which turns features into class scores; replaced by a **new head** for your classes |
+| Frozen | not trained: learning rate 0 |
+| Linear probe | a new head trained on frozen features (softmax regression) |
+| Fine-tuning | training pretrained weights further on your labels, usually with a small learning rate |
+| The toy | a 100 → 32 → 16 → K network on 10 × 10 patches; old task: four shapes (2400 labels); new task: three cell phenotypes |
+
+## By hand
+
+**B1.** The toy network is 100 → 32 → 16 → 3 (inputs → layer 1 → layer 2 → head), each layer with weights and biases.
+(a) How many numbers does each layer have?
+(b) How many are trained by frozen + new head, last layers tuned (layer 1 frozen), all layers tuned?
+(c) A large backbone gives 2048 features. How many numbers does a probe for 5 classes train?
+
+**B2.** A linear probe by hand. One feature, two classes: $f = 0$ (class 0) and $f = 1$ (class 1). Start with all weights and biases 0 and take one gradient step with learning rate 1 on the mean cross-entropy.
+(a) What are the probabilities before the step?
+(b) Compute the gradient of each weight and bias (for one example: $(p_k - y_k)f$ and $p_k - y_k$; then average).
+(c) Give the weights after the step. Which way does the probe now lean for $f = 1$?
+
+**B3.** For each project choose: as is, frozen + new head, tune the last layers, tune all layers, or from scratch. Explain.
+(a) 20 annotated fluorescence images of nuclei; a network pretrained on fluorescence nuclei of many other cell lines (it finds your nuclei, but you want three phenotypes).
+(b) A nucleus segmentation network trained on images from your own microscope, stain and cell line.
+(c) 3000 annotated electron micrographs; a network pretrained on photographs.
+(d) 30 annotated stained tissue sections (dark nuclei on a pink background); a network pretrained on fluorescence.
+
+**B4.** The toy's validation accuracy after 300 steps (same microscope):
+
+| labels | 6 | 9 | 15 | 30 | 60 | 300 |
+|---|---|---|---|---|---|---|
+| frozen + new head | 95.0 | 96.7 | 97.7 | 97.7 | 97.3 | 97.3 |
+| last layers tuned | 93.7 | 95.0 | 97.0 | 98.3 | 99.0 | 98.3 |
+| all layers tuned | 75.7 | 80.7 | 86.3 | 93.7 | 97.7 | 98.7 |
+| from scratch | 62.0 | 62.7 | 79.0 | 82.3 | 88.3 | 97.0 |
+
+(a) Up to how many labels is the frozen probe best? From where is tuning better?
+(b) Why does the frozen probe stop improving after 15 labels?
+(c) How many labels does training from scratch need to match the frozen probe with 9?
+
+**B5.** With 9 labels, the training loss of "from scratch" reaches 0.0004 and its validation loss is 1.0; the frozen probe has 0.07 and 0.16. Explain both pairs of numbers.
+
+**B6.** On the other modality (dark cells on a bright background) the frozen probe reaches 74 % with 9 labels and 73 % with 300; its training loss stays at 0.86. Tuning all layers reaches 86 % and 89 %.
+(a) Is the probe overfitting or underfitting? What would more labels do for it?
+(b) "From scratch" reaches 76 % with 9 labels and 89 % with 300. What do the pretrained weights still give, although their features are wrong?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Layer 1: $100 \cdot 32 + 32 = 3232$; layer 2: $32 \cdot 16 + 16 = 528$; head: $16 \cdot 3 + 3 = 51$. (b) Frozen + new head: 51. Last layers tuned: $528 + 51 = 579$. All layers: $3232 + 579 = 3811$ (as from scratch). (c) $5 \cdot 2048 + 5 = 10{,}245$.
+
+**B2.** (a) All scores are 0, so $p = (0.5, 0.5)$ for both examples. (b) Example 1 ($f = 0$, class 0): $p - y = (-0.5, 0.5)$: bias gradients $(-0.5, 0.5)$, weight gradients 0. Example 2 ($f = 1$, class 1): $p - y = (0.5, -0.5)$: bias gradients $(0.5, -0.5)$, weight gradients $(0.5, -0.5)$. Mean: biases $(0, 0)$, weights $(0.25, -0.25)$. (c) $w_0 = -0.25$, $w_1 = 0.25$, biases 0. For $f = 1$ the scores are $(-0.25, 0.25)$: class 1 is now more likely ($p_1 = 0.62$), for $f = 0$ it is still 50 : 50.
+
+**B3.** (a) Frozen + new head (or tune the last layers): the features fit your images, and 20 images are enough for a probe. (b) As is: the network already does your task on your kind of image; check it on a few annotated images. (c) Tune all layers (with a small rate), or train from scratch: 3000 labels are enough, and photographs differ from micrographs, so the features need to adapt. (d) Tune all layers starting from the pretrained network; frozen fluorescence features do not fit dark nuclei (as the cell-networks day found), but 30 images are too few for scratch.
+
+**B4.** (a) Up to 15 labels (97.7 % against 97.0 %); from 30 labels tuning the last layers is better (98.3 % against 97.7 %), and at 300 all layers are best (98.7 %). (b) Its features are fixed: once the head has enough examples to place its boundaries, more labels cannot make the features separate the classes better (about 2.7 % of the validation images stay wrong). (c) 300 labels (97.0 %), against 9 for the probe (96.7 %): about 30 times as many.
+
+**B5.** From scratch, 3811 weights fit 9 images perfectly (training loss nearly 0): it **memorises** them, including their noise and position, and is confidently wrong on many new images (validation loss 1.0, accuracy 63 %). The probe trains 51 weights on features that already separate the classes: it cannot fit the 9 images perfectly (0.07) but generalises (0.16, 97 %).
+
+**B6.** (a) Underfitting: even on its own training images the loss stays high, because the frozen features do not separate the classes in this modality. More labels do not help (73 % at 300). (b) A better **starting point**: with 9 labels, tuning from the pretrained weights reaches 86 % against 76 % from random weights; with 300 labels both reach 89 %.
+:::
+
+### Math questions
+
+**B7.** *(math)* Show that the cross-entropy of a linear probe, $\mathcal L(\mathbf w, \mathbf b) = -z_y + \log\sum_j e^{z_j}$ with $z_k = \mathbf w_k\cdot\mathbf f + b_k$, is convex in $(\mathbf w, \mathbf b)$. (Hint: log-sum-exp is convex; its Hessian is $\operatorname{diag}(\mathbf p) - \mathbf p\mathbf p^\top$.)
+
+**B8.** *(math)* Derive the gradient $\partial\mathcal L/\partial\mathbf w_k = (p_k - y_k)\mathbf f$ for one example.
+
+**B9.** *(math)* Two classes, $d$ frozen features, $N$ labelled examples whose feature vectors are in general position. Show that if $N \le d + 1$, a linear head can separate **any** labelling of them, so its training loss can be driven to 0. The toy probe has $d = 16$ and was trained on 9 images: why did its training loss stay at 0.07, and why does it still generalise?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** *(math)* The scores $\mathbf z$ are linear in the parameters, and $-z_y$ is linear. $g(\mathbf z) = \log\sum_j e^{z_j}$ has gradient $\mathbf p$ (the softmax) and Hessian $\operatorname{diag}(\mathbf p) - \mathbf p\mathbf p^\top$; for any $\mathbf v$, $\mathbf v^\top(\operatorname{diag}\mathbf p - \mathbf p\mathbf p^\top)\mathbf v = \sum_j p_j v_j^2 - (\sum_j p_j v_j)^2 \ge 0$ (a variance). A convex function of a linear map is convex, and sums of convex functions are convex.
+
+**B8.** *(math)* $\mathcal L = -z_y + \log\sum_j e^{z_j}$, so $\partial\mathcal L/\partial z_k = -[k = y] + p_k = p_k - y_k$, and $\partial z_k/\partial\mathbf w_k = \mathbf f$, $\partial z_k/\partial b_k = 1$.
+
+**B9.** *(math)* Append 1 to each feature vector: $N \le d + 1$ vectors in general position in $\mathbb R^{d+1}$ are linearly independent, so the linear system $\mathbf u\cdot(\mathbf f_n, 1) = t_n$ has a solution for any targets, e.g. $t_n = \pm 1$ by class; scaling $\mathbf u$ up drives every margin and the loss towards 0. The toy probe could separate its 9 images, but gradient descent for 300 steps with a small rate only gets part of the way (loss 0.07), and the separating direction it moves along is the one the features make natural: the large margins between the class clusters, not the noise. Memorising needs weights that grow without bound, which a limited number of steps (implicit regularisation) prevents.
+:::
+
+## Explore: four networks side by side {#explore}
+
+Four copies of the toy network learn the new task from the same labelled images, each in its own way: a **frozen** backbone with a new head, the **last layers** tuned, **all layers** tuned, and the same network **from scratch**. Each takes 300 full-batch steps (Adam). The plot shows the validation accuracy (or, with **show loss**, the validation loss); the table gives the trained weights, the last training loss, the validation accuracy now and at its best step, and how much of the **old task** the backbone still knows (its old head put back).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="transfercurves" data-preset="few"></div>
+<script src="../demos/dist/transfercurves.js"></script>
+```
+
+**E1.** Preset **9 labels**, then **train**. Which strategy wins? Press **show loss**: which runs memorise the 9 images, and how can you tell?
+
+**E2.** Preset **300 labels**. Rank the four strategies now. How large are the differences compared with E1?
+
+**E3.** Move the **labelled images** slider through 6, 15, 30 and 90 (train each time). Where does "all layers tuned" overtake the frozen probe? Compare with the table in B4.
+
+**E4.** Look at the **old task** column in E1 and E2. What happens to the old task when layers are tuned? Which strategy keeps it?
+
+**E5.** Preset **9 labels, smaller rate** (0.0005 instead of 0.003). What happens to "all layers tuned", to its old task, and to the frozen probe? What does this suggest about using one learning rate for all layers?
+
+**E6.** Presets **other modality, 9 labels** and **other modality, 300 labels**. Compare the frozen probe with "all layers tuned" and "from scratch". Look at the example patches.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** Frozen + new head 96.7 %, last layers tuned 95.0 %, all layers tuned 80.7 % (best 82.7 % at step 60), from scratch 62.7 %. With **show loss**, the validation losses of "all layers" (0.44) and "scratch" (1.0) stay high or rise while their training losses fall to 0.002 and 0.0004: they fit the 9 images perfectly and are wrong on new ones.
+
+**E2.** All layers tuned 98.7 %, last layers 98.3 %, frozen 97.3 %, scratch 97.0 %: all within 2 %, against a spread of 34 % with 9 labels. With enough labels the choice matters little for accuracy (it still matters for cost and the old task).
+
+**E3.** 6: 95.0 / 93.7 / 75.7 / 62.0 %; 15: 97.7 / 97.0 / 86.3 / 79.0 %; 30: 97.7 / 98.3 / 93.7 / 82.3 %; 90: 97.3 / 99.0 / 97.7 / 92.7 % (frozen / last layers / all layers / scratch). "Last layers tuned" passes the frozen probe at 30 labels; "all layers tuned" only at 60 (97.7 % against 97.3 %, B4) and clearly at 90.
+
+**E4.** With 9 labels the old task drops from 98 % to 70 % (last layers) and to about a third (all layers, 35 %); with 300 labels to 79 % and 32 %. Only the frozen backbone keeps it (98 %): its weights do not change. This is **catastrophic forgetting** ([next unit](../finetune-strategies/lec.qmd)).
+
+**E5.** All layers tuned: 83.0 % (up from 80.7 %), and it keeps more of the old task (43 % instead of 35 %): smaller steps stay closer to the pretrained weights. But the frozen probe drops to 59.3 %: its new head, which starts from random weights, learns too slowly at this rate in 300 steps. The pretrained layers want a small rate and the new head a large one: one rate per layer.
+
+**E6.** 9 labels: frozen 74.3 %, last layers 83.7 %, all layers 86.0 %, scratch 75.7 %. 300 labels: 73.0, 84.3, 89.3, 88.7 %. The frozen probe is stuck below 75 % whatever the number of labels (training loss 0.86: underfitting): features made for bright objects on dark do not describe dark objects on bright. Tuning all layers adapts them, and the pretrained start still helps with few labels (86 % against 76 %).
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `finetuning/src/transfer/exercise.rs`.
+
+The day's shared code (`finetuning/src/common.rs`) gives the toy patches (`make_set`), a small
+network (`Net`, a list of `Layer`s with `w[o][i]` and `b[o]`), its training by gradient descent
+with one learning rate per layer, and `pretrained()`: the 100 → 32 → 16 → 4 network of the old
+task.
+
+**C1.** `features(net, x, layers)`: the output after the first `layers` layers, each followed by
+its ReLU:
+
+```
+a = x
+for each of the first `layers` layers:
+    a[o] = max(0, b[o] + sum over i of w[o][i] · a[i])   for every output o
+return a
+```
+
+The check uses a small network with known weights.
+
+**C2.** `train_probe(feats, ys, k, steps, lr)`: a linear probe (softmax regression) on fixed features:
+
+```
+W = 0 (k rows of d numbers), b = 0 (k numbers)
+repeat steps times:
+    gradient = 0
+    for every example (f, y):
+        p = softmax(W f + b)
+        for every class c:  e = (p[c] − [c = y]) / N
+                            gradient of b[c] += e,  gradient of W[c] += e · f
+    W = W − lr · gradient,  b = b − lr · gradient
+```
+
+The check is B2.
+
+**C3.** `probe_accuracy(probe, feats, ys)`: the fraction of examples whose highest score is the true class.
+
+**C4.** `trained_weights(net, frozen)`: the number of weights and biases in the layers after the first `frozen`. The check is B1.
+
+Then `cargo run -p finetuning -- transfer` and open the pictures in `out/transfer/`. The program
+pretrains the network (plain gradient descent, a few seconds), prints its old-task accuracy, and
+then, for 6 to 300 labels of the new task, the validation accuracy of: your probe on the
+pretrained features after layer 2, the same probe on the features of an **untrained** (random)
+network, all layers tuned, and the network from scratch (500 steps each). It does this for the
+same microscope and for the other modality.
+
+**C5.** Compare the probe on pretrained features with the probe on the random network's features. What made the features good: the network's shape, or its pretraining?
+
+**C6.** Same microscope: how many labels does "from scratch" need to come within one percentage point of the pretrained probe with 6 labels?
+
+**C7.** Other modality: compare the pretrained probe and "all layers tuned" from 6 to 300 labels. Then open `filters.png` and `patches.png`: why do these filters answer differently to the other modality's patches?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `finetuning/src/transfer/solution.rs` in the download.
+
+The program prints an old-task accuracy of 98.8 % and the weight counts 51, 579 and 3811 (B1).
+
+**C5.** Same microscope, 6 to 300 labels: the probe on pretrained features reaches 97.3 to 99.0 %, the same probe on a random network's features only 66.3 to 74.0 %. Both networks have the same shape; only the pretraining differs. Random features are random projections of the pixels: they keep some information, but not in a form a linear head can use.
+
+**C6.** The pretrained probe with 6 labels: 97.3 %. From scratch: 68.3 % (6), 81.3 % (15), 89.7 % (30), 95.7 % (90), 97.3 % (300): 300 labels, fifty times as many. (Here the program uses plain gradient descent, not the demo's Adam, so the numbers differ a little from the demo's.)
+
+**C7.** Other modality: the pretrained probe 88.7 % (6 labels) to 92.3 % (300), all layers tuned 85.7 % (6), 92.0 % (15), 93.7 % (30), 94.3 % (90) and 90.3 % (300). With 6 labels the probe is better; from 15 labels tuning is (the dip at 300 shows that 500 plain steps are not always enough). The filters were learnt on bright objects on a dark background: they weigh bright pixels in the centre positively. In the other modality the background is bright and the object dark, so the same filters respond mostly to the background, and the features describe the cells less well: tuning the first layer fixes that.
+:::
+
+## Where this leads
+
+The [next unit](../finetune-strategies/lec.qmd) asks how to fine-tune: which layers, which learning rates, how to avoid forgetting the old task, and how to change a large network by storing only a few new numbers per layer. The [few-labels unit](../few-labels/lec.qmd) asks which images are worth labelling, and the [domain-shift unit](../domain-shift/lec.qmd) what to do when the new images come from another microscope.

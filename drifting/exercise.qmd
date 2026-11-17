@@ -1,0 +1,240 @@
+---
+title: "Exercise: drifting"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- compute the **pull**, the **push** and the **drift** $V$ of a point by hand, and say what the temperature $\tau$ does,
+- explain why the drift is small when the generated points match the data, and why that alone does not prove a match,
+- compute **coverage** and say why few synthetic points need **augmented views**,
+- turn the drift into a training loss with a **stop-gradient** target, and say why sampling is then one pass,
+- place drifting next to mean shift, GANs, diffusion and kernel moment matching *(math for the last one)*.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** (derive, prove) are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Kernel weights | for a point $\mathbf x$ and a set of points: $e^{-\text{distance}/\tau}$, divided by their sum (a softmax); near points weigh most |
+| Pull $V^+$ | from $\mathbf x$ to the weighted mean of the **real** points |
+| Push $V^-$ | from $\mathbf x$ to the weighted mean of the **other generated** points (a point is never its own negative); subtracted |
+| Drift | $V = V^+ - V^-$ = (local mean of the real points) − (local mean of the other generated points) |
+| Drifting step | free points: $\mathbf x \leftarrow \mathbf x + \eta V(\mathbf x)$ |
+| Coverage | the fraction of real points whose ball (radius: distance to their $k$-th nearest real neighbour) contains a generated point |
+| Stop-gradient loss | $\|f(\varepsilon) - \text{target}\|^2$ with the target $f(\varepsilon) + V$ computed first and then held fixed |
+
+Useful values: $e^{-1} = 0.368$, $e^{-2} = 0.135$, $e^{-4} = 0.0183$; $1/(e + 1) = 0.269$, $1/(e^2 + 1) = 0.119$, $1/(e^4 + 1) = 0.018$.
+
+## By hand
+
+**B1.** The pull and the temperature. Two real points on a line, at 0 and 2; a generated point at $x = 0.5$.
+(a) $\tau = 1$: the kernel weights are $e^{-0.5}$ and $e^{-1.5}$. Normalise them, compute the weighted mean of the real points and the pull $V^+ = \text{mean} - x$.
+(b) The same with $\tau = 0.25$.
+(c) What does the weighted mean tend to for a very large $\tau$, and for a very small one? Describe in words what $\tau$ sets.
+
+**B2.** Two generated points, no augmentation. Real points at 0 and 2, $\tau = 1$.
+(a) The generated points are at 0.5 and 1.5. Each has exactly one "other generated point". Compute $V^-$ and $V$ for both (use B1 (a) and symmetry).
+(b) Take one drifting step with $\eta = 0.5$. Where are the two points now?
+(c) Suppose they are at $-1$ and $3$. Compute $V$ at $-1$. Which way does the point move, and does it ever come back?
+(d) They sit exactly on the data, at 0 and 2. Is $V = 0$? Explain what is special about having only two generated points.
+
+**B3.** The stop-gradient loss. A generator output is $u = 1.0$ and the field there is $V = 0.3$.
+(a) What is the target, and what is the value of the loss $(u - \text{target})^2$?
+(b) With the target held fixed, what is $d\,\text{loss}/du$? Compare with $V$.
+(c) If $u$ were a free number, where would one gradient step with learning rate 0.25 put it? With 0.5?
+(d) In a real generator, $u$ is not free. What does the gradient step change instead, and why do all samples then move "a little along $V$"?
+
+**B4.** Coverage, $k = 1$. Real points on a line: $0, 1, 2, 3, 10$.
+(a) Give the radius of each real point's ball. Generated points: $2.5$ and $6$. Which real points are covered? What is the coverage?
+(b) Without the point at 6?
+(c) The isolated real point at 10 is easy to cover. Is that a flaw or a feature of the measure?
+
+**B5.** Speed. One network pass takes 20 ms.
+(a) A diffusion sampler with 50 steps: how long per image, and for 10,000 images?
+(b) A drifting generator: the same questions.
+(c) Where does drifting pay instead? (Think of what a training step computes.)
+
+**B6.** Predict, then check in the demo. 200 free points drift onto two blobs that hold 3/4 and 1/4 of the data.
+(a) With **pull only**, where does each point end up? Will the share on the small blob be right?
+(b) What does the push add?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) Weights $0.607$ and $0.223$, normalised $0.731$ and $0.269$ (that is $1/(e + 1)$). Mean $0.269 \cdot 2 = 0.538$; $V^+ = 0.038$: almost no pull, the point sits near the middle of the two.
+(b) Weights $e^{-2}$ and $e^{-6}$, normalised $0.982$ and $0.018$. Mean $0.036$; $V^+ = -0.464$: a strong pull towards the nearest real point, 0.
+(c) Large $\tau$: all weights equal, the mean of all real points (1), so $V^+ = 0.5$. Small $\tau$: the nearest real point (0). $\tau$ sets the **reach**: how far away a real (or generated) point still counts.
+
+**B2.** (a) At 0.5: $V^+ = 0.038$ (B1 a); the only other generated point is at 1.5, so $V^- = 1.5 - 0.5 = 1$, and $V = 0.038 - 1 = -0.962$. By symmetry $V = +0.962$ at 1.5. The push wins: the two points are pushed apart, towards the real points.
+(b) $0.5 - 0.481 = 0.019$ and $1.981$: almost exactly on the data after one step.
+(c) At $-1$: both weights shrink by the same factor, so the weighted mean is still $2/(e^2 + 1) = 0.238$, $V^+ = 1.238$. $V^- = 3 - (-1) = 4$. $V = -2.762$: the point moves further left, and the further apart the two are, the stronger the push. They never come back.
+(d) No: at 0, $V^+ = 0.238$ and $V^- = 2$, so $V = -1.762$. With one other generated point, the push is the full distance to it: it measures where the single neighbour is, not how dense the generated points are near $\mathbf x$. A point's own data twin pulls (with the largest weight), but the point is not its own negative. With many generated points (or several views of each point), the push becomes local and the drift of a matching cloud is small.
+
+**B3.** (a) Target $1.3$; loss $0.09 = V^2$.
+(b) $2(u - 1.3) = -0.6 = -2V$.
+(c) $u - 0.25 \cdot (-0.6) = 1.15 = u + 0.5V$; with 0.5: $1.3$, the target itself.
+(d) The weights of the network. The gradient $-2V$ at every output is passed back by backpropagation; one step changes the weights so that every output moves a little in the direction of its own $V$ (as far as the network can bend). Training is a regression on targets that are recomputed at every step.
+
+**B4.** (a) Radii: 1, 1, 1, 1 and 7 (the nearest neighbour of 10 is 3). Covered: 2 (distance 0.5), 3 (0.5) and 10 (distance 4, inside 7); not 0 (2.5) and 1 (1.5). Coverage $3/5 = 0.6$.
+(b) Only 2 and 3: $0.4$.
+(c) A feature: the balls adapt to the local density, so a region with few real points needs few generated points to be covered. Coverage asks "is every part of the data represented?", not "is every real point copied?".
+
+**B5.** (a) 1 s per image, 10,000 s (2.8 hours) for 10,000. (b) 20 ms; 200 s. (c) Training: every step computes the field for a batch, which needs the distance from every sample to every positive and every other negative (about $B \times (N_\text{pos} + N_\text{neg})$ distances, in a feature space), and the paper uses large batches and several temperatures. The cost of iterating is paid once, during training, instead of at every sample.
+
+**B6.** (a) Pull only is mean shift: every point climbs to the peak of the blob it starts nearest to, so the points end on two spots, and the share follows where they **started**, not the data (the demo's model: 42 % on the small blob, coverage 0.025). (b) The push spreads them over each blob and moves the excess away: 30 % on the small blob (the data: 25 %), coverage 0.998.
+:::
+
+### Math questions
+
+**B7.** *(math)* With normalised weights $a_j$ (over the real points) and $b_k$ (over the other generated points), show that $V^+ - V^- = \sum_j a_j\mathbf y_j - \sum_k b_k\mathbf x_k$. Then, for distributions and a probe point $\mathbf x$, show that $V_{p,q}(\mathbf x) = -V_{q,p}(\mathbf x)$, and conclude that $V = 0$ if $q = p$.
+
+**B8.** *(math)* Show that $\mathcal L(\mathbf u) = \|\mathbf u - \text{stopgrad}(\mathbf u + V)\|^2$ has the value $\|V\|^2$ and the gradient $-2V$ with respect to $\mathbf u$. For a generator $\mathbf u = f_\theta(\varepsilon)$, write $\nabla_\theta\mathcal L$ with the Jacobian $J = \partial f_\theta/\partial\theta$.
+
+**B9.** *(math)* Zero drift without a match. (a) Real points at $-1$ and $+1$ (equal weight); one generated point at 0. Show that $V(0) = 0$ for every $\tau$. (b) Real points uniform on a circle; all generated points at its centre. Show that $V = 0$ at every generated point, although the two distributions differ. (c) Is this rest point stable? What happens to a generated point moved slightly to the right in (a)?
+
+**B10.** *(math)* $\text{MMD}^2(p, q) = \mathbb E_{q,q}[k(\mathbf x, \mathbf x')] - 2\,\mathbb E_{p,q}[k(\mathbf y, \mathbf x)] + \mathbb E_{p,p}[k(\mathbf y, \mathbf y')]$ with $q$ the empirical distribution of $N$ samples $\mathbf x_i$ and a Gaussian kernel $k = e^{-\|\mathbf x - \mathbf y\|^2/2h^2}$. Show that $-\partial\,\text{MMD}^2/\partial\mathbf x_i = \frac{2}{Nh^2}\big(\mathbb E_p[k(\mathbf x_i, \mathbf y)(\mathbf y - \mathbf x_i)] - \frac1N\sum_k k(\mathbf x_i, \mathbf x_k)(\mathbf x_k - \mathbf x_i)\big)$, and say how the drifting field differs.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** *(math)* $V^+ = \sum_j a_j(\mathbf y_j - \mathbf x) = \sum_j a_j\mathbf y_j - \mathbf x$ because $\sum_j a_j = 1$; likewise $V^- = \sum_k b_k\mathbf x_k - \mathbf x$. Subtracting, $\mathbf x$ cancels. For distributions, $V_{p,q}(\mathbf x) = m_p(\mathbf x) - m_q(\mathbf x)$ with the kernel means $m_p = \mathbb E_p[k\,\mathbf y]/\mathbb E_p[k]$. Swapping $p$ and $q$ swaps the two terms: $V_{q,p} = m_q - m_p = -V_{p,q}$. If $q = p$, then $V_{p,p} = -V_{p,p}$, so $V_{p,p} = 0$.
+
+**B8.** *(math)* The target $\mathbf t = \mathbf u + V$ is a constant for differentiation. $\mathcal L = \|\mathbf u - \mathbf t\|^2 = \|-V\|^2 = \|V\|^2$, and $\nabla_{\mathbf u}\mathcal L = 2(\mathbf u - \mathbf t) = -2V$. By the chain rule $\nabla_\theta\mathcal L = J^\top\nabla_{\mathbf u}\mathcal L = -2J^\top V$ (averaged over the batch).
+
+**B9.** *(math)* (a) The weights of $-1$ and $+1$ seen from 0 are equal, so the weighted mean is 0 and $V^+ = 0$; there is no other generated point, so $V^- = 0$. (b) By symmetry the weighted mean of the circle seen from its centre is the centre: $V^+ = 0$. The other generated points are at the same place, so $V^- = 0$. $q$ (one point) differs from $p$ (a circle), but training only evaluates $V$ on $q$ and sees nothing. (c) Unstable: at $x = \epsilon > 0$ the point at $+1$ is nearer and gets more weight, so the mean moves right: $V^+ > 0$ and the point moves away from the centre towards $+1$. Practical training rarely sits on such points (noise breaks the symmetry), but the example shows that $V = 0$ on the samples is not a proof of $q = p$.
+
+**B10.** *(math)* Only the first two terms depend on $\mathbf x_i$. $\mathbb E_{q,q}k = \frac1{N^2}\sum_{k,l}k(\mathbf x_k, \mathbf x_l)$ contains $\mathbf x_i$ in $2N$ terms (as first or second argument; the term $k(\mathbf x_i, \mathbf x_i) = 1$ is constant), so its derivative is $\frac{2}{N^2}\sum_k\nabla_{\mathbf x_i}k(\mathbf x_i, \mathbf x_k)$. $-2\,\mathbb E_{p,q}k = -\frac2N\sum_l\mathbb E_p[k(\mathbf y, \mathbf x_l)]$ has the derivative $-\frac2N\mathbb E_p[\nabla_{\mathbf x_i}k(\mathbf x_i, \mathbf y)]$. With $\nabla_{\mathbf x}k(\mathbf x, \mathbf y) = k\,(\mathbf y - \mathbf x)/h^2$ the result follows. The drifting field divides the pull by $\mathbb E_p[k]$ and the push by $\frac1N\sum_k k$ separately (local means instead of kernel-weighted sums), uses $e^{-\|\mathbf x - \mathbf y\|/\tau}$, and is not the gradient of a fixed distance between $p$ and $q$.
+:::
+
+## Explore {#explore}
+
+Left: the real points (grey) and the generated points (blue), each with an orange line showing its drift $V$ (the next step moves it by half of that). Right: the mean $|V|$ (log scale) and the **coverage** against the step; the dashed line is the coverage of a new draw of as many real points. **free points** drifts the points themselves (300 steps of $\eta = 0.5$); **generator** trains a small network (2 → 32 → 32 → 2) for 1500 steps with the stop-gradient loss and shows 400 of its samples, one pass each. Sliders: $\tau$, the number of points, augmented **views** per point and their jitter; the check box switches the push on and off. A preset starts its run; **run**, **pause** and **1 step** control it, **restart** starts again with the current settings.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="drifting" data-preset="drift"></div>
+<script src="../demos/dist/drifting.js"></script>
+```
+
+**D1.** Preset **noise drifts to the moons**. Read the mean $|V|$ and the coverage after 10 and after 300 steps. Compare the final coverage with the dashed line. Why can drifted points cover the data **better** than real points drawn afresh?
+
+**D2.** Preset **start on the data: V ≈ 0**. What is $|V|$ at step 0, compared with D1? Why is it not exactly 0 (recall B2 d)? What happens to the coverage?
+
+**D3.** Preset **start far away**. Describe the first ten steps. Do both moons get points, or does the cloud fall onto the nearest part?
+
+**D4.** Presets **τ small** and **τ large**. Compare the final pictures and coverages with D1. Which one only matches averages?
+
+**D5.** Preset **attraction only (mean shift)**. Watch the coverage curve: what does it do after the first steps, and where do the points end? Switch the push back on (check box) and run again.
+
+**D6.** Preset **20 points, no augmentation**, then **20 points, 8 views each**. Compare the coverages with each other and with the dashed line (20 fresh real points). Where do the 20 points sit without views? Then set the jitter of the views to 0.3, and to 0.05.
+
+**D7.** Preset **a generator, one pass**. Read the coverage after 100, 300 and 1500 steps and compare with the dashed line. Then preset **generator, attraction only**.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**D1.** After 10 steps: $|V|$ 0.015 (from 0.451), coverage 0.905; after 300: 0.001 and 0.993, above the dashed line (0.897 for 200 fresh real points). A random draw leaves gaps and clumps by chance; the push (each point is not its own negative) spreads the drifted points evenly, and coverage rewards even spread. The flip side: drifted points are more regular than real samples.
+
+**D2.** $|V| = 0.034$ at step 0, 13 times smaller than from noise (0.451). Not 0: each point's own real "twin" is not there (the draw is new), and a point is never its own negative, so near neighbours still push each other a little. The points spread out: coverage 0.875 → 0.995.
+
+**D3.** $|V|$ starts at 2.35: the whole cloud moves as one towards the data (the push keeps it from shrinking), then spreads along both moons; after 50 steps the coverage is 0.935, after 300 it is 1.000. No collapse onto the nearest part: wherever points are already dense, the push sends the newcomers on.
+
+**D4.** $\tau = 0.03$: the points follow the moons, but progress is slow and uneven ($|V|$ still 0.005 after 300 steps; coverage 0.943). $\tau = 3$: every point sees all points almost equally; the field mostly matches the averages, the shape stays blurred and a few points remain far outside: coverage 0.667.
+
+**D5.** The coverage rises briefly (to about 0.4 after 10 steps), then falls to 0.048: every point climbs to the nearest peak of the data density and the cloud collapses onto three spots. That is mean shift: a mode finder, not a sampler. With the push back on: D1.
+
+**D6.** No views: 0.092, below the dashed line (0.212): the points sit beside the moons, far apart (each one's "other generated points" are far away, so the push is large and not local; B2). With 8 views (jitter 0.1): 0.313, better than 20 random real points; the points sit on the moons, evenly spread. Jitter 0.3: 0.147 (each point's cloud is wider than the moons, so the point is pulled to where the cloud fits, the middle of the band and away from thin ends); jitter 0.05: 0.310.
+
+**D7.** Coverage 0.287 untrained, 0.877 after 100 steps, 0.945 after 300, 0.935 after 1500 (dashed: 0.980 for 400 fresh real points). The loss falls from 0.012 to about 0.0016 and stays noisy (new batches every step). Attraction only: all samples on one spot, coverage 0.035.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `diffusion/src/drifting/exercise.rs`.
+Everything is in 1D: the real data are 400 values, three quarters near $-1.5$ and one quarter
+near $+1.5$ (standard deviation 0.3).
+
+**C1.** `kernel_mean(x, set, tau, skip)`: the softmax-weighted mean of `set` seen from `x`,
+leaving out the entry `skip`:
+
+```
+d_min = the smallest |x − s| over the entries used
+w(s)  = exp(−(|x − s| − d_min) / τ)          (subtracting d_min changes nothing but avoids 0/0)
+return Σ w(s)·s / Σ w(s)
+```
+
+The check is B1.
+
+**C2.** `field(generated, real, tau, repel)`: for every generated point $i$,
+`V = (kernel_mean(x_i, real) − x_i) − repel · (kernel_mean(x_i, generated, skip i) − x_i)`.
+`repel = 0` is pull only. The checks are B2 (a), (c), (d).
+
+**C3.** `coverage(real, generated, k)`: for every real value, its radius is `kth_neighbour(real, j, k)`
+(given); count the real values with a generated value within that radius. The check is B4.
+
+**C4.** `drift_step(points, real, tau, eta, repel)`: compute the field at all points first, then
+move every point by `eta · V`; return the mean $|V|$. The check is B2 (b).
+
+**C5.** `train_step(net, eps, real_batch, tau, lr, repel)`: one training step of a generator
+$f(\varepsilon) = \sum_k w_{2,k}\tanh(w_{1,k}\varepsilon + b_{1,k}) + b_2$ (the `Net`, with
+`forward`, `backward` and `step`, is given):
+
+```
+samples[i] = f(eps[i])                       one forward pass each
+V = field(samples, real_batch, τ, repel)     computed once, then held fixed (stop-gradient)
+grad = 0
+for every i:  backward(eps[i], −2·V[i] / n)   d loss / d output = −2V / n  (B3)
+gradient-descent step on all weights with lr
+return mean of V[i]²
+```
+
+The check compares the update with finite differences of the loss on the frozen targets.
+
+Then `cargo run -p diffusion -- drifting` and open the pictures in `out/drifting/`. Part 1 drifts
+100 free points (from noise, $\eta = 0.5$, 300 steps; `paths1.png` … show every point's position
+across, step by step downwards; `points1.png` … the final histograms). Part 2 trains the
+generator (16 hidden units, batches of 128 noise values and 128 real values, learning rate 0.1,
+2000 steps) and shows 400 samples (`generator-*.png`) and the map $\varepsilon \mapsto f(\varepsilon)$
+(`map-*.png`).
+
+**C6.** 100 points, $\tau = 0.2$: compare the final coverage with a new draw of 100 real values
+(first line). Then look at the share in the right mode, and at the runs with $\tau = 3$ and
+"from a new draw of data". What went wrong, and why can the points not fix it?
+
+**C7.** Pull only and 10 points: what do the coverages say, and what do the pictures show?
+
+**C8.** The generator at $\tau = 1$ and at $\tau = 0.2$: coverage and right-mode share. Relate
+the $\tau = 0.2$ run to the caveat "zero drift does not prove a match".
+
+**C9.** Open `map-drifting-tau1.png` and `generator-drifting-tau1.png`. Why are there samples in
+the gap between the modes, and what would the network need to remove them?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `diffusion/src/drifting/solution.rs` in the download.
+
+**C6.** Drifted: coverage 0.80 after 300 steps, better than 100 fresh real values (0.64): the
+push spreads the points evenly. But 39 % of the points end in the right mode, where the data
+have 25 %. The noise start put 44 % on the right, and drifting only brings it down to 39 %: at
+$\tau = 0.2$ a point in one mode does not see the other mode ($e^{-3/0.2}$), and in 1D neighbours
+block each other from crossing the gap. With $\tau = 3$ the share is right (25 %) but the shape
+is blurred (coverage 0.60); from a new draw of the data the share stays right (25 %) and the
+coverage rises from 0.64 to 0.81. The image paper sums several temperatures for this reason.
+
+**C7.** Pull only: coverage 0.31 at the start, 0.02 after 50 steps: every point has run to the
+peak of its mode (mean shift), and the histogram is two spikes. 10 points: 0.05, below 10 fresh
+real values (0.11); with only nine others far away, each point's push is large and not local, and
+the points settle beside the data (B2; the demo's views fix it).
+
+**C8.** $\tau = 1$: coverage 0.85, 28 % in the right mode (25 % in the data). $\tau = 0.2$: coverage
+0.80, but only 14 % in the right mode (38 % after 100 steps, 14 % after 500): samples that leave the right mode see almost no
+field pulling them back, since the right mode is too far away for the kernel. The loss is small,
+yet the distribution is wrong. Pull only: coverage 0.04, every sample in the left mode.
+
+**C9.** The generator is a smooth function of $\varepsilon$, and $\varepsilon$ is Gaussian. To map
+it onto two separated modes, $f$ must jump; a sum of 16 tanh units makes a steep but continuous
+step, and the values of $\varepsilon$ on that step land in the gap. A steeper step (larger weights,
+more training) or a better input (several noise dimensions, a different noise distribution) would
+leave fewer samples there; every one-pass generator, a GAN included, has this problem.
+:::
+
+## Where this leads
+
+Drifting closes the day on generation: the [five ways to generate](lec.qmd#five-ways-to-generate) (VAE, GAN, flow, diffusion, drifting) all invent detail where the data are silent, and the checks of the [previous unit](../diffusion-inverse/lec.qmd) (consistency, disagreement, coverage) apply to each. The same field, moving a handful of images until they cover a class, is a way to summarise a large data set: a direction to watch, not yet a tool for microscopy.

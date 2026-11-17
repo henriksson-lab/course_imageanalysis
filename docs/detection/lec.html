@@ -160,12 +160,13 @@ Image analysis
 <ul>
 <li><strong>Boxes</strong>: the simplest object description; <strong>IoU</strong> of two boxes in closed form.</li>
 <li>Where candidate boxes come from: a <strong>grid of guesses</strong> (in detail on the next day).</li>
+<li>Objects of every size: a <strong>feature pyramid</strong> inside the network.</li>
 <li>Every object gets many candidates: <strong>non-maximum suppression</strong> (NMS) keeps one, and what it gets wrong in a crowd.</li>
 <li>How detections are scored: recalled from the <a href="../object-eval/lec.html">evaluation day</a>.</li>
 </ul>
 <p><em>Slides titled <strong>The math</strong> give the formulas and proofs; the ideas are complete without them.</em></p>
 <div class="builds-on" style="font-size: 0.6em; margin-top: 0.4em;">
-<p><strong>Builds on:</strong> <a href="../instances/lec.html">From masks to objects (previous unit)</a>; <a href="../neuralnet/lec.html">Day 36: Neural networks</a>; <a href="../object-eval/lec.html">Day 37: Evaluation and statistics</a>; <a href="../autoencoder/lec.html">Day 38: Variational autoencoders</a>.</p>
+<p><strong>Builds on:</strong> <a href="../instances/lec.html">From masks to objects (previous unit)</a>; <a href="../neuralnet/lec.html">Day 36: Neural networks</a>; <a href="../object-eval/lec.html">Day 38: Evaluation and statistics</a>; <a href="../autoencoder/lec.html">Day 39: Variational autoencoders</a>.</p>
 </div>
 <aside class="notes">
 <p>This unit follows <a href="../instances/lec.html">“From masks to objects”</a> (instances/), which named NMS as the step that prunes star-convex polygons. Anchors, centre heat maps and the grid head of a real single-shot detector are taught on the next day (<a href="../yolo/lec.html">yolo/</a>). The matching of predictions to truth, F1, matching accuracy and average precision are owned by the evaluation day (<a href="../object-eval/lec.html">object-eval/</a>); here they are only readouts. The demo’s detector is simulated (jittered boxes around the true cells, with scores), so the effect of NMS can be seen without any trained network.</p>
@@ -243,6 +244,46 @@ Image analysis
 </div><div class="column" style="width:43%;">
 <p><img data-src="fig-anchors.png" style="width:100.0%" alt="Anchor grid (yellow dots, stride 16) with one 20 × 20 square anchor shape on the rod-and-small-cell scene: for each object the best anchor (dashed yellow) and its IoU: 0.67 for one round cell (green, learnable); 0.39, 0.28, 0.17 for the other cell, the large cell and the diagonal rod, and 0.10 for the small cell (red, never learned)."></p>
 </div></div>
+</section>
+<section id="fpn-problem" class="slide level2">
+<h2>Objects of every size</h2>
+<div class="columns">
+<div class="column" style="width:48%;">
+<ul>
+<li>One micrograph can hold spots of 3 px, nuclei of 15 px and <strong>clusters</strong> of 100 px.</li>
+<li>A CNN’s <strong>early layers</strong> are fine grids (stride 4–8), but each cell sees a small region and knows little (edges, blobs).</li>
+<li>Its <strong>deep layers</strong> see large regions and know <em>what</em> is there, but on a coarse grid (stride 32): a spot is 1/100 of a cell.</li>
+<li>The old answer, from <a href="../scale-space/lec.html">scale space</a>: run the detector on an <strong>image pyramid</strong> (the image at ×2, ×1, ×½). It works, but the whole network runs once per level: <span class="math inline">4 + 1 + \tfrac14 \approx 5</span> passes.</li>
+</ul>
+</div><div class="column" style="width:52%;">
+<p><img data-src="fig-fpnscale.png" style="width:100.0%" alt="A synthetic fluorescence image with small spots, single nuclei and one large cluster of nuclei, twice. Left: the stride-8 grid of an early layer; one cell (yellow) on a spot and the 40-pixel region it sees (orange dashed): it sees the spot but not the cluster. Right: the stride-32 grid of a deep layer; one cell on the cluster and the 140-pixel region it sees: the whole cluster, but a spot is 1/100 of one cell."></p>
+</div></div>
+</section>
+<section id="fpn" class="slide level2">
+<h2>A pyramid inside the network</h2>
+<div class="columns">
+<div class="column" style="width:56%;">
+<ul>
+<li>The CNN already makes a pyramid: its maps at strides 4, 8, 16, 32 (<strong>bottom-up</strong>). Coarse maps know what is there; fine maps are sharp but know little.</li>
+<li><strong>Feature pyramid network</strong> (FPN; Lin et al., 2017), a <strong>top-down</strong> path: upsample the coarsest map ×2 and <strong>add</strong> the finer map, brought to the same channels by a <strong>1×1 convolution</strong> (the lateral connection). Repeat to the finest level.</li>
+<li>Every level is now sharp <strong>and</strong> knows what it sees. The same box head runs on <strong>every</strong> level: small objects on fine levels, large on coarse. Cost: one pass, plus a few cheap layers.</li>
+<li>Coarse to fine, adding detail level by level: how a <a href="../scale-space/lec.html">Laplacian pyramid</a> is added back up. Like <a href="../unet/lec.html">U-Net’s skip connections</a>, but U-Net predicts on the finest level only, FPN on every level.</li>
+</ul>
+</div><div class="column" style="width:44%;">
+<p><img data-src="fig-fpn.svg" style="width:100.0%" alt="Diagram of a feature pyramid network. Left, bottom-up: the CNN's maps at strides 4, 8, 16 and 32, smaller and darker (knowing more) going up. Right, top-down: maps of the same sizes, all dark; each is the 1×1-converted map from the left (green arrows) plus the ×2-upsampled map from above (blue arrows, plus signs). Orange arrows: boxes are predicted from every level, small spots from stride 4, nuclei from stride 8, large clusters from stride 32."></p>
+</div></div>
+</section>
+<section id="the-math-the-top-down-path-and-which-level-an-object-goes-to" class="slide level2 math">
+<h2>The math: the top-down path, and which level an object goes to</h2>
+<p>Backbone maps <span class="math inline">C_2, \dots, C_5</span> (stride <span class="math inline">2^k</span>); <span class="math inline">W_k</span> a 1×1 convolution (the same linear map of the channels at every pixel); <span class="math inline">\mathrm{up}</span> = ×2 upsampling:</p>
+<p><span class="math display">P_5 = W_5 C_5, \qquad P_k = W_k C_k + \mathrm{up}(P_{k+1}), \quad k = 4, 3, 2.</span></p>
+<p>The Laplacian pyramid’s reconstruction is the same recursion, <span class="math inline">g_i = l_i + \mathrm{up}(g_{i+1})</span>, with fixed details <span class="math inline">l_i</span>; here the “details” <span class="math inline">W_k C_k</span> are learned. A 3×3 convolution on each <span class="math inline">P_k</span> smooths the blocky upsampling.</p>
+<p>An object of size <span class="math inline">s = \sqrt{wh}</span> goes to level <span class="math inline">k = \lfloor k_0 + \log_2(s / s_0) \rfloor</span>, clamped to <span class="math inline">2, \dots, 5</span>; in the original paper <span class="math inline">s_0 = 224</span>, <span class="math inline">k_0 = 4</span>:</p>
+<ul>
+<li><span class="math inline">s = 224</span>: <span class="math inline">k = 4</span> (stride 16); <span class="math inline">s = 448</span>: <span class="math inline">k = 5</span>; <span class="math inline">s = 112</span>: <span class="math inline">k = 3</span>. Twice the size, one level coarser: the object always covers about <span class="math inline">224/16 = 14</span> cells.</li>
+<li>A 20 px nucleus: <span class="math inline">\lfloor 4 + \log_2(20/224) \rfloor = \lfloor 0.51 \rfloor = 0</span>, clamped to <span class="math inline">k = 2</span> (stride 4, 5 cells).</li>
+</ul>
+<p>Many single-shot detectors instead let the training choose the level (<a href="../yolo/lec.html">next day</a>).</p>
 </section>
 <section id="many-candidates-per-object" class="slide level2">
 <h2>Many candidates per object</h2>
@@ -363,6 +404,7 @@ Image analysis
 <ul>
 <li>A box is 4 numbers + score; IoU of boxes has a closed form; poor for diagonal or long objects.</li>
 <li>Candidates come from a <strong>grid of guesses</strong> (anchors or centre peaks: <a href="../yolo/lec.html">next day</a>).</li>
+<li>Objects of every size: a <strong>feature pyramid</strong> (top-down path with lateral 1×1 connections) gives sharp maps that know what they see at every stride; boxes are predicted at every level, small objects on fine levels.</li>
 <li>Every object gets many candidates; <strong>greedy NMS</strong> keeps the best and deletes overlaps above <span class="math inline">t</span>.</li>
 <li>In crowds, one <span class="math inline">t</span> cannot both remove duplicates and keep touching neighbours.</li>
 <li>Scoring (matching, F1, AP) comes from the <a href="../object-eval/lec.html">evaluation day</a>.</li>

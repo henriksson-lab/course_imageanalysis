@@ -1,0 +1,161 @@
+---
+title: "Exercise: training GANs and what goes wrong"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- recognise mode collapse, oscillation, mode dropping and vanishing gradients, and explain where each comes from,
+- compute the Jensen–Shannon divergence and the Wasserstein-1 distance of small examples, and say why the second still has a slope when the first is flat,
+- compute precision and recall of generated samples with $k$-nearest-neighbour balls,
+- *(math)* analyse gradient steps on a simple game and the Wasserstein distance of shifted Gaussians.
+
+The questions under **By hand** and **Explore** are for everyone. The **Math questions** are for students who want the full treatment.
+
+## Background
+
+| Word | Meaning |
+|---|---|
+| Mode collapse | the generator maps (almost) all noise to the same output |
+| Mode dropping | parts of the data distribution get no samples |
+| Jensen–Shannon (JS) | $\tfrac12\sum p\log\frac{2p}{p + q} + \tfrac12\sum q\log\frac{2q}{p + q}$; between 0 (same) and $\ln 2$ (no overlap) |
+| Wasserstein-1 ($W_1$) | the earth mover's distance; for two equally large 1D samples: sort both, mean of $\lvert x_{(i)} - y_{(i)}\rvert$ |
+| $k$-NN radius | distance from a point to its $k$-th nearest other point of its own set |
+| Precision, recall | share of generated points inside the real points' balls (realism); share of real points inside the generated points' balls (variety) |
+
+## By hand
+
+**B1.** Three bins, probabilities per bin.
+(a) $p = (0.5, 0.5, 0, 0)$, $q = (0, 0, 0.5, 0.5)$ (four bins). Compute JS.
+(b) $p = (0.5, 0.5, 0)$, $q = (0, 0.5, 0.5)$. Compute JS.
+(c) Move $q$ of (a) one bin further away (five bins). What is JS now?
+
+**B2.** Wasserstein-1.
+(a) Samples $(0, 1, 2)$ and $(3, 1, 2)$. Compute $W_1$.
+(b) Two point masses at 0 and at 5, then at 0 and at 10. Compute $W_1$ and JS for both.
+(c) Which of the two distances could tell a generator at 10 that it should move towards 0?
+
+**B3.** A frozen discriminator with logit $s(x) = -1 + 2x - x^2$.
+(a) Compute $D(0)$, $D(1)$, $D(2)$. Where is $D$ largest?
+(b) The discriminator is frozen and the generator may put its samples anywhere. Where does it put them, and how varied are its samples?
+(c) Now the generator has done so. What is the best discriminator at that point (B1 of the [last unit](../gan/exercise.qmd))? What happens next?
+
+**B4.** The game $\min_x\max_y\ xy$, start $(x, y) = (1, 0)$, step $\eta = 0.2$.
+(a) Take two simultaneous gradient steps ($x \leftarrow x - \eta y$, $y \leftarrow y + \eta x$, both from the old values). How far from $(0, 0)$ are you after each?
+(b) Take two alternating steps ($x$ first, then $y$ with the new $x$). Distances?
+
+**B5.** Precision and recall with $k = 1$. Real points $(0, 1, 2, 3)$, generated points $(0.1, 1.1, 10, 11)$.
+(a) Compute the $k$-NN radius of every real and every generated point.
+(b) Which generated points lie inside a real point's ball? Precision?
+(c) Which real points lie inside a generated point's ball? Recall?
+(d) Describe the generator in words from the two numbers.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) No overlap: in every bin one of $p, q$ is 0, so each nonzero term is $\tfrac12 \cdot 0.5\ln 2$, four of them: $\ln 2 = 0.693$. (b) $m = (0.25, 0.5, 0.25)$: $\tfrac12[0.5\ln 2 + 0] + \tfrac12[0 + 0.5\ln 2] = 0.5\ln 2 = 0.347$. (c) Still $\ln 2$: JS only sees the overlap.
+
+**B2.** (a) Sorted $(1, 2, 3)$: $(|0 - 1| + |1 - 2| + |2 - 3|)/3 = 1$. (b) $W_1 = 5$ and $10$; JS $= \ln 2$ for both. (c) $W_1$: it falls as the generator moves towards 0; JS does not change.
+
+**B3.** (a) $s(0) = -1$, $D = 0.269$; $s(1) = 0$, $D = 0.5$; $s(2) = -1$, $D = 0.269$. Largest at $x = 1$. (b) Every sample at $x = 1$: no variety at all (mode collapse). (c) There $q$ is a spike, so $q \gg p$ and $D^* = p/(p + q) \approx 0$: the discriminator learns that $x = 1$ is fake, and its slope pushes the samples away again. If $D$ is slow to react, the generator sits there for a long time.
+
+**B4.** (a) Step 1: $(1, 0.2)$, distance 1.020; step 2: $(1 - 0.04, 0.2 + 0.2) = (0.96, 0.4)$, distance 1.040 (each step × $\sqrt{1.04}$). (b) Step 1: $x = 1$, $y = 0 + 0.2 = 0.2$: $(1, 0.2)$, 1.020; step 2: $x = 1 - 0.04 = 0.96$, $y = 0.2 + 0.192 = 0.392$: distance 1.037. Alternating steps stay near the unit circle (B6); the simultaneous ones spiral out.
+
+**B5.** (a) Real: 1, 1, 1, 1. Generated: 1.0 (0.1 to 1.1), 1.0, 1.0 (10 to 11), 1.0. (b) 0.1 (within 1 of 0) and 1.1: precision 2/4 = 0.5. (c) 0 (0.1 away from 0.1), 1, 2 (0.9 from 1.1); not 3 (1.9 from 1.1): recall 3/4 = 0.75. (d) Half its samples are unrealistic (far away at 10 and 11), and it covers the real data only partly (nothing near 3).
+:::
+
+### Math questions
+
+**B6.** *(math)* Write two alternating steps on $\min_x\max_y xy$ as a matrix $M$ acting on $(x, y)$. Show $\det M = 1$ and that the eigenvalues have modulus 1 for $\eta < 2$. What does that mean for the iterates?
+
+**B7.** *(math)* Show that $W_1(\mathcal N(\mu, \sigma^2), \mathcal N(\mu + d, \sigma^2)) = |d|$: an upper bound from the transport plan $x \mapsto x + d$, a lower bound from the 1-Lipschitz critic $f(x) = \pm x$.
+
+**B8.** *(math)* For a frozen discriminator $D$, show that $\min_G \mathbb E_z[-\log D(G(z))]$ is attained by every generator with $G(z) \in \arg\max_x D(x)$ for all $z$, in particular by a constant one.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B6.** *(math)* $x' = x - \eta y$, $y' = y + \eta x' = \eta x + (1 - \eta^2)y$: $M = \begin{pmatrix}1 & -\eta\\ \eta & 1 - \eta^2\end{pmatrix}$, $\det M = 1 - \eta^2 + \eta^2 = 1$, trace $2 - \eta^2$. Eigenvalues $\lambda = \frac{(2 - \eta^2) \pm \sqrt{(2 - \eta^2)^2 - 4}}2$; for $\eta < 2$ the discriminant is negative, so they are complex conjugates with $|\lambda|^2 = \det M = 1$. The iterates rotate on a fixed ellipse: no convergence, no divergence.
+
+**B7.** *(math)* Upper bound: the plan pairing $x$ with $x + d$ moves every unit of mass $|d|$, so $W_1 \le |d|$. Lower bound: $f(x) = x\,\mathrm{sign}(-d)$ is 1-Lipschitz and gives $\mathbb E_pf - \mathbb E_qf = |d|$, so by duality $W_1 \ge |d|$.
+
+**B8.** *(math)* $\mathbb E_z[-\log D(G(z))] \ge -\log\max_x D(x)$ for every $G$, with equality exactly when $D(G(z))$ is the maximum for (almost) all $z$. A constant $G(z) = x^\star$ attains it.
+:::
+
+## Explore {#explore}
+
+The line GAN of the [last unit](../gan/exercise.qmd), now with a **precision** and **recall** readout (computed from the densities: the share of generated mass where the data density is at least 5 % of its peak, and the reverse). Data: one bump $\mathcal N(1, 0.5^2)$, or two bumps at 0 and 2 (sd 0.3).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="gan1d" data-mode="training" data-preset="slow"></div>
+<script src="../demos/dist/gan1d.js"></script>
+```
+
+**E1.** Preset **discriminator too slow: collapse** (learning rate 0.05 for $D$, one $D$ step). Run 2000 steps. Read $a$ and recall at steps 100, 200, 500 and 2000. What does the generator's density look like at step 500?
+
+**E2.** Same preset, but raise the discriminator's learning rate to 0.5. How small does $a$ get now, and when has recall recovered?
+
+**E3.** Preset **generator too fast: overshoot**. Describe the first 300 steps. Then set the $D$ steps to 5: what changes?
+
+**E4.** Preset **two bumps, best discriminator: one dropped**. Where does the generator end, and what are precision and recall? Why can the line generator not do better?
+
+**E5.** Preset **two bumps, learned discriminator: in between**. Compare with E4: where are the generated samples, and what do precision and recall say?
+
+**E6.** In E4 and E5 neither result is "wrong" for a line generator. Which would you prefer for generating realistic training images, and which for estimating how often each type occurs?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** $a = 0.45$ (recall 0.94) at step 100, 0.15 (0.51) at 200, 0.02 (0.06) at 500, 0.41 (0.95) at 2000. At step 500 the generator is a narrow spike at $x = 1.12$: every sample is the same, realistic number (precision 1.00).
+
+**E2.** $a$ dips only to about 0.10 (around step 100, recall 0.44 there) and is back at 0.43 by step 500 (recall 0.96). A discriminator that learns faster notices the pile-up in time.
+
+**E3.** $a$ falls to 0.38 at step 10 and 0.02 at step 50 (recall 0.06), recovers to 0.50 at step 200, overshoots to 0.66 at step 300 and then settles: a damped oscillation. With 5 $D$ steps the collapse is shorter (lowest $a$ about 0.04, $a = 0.42$ by step 100) and the run settles at $a \approx 0.5$.
+
+**E4.** It sits exactly on the left bump, $\mathcal N(0, 0.3^2)$ ($a = 0.30$, $b = 0.00$): precision 0.99, recall 0.49. One Gaussian cannot cover two separated bumps; with the best discriminator (the Jensen–Shannon game) matching one bump perfectly is better than covering both badly.
+
+**E5.** One wide Gaussian $\mathcal N(0.8, 1.0^2)$ over both bumps: recall 1.00, but precision 0.71: about 30 % of the samples fall between or beside the bumps, where no real data lie.
+
+**E6.** For realistic images: E4 (every sample realistic), as long as you know a type is missing. For frequencies: neither; E4 misses half the data, and E5 invents values in between. A generator's sample frequencies are only as good as its recall and precision, and need to be checked on held-out data.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gans/src/gan_training/exercise.rs`. The program trains the line GAN of the [last unit](../gan/exercise.qmd) with its complete version, which is in `gans/src/common.rs`.
+
+**C1.** `js_divergence(p, q, dx)`: the Jensen–Shannon divergence of two densities on the same grid of spacing `dx`, with $0\log 0 = 0$:
+
+```
+JS = 0
+for every grid point i:
+    m = p[i] + q[i]
+    if p[i] > 0:  JS += ½ · p[i] · log(2 p[i] / m) · dx
+    if q[i] > 0:  JS += ½ · q[i] · log(2 q[i] / m) · dx
+```
+
+The check is B1.
+
+**C2.** `wasserstein1(a, b)`: sort both samples, return the mean of $|a_{(i)} - b_{(i)}|$. The check is B2.
+
+**C3.** `knn_radii(xs, k)` and `precision_recall(real, fake, k)`, as on the slide "Precision and recall as pseudocode" (in 1D the distance is $|x - y|$). The check is B5.
+
+Then `cargo run -p gans -- gan-training`. Part 1 slides a generator $\mathcal N(b, 0.5^2)$ away from the data $\mathcal N(1, 0.5^2)$ and prints JS (on a grid) and $W_1$ (from 4 000 samples each). Part 2 trains five line GANs for 2 000 steps and prints $a$, $b$, precision and recall ($k = 3$, 500 points each); pictures in `out/gan-training/`.
+
+**C4.** Part 1: at which distance is JS within 1 % of $\ln 2$? How does $W_1$ grow?
+
+**C5.** Part 2, "discriminator too slow" and "generator too fast": when is recall lowest, and does it recover? Why is precision high throughout?
+
+**C6.** The two runs on two bumps: compare precision and recall with the demo's (E4, E5). Which numbers agree, which differ, and why might they?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gans/src/gan_training/solution.rs` in the download.
+
+**C4.** JS is 0.3368 at distance 1, 0.6327 at 2, 0.6893 at 3 (0.6 % below $\ln 2 = 0.6931$) and 0.6931 from 4 on. $W_1$ grows like the distance itself: 1.004, 1.982, 2.995, 3.980, …, 7.991 at distance 8 (the sample estimate is off by about 0.02).
+
+**C5.** "Discriminator too slow": $a = 0.02$ at step 500 with recall 0.09 (precision 0.99); by step 2000 $a = 0.37$ and recall 0.98. "Generator too fast": $a = 0.01$ at step 50, recall 0.06; recovered by step 200 ($a = 0.46$, recall 0.99). From step 100 on, precision stays at 0.97–1.00: the collapsed samples sit at $b \approx 1.1$, inside the data. (Before that, in the slow run, the generator is still far to the left: precision 0.53 at step 25.)
+
+**C6.** Best discriminator: $a = 0.30$, $b = 0.00$, precision 0.99, recall 0.47 (demo: 0.99 and 0.49): the same picture. Learned discriminator: $a = 0.99$, $b = 0.81$, precision 0.90, recall 1.00 (demo: precision 0.71). The generator is the same; the metrics differ: the demo measures mass where the data density is above 5 % of its peak, the $k$-NN balls ($k = 3$) of 500 real points also cover part of the gap between the bumps. Precision and recall depend on how "near the data" is defined, so compare models only with the same definition.
+:::
+
+## Where this leads
+
+- The same precision and recall, with a Fréchet distance and a check for memorised training images, judge the samples of diffusion models on the [diffusion-models day](../diffusion-sampling/lec.qmd).
+- A **critic** pulling samples towards the data and pushing them apart from each other, without a game, is the idea behind [generating by drifting](../drifting/lec.qmd).
+- Next: GANs that [translate one image into another](../image-translation/lec.qmd), where high precision can hide a wrong answer.

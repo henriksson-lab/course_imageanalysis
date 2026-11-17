@@ -31,23 +31,23 @@ library of our own, with `image` used inside it for file reading and writing onl
 `code/` is a Cargo workspace (it is also the student download, packed by
 `tools/code_zip.py` into `downloads/imageanalysis-code.zip`; `make render` copies it to
 `docs/downloads/`). Members: `imgcourse`, `starter`, and **one crate per day**,
-`code/dayNN-<day id>/` with package name `dayNN` (merged from one crate per unit on
+`code/<day id>/` with the package named after the day id (renamed from `dayNN` on 2026-11-17, so that inserting days renames nothing) (merged from one crate per unit on
 2026-11-17: 51 crates instead of 209, each with one binary and one test binary). Per unit
 `U` (Rust module `u` = `U` with `-` → `_`):
 
 ```
-code/dayNN-id/Cargo.toml             feature "solution"; deps imgcourse + clap; lib/bin test = false
-code/dayNN-id/src/lib.rs             pub mod u; ... (one per unit)
-code/dayNN-id/src/main.rs            clap: one subcommand per unit (named U), calls u::run::main()
-code/dayNN-id/src/u/mod.rs           exports exercise.rs, or solution.rs with --features solution
-code/dayNN-id/src/u/exercise.rs      same signatures and doc comments as the solution, bodies todo!("C1: name"), hints
-code/dayNN-id/src/u/solution.rs      model solution
-code/dayNN-id/src/u/run.rs           pub fn main(): runs the functions on real images, pictures in out/U/
-code/dayNN-id/tests/check/main.rs    mod u; ... (one test binary per day)
-code/dayNN-id/tests/check/u.rs       checks, preferably the numbers of the by-hand exercises
+code/<day id>/Cargo.toml             feature "solution"; deps imgcourse + clap; lib/bin test = false
+code/<day id>/src/lib.rs             pub mod u; ... (one per unit)
+code/<day id>/src/main.rs            clap: one subcommand per unit (named U), calls u::run::main()
+code/<day id>/src/u/mod.rs           exports exercise.rs, or solution.rs with --features solution
+code/<day id>/src/u/exercise.rs      same signatures and doc comments as the solution, bodies todo!("C1: name"), hints
+code/<day id>/src/u/solution.rs      model solution
+code/<day id>/src/u/run.rs           pub fn main(): runs the functions on real images, pictures in out/U/
+code/<day id>/tests/check/main.rs    mod u; ... (one test binary per day)
+code/<day id>/tests/check/u.rs       checks, preferably the numbers of the by-hand exercises
 ```
 
-Student commands: `cargo test -p dayNN u::`, `cargo run -p dayNN -- U`, plus
+Student commands: `cargo test -p <day id> u::`, `cargo run -p <day id> -- U`, plus
 `--features solution` for the model solution. Builds: one `target/`; dev profile with
 `debug = "line-tables-only"` (deps without debug info), so a program is ~7 MB, not ~56 MB.
 

@@ -23,7 +23,7 @@ def main():
     lines, n, missing = [], 0, []
     for part in d['parts']:
         for day in part['days']:
-            folder = f"day{day['number']:02d}-{day['id']}"
+            folder = day['id']
             units = [u for u in day['units']
                      if os.path.isfile(os.path.join(ROOT, 'code', folder, 'src', u['folder'].replace('-', '_'), 'mod.rs'))]
             if not units:

@@ -8,22 +8,22 @@ imgcourse/           the small image library: Image<T>, Volume<T>, reading and w
                      border rules, complex numbers, random numbers, FFT, small linear algebra,
                      test images (the course micrograph, synthetic nuclei)
 starter/             a first program: read an image, change every pixel, save the result
-day01-images/        one project per day; one folder per unit in src/, e.g. for "kernels":
+images/        one project per day; one folder per unit in src/, e.g. for "kernels":
   src/kernels/exercise.rs    your code: replace each todo!()
   src/kernels/solution.rs    a model solution
   src/kernels/run.rs         runs your code on real images, pictures in out/kernels/
   tests/check/kernels.rs     checks, using the numbers of the pen-and-paper exercises
-day02-edges/ ... day51-gpus/
+edges/ ... gpus/
 ```
 
 Run everything from this folder (the one with this README):
 
 ```
 cargo run  -p starter                               # a first program, writes out/starter/
-cargo test -p day01 kernels::                       # check your code for the unit "kernels"
-cargo run  -p day01 -- kernels                      # run it on the micrograph, writes out/kernels/
-cargo test -p day01 --features solution kernels::   # the same checks on the model solution
-cargo run  -p day01 -- --help                       # the units of day 1
+cargo test -p images kernels::                       # check your code for the unit "kernels"
+cargo run  -p images -- kernels                      # run it on the micrograph, writes out/kernels/
+cargo test -p images --features solution kernels::   # the same checks on the model solution
+cargo run  -p images -- --help                       # the units of day 1
 cargo doc  -p imgcourse --open                      # the library's documentation in the browser
 ```
 
