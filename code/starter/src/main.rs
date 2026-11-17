@@ -2,6 +2,7 @@
 // Run it from the folder with Cargo.toml in it:   cargo run -p starter
 // The result is written to out/starter/.
 
+use imgcourse::*;
 
 fn main() {
     // The course micrograph, built into the library. To read your own file instead:
