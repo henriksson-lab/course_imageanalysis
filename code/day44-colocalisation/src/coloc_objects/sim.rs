@@ -9,16 +9,8 @@ pub type Point = (f32, f32);
 /// The pixel size of the simulated images, in nm.
 pub const PIXEL: f32 = 65.0;
 
-/// The two cells: two ellipses that fill most of a `size × size` image.
-pub fn cells(size: usize) -> Image<bool> {
-    let s = size as f32;
-    Image::from_fn(size, size, |x, y| {
-        let (u, v) = (x as f32 / s, y as f32 / s);
-        let e1 = ((u - 0.30) / 0.24).powi(2) + ((v - 0.50) / 0.36).powi(2) <= 1.0;
-        let e2 = ((u - 0.73) / 0.22).powi(2) + ((v - 0.47) / 0.32).powi(2) <= 1.0;
-        e1 || e2
-    })
-}
+/// The two cells: two ellipses that fill most of a `size × size` image (in `src/common.rs`).
+pub use crate::common::cells;
 
 /// The area of the mask in nm².
 pub fn area(mask: &Image<bool>) -> f32 {

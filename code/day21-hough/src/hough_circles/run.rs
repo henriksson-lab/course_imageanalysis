@@ -3,12 +3,13 @@
 //   cargo run -p day21 -- hough-circles                      (your code)
 //   cargo run -p day21 --features solution -- hough-circles  (the model solution)
 
-use crate::hough_circles::sim::{draw_circle, edge_points, ellipse, polygon_scene, show_points};
+use crate::common::{edge_points, polygon_scene, show_points, EdgePoint};
+use crate::hough_circles::sim::{draw_circle, ellipse};
 use crate::hough_circles::*;
 use imgcourse::*;
 
 /// All slices for the radii, with full voting (`None`) or gradient voting.
-fn vote_all(edges: &[sim::EdgePoint], w: usize, h: usize, radii: &[f32], gradient: Option<Polarity>) -> Vec<Image<f32>> {
+fn vote_all(edges: &[EdgePoint], w: usize, h: usize, radii: &[f32], gradient: Option<Polarity>) -> Vec<Image<f32>> {
     radii
         .iter()
         .map(|&r| match gradient {

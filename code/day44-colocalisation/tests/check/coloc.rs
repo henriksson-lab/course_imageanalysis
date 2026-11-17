@@ -1,7 +1,7 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day44 coloc::
 
-use day44::coloc::sim::{self, Scene};
+use day44::common::{self, Scene};
 use day44::coloc::*;
 use imgcourse::Image;
 
@@ -9,7 +9,7 @@ use imgcourse::Image;
 fn b1() -> (Image<f32>, Image<f32>, Image<bool>) {
     let a = Image::from_rows(&[[0., 2., 8.], [1., 6., 9.], [0., 1., 3.]]);
     let b = Image::from_rows(&[[1., 1., 6.], [0., 5., 8.], [1., 2., 0.]]);
-    (a, b, sim::everywhere(3, 3))
+    (a, b, common::everywhere(3, 3))
 }
 
 fn close(got: f32, expected: f32, tol: f32) -> bool {
@@ -32,7 +32,7 @@ fn c1_pearson_b1() {
 fn c1_pearson_b4_and_outlier_b5() {
     let a = Image::from_rows(&[[0., 0., 0.], [0., 9., 0.], [0., 6., 0.]]);
     let b = Image::from_rows(&[[0., 5., 5.], [0., 5., 5.], [0., 5., 5.]]);
-    let r = pearson(&a, &b, &sim::everywhere(3, 3));
+    let r = pearson(&a, &b, &common::everywhere(3, 3));
     assert!(close(r, 0.37, 0.01), "B4: got r = {r}, expected 0.37");
     let (mut a, b, all) = b1();
     a[(2, 1)] = 90.0; // the 9 in A becomes 90
@@ -105,19 +105,19 @@ fn c5_orthogonal_line() {
     // points on B = 2A + 1 (no noise): the line itself
     let a = Image::from_rows(&[[0., 1., 2.], [3., 4., 5.]]);
     let b = a.map(|v| 2.0 * v + 1.0);
-    let (slope, icpt) = orthogonal_line(&a, &b, &sim::everywhere(3, 2));
+    let (slope, icpt) = orthogonal_line(&a, &b, &common::everywhere(3, 2));
     assert!(close(slope, 2.0, 1e-4) && close(icpt, 1.0, 1e-4), "B = 2A + 1: got slope {slope}, intercept {icpt}");
     // a cloud symmetric about the diagonal: slope 1
     // (0, 1), (1, 0), (2, 3), (3, 2): ordinary least squares of B on A would give 0.6
     let a = Image::from_rows(&[[0., 1., 2., 3.]]);
     let b = Image::from_rows(&[[1., 0., 3., 2.]]);
-    let (slope, _) = orthogonal_line(&a, &b, &sim::everywhere(4, 1));
+    let (slope, _) = orthogonal_line(&a, &b, &common::everywhere(4, 1));
     assert!(close(slope, 1.0, 1e-4), "symmetric cloud: got slope {slope}, expected 1");
 }
 
 #[test]
 fn c5_costes() {
-    let (a, b, cells) = sim::scene(&Scene::default());
+    let (a, b, cells) = common::scene(&Scene::default());
     let (ta, tb) = costes(&a, &b, &cells, 200).expect("colocalised channels: Costes must be defined");
     // the scene has offset 0.04 and noise 0.015: the thresholds stop just above the background
     assert!(ta > 0.04 && ta < 0.15 && tb > 0.04 && tb < 0.15, "got t_A = {ta}, t_B = {tb}, expected just above the background 0.04");

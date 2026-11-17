@@ -4,6 +4,7 @@
 //   cargo run -p day25 --features solution -- lucas-kanade  (the model solution)
 
 use imgcourse::*;
+use crate::common::flow_colour;
 use crate::lucas_kanade::*;
 
 /// Frame 1 (the micrograph, lightly blurred) and frame 2 moved by `(dx, dy)`, with noise.
@@ -75,22 +76,4 @@ pub fn main() {
     save_rgb(&masked, format!("{dir}/flow-1px-confident.png"));
     save_gray(&f1, format!("{dir}/frame1.png"));
     println!("wrote the pictures to {dir}/ (colour wheel: hue = direction, red = right; white = still)");
-}
-
-/// The colour wheel: hue = direction (red = right, counter-clockwise on screen), saturation =
-/// speed / `max`, white = still.
-fn flow_colour(u: f32, v: f32, max: f32) -> [f32; 3] {
-    let angle = (-v).atan2(u).to_degrees().rem_euclid(360.0);
-    let s = (u.hypot(v) / max).min(1.0);
-    let h = angle / 60.0;
-    let x = 1.0 - (h % 2.0 - 1.0).abs();
-    let (r, g, b) = match h as usize {
-        0 => (1.0, x, 0.0),
-        1 => (x, 1.0, 0.0),
-        2 => (0.0, 1.0, x),
-        3 => (0.0, x, 1.0),
-        4 => (x, 0.0, 1.0),
-        _ => (1.0, 0.0, x),
-    };
-    [1.0 - s + s * r, 1.0 - s + s * g, 1.0 - s + s * b]
 }

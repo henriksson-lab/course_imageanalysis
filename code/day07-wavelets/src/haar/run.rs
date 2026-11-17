@@ -2,10 +2,9 @@
 // a step and a row of the micrograph; pictures in out/haar/.
 //   cargo run -p day07 -- haar                      (your code)
 //   cargo run -p day07 --features solution -- haar  (the model solution)
-use super::plot;
 use crate::haar::*;
 use imgcourse::{fft, samples, Complex};
-use plot::*;
+use crate::common::{Plot, BLUE, GREY, RED};
 
 /// The coefficients of `x` in the real orthonormal Fourier basis (cosines and sines), from the
 /// DFT: `N` numbers, as in the Fourier unit.

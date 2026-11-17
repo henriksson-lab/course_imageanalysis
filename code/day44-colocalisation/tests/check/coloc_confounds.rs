@@ -1,7 +1,8 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day44 coloc_confounds::
 
-use day44::coloc_confounds::sim::{self, Scene};
+use day44::coloc_confounds::sim;
+use day44::common::{self, Scene};
 use day44::coloc_confounds::*;
 use imgcourse::Image;
 
@@ -13,20 +14,20 @@ fn close(got: f32, expected: f32, tol: f32) -> bool {
 fn c1_leak_slope_and_compensation_b1() {
     let a_c = Image::from_rows(&[[0.0, 10.0, 5.0, 20.0]]);
     let b_c = Image::from_rows(&[[0.1, 3.1, 1.4, 6.0]]);
-    let s = leak_slope(&a_c, &b_c, &sim::everywhere(4, 1));
+    let s = leak_slope(&a_c, &b_c, &common::everywhere(4, 1));
     assert!(close(s, 158.0 / 525.0, 1e-4), "B1(c): got ŝ = {s}, expected 0.301");
-    let all = sim::everywhere(6, 1);
+    let all = common::everywhere(6, 1);
     let a = Image::from_rows(&[[0.0, 10.0, 2.0, 8.0, 0.0, 4.0]]);
     let b = Image::from_rows(&[[3.0, 4.0, 1.0, 2.0, 5.0, 3.0]]);
     let leaked = b.zip_map(&a, |vb, va| vb + 0.3 * va);
-    let r = sim::pearson(&a, &leaked, &all);
+    let r = common::pearson(&a, &leaked, &all);
     assert!(close(r, 0.64, 0.01), "B1(b): r with 30 % leak should be 0.64, got {r} (is the check itself right?)");
     let fixed = compensate(&leaked, &a, s);
     assert!(close(fixed[(1, 0)], 3.99, 0.01), "B1(d): compensated B at the second pixel: got {}, expected 3.99", fixed[(1, 0)]);
-    let r = sim::pearson(&a, &fixed, &all);
+    let r = common::pearson(&a, &fixed, &all);
     assert!(close(r, -0.07, 0.01), "B1(d): r after compensation: got {r}, expected −0.07");
     let over = compensate(&leaked, &a, 0.6);
-    let r = sim::pearson(&a, &over, &all);
+    let r = common::pearson(&a, &over, &all);
     assert!(close(r, -0.69, 0.01), "B1(e): r after over-compensation with 0.6: got {r}, expected −0.69");
 }
 

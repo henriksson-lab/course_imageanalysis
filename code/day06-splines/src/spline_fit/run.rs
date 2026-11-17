@@ -2,9 +2,8 @@
 // from a closed smoothing spline; pictures in out/spline-fit/.
 //   cargo run -p day06 -- spline-fit                      (your code)
 //   cargo run -p day06 --features solution -- spline-fit  (the model solution)
-use super::plot;
 use imgcourse::{Image, Rng};
-use plot::*;
+use crate::common::*;
 use crate::spline_fit::*;
 
 /// The true curve: a sine with a kink at x = 6.

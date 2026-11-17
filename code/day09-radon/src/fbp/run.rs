@@ -3,7 +3,7 @@
 //   cargo run -p day09 -- fbp                      (your code)
 //   cargo run -p day09 --features solution -- fbp  (the model solution)
 
-use crate::fbp::tomo::*;
+use crate::common::*;
 use crate::fbp::*;
 use imgcourse::*;
 

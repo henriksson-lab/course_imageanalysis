@@ -3,7 +3,7 @@
 // 90° (π/2) points down. A rotation by φ turns (x, y) into (x cos φ − y sin φ, x sin φ + y cos φ)
 // and adds φ to every gradient direction (clockwise on the screen, because y points down).
 
-use crate::ght::sim::EdgePoint;
+use crate::common::EdgePoint;
 use imgcourse::Image;
 use std::f32::consts::TAU;
 

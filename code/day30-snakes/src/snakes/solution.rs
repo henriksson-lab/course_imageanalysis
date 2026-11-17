@@ -58,45 +58,6 @@ pub fn snake_step(points: &[Point], f: &Image<f32>, alpha: f32, beta: f32, w: f3
 
 // ---- Helpers from earlier units (filled in, not part of the exercise) ----
 
-/// Gaussian blur of width `sigma` in two passes (unit "Filtering & convolution"), copying
-/// the edge outside the image. `sigma = 0` returns a copy.
-pub fn gaussian_blur(img: &Image<f32>, sigma: f32) -> Image<f32> {
-    if sigma <= 0.0 {
-        return img.clone();
-    }
-    let r = (3.0 * sigma).ceil() as isize;
-    let mut w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
-    let total: f32 = w.iter().sum();
-    w.iter_mut().for_each(|v| *v /= total);
-    let pass = |src: &Image<f32>, along_x: bool| {
-        src.map_xy(|x, y, _| {
-            let mut sum = 0.0;
-            for d in -r..=r {
-                let (xx, yy) = if along_x { (x as isize + d, y as isize) } else { (x as isize, y as isize + d) };
-                sum += w[(d + r) as usize] * src.get_border(xx, yy, Border::Clamp);
-            }
-            sum
-        })
-    };
-    pass(&pass(img, true), false)
-}
-
-/// The image value at a position between pixels, by bilinear interpolation (unit "Images as
-/// arrays"); outside the image the nearest edge pixel is used.
-pub fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let (x0, y0) = (x0 as isize, y0 as isize);
-    let p = |dx: isize, dy: isize| img.get_border(x0 + dx, y0 + dy, Border::Clamp);
-    (1.0 - fx) * (1.0 - fy) * p(0, 0) + fx * (1.0 - fy) * p(1, 0) + (1.0 - fx) * fy * p(0, 1) + fx * fy * p(1, 1)
-}
-
-/// `n` beads on a circle of radius `r` around `(cx, cy)`.
-pub fn circle(cx: f32, cy: f32, r: f32, n: usize) -> Vec<Point> {
-    (0..n)
-        .map(|i| {
-            let t = 2.0 * std::f32::consts::PI * i as f32 / n as f32;
-            [cx + r * t.cos(), cy + r * t.sin()]
-        })
-        .collect()
-}
+// `gaussian_blur(img, sigma)`, `bilinear(img, x, y)` and `circle(cx, cy, r, n)` (`n` beads on
+// a circle) are in `src/common.rs`.
+pub use crate::common::{bilinear, circle, gaussian_blur};

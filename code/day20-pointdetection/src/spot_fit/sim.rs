@@ -18,26 +18,9 @@ pub fn spot_mean(size: usize, spots: &[(f32, f32, f32)], s: f32, background: f32
     })
 }
 
-/// A Poisson-distributed count with mean `lambda` (Knuth's method below 30, a rounded normal
-/// approximation above).
-pub fn poisson(rng: &mut Rng, lambda: f32) -> f32 {
-    if lambda < 30.0 {
-        let limit = (-lambda).exp();
-        let mut k = 0;
-        let mut p = rng.uniform();
-        while p > limit {
-            k += 1;
-            p *= rng.uniform();
-        }
-        k as f32
-    } else {
-        (lambda + lambda.sqrt() * rng.normal()).round().max(0.0)
-    }
-}
-
 /// Photon counts: every pixel of `mean` replaced by a Poisson count with that mean.
 pub fn with_poisson(mean: &Image<f32>, rng: &mut Rng) -> Image<f32> {
-    Image::from_fn(mean.width(), mean.height(), |x, y| poisson(rng, mean[(x, y)]))
+    Image::from_fn(mean.width(), mean.height(), |x, y| rng.poisson(mean[(x, y)]))
 }
 
 /// The brightest pixel of a patch.

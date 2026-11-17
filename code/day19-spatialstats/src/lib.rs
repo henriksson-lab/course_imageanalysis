@@ -9,6 +9,7 @@
 //! Run a unit's program with `cargo run -p day19 -- <unit>`, check it with
 //! `cargo test -p day19 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod point_patterns;
 pub mod nn_functions;
 pub mod ripley_k;

@@ -2,9 +2,8 @@
 // when one branch is dropped; pictures in out/filterbank/.
 //   cargo run -p day07 -- filterbank                      (your code)
 //   cargo run -p day07 --features solution -- filterbank  (the model solution)
-use super::plot;
 use crate::filterbank::*;
-use plot::*;
+use crate::common::{Plot, BLACK, BLUE, GREEN, GREY, ORANGE, RED};
 use std::f32::consts::PI;
 
 /// Test signals of `n` samples, t = i/n in [0, 1).

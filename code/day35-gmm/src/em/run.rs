@@ -4,6 +4,7 @@
 //   cargo run -p day35 --features solution -- em  (the model solution)
 
 use crate::em::*;
+use crate::common::colour;
 use imgcourse::*;
 
 /// A plot of the data's histogram (grey bars, values `lo..hi` in `bins` bins) with the
@@ -22,7 +23,6 @@ fn plot(data: &[f32], m: &Mixture, lo: f32, hi: f32, bins: usize) -> Image<[f32;
     let top = 1.15 * counts.iter().cloned().fold(0.0, f32::max);
     let row = |v: f32| ((h - 1) as f32 * (1.0 - v / top)).clamp(0.0, (h - 1) as f32) as usize;
     let mut img = Image::from_fn(w, h, |px, py| if py >= row(counts[px / 4]) { [0.8; 3] } else { [1.0; 3] });
-    let colour = |k: usize| io::label_colours(&Image::new(1, 1, k as u32 + 1))[(0, 0)];
     for px in 0..w {
         let x = lo + (px as f32 + 0.5) / 4.0 * width;
         let mut total = 0.0;

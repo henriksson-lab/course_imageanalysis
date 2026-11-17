@@ -4,6 +4,8 @@
 
 use imgcourse::{samples, Image, Rng};
 
+pub use crate::common::{integral, rect};
+
 /// The side of the detection window.
 pub const WINDOW: usize = 24;
 
@@ -71,20 +73,6 @@ pub fn feature_pool() -> Vec<Feature> {
         }
     }
     pool
-}
-
-/// The integral image of `f(pixel)`: `table[(x, y)]` sums columns `0..x`, rows `0..y`.
-pub fn integral(img: &Image<f32>, f: impl Fn(f64) -> f64) -> Image<f64> {
-    let mut s = Image::new(img.width() + 1, img.height() + 1, 0.0);
-    for (x, y) in img.coords() {
-        s[(x + 1, y + 1)] = f(img[(x, y)] as f64) + s[(x, y + 1)] + s[(x + 1, y)] - s[(x, y)];
-    }
-    s
-}
-
-/// The sum over the `w × h` rectangle with top-left pixel `(x, y)`.
-pub fn rect(s: &Image<f64>, x: usize, y: usize, w: usize, h: usize) -> f64 {
-    s[(x + w, y + h)] - s[(x, y + h)] - s[(x + w, y)] + s[(x, y)]
 }
 
 /// The centres of the nuclei in a label image (the mean position of each label's pixels).

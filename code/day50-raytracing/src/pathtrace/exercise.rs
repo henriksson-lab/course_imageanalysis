@@ -4,7 +4,7 @@
 #![allow(unused_variables, unused_imports)]
 
 use crate::pathtrace::scene::{camera_ray, frame, Scene, Settings};
-use crate::pathtrace::vec3::{Ray, Vec3};
+use crate::common::{Ray, Vec3};
 use imgcourse::{Image, Rng};
 use std::f32::consts::PI;
 

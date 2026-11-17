@@ -1,5 +1,5 @@
-//! Test scenes, edge points and drawing for the Hough exercises.
-//! Not part of the exercise: read it if you like.
+//! Helpers shared by the units of day 21: test scenes, edge points and drawing for the Hough
+//! exercises (not part of the exercises).
 
 use imgcourse::{Border, Image, Rng};
 

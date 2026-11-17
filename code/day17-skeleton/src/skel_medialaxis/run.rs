@@ -5,6 +5,7 @@
 //   cargo run -p day17 --features solution -- skel-medialaxis  (the model solution)
 
 use imgcourse::*;
+use crate::common::count;
 use crate::skel_medialaxis::*;
 
 const SIZE: usize = 256;
@@ -62,10 +63,6 @@ fn pieces(img: &Image<bool>) -> usize {
         }
     }
     count
-}
-
-fn count(img: &Image<bool>) -> usize {
-    img.pixels().iter().filter(|&&v| v).count()
 }
 
 /// The distance transform in grey, the skeleton in red.

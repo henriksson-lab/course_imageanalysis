@@ -6,6 +6,7 @@
 
 use imgcourse::*;
 use crate::richardson_lucy::*;
+use crate::common::rmse;
 
 /// A Poisson-distributed photon count with the given mean (Knuth's method for small means,
 /// the normal approximation for large ones).
@@ -30,11 +31,6 @@ fn gaussian_psf(sigma: f32) -> Image<f32> {
     });
     let total = g.sum();
     g.map(|v| v / total)
-}
-
-fn rmse(a: &Image<f32>, b: &Image<f32>) -> f32 {
-    let s: f32 = a.pixels().iter().zip(b.pixels()).map(|(p, q)| (p - q).powi(2)).sum();
-    (s / a.pixels().len() as f32).sqrt()
 }
 
 pub fn main() {

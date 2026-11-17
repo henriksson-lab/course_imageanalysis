@@ -1,4 +1,4 @@
-//! Noise images, Gaussian filters and Poisson counts for the threshold exercises.
+//! Noise images, Gaussian filters, the normal tail and drawing for the threshold exercises.
 //! Not part of the exercise: read it if you like.
 
 use imgcourse::{Border, Image, Rng};
@@ -53,23 +53,6 @@ pub fn filter_noise_factor(s1: f32, s2: f32) -> f32 {
         }
     }
     ss.sqrt()
-}
-
-/// A Poisson-distributed count with mean `lambda` (Knuth's method below 30, a rounded normal
-/// approximation above).
-pub fn poisson(rng: &mut Rng, lambda: f32) -> f32 {
-    if lambda < 30.0 {
-        let limit = (-lambda).exp();
-        let mut k = 0;
-        let mut p = rng.uniform();
-        while p > limit {
-            k += 1;
-            p *= rng.uniform();
-        }
-        k as f32
-    } else {
-        (lambda + lambda.sqrt() * rng.normal()).round().max(0.0)
-    }
 }
 
 /// P(Z > u) for a standard normal Z (an erfc approximation, good to about 1e-7).

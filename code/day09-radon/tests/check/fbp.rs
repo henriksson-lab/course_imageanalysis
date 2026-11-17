@@ -1,7 +1,7 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day09 fbp::
 
-use day09::fbp::tomo::{angles, centre, sinogram};
+use day09::common::{angles, centre, sinogram};
 use day09::fbp::*;
 use imgcourse::Image;
 

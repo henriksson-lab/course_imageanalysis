@@ -3,7 +3,8 @@
 //   cargo run -p day21 -- ght                      (your code)
 //   cargo run -p day21 --features solution -- ght  (the model solution)
 
-use crate::ght::sim::{edge_points, key, polygon_scene, show_points, transform};
+use crate::common::{edge_points, polygon_scene, show_points, EdgePoint};
+use crate::ght::sim::{key, transform};
 use crate::ght::*;
 use imgcourse::*;
 
@@ -29,7 +30,7 @@ type Detection = (usize, usize, usize, f32);
 
 /// Search the poses: for each pixel the best score over all poses, and which pose gave it.
 /// Then keep the local maxima (±6 px) above `threshold`: (x, y, pose index, score).
-fn search(table: &RTable, edges: &[crate::ght::sim::EdgePoint], size: usize, poses: &[(f32, f32)], n_template: usize, threshold: f32) -> (Vec<Detection>, Image<f32>) {
+fn search(table: &RTable, edges: &[EdgePoint], size: usize, poses: &[(f32, f32)], n_template: usize, threshold: f32) -> (Vec<Detection>, Image<f32>) {
     let mut best = Image::new(size, size, (0.0f32, 0usize));
     for (i, &(phi, s)) in poses.iter().enumerate() {
         let sc = score_map(&vote_pose(table, edges, size, size, phi, s), n_template);
@@ -73,7 +74,7 @@ fn search(table: &RTable, edges: &[crate::ght::sim::EdgePoint], size: usize, pos
 /// The score of a detection: the fraction of template edge points matched, i.e. the number of
 /// scene edge points that cast at least one vote within one pixel of `(x, y)` for this pose,
 /// divided by the number of template edge points.
-fn point_score(table: &RTable, edges: &[crate::ght::sim::EdgePoint], pose: (f32, f32), x: usize, y: usize, n_template: usize) -> f32 {
+fn point_score(table: &RTable, edges: &[EdgePoint], pose: (f32, f32), x: usize, y: usize, n_template: usize) -> f32 {
     let (phi, s) = pose;
     let (c, sn) = (phi.cos(), phi.sin());
     let mut count = 0;

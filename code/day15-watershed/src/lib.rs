@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day15 -- <unit>`, check it with
 //! `cargo test -p day15 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod ws_landscape;
 pub mod ws_flooding;
 pub mod ws_gradient;

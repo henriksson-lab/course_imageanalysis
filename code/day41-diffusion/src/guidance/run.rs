@@ -6,6 +6,7 @@
 //   cargo run -p day41 -- guidance                      (your code)
 //   cargo run -p day41 --features solution -- guidance  (the model solution)
 
+use crate::common::mean_sd;
 use crate::guidance::*;
 use imgcourse::*;
 
@@ -43,11 +44,6 @@ fn histogram(samples: &[f32], w: f32) -> Image<[f32; 3]> {
         img[(x, h - 1 - to_px(q(v) / total))] = [0.85, 0.1, 0.1];
     }
     img
-}
-
-fn mean_sd(v: &[f32]) -> (f32, f32) {
-    let m = v.iter().sum::<f32>() / v.len() as f32;
-    (m, (v.iter().map(|x| (x - m).powi(2)).sum::<f32>() / v.len() as f32).sqrt())
 }
 
 pub fn main() {

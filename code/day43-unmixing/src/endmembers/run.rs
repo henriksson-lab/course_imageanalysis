@@ -10,21 +10,6 @@ use imgcourse::*;
 const N: usize = 16; // channels
 const SIZE: usize = 96;
 
-/// A Poisson-distributed count (Knuth for small means, the normal approximation above 30).
-fn poisson(mean: f32, rng: &mut Rng) -> f32 {
-    if mean < 30.0 {
-        let limit = (-mean).exp();
-        let (mut k, mut p) = (0.0, rng.uniform());
-        while p > limit {
-            k += 1.0;
-            p *= rng.uniform();
-        }
-        k
-    } else {
-        (mean + mean.sqrt() * rng.normal()).round().max(0.0)
-    }
-}
-
 /// The spectra (columns, scaled to sum 1): nucleus, mitochondria, membrane, autofluorescence.
 fn spectra() -> Matrix {
     let centres: Vec<f32> = (0..N).map(|c| 480.0 + 220.0 * (c as f32 + 0.5) / N as f32).collect();
@@ -81,7 +66,7 @@ fn abundances(pure: bool) -> Vec<Image<f32>> {
 fn record(m: &Matrix, a: &[Image<f32>], photons: f32, seed: u64) -> Vec<Vec<f32>> {
     let mut rng = Rng::new(seed);
     a[0].coords()
-        .map(|(x, y)| (0..N).map(|ch| poisson(photons * (0..a.len()).map(|k| m[ch][k] * a[k][(x, y)]).sum::<f32>(), &mut rng)).collect())
+        .map(|(x, y)| (0..N).map(|ch| rng.poisson(photons * (0..a.len()).map(|k| m[ch][k] * a[k][(x, y)]).sum::<f32>())).collect())
         .collect()
 }
 

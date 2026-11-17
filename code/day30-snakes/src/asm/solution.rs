@@ -1,6 +1,6 @@
 // Model solution for the coding exercises of "Active shape models".
 
-use imgcourse::{Border, Image};
+use imgcourse::Image;
 
 /// A landmark `[x, y]`, in pixels.
 pub type Point = [f32; 2];
@@ -179,11 +179,5 @@ pub fn to_vector(p: &[Point]) -> Vec<f32> {
     p.iter().flat_map(|q| [q[0], q[1]]).collect()
 }
 
-/// The image value between pixels (bilinear); outside, the nearest edge pixel.
-pub fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let (x0, y0) = (x0 as isize, y0 as isize);
-    let p = |dx: isize, dy: isize| img.get_border(x0 + dx, y0 + dy, Border::Clamp);
-    (1.0 - fx) * (1.0 - fy) * p(0, 0) + fx * (1.0 - fy) * p(1, 0) + (1.0 - fx) * fy * p(0, 1) + fx * fy * p(1, 1)
-}
+/// The image value between pixels (bilinear); outside, the nearest edge pixel. In `src/common.rs`.
+pub use crate::common::bilinear;

@@ -3,7 +3,7 @@
 //! Write your code in `src/coloc_objects/exercise.rs`. Check it with `cargo test -p day44 coloc_objects::`, and run it with
 //! `cargo run -p day44 -- coloc-objects` (results in `out/coloc-objects/`).
 //! `src/coloc_objects/solution.rs` is a model solution: `cargo test -p day44 --features solution coloc_objects::`.
-//! `src/sim.rs` makes the test data and draws the results; it is not part of the exercise.
+//! `src/coloc_objects/sim.rs` makes the test data and draws the results; it is not part of the exercise.
 
 pub mod sim;
 

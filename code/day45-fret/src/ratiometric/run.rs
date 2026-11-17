@@ -63,7 +63,7 @@ pub fn main() {
         let mut ratios = Vec::new();
         let mut zero = 0;
         for _ in 0..20000 {
-            let (a, d) = (sim::poisson(&mut rng, na), sim::poisson(&mut rng, nd));
+            let (a, d) = (rng.poisson(na), rng.poisson(nd));
             if d > 0.0 {
                 ratios.push(a / d);
             } else {

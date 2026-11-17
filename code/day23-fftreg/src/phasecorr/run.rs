@@ -5,13 +5,8 @@
 //   cargo run -p day23 --features solution -- phasecorr  (the model solution)
 
 use imgcourse::*;
+use crate::common::centred;
 use crate::phasecorr::*;
-
-/// Moves shift 0 to the middle of the picture.
-fn centred(c: &Image<f32>) -> Image<f32> {
-    let (w, h) = (c.width(), c.height());
-    Image::from_fn(w, h, |x, y| c[((x + w / 2) % w, (y + h / 2) % h)])
-}
 
 /// Registers the two crops of `field` (A at (40, 50), B 21 px right and 13 px down) with the
 /// settings, prints the result and saves the surface.

@@ -96,27 +96,8 @@ pub fn gvf(gx: &Image<f32>, gy: &Image<f32>, mu: f32, dt: f32, iterations: usize
 
 // ---- Helpers from earlier units (filled in, not part of the exercise) ----
 
-/// Gaussian blur of width `sigma` in two passes, copying the edge outside the image.
-pub fn gaussian_blur(img: &Image<f32>, sigma: f32) -> Image<f32> {
-    if sigma <= 0.0 {
-        return img.clone();
-    }
-    let r = (3.0 * sigma).ceil() as isize;
-    let mut w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
-    let total: f32 = w.iter().sum();
-    w.iter_mut().for_each(|v| *v /= total);
-    let pass = |src: &Image<f32>, along_x: bool| {
-        src.map_xy(|x, y, _| {
-            let mut sum = 0.0;
-            for d in -r..=r {
-                let (xx, yy) = if along_x { (x as isize + d, y as isize) } else { (x as isize, y as isize + d) };
-                sum += w[(d + r) as usize] * src.get_border(xx, yy, Border::Clamp);
-            }
-            sum
-        })
-    };
-    pass(&pass(img, true), false)
-}
+// `gaussian_blur(img, sigma)` and `bilinear(img, x, y)` are in `src/common.rs`.
+pub use crate::common::{bilinear, gaussian_blur};
 
 /// The gradient `(∂/∂x, ∂/∂y)` of an image by central differences, copying the edge.
 pub fn gradient(img: &Image<f32>) -> (Image<f32>, Image<f32>) {
@@ -135,14 +116,4 @@ pub fn edge_map(img: &Image<f32>, sigma: f32) -> Image<f32> {
     let f = gx.zip_map(&gy, |a, b| a * a + b * b);
     let max = f.max();
     f.map(|v| if max > 0.0 { v / max } else { v })
-}
-
-/// The image value at a position between pixels, by bilinear interpolation; outside the
-/// image the nearest edge pixel is used.
-pub fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let (x0, y0) = (x0 as isize, y0 as isize);
-    let p = |dx: isize, dy: isize| img.get_border(x0 + dx, y0 + dy, Border::Clamp);
-    (1.0 - fx) * (1.0 - fy) * p(0, 0) + fx * (1.0 - fy) * p(1, 0) + (1.0 - fx) * fy * p(0, 1) + fx * fy * p(1, 1)
 }

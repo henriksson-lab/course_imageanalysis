@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day17 -- <unit>`, check it with
 //! `cargo test -p day17 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod skel_thinning;
 pub mod skel_medialaxis;
 pub mod skel_graph;

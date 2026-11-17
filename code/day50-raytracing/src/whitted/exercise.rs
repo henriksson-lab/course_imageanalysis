@@ -4,7 +4,7 @@
 #![allow(unused_variables, unused_imports)]
 
 use crate::whitted::scene::{Material, Scene};
-use crate::whitted::vec3::{Ray, Vec3};
+use crate::common::{Ray, Vec3};
 
 /// C1. The mirror direction of `d` at a surface with unit normal `n`:
 /// `r = d − 2 (d · n) n`.

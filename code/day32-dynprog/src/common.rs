@@ -1,14 +1,16 @@
-//! A priority queue of pixels: it hands out the pixel with the smallest value first. This is
-//! plumbing for Dijkstra's algorithm, not part of the exercises.
+//! Helpers shared by the units of day 32 (plumbing, not part of the exercises): a priority
+//! queue of pixels for Dijkstra's algorithm and fast marching (it hands out the pixel with the
+//! smallest value first), and Gaussian smoothing for the programs.
 //!
 //! ```
-//! # use fastmarching::MinQueue;
+//! # use day32::common::MinQueue;
 //! let mut queue = MinQueue::new();
 //! queue.push(3.0, (0, 0));
 //! queue.push(1.0, (5, 2));
 //! assert_eq!(queue.pop(), Some((1.0, (5, 2))));
 //! ```
 
+use imgcourse::{Border, Image};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
@@ -71,3 +73,22 @@ impl PartialEq for Entry {
 }
 
 impl Eq for Entry {}
+
+/// Gaussian smoothing in two passes (from the filtering unit; not part of these exercises),
+/// cut at 3σ, copying the edge pixel outside the image.
+pub fn smooth(img: &Image<f32>, sigma: f32) -> Image<f32> {
+    let r = (3.0 * sigma).ceil() as isize;
+    let w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
+    let total: f32 = w.iter().sum();
+    let pass = |src: &Image<f32>, along_x: bool| {
+        src.map_xy(|x, y, _| {
+            let mut sum = 0.0;
+            for d in -r..=r {
+                let (xx, yy) = if along_x { (x as isize + d, y as isize) } else { (x as isize, y as isize + d) };
+                sum += w[(d + r) as usize] * src.get_border(xx, yy, Border::Clamp);
+            }
+            sum / total
+        })
+    };
+    pass(&pass(img, true), false)
+}

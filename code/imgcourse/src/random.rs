@@ -48,4 +48,21 @@ impl Rng {
     pub fn below(&mut self, n: usize) -> usize {
         (self.next_u64() % n as u64) as usize
     }
+
+    /// A Poisson-distributed count with the given mean (photon counts): exact (multiplying
+    /// uniform numbers) for means below 30, the normal approximation rounded above.
+    pub fn poisson(&mut self, mean: f32) -> f32 {
+        if mean < 30.0 {
+            let limit = (-mean).exp();
+            let mut k = 0;
+            let mut p = self.uniform();
+            while p > limit {
+                k += 1;
+                p *= self.uniform();
+            }
+            k as f32
+        } else {
+            (mean + mean.sqrt() * self.normal()).round().max(0.0)
+        }
+    }
 }

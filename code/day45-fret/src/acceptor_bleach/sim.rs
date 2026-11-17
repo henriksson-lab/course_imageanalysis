@@ -47,23 +47,6 @@ pub struct Experiment {
     pub acceptor_left: f32,
 }
 
-/// A Poisson-distributed count with mean `lambda` (Knuth's method below 30, a rounded normal
-/// approximation above).
-pub fn poisson(rng: &mut Rng, lambda: f32) -> f32 {
-    if lambda < 30.0 {
-        let limit = (-lambda).exp();
-        let mut k = 0;
-        let mut p = rng.uniform();
-        while p > limit {
-            k += 1;
-            p *= rng.uniform();
-        }
-        k as f32
-    } else {
-        (lambda + lambda.sqrt() * rng.normal()).round().max(0.0)
-    }
-}
-
 /// Simulate an experiment on a 128 × 128 field of cells (background already subtracted).
 pub fn experiment(p: &Bleach) -> Experiment {
     let size = 128;
@@ -90,10 +73,10 @@ pub fn experiment(p: &Bleach) -> Experiment {
             None
         }
     };
-    let donor_pre = Image::from_fn(size, size, |x, y| poisson(&mut rng, pre_mean(x, y)));
-    let acceptor_pre = Image::from_fn(size, size, |x, y| poisson(&mut rng, amount(x, y)));
+    let donor_pre = Image::from_fn(size, size, |x, y| rng.poisson(pre_mean(x, y)));
+    let acceptor_pre = Image::from_fn(size, size, |x, y| rng.poisson(amount(x, y)));
     // after: the scene has moved by `drift`
-    let donor_post = Image::from_fn(size, size, |x, y| poisson(&mut rng, shifted(x, y).map_or(0.0, |(a, b)| post_mean(a, b))));
-    let acceptor_post = Image::from_fn(size, size, |x, y| poisson(&mut rng, shifted(x, y).map_or(0.0, |(a, b)| acc_post_mean(a, b))));
+    let donor_post = Image::from_fn(size, size, |x, y| rng.poisson(shifted(x, y).map_or(0.0, |(a, b)| post_mean(a, b))));
+    let acceptor_post = Image::from_fn(size, size, |x, y| rng.poisson(shifted(x, y).map_or(0.0, |(a, b)| acc_post_mean(a, b))));
     Experiment { donor_pre, donor_post, acceptor_pre, acceptor_post, cells, bleached, acceptor_left: left }
 }

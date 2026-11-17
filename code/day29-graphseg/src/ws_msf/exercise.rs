@@ -6,9 +6,10 @@
 use imgcourse::Image;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
+use crate::common::find;
 
 /// An edge `(a, b, d)` between nodes `a` and `b` with weight (altitude) `d`.
-pub type Edge = (usize, usize, f32);
+pub use crate::common::Edge;
 
 /// A priority queue of edges (by their index in an edge list): `pop` gives the edge with the
 /// smallest weight, and among equal weights the one pushed first (first in, first out).
@@ -82,16 +83,6 @@ pub fn altitude_edges(f: &Image<f32>) -> Vec<Edge> {
 /// a label and the other end has none yet.
 pub fn prim_from_markers(n: usize, edges: &[Edge], markers: &[u32]) -> (Vec<u32>, Vec<usize>) {
     todo!("C2: prim_from_markers")
-}
-
-/// The root of `a` in a union–find forest `parent` (with path halving).
-pub fn find(parent: &mut [usize], a: usize) -> usize {
-    let mut a = a;
-    while parent[a] != a {
-        parent[a] = parent[parent[a]];
-        a = parent[a];
-    }
-    a
 }
 
 /// C3. The same forest by Kruskal with a virtual root: every component carries the label of

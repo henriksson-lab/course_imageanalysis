@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day20 -- <unit>`, check it with
 //! `cargo test -p day20 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod spot_filters;
 pub mod spot_threshold;
 pub mod spot_fit;

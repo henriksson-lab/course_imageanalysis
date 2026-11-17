@@ -4,6 +4,7 @@
 //   cargo run -p day17 --features solution -- skel-thinning  (the model solution)
 
 use imgcourse::*;
+use crate::common::count;
 use crate::skel_thinning::*;
 
 /// A synthetic neuron mask: a round soma and five dendrites that branch, drawn as thick
@@ -33,10 +34,6 @@ fn neuron() -> Image<bool> {
             (px - x0 - t * dx).powi(2) + (py - y0 - t * dy).powi(2) <= w * w
         })
     })
-}
-
-fn count(img: &Image<bool>) -> usize {
-    img.pixels().iter().filter(|&&v| v).count()
 }
 
 /// Mask in grey, skeleton in white, end points in blue, junctions (3 or more skeleton

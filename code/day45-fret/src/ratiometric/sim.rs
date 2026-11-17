@@ -14,23 +14,6 @@ pub fn true_ratio(c: f32) -> f32 {
     R_MIN + (R_MAX - R_MIN) * c / (c + KD)
 }
 
-/// A Poisson-distributed count with mean `lambda` (Knuth's method below 30, a rounded normal
-/// approximation above).
-pub fn poisson(rng: &mut Rng, lambda: f32) -> f32 {
-    if lambda < 30.0 {
-        let limit = (-lambda).exp();
-        let mut k = 0;
-        let mut p = rng.uniform();
-        while p > limit {
-            k += 1;
-            p *= rng.uniform();
-        }
-        k as f32
-    } else {
-        (lambda + lambda.sqrt() * rng.normal()).round().max(0.0)
-    }
-}
-
 /// A field of cells with the biosensor.
 pub struct Field {
     /// Acceptor and donor channel (photons, background included).
@@ -71,8 +54,8 @@ pub fn field(photons: f32, background: f32, bleed: f32, seed: u64) -> Field {
         // thickness and amount of sensor: the nucleus image (bright = thick) times the expression
         let amount = if l > 0 { photons * expression[l - 1] * shape[(x, y)].max(0.0) / 0.7 } else { 0.0 };
         let r = true_ratio(concentration[(x, y)]);
-        donor[(x, y)] = poisson(&mut rng, amount + background);
-        acceptor[(x, y)] = poisson(&mut rng, (r + bleed) * amount + background);
+        donor[(x, y)] = rng.poisson(amount + background);
+        acceptor[(x, y)] = rng.poisson((r + bleed) * amount + background);
     }
     Field { acceptor, donor, labels, concentration }
 }

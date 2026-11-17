@@ -1,7 +1,7 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day44 coloc_null::
 
-use day44::coloc_null::sim::{self, Scene};
+use day44::common::{self, Scene};
 use day44::coloc_null::*;
 use imgcourse::{Image, Rng};
 
@@ -11,7 +11,7 @@ fn close(got: f32, expected: f32, tol: f32) -> bool {
 
 #[test]
 fn c1_shift_curve_finds_a_shift() {
-    let (a, _, cells) = sim::scene(&Scene::default());
+    let (a, _, cells) = common::scene(&Scene::default());
     // B is A moved 2 pixels to the right: B(x, y) = A(x − 2, y)
     let b = Image::from_fn(a.width(), a.height(), |x, y| if x >= 2 { a[(x - 2, y)] } else { a[(0, y)] });
     let curve = shift_curve(&a, &b, &cells, 5);
@@ -37,7 +37,7 @@ fn c2_subpixel_peak_b10() {
 
 #[test]
 fn c3_block_shuffle_keeps_the_pieces() {
-    let (_, b, cells) = sim::scene(&Scene::default());
+    let (_, b, cells) = common::scene(&Scene::default());
     let mut rng = Rng::new(7);
     let s = block_shuffle(&b, &cells, 8, &mut rng);
     assert_ne!(s, b, "the shuffled image should differ from the original");
@@ -79,7 +79,7 @@ fn c4_permutation_p_b1() {
 fn c5_pdm_and_icq_b2() {
     let a = Image::from_rows(&[[0., 2., 8.], [1., 6., 9.], [0., 1., 3.]]);
     let b = Image::from_rows(&[[1., 1., 6.], [0., 5., 8.], [1., 2., 0.]]);
-    let all = sim::everywhere(3, 3);
+    let all = common::everywhere(3, 3);
     let d = pdm(&a, &b, &all);
     let expected = [5.56, 2.22, 15.56, 6.22, 6.22, 30.22, 5.56, 1.56, 0.89];
     for (k, (x, y)) in d.coords().enumerate() {

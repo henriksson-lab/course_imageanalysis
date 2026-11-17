@@ -2,7 +2,7 @@
 // Positions are pixel coordinates (x, y), y down: the accumulator slice for one radius is an
 // image of the same size as the input, and its value at (a, b) counts the votes for the centre (a, b).
 
-use crate::hough_circles::sim::EdgePoint;
+use crate::common::EdgePoint;
 use imgcourse::Image;
 
 /// Which way the gradient points at the edge of the objects we look for.

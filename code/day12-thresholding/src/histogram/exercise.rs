@@ -4,18 +4,11 @@
 
 use imgcourse::Image;
 
-/// The bin of a grey value `v` in a histogram with `bins` equal bins over [0, 1]: bin `i`
-/// holds the values from `i / bins` up to (not including) `(i + 1) / bins`. The value 1 goes
-/// into the last bin, values outside [0, 1] into the first or last bin.
-/// With 256 bins, an 8-bit grey level `k` (stored as `k / 255`) lands in bin `k`.
-pub fn bin_of(v: f32, bins: usize) -> usize {
-    let b = (v * bins as f32).floor();
-    if b < 0.0 {
-        0
-    } else {
-        (b as usize).min(bins - 1)
-    }
-}
+/// The bin of a grey value `v` in a histogram with `bins` equal bins over [0, 1] (given, in
+/// `src/common.rs`): bin `i` holds the values from `i / bins` up to (not including)
+/// `(i + 1) / bins`. The value 1 goes into the last bin, values outside [0, 1] into the first
+/// or last bin. With 256 bins, an 8-bit grey level `k` (stored as `k / 255`) lands in bin `k`.
+pub use crate::common::bin_of;
 
 /// C1. The histogram: `h[i]` = the number of pixels whose grey value falls into bin `i`.
 ///

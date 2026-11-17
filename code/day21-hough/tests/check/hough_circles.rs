@@ -1,7 +1,8 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day21 hough_circles::
 
-use day21::hough_circles::sim::{edge_points, ellipse, polygon_scene, EdgePoint};
+use day21::common::{edge_points, polygon_scene, EdgePoint};
+use day21::hough_circles::sim::ellipse;
 use day21::hough_circles::*;
 
 fn point(x: f32, y: f32, ux: f32, uy: f32) -> EdgePoint {

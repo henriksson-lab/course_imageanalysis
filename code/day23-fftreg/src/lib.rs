@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day23 -- <unit>`, check it with
 //! `cargo test -p day23 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod matching;
 pub mod xcorr_fft;
 pub mod phasecorr;

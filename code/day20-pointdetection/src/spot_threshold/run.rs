@@ -5,7 +5,7 @@
 //   cargo run -p day20 --features solution -- spot-threshold  (the model solution)
 
 use imgcourse::*;
-use crate::spot_threshold::sim::{draw_marks, filter_noise_factor, gaussian_blur, noise_image, normal_tail, poisson};
+use crate::spot_threshold::sim::{draw_marks, filter_noise_factor, gaussian_blur, noise_image, normal_tail};
 use crate::spot_threshold::*;
 
 pub fn main() {
@@ -46,7 +46,7 @@ pub fn main() {
         let d2 = (x as f32 - 170.0).powi(2) + (y as f32 - 110.0).powi(2);
         20.0 + 180.0 * (-d2 / (2.0 * 50.0f32.powi(2))).exp()
     });
-    let counts = Image::from_fn(n, n, |x, y| poisson(&mut rng, mean[(x, y)]));
+    let counts = Image::from_fn(n, n, |x, y| rng.poisson(mean[(x, y)]));
     save_gray_stretched(&counts, format!("{dir}/poisson.png"));
     let factor = filter_noise_factor(1.5, 4.0);
     let response = |img: &Image<f32>| gaussian_blur(img, 1.5).zip_map(&gaussian_blur(img, 4.0), |a, b| a - b);

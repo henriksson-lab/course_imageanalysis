@@ -1,7 +1,7 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day21 hough_lines::
 
-use day21::hough_lines::sim::EdgePoint;
+use day21::common::EdgePoint;
 use day21::hough_lines::*;
 use std::f32::consts::PI;
 

@@ -4,6 +4,7 @@
 //   cargo run -p day42 --features solution -- colour-vision  (the model solution)
 
 use crate::colour_vision::*;
+use crate::common::srgb_encode;
 use imgcourse::*;
 
 /// The CIE 1931 colour-matching functions x̄, ȳ, z̄ at wavelength `l` (nm), from the
@@ -40,11 +41,6 @@ fn xyz_to_srgb(c: [f32; 3]) -> [f32; 3] {
     let m = [[3.2406, -1.5372, -0.4986], [-0.9689, 1.8758, 0.0415], [0.0557, -0.2040, 1.0570]];
     m.map(|row| row[0] * c[0] + row[1] * c[1] + row[2] * c[2])
 }
-fn encode(v: f32) -> f32 {
-    let v = v.clamp(0.0, 1.0);
-    if v <= 0.0031308 { 12.92 * v } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 }
-}
-
 /// Is the point inside the polygon? (Count crossings of a ray to the right.)
 fn inside(p: [f32; 2], poly: &[[f32; 2]]) -> bool {
     let mut c = false;
@@ -133,7 +129,7 @@ pub fn main() {
         let rgb = xyz_to_srgb([p[0] / p[1], 1.0, (1.0 - p[0] - p[1]) / p[1]]).map(|v| v.max(0.0));
         let m = rgb[0].max(rgb[1]).max(rgb[2]);
         let dim = if min < 0.0 { 0.55 } else { 1.0 };
-        rgb.map(|v| dim * encode(v / m))
+        rgb.map(|v| dim * srgb_encode(v / m))
     });
     let mut diagram = diagram;
     let white = [0.3127f32, 0.3290];

@@ -4,6 +4,7 @@
 //   cargo run -p day12 --features solution -- histogram  (the model solution)
 
 use crate::histogram::*;
+use crate::common::to_gray;
 use imgcourse::*;
 
 /// Bright discs (radius 9, every 32 pixels) on a dark background, about 25 % object.
@@ -47,10 +48,6 @@ fn histogram_picture(h: &[usize], t: usize) -> Image<f32> {
             1.0
         }
     })
-}
-
-fn to_gray(mask: &Image<bool>) -> Image<f32> {
-    mask.map(|b| if b { 1.0 } else { 0.0 })
 }
 
 /// The number of pixels where the mask and the truth disagree.

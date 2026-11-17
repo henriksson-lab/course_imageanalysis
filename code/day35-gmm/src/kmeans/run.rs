@@ -5,11 +5,11 @@
 
 use imgcourse::*;
 use crate::kmeans::*;
+use crate::common::colour;
 
 /// A picture of 2D points `lo..hi` (x1 to the right, x2 up), each a dot in the colour of its
 /// group, the background coloured by the nearest centre, and the centres as black crosses.
 fn plot(points: &[Vec<f32>], groups: &[usize], centres: &[Vec<f32>], lo: [f32; 2], hi: [f32; 2], size: usize) -> Image<[f32; 3]> {
-    let colour = |g: usize| io::label_colours(&Image::new(1, 1, g as u32 + 1))[(0, 0)];
     let scale = [(hi[0] - lo[0]) / size as f32, (hi[1] - lo[1]) / size as f32];
     let mut img = Image::from_fn(size, size, |px, py| {
         let x = vec![lo[0] + (px as f32 + 0.5) * scale[0], hi[1] - (py as f32 + 0.5) * scale[1]];

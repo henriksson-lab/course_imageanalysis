@@ -4,8 +4,6 @@
 //! test images with `cargo run -p day09 -- radon` (pictures in `out/radon/`).
 //! `src/radon/solution.rs` is a model solution: `cargo test -p day09 --features solution radon::`.
 
-pub mod tomo;
-
 #[cfg(not(feature = "solution"))]
 mod exercise;
 #[cfg(not(feature = "solution"))]

@@ -4,11 +4,11 @@
 //! on a closed box with `cargo run -p day50 -- pathtrace` (pictures in `out/pathtrace/`).
 //! `src/pathtrace/solution.rs` is a model solution: `cargo test -p day50 --features solution pathtrace::`.
 //! `src/scene.rs` holds the scene, the nearest hit and the camera, ready to use.
+//! The 3D vectors and rays are in `src/common.rs`.
 
 mod scene;
-mod vec3;
+pub use crate::common::*;
 pub use scene::*;
-pub use vec3::*;
 
 #[cfg(not(feature = "solution"))]
 mod exercise;

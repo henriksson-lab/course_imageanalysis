@@ -3,9 +3,9 @@
 //! Write your code in `src/raycast/exercise.rs`. Check it with `cargo test -p day50 raycast::`, and run it on
 //! a small scene with `cargo run -p day50 -- raycast` (pictures in `out/raycast/`).
 //! `src/raycast/solution.rs` is a model solution: `cargo test -p day50 --features solution raycast::`.
+//! The 3D vectors and rays are in `src/common.rs`.
 
-mod vec3;
-pub use vec3::*;
+pub use crate::common::*;
 
 #[cfg(not(feature = "solution"))]
 mod exercise;

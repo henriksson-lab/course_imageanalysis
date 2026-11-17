@@ -4,6 +4,7 @@
 //   cargo run -p day31 --features solution -- geodesic  (the model solution)
 
 use crate::geodesic::*;
+use crate::common::{draw_contour, pieces};
 use imgcourse::*;
 
 const SIZE: usize = 128;
@@ -42,29 +43,6 @@ fn box_start(h: f32) -> Image<f32> {
     })
 }
 
-fn pieces(phi: &Image<f32>) -> usize {
-    let mut seen = Image::new(SIZE, SIZE, false);
-    let mut count = 0;
-    for (x, y) in phi.coords() {
-        if phi[(x, y)] >= 0.0 || seen[(x, y)] {
-            continue;
-        }
-        count += 1;
-        let mut stack = vec![(x, y)];
-        seen[(x, y)] = true;
-        while let Some((x, y)) = stack.pop() {
-            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                let (nx, ny) = (x as isize + dx, y as isize + dy);
-                if phi.contains(nx, ny) && phi[(nx as usize, ny as usize)] < 0.0 && !seen[(nx as usize, ny as usize)] {
-                    seen[(nx as usize, ny as usize)] = true;
-                    stack.push((nx as usize, ny as usize));
-                }
-            }
-        }
-    }
-    count
-}
-
 fn wrong(phi: &Image<f32>, truth: &Image<bool>) -> usize {
     phi.coords().filter(|&(x, y)| (phi[(x, y)] < 0.0) != truth[(x, y)]).count()
 }
@@ -80,17 +58,6 @@ fn run(phi0: &Image<f32>, g: &Image<f32>, c: f32, eps: f32, a: f32, dt: f32, ste
         }
     }
     phi
-}
-
-fn draw(pic: &mut Image<[f32; 3]>, phi: &Image<f32>, colour: [f32; 3]) {
-    for (x, y) in phi.coords() {
-        if phi[(x, y)] < 0.0 && [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(dx, dy)| {
-            let (nx, ny) = (x as isize + dx, y as isize + dy);
-            phi.contains(nx, ny) && phi[(nx as usize, ny as usize)] >= 0.0
-        }) {
-            pic[(x, y)] = colour;
-        }
-    }
 }
 
 pub fn main() {
@@ -109,9 +76,9 @@ pub fn main() {
     let mut pics = Vec::new();
     for a in [5.0, 0.0] {
         let phi = run(&start, &g, -0.4, 0.3, a, dt, steps);
-        println!("box, c = -0.4, eps = 0.3, a = {a}: t = {:.0}: {} piece(s), {} wrong pixels", dt * steps as f32, pieces(&phi), wrong(&phi, &truth));
+        println!("box, c = -0.4, eps = 0.3, a = {a}: t = {:.0}: {} piece(s), {} wrong pixels", dt * steps as f32, pieces(&phi, 0.0), wrong(&phi, &truth));
         let mut pic = gray_to_rgb(&img);
-        draw(&mut pic, &phi, [1.0, 0.9, 0.0]);
+        draw_contour(&mut pic, &phi, [1.0, 0.9, 0.0]);
         pics.push(pic);
     }
 
@@ -122,7 +89,7 @@ pub fn main() {
         let phi = run(&seed, &g, c, 0.3, a, 0.25, 240);
         let inside = phi.pixels().iter().filter(|&&v| v < 0.0).count();
         println!("seed in the weak disk (true size {} pixels), c = {c}, a = {a}, t = 60: {inside} pixels inside", truth.coords().filter(|&(x, y)| truth[(x, y)] && x < 60 && y > 64).count());
-        draw(&mut pic, &phi, colour);
+        draw_contour(&mut pic, &phi, colour);
     }
     pics.push(pic);
     let w = SIZE + 4;

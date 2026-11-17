@@ -5,14 +5,7 @@
 
 use imgcourse::*;
 use crate::morph_openclose::*;
-
-fn to_gray(a: &Image<bool>) -> Image<f32> {
-    a.map(|b| if b { 1.0 } else { 0.0 })
-}
-
-fn count(a: &Image<bool>) -> usize {
-    a.pixels().iter().filter(|&&b| b).count()
-}
+use crate::common::{count, to_f32};
 
 /// Discs of radius 6 and 13 that do not touch, and a few specks of one or two pixels.
 fn two_sizes() -> Image<bool> {
@@ -58,7 +51,7 @@ pub fn main() {
 
     // Granulometry with discs of radius 0 to 15.
     let a = two_sizes();
-    save_gray(&to_gray(&a), format!("{dir}/two-sizes.png"));
+    save_gray(&to_f32(&a), format!("{dir}/two-sizes.png"));
     let ses: Vec<_> = (0..=15).map(disc).collect();
     let (area, spectrum) = granulometry(&a, &ses);
     println!("two sizes: {} object pixels", count(&a));
@@ -70,7 +63,7 @@ pub fn main() {
     // Noise removal on a thresholded image of noisy nuclei.
     let (img, _) = samples::nuclei(256, 25, 4);
     let noisy = samples::add_noise(&img, 0.12, 6).map(|v| v > 0.45);
-    save_gray(&to_gray(&noisy), format!("{dir}/noisy-mask.png"));
+    save_gray(&to_f32(&noisy), format!("{dir}/noisy-mask.png"));
     let se = disc(2);
     let results = [
         ("open", open(&noisy, &se)),
@@ -81,7 +74,7 @@ pub fn main() {
     println!("noisy mask: {} pixels", count(&noisy));
     for (name, r) in &results {
         println!("  {name}: {} pixels", count(r));
-        save_gray(&to_gray(r), format!("{dir}/{name}.png"));
+        save_gray(&to_f32(r), format!("{dir}/{name}.png"));
     }
 
     // Distance transforms of the clean mask.

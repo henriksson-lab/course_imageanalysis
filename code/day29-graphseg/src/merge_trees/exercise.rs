@@ -5,9 +5,10 @@
 
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap};
+use crate::common::{find, sorted};
 
 /// An edge `(a, b, d)` between leaves (initial regions) `a` and `b`: the pass between them.
-pub type Edge = (usize, usize, f32);
+pub use crate::common::Edge;
 
 /// One merge of a merge tree: the tree nodes `a` and `b` join at `level`. Leaves are the nodes
 /// `0 .. n`; merge number `k` (in the list) creates the node `n + k`.
@@ -29,27 +30,10 @@ pub enum Attribute {
     Volume,
 }
 
-/// The root of `a` in a union–find forest `parent` (with path halving).
-pub fn find(parent: &mut [usize], a: usize) -> usize {
-    let mut a = a;
-    while parent[a] != a {
-        parent[a] = parent[parent[a]];
-        a = parent[a];
-    }
-    a
-}
-
-/// The edges sorted by weight, equal weights in list order.
-pub fn sorted(edges: &[Edge]) -> Vec<Edge> {
-    let mut e = edges.to_vec();
-    e.sort_by(|a, b| a.2.total_cmp(&b.2));
-    e
-}
-
 /// C1. The altitude hierarchy: Kruskal on the passes. Every edge that joins two different
 /// components becomes a merge of their two tree nodes at the level of the pass.
 ///
-/// Hint: union–find with `find` (given); also keep, for every root, the tree node that
+/// Hint: union–find with `find` (given, in `src/common.rs`); also keep, for every root, the tree node that
 /// stands for its component (a leaf at first, then `n + merges.len() − 1` after a merge).
 pub fn altitude_tree(n: usize, edges: &[Edge]) -> Vec<Merge> {
     todo!("C1: altitude_tree")

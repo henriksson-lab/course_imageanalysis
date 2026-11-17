@@ -10,6 +10,7 @@
 //! Run a unit's program with `cargo run -p day10 -- <unit>`, check it with
 //! `cargo test -p day10 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod heat_equation;
 pub mod perona_malik;
 pub mod tv_flow;

@@ -1,4 +1,4 @@
-// Plumbing for the ray tracing units: 3D vectors and rays. Not part of the exercise.
+//! Helpers shared by the units of the day: 3D vectors and rays. Not part of the exercises.
 
 use std::ops::{Add, Mul, Neg, Sub};
 

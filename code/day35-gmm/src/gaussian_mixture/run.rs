@@ -4,12 +4,8 @@
 //   cargo run -p day35 --features solution -- gaussian-mixture  (the model solution)
 
 use crate::gaussian_mixture::*;
+use crate::common::colour;
 use imgcourse::*;
-
-/// The colour of component `k`.
-fn colour(k: usize) -> [f32; 3] {
-    io::label_colours(&Image::new(1, 1, k as u32 + 1))[(0, 0)]
-}
 
 /// A picture of the plane `lo..hi` (x1 to the right, x2 up): the background from `shade`,
 /// the 1σ and 2σ ellipses (d_M = 1 and 2) of every component in black, and the points as dots

@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day30 -- <unit>`, check it with
 //! `cargo test -p day30 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod snakes;
 pub mod snake_matrix;
 pub mod shape_models;

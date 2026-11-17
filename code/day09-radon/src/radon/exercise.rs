@@ -1,10 +1,10 @@
 // Coding exercises for "Projections and the sinogram". Replace each `todo!()` with your code,
 // then check it with `cargo test -p day09 radon::` and look at `cargo run -p day09 -- radon`.
 // Coordinates as in the lecture: origin at the image centre, y up, θ counter-clockwise
-// (see `tomo.rs` for the plumbing: `centre`, `sample`, `angles`).
+// (see `src/common.rs` for the plumbing: `centre`, `sample`, `angles`).
 #![allow(unused_variables, unused_imports)]
 
-use crate::radon::tomo::{centre, sample};
+use crate::common::{centre, sample};
 use imgcourse::Image;
 
 /// C1. Where the point (x, y) lands on the detector at angle θ (radians):

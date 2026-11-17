@@ -3,7 +3,7 @@
 //! Write your code in `src/ght/exercise.rs`. Check it with `cargo test -p day21 ght::`, and run it
 //! on a synthetic scene of keys with `cargo run -p day21 -- ght` (pictures in `out/ght/`).
 //! `src/ght/solution.rs` is a model solution: `cargo test -p day21 --features solution ght::`.
-//! `src/sim.rs` makes the test images and draws the results; it is not part of the exercise.
+//! `src/common.rs` and `src/ght/sim.rs` make the test images and draw the results; they are not part of the exercise.
 
 pub mod sim;
 

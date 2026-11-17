@@ -21,24 +21,8 @@ pub const JET: [[f32; 3]; 9] = [
 /// A diverging blue–white–red map.
 pub const DIVERGING: [[f32; 3]; 3] = [[0.23, 0.30, 0.75], [1.0, 1.0, 1.0], [0.71, 0.02, 0.15]];
 
-/// sRGB decoding (from the unit on RGB): stored value in [0, 1] → linear light.
-pub fn srgb_decode(c: f32) -> f32 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
-
-/// sRGB encoding: linear light in [0, 1] → stored value.
-pub fn srgb_encode(v: f32) -> f32 {
-    let v = v.clamp(0.0, 1.0);
-    if v <= 0.0031308 {
-        12.92 * v
-    } else {
-        1.055 * v.powf(1.0 / 2.4) - 0.055
-    }
-}
+/// sRGB decoding and encoding (from the unit on RGB), in `src/common.rs`.
+pub use crate::common::{srgb_decode, srgb_encode};
 
 /// C1a. The position t in [0, 1] of the data value `v` in the display range `lo..hi`:
 /// 0 at `lo`, 1 at `hi`, clipped outside.

@@ -13,7 +13,8 @@
 //!
 //! For later days it also has tools that earlier days taught you to write yourself:
 //! a fast Fourier transform (`fft`) and small linear algebra (`linalg`: solving equations,
-//! least squares, eigenvectors of a symmetric matrix).
+//! least squares, eigenvectors of a symmetric matrix), and `filters` (Gaussian blur, bilinear
+//! sampling, RMSE and PSNR).
 //!
 //! ```
 //! use imgcourse::*;
@@ -30,6 +31,7 @@
 mod border;
 mod complex;
 pub mod fft;
+pub mod filters;
 mod image;
 pub mod io;
 pub mod linalg;

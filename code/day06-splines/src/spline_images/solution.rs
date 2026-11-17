@@ -1,21 +1,10 @@
 // Model solution for the coding exercises of "Splines on images: interpolation and free-form deformation".
 
+use crate::common::cubic_bspline;
 use imgcourse::{Border, Image};
 
 /// The pole of the cubic B-spline prefilter, `z1 = √3 − 2`.
 pub const Z1: f32 = -0.267_949_2;
-
-/// The cubic B-spline β³ (from the B-spline unit).
-pub fn cubic_bspline(x: f32) -> f32 {
-    let a = x.abs();
-    if a <= 1.0 {
-        2.0 / 3.0 - a * a + 0.5 * a * a * a
-    } else if a < 2.0 {
-        (2.0 - a).powi(3) / 6.0
-    } else {
-        0.0
-    }
-}
 
 /// C1. The prefilter along one row: coefficients `c` with `(c[k−1] + 4 c[k] + c[k+1]) / 6 = f[k]`,
 /// where `c` outside the row is read with `Border::Mirror` (slide "The math: tensor product and

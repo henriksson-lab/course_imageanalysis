@@ -3,7 +3,7 @@
 //   cargo run -p day21 -- hough-lines                      (your code)
 //   cargo run -p day21 --features solution -- hough-lines  (the model solution)
 
-use crate::hough_lines::sim::{draw_line, draw_segment, edge_points, polygon_scene, show_points};
+use crate::common::{draw_line, draw_segment, edge_points, polygon_scene, show_points};
 use crate::hough_lines::*;
 use imgcourse::*;
 

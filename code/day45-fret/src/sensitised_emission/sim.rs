@@ -52,23 +52,6 @@ pub struct Field {
     pub kinds: Vec<Kind>,
 }
 
-/// A Poisson-distributed count with mean `lambda` (Knuth's method below 30, a rounded normal
-/// approximation above).
-pub fn poisson(rng: &mut Rng, lambda: f32) -> f32 {
-    if lambda < 30.0 {
-        let limit = (-lambda).exp();
-        let mut k = 0;
-        let mut p = rng.uniform();
-        while p > limit {
-            k += 1;
-            p *= rng.uniform();
-        }
-        k as f32
-    } else {
-        (lambda + lambda.sqrt() * rng.normal()).round().max(0.0)
-    }
-}
-
 /// A field of `n` cells of the given kinds (repeated in turn), `photons` the typical donor
 /// signal per pixel. `acceptor_scale` multiplies the acceptor amount of the FRET cells
 /// (fusion and binding), e.g. to add free acceptor. Same seed, same field.
@@ -104,9 +87,9 @@ pub fn field(kinds: &[Kind], n: usize, photons: f32, acceptor_scale: f32, seed: 
             let fc = G_TRUE * nd * f * e;
             m_da = D_TRUE * m_dd + A_TRUE * m_aa + fc;
         }
-        idd[(x, y)] = poisson(&mut rng, m_dd + OFFSET);
-        ida[(x, y)] = poisson(&mut rng, m_da + OFFSET);
-        iaa[(x, y)] = poisson(&mut rng, m_aa + OFFSET);
+        idd[(x, y)] = rng.poisson(m_dd + OFFSET);
+        ida[(x, y)] = rng.poisson(m_da + OFFSET);
+        iaa[(x, y)] = rng.poisson(m_aa + OFFSET);
     }
     Field { idd, ida, iaa, labels, kinds: cell_kinds }
 }

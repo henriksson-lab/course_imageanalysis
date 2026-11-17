@@ -4,7 +4,8 @@
 //   cargo run -p day20 --features solution -- spot-filters  (the model solution)
 
 use imgcourse::*;
-use crate::spot_filters::sim::{draw, image_noise, score, spot_scene};
+use crate::common::spot_scene;
+use crate::spot_filters::sim::{draw, image_noise, score};
 use crate::spot_filters::*;
 
 pub fn main() {

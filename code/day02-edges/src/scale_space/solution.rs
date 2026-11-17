@@ -1,6 +1,6 @@
 // Model solution for the coding exercises of "Scale space, blobs and pyramids".
 
-use crate::scale_space::gaussian_blur;
+use imgcourse::filters::gaussian_blur;
 use imgcourse::{Border, Image};
 
 /// C1a. The scale-normalised Laplacian of Gaussian, sign flipped so that bright blobs are

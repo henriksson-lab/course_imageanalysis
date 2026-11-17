@@ -4,6 +4,8 @@
 
 use imgcourse::{Border, Image};
 
+pub use crate::common::bilinear;
+
 /// C1. The derivatives of a frame pair: `Ix`, `Iy` by central differences of the **mean** of
 /// the two frames (copy the edge outside), and `It = f2 − f1`.
 ///
@@ -88,12 +90,4 @@ pub fn upsample_flow(f: &Image<f32>, w: usize, h: usize) -> Image<f32> {
 /// `(x + u, y + v)` (bilinear, edge copied outside).
 pub fn warp(img: &Image<f32>, u: &Image<f32>, v: &Image<f32>) -> Image<f32> {
     img.map_xy(|x, y, _| bilinear(img, x as f32 + u[(x, y)], y as f32 + v[(x, y)]))
-}
-
-/// Not an exercise: bilinear interpolation, the edge copied outside the image.
-pub fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let p = |i: f32, j: f32| img.get_border(i as isize, j as isize, Border::Clamp);
-    (1.0 - fy) * ((1.0 - fx) * p(x0, y0) + fx * p(x0 + 1.0, y0)) + fy * ((1.0 - fx) * p(x0, y0 + 1.0) + fx * p(x0 + 1.0, y0 + 1.0))
 }

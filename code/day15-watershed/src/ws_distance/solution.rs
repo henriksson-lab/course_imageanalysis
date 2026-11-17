@@ -1,15 +1,13 @@
 // Model solution for the coding exercises of "Splitting touching objects with the distance transform".
 
 use imgcourse::Image;
-use std::cmp::{Ordering, Reverse};
+use crate::common::{Entry, N8};
+use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
 
 // ---------------------------------------------------------------------------------------------
 // Given (from earlier units, not part of this exercise)
 // ---------------------------------------------------------------------------------------------
-
-/// The 8 neighbours `(dx, dy)` in reading order.
-pub const N8: [(isize, isize); 8] = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)];
 
 /// Given: label the 8-connected components of a mask 1, 2, 3, ... Returns the labels and their number.
 pub fn label_components(mask: &Image<bool>) -> (Image<u32>, u32) {
@@ -100,20 +98,6 @@ pub fn regional_maxima(f: &Image<f32>, mask: &Image<bool>) -> (Image<u32>, u32) 
     (labels, count)
 }
 
-#[derive(PartialEq)]
-struct Entry(f32, u64, (usize, usize));
-impl Eq for Entry {}
-impl PartialOrd for Entry {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for Entry {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.total_cmp(&other.0).then(self.1.cmp(&other.1))
-    }
-}
-
 /// Given (the flooding unit): Meyer's flooding of `f` from the `markers`, 8 neighbours, only
 /// inside `mask` (the background is not flooded and stays 0). With `line`, a pixel whose
 /// labelled neighbours carry different labels becomes a line pixel (0); without, it takes the
@@ -124,7 +108,7 @@ pub fn watershed(f: &Image<f32>, markers: &Image<u32>, mask: &Image<bool>, line:
     let mut queued = markers.map(|m| m > 0);
     let mut by = Image::new(f.width(), f.height(), 0u32);
     let mut heap = BinaryHeap::new();
-    let mut arrivals = 0u64;
+    let mut arrivals = 0i64;
     let mut fresh: Vec<(usize, usize)> = f.coords().filter(|&p| markers[p] > 0).collect();
     loop {
         for p in fresh.drain(..) {

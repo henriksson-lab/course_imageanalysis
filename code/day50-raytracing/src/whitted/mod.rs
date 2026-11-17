@@ -4,11 +4,11 @@
 //! a small scene with `cargo run -p day50 -- whitted` (pictures in `out/whitted/`).
 //! `src/whitted/solution.rs` is a model solution: `cargo test -p day50 --features solution whitted::`.
 //! `src/scene.rs` holds the scene and the ray casting of the last unit, ready to use.
+//! The 3D vectors and rays are in `src/common.rs`.
 
 mod scene;
-mod vec3;
+pub use crate::common::*;
 pub use scene::*;
-pub use vec3::*;
 
 #[cfg(not(feature = "solution"))]
 mod exercise;

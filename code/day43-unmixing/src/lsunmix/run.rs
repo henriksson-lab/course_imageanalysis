@@ -9,21 +9,6 @@ use crate::lsunmix::*;
 
 const NAMES: [&str; 4] = ["nucleus", "mitochondria", "membrane", "autofluorescence"];
 
-/// A Poisson-distributed count (Knuth for small means, the normal approximation above 30).
-fn poisson(mean: f32, rng: &mut Rng) -> f32 {
-    if mean < 30.0 {
-        let limit = (-mean).exp();
-        let (mut k, mut p) = (0.0, rng.uniform());
-        while p > limit {
-            k += 1.0;
-            p *= rng.uniform();
-        }
-        k
-    } else {
-        (mean + mean.sqrt() * rng.normal()).round().max(0.0)
-    }
-}
-
 /// An emission spectrum with a red tail (a skewed bump), sampled at the channel centres and
 /// scaled to sum 1 over the channels.
 fn spectrum(peak: f32, left: f32, right: f32, centres: &[f32]) -> Vec<f32> {
@@ -74,7 +59,7 @@ fn record(m: &Matrix, truth: &[Image<f32>], photons: f32, seed: u64) -> Vec<Imag
         .map(|c| {
             Image::from_fn(w, h, |x, y| {
                 let mean: f32 = (0..4).map(|k| photons * m[c][k] * truth[k][(x, y)]).sum();
-                poisson(mean, &mut rng)
+                rng.poisson(mean)
             })
         })
         .collect()

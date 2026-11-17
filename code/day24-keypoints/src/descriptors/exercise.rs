@@ -4,6 +4,8 @@
 
 use imgcourse::{Border, Image};
 
+pub use crate::common::bilinear;
+
 /// A pixel position `(x, y)` in a patch.
 pub type Pixel = (usize, usize);
 
@@ -75,12 +77,4 @@ pub fn hamming(a: &[u64], b: &[u64]) -> u32 {
 /// Not an exercise: the Euclidean (L2) distance between two descriptors.
 pub fn distance(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b).map(|(p, q)| (p - q) * (p - q)).sum::<f32>().sqrt()
-}
-
-/// Not an exercise: bilinear interpolation, 0 outside the image (the images unit).
-pub fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let p = |i: f32, j: f32| img.get_border(i as isize, j as isize, Border::Zero);
-    (1.0 - fy) * ((1.0 - fx) * p(x0, y0) + fx * p(x0 + 1.0, y0)) + fy * ((1.0 - fx) * p(x0, y0 + 1.0) + fx * p(x0 + 1.0, y0 + 1.0))
 }

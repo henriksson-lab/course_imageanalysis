@@ -4,6 +4,7 @@
 //   cargo run -p day24 -- feature-alignment                      (your code)
 //   cargo run -p day24 --features solution -- feature-alignment  (the model solution)
 
+use crate::common::bilinear;
 use crate::feature_alignment::*;
 use imgcourse::*;
 
@@ -106,11 +107,4 @@ fn invert(m: &Affine) -> Affine {
     let det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
     let (a, b, c, d) = (m[1][1] / det, -m[0][1] / det, -m[1][0] / det, m[0][0] / det);
     [[a, b, -(a * m[0][2] + b * m[1][2])], [c, d, -(c * m[0][2] + d * m[1][2])]]
-}
-
-fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let p = |i: f32, j: f32| img.get_border(i as isize, j as isize, Border::Zero);
-    (1.0 - fy) * ((1.0 - fx) * p(x0, y0) + fx * p(x0 + 1.0, y0)) + fy * ((1.0 - fx) * p(x0, y0 + 1.0) + fx * p(x0 + 1.0, y0 + 1.0))
 }

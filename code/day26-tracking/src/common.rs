@@ -1,6 +1,7 @@
-// A fast exact solver for the assignment problem (the Hungarian algorithm, in the compact
-// form of Kuhn and Munkres with potentials). Provided, not an exercise: the lecture only
-// says what it computes. Your `global_by_search` (C4) computes the same, slowly.
+//! Helpers shared by the units of day 26 (provided, not an exercise): a fast exact solver for the
+//! assignment problem (the Hungarian algorithm, in the compact form of Kuhn and Munkres with
+//! potentials). The lecture only says what it computes; `global_by_search` (C4 of track-linking)
+//! computes the same, slowly.
 
 /// The minimum-cost perfect assignment of a square cost matrix: `result[i]` is the column
 /// given to row `i`. Infinite costs (forbidden pairs) are only used if there is no other way.

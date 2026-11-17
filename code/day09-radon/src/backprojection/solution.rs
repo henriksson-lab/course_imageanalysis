@@ -1,8 +1,8 @@
 // Model solution for the coding exercises of "Back-projection and the Fourier slice theorem".
 // Coordinates as in the lecture: origin at the image centre, y up, θ counter-clockwise
-// (see `tomo.rs`: `centre`, `projection`, `sinogram`, `angles`).
+// (see `src/common.rs`: `centre`, `projection`, `sinogram`, `angles`).
 
-use crate::backprojection::tomo::centre;
+use crate::common::centre;
 use imgcourse::{Complex, Image};
 use std::f32::consts::PI;
 

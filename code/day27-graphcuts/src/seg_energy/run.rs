@@ -4,27 +4,15 @@
 //   cargo run -p day27 --features solution -- seg-energy  (the model solution)
 
 use imgcourse::*;
+use crate::common::disk_with_arm;
 use crate::seg_energy::*;
 
 const SIZE: usize = 128;
 
-/// The true labels: a disk of radius 30 and an arm 3 pixels wide running up to the right.
-fn truth() -> Image<u32> {
-    Image::from_fn(SIZE, SIZE, |x, y| {
-        let (dx, dy) = (x as f32 - 54.0, y as f32 - 70.0);
-        let disk = dx * dx + dy * dy <= 30.0 * 30.0;
-        // distance to the line through the centre with direction (1, −1)/√2, beyond the disk
-        let along = (dx - dy) / 2f32.sqrt();
-        let across = (dx + dy) / 2f32.sqrt();
-        let arm = along > 0.0 && along < 85.0 && across.abs() <= 1.5;
-        if disk || arm { 1 } else { 0 }
-    })
-}
-
 pub fn main() {
     let dir = "out/seg-energy";
     let (mu0, mu1, s) = (80.0 / 255.0, 170.0 / 255.0, 50.0 / 255.0);
-    let truth = truth();
+    let truth = disk_with_arm(SIZE);
     let clean = truth.map(|l| if l == 1 { mu1 } else { mu0 });
     let img = samples::add_noise(&clean, s, 3);
     save_gray(&img, format!("{dir}/input.png"));

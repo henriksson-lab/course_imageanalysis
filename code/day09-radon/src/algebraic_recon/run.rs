@@ -4,6 +4,7 @@
 //   cargo run -p day09 --features solution -- algebraic-recon  (the model solution)
 
 use crate::algebraic_recon::tomo::*;
+use crate::common::*;
 use crate::algebraic_recon::*;
 use imgcourse::*;
 

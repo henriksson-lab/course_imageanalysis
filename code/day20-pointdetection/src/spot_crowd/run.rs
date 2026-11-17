@@ -4,7 +4,8 @@
 //   cargo run -p day20 --features solution -- spot-crowd  (the model solution)
 
 use imgcourse::*;
-use crate::spot_crowd::sim::{detect, draw, match_in_groups, spot_scene};
+use crate::common::spot_scene;
+use crate::spot_crowd::sim::{detect, draw, match_in_groups};
 use crate::spot_crowd::*;
 
 pub fn main() {

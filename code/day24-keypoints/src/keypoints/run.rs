@@ -4,6 +4,7 @@
 //   cargo run -p day24 --features solution -- keypoints  (the model solution)
 
 use imgcourse::*;
+use crate::common::bilinear;
 use crate::keypoints::*;
 
 const SIGMA0: f32 = 1.6;
@@ -135,13 +136,6 @@ fn zoom_and_turn(img: &Image<f32>, zoom: f32, angle: f32) -> (Image<f32>, impl F
         bilinear(img, cx + c * dx + s * dy, cy - s * dx + c * dy)
     });
     (out, forward)
-}
-
-fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let p = |i: f32, j: f32| img.get_border(i as isize, j as isize, Border::Zero);
-    (1.0 - fy) * ((1.0 - fx) * p(x0, y0) + fx * p(x0 + 1.0, y0)) + fy * ((1.0 - fx) * p(x0, y0 + 1.0) + fx * p(x0 + 1.0, y0 + 1.0))
 }
 
 /// Repeatability: of the view-1 points whose image under `t` lies well inside view 2, the

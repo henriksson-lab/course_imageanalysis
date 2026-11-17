@@ -3,13 +3,12 @@
 #![allow(unused_variables, unused_imports)]
 
 use imgcourse::Image;
-use std::cmp::{Ordering, Reverse};
+use crate::common::{Entry, N8};
+use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
 
 /// The 4 neighbours `(dx, dy)` in reading order: up, left, right, down.
 pub const N4: [(isize, isize); 4] = [(0, -1), (-1, 0), (1, 0), (0, 1)];
-/// The 8 neighbours `(dx, dy)` in reading order.
-pub const N8: [(isize, isize); 8] = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)];
 
 /// The neighbour offsets for 8 neighbours (`eight = true`) or 4.
 pub fn neighbours(eight: bool) -> &'static [(isize, isize)] {
@@ -33,20 +32,6 @@ pub struct HeapQueue {
     heap: BinaryHeap<Reverse<Entry>>,
     arrivals: i64,
     lifo: bool,
-}
-
-#[derive(PartialEq)]
-struct Entry(f32, i64, (usize, usize));
-impl Eq for Entry {}
-impl PartialOrd for Entry {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for Entry {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.total_cmp(&other.0).then(self.1.cmp(&other.1))
-    }
 }
 
 impl HeapQueue {

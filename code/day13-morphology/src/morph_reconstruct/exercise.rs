@@ -19,10 +19,8 @@ pub fn neighbourhood(eight: bool) -> Vec<(isize, isize)> {
     }
 }
 
-/// A mask as grey values: 1.0 for true, 0.0 for false.
-pub fn to_f32(a: &Image<bool>) -> Image<f32> {
-    a.map(|b| if b { 1.0 } else { 0.0 })
-}
+/// A mask as grey values: 1.0 for true, 0.0 for false (given, in `src/common.rs`).
+pub use crate::common::to_f32;
 
 /// K1. Reconstruction by dilation of `marker` under `mask` (marker ≤ mask): repeat the
 /// geodesic dilation M ← min(max of M over the neighbourhood, mask) until nothing changes.

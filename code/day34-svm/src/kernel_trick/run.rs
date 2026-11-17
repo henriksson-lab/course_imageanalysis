@@ -5,45 +5,7 @@
 
 use imgcourse::*;
 use crate::kernel_trick::*;
-
-const BLUE: [f32; 3] = [0.25, 0.45, 0.85];
-const RED: [f32; 3] = [0.85, 0.3, 0.25];
-
-/// A picture of the feature space `lo..hi` (x1 to the right, x2 up) for a trained SVM: the two
-/// classes' regions tinted, the street `−1 ≤ f ≤ 1` in grey, the boundary `f = 0` in black,
-/// the points as dots and the support vectors (`α > 0`) with a black ring.
-fn plot(points: &[Vec<f32>], labels: &[f32], alpha: &[f32], f: impl Fn(&[f32]) -> f32, lo: [f32; 2], hi: [f32; 2], size: usize) -> Image<[f32; 3]> {
-    let scale = [(hi[0] - lo[0]) / size as f32, (hi[1] - lo[1]) / size as f32];
-    let values = Image::from_fn(size + 1, size + 1, |px, py| f(&[lo[0] + (px as f32 + 0.5) * scale[0], hi[1] - (py as f32 + 0.5) * scale[1]]));
-    let mut img = Image::from_fn(size, size, |px, py| {
-        let v = values[(px, py)];
-        if v * values[(px + 1, py)] <= 0.0 || v * values[(px, py + 1)] <= 0.0 {
-            [0.0; 3]
-        } else if v.abs() < 1.0 {
-            [0.82; 3]
-        } else {
-            (if v > 0.0 { RED } else { BLUE }).map(|c| 0.8 + 0.2 * c)
-        }
-    });
-    for i in 0..points.len() {
-        let (cx, cy) = ((points[i][0] - lo[0]) / scale[0], (hi[1] - points[i][1]) / scale[1]);
-        for dy in -6..=6isize {
-            for dx in -6..=6isize {
-                let (x, y) = (cx as isize + dx, cy as isize + dy);
-                let r2 = dx * dx + dy * dy;
-                if !img.contains(x, y) {
-                    continue;
-                }
-                if r2 <= 9 {
-                    img[(x as usize, y as usize)] = if r2 >= 7 { [0.0; 3] } else if labels[i] > 0.0 { RED } else { BLUE };
-                } else if alpha[i] > 0.0 && (25..=36).contains(&r2) {
-                    img[(x as usize, y as usize)] = [0.0; 3];
-                }
-            }
-        }
-    }
-    img
-}
+use crate::common::plot;
 
 /// Train, print the number of support vectors and errors (on the training points, and on
 /// `test` points if any), and save a picture.
@@ -59,7 +21,7 @@ fn run(name: &str, points: &[Vec<f32>], labels: &[f32], test: &[(Vec<f32>, f32)]
         line += &format!(", {:.1} % of new points wrong", 100.0 * wrong as f32 / test.len() as f32);
     }
     println!("{line}");
-    save_rgb(&plot(points, labels, &alpha, f, lo, hi, 300), format!("out/kernel-trick/{name}.png"));
+    save_rgb(&plot(points, labels, &alpha.iter().map(|&a| a > 0.0).collect::<Vec<_>>(), true, f, lo, hi, 300), format!("out/kernel-trick/{name}.png"));
 }
 
 pub fn main() {

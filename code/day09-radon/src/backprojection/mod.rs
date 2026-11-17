@@ -4,8 +4,6 @@
 //! test images with `cargo run -p day09 -- backprojection` (pictures in `out/backprojection/`).
 //! `src/backprojection/solution.rs` is a model solution: `cargo test -p day09 --features solution backprojection::`.
 
-pub mod tomo;
-
 #[cfg(not(feature = "solution"))]
 mod exercise;
 #[cfg(not(feature = "solution"))]

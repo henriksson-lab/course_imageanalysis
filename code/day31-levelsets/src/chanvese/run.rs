@@ -4,6 +4,7 @@
 //   cargo run -p day31 --features solution -- chanvese  (the model solution)
 
 use crate::chanvese::*;
+use crate::common::sheet;
 use imgcourse::*;
 
 const SIZE: usize = 128;
@@ -70,14 +71,6 @@ fn picture(img: &Image<f32>, phi: &Image<f32>) -> Image<[f32; 3]> {
     pic
 }
 
-fn sheet(pics: &[Image<[f32; 3]>]) -> Image<[f32; 3]> {
-    let w = SIZE + 4;
-    Image::from_fn(2 * (pics.len() * w - 4), 2 * SIZE, |x, y| {
-        let (x, y) = (x / 2, y / 2);
-        if x % w < SIZE { pics[x / w][(x % w, y)] } else { [1.0; 3] }
-    })
-}
-
 pub fn main() {
     let dir = "out/chanvese";
     let (clean, truth) = test_image();
@@ -92,7 +85,7 @@ pub fn main() {
     println!("noise 0.3, threshold at (c1 + c2)/2 = {t:.2}: {} wrong pixels", wrong(|x, y| img[(x, y)] > t, &truth));
     let inside = phi.map(|v| v < 0.0);
     println!("energy (lambda = 0.2): Chan-Vese {:.0}, threshold {:.0}", energy(&img, &inside, 0.2), energy(&img, &img.map(|v| v > t), 0.2));
-    save_rgb(&sheet(&[picture(&img, &threshold), picture(&img, &phi)]), format!("{dir}/noise.png"));
+    save_rgb(&sheet(&[picture(&img, &threshold), picture(&img, &phi)], 1.0), format!("{dir}/noise.png"));
 
     // Noise 0.15: λ = 0, 0.1 and 1.
     let img = samples::add_noise(&clean, 0.15, 2);
@@ -108,6 +101,6 @@ pub fn main() {
         );
         pics.push(picture(&img, &phi));
     }
-    save_rgb(&sheet(&pics), format!("{dir}/lambda.png"));
+    save_rgb(&sheet(&pics, 1.0), format!("{dir}/lambda.png"));
     println!("wrote the pictures to {dir}/");
 }

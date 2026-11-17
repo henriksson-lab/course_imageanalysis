@@ -1,6 +1,6 @@
 // Model solution for the coding exercises of "The Hessian".
 
-use crate::hessian::gaussian_blur;
+use imgcourse::filters::gaussian_blur;
 use imgcourse::{Border, Image};
 
 /// C1a. The Hessian [Lxx, Lxy, Lyy] of `l` at pixel (x, y), from second differences

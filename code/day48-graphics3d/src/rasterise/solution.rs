@@ -9,14 +9,8 @@ pub type Vec2 = [f64; 2];
 /// A direction in 3D.
 pub type Vec3 = [f64; 3];
 
-pub fn dot(a: Vec3, b: Vec3) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
-pub fn normalize(a: Vec3) -> Vec3 {
-    let len = dot(a, a).sqrt();
-    [a[0] / len, a[1] / len, a[2] / len]
-}
+/// `dot` and `normalize` of 3D vectors, in `src/common.rs`.
+pub use crate::common::{dot, normalize};
 
 /// C1. The edge function `E_ab(p)`: positive if `p` lies to the left of the line from `a`
 /// to `b` (slide "Which pixels does a triangle cover?"), twice the signed area of `a, b, p`.

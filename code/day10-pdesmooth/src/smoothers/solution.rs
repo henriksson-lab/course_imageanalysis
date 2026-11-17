@@ -1,6 +1,6 @@
 // Model solution for the coding exercises of "All smoothers on one image".
 
-use imgcourse::{Border, Image};
+use imgcourse::Image;
 
 /// C1. The peak signal-to-noise ratio of `result` against the true image, in dB, for grey
 /// values in [0, 1]: `10 log10(1 / mean squared error)`.
@@ -85,21 +85,5 @@ pub fn threshold_errors(result: &Image<f32>, truth: &Image<f32>, level: f32) -> 
     wrong
 }
 
-/// Not an exercise: a Gaussian blur (two passes of a sampled, normalised 1D Gaussian of
-/// radius 4σ, mirror border).
-pub fn gaussian_blur(img: &Image<f32>, sigma: f32) -> Image<f32> {
-    let r = (4.0 * sigma).ceil() as isize;
-    let w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
-    let total: f32 = w.iter().sum();
-    let pass = |src: &Image<f32>, along_x: bool| {
-        src.map_xy(|x, y, _| {
-            let mut sum = 0.0;
-            for d in -r..=r {
-                let (xx, yy) = if along_x { (x as isize + d, y as isize) } else { (x as isize, y as isize + d) };
-                sum += w[(d + r) as usize] * src.get_border(xx, yy, Border::Mirror);
-            }
-            sum / total
-        })
-    };
-    pass(&pass(img, true), false)
-}
+/// Not an exercise: a Gaussian blur (radius 4σ, mirror border), in `src/common.rs`.
+pub use crate::common::gaussian_blur;

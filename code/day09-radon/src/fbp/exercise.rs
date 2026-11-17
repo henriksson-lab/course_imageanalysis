@@ -1,10 +1,10 @@
 // Coding exercises for "Filtered back-projection and sampling". Replace each `todo!()` with
 // your code, then check it with `cargo test -p day09 fbp::` and look at `cargo run -p day09 -- fbp`.
 // Coordinates as in the lecture: origin at the image centre, y up, θ counter-clockwise
-// (see `tomo.rs`: `projection`, `sinogram`, `backproject`, `angles`).
+// (see `src/common.rs`: `projection`, `sinogram`, `backproject`, `angles`).
 #![allow(unused_variables, unused_imports)]
 
-use crate::fbp::tomo::backproject;
+use crate::common::backproject;
 use imgcourse::Image;
 use std::f32::consts::PI;
 
@@ -33,7 +33,7 @@ pub fn filter(p: &[f32], h: &[f32]) -> Vec<f32> {
 /// the kernel `h`, then back-project the filtered sinogram onto an n × n image.
 ///
 /// Hint: collect column `a` of the sinogram into a `Vec`, filter it, write it back into a new
-/// sinogram; then `backproject(&filtered, thetas, n)` from `tomo.rs`.
+/// sinogram; then `backproject(&filtered, thetas, n)` from `src/common.rs`.
 pub fn fbp(sino: &Image<f32>, thetas: &[f32], n: usize, h: &[f32]) -> Image<f32> {
     todo!("C3: fbp")
 }

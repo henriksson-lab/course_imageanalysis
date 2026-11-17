@@ -1,5 +1,6 @@
-// Drawing curves and points into a picture, for main.rs. Plumbing, not part of the exercises.
-#![allow(dead_code)]
+//! Helpers shared by the units of day 6 (not exercises): drawing curves and points into a
+//! picture for the programs (`run.rs`), and the cubic B-spline of the B-spline unit for the
+//! later units.
 
 use imgcourse::{save_rgb, Image};
 
@@ -95,5 +96,17 @@ impl Plot {
 
     pub fn save(&self, path: impl AsRef<std::path::Path>) {
         save_rgb(&self.img, path);
+    }
+}
+
+/// The cubic B-spline β³ (from the B-spline unit).
+pub fn cubic_bspline(x: f32) -> f32 {
+    let a = x.abs();
+    if a <= 1.0 {
+        2.0 / 3.0 - a * a + 0.5 * a * a * a
+    } else if a < 2.0 {
+        (2.0 - a).powi(3) / 6.0
+    } else {
+        0.0
     }
 }

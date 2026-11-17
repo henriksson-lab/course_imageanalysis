@@ -9,6 +9,7 @@
 //! Run a unit's program with `cargo run -p day11 -- <unit>`, check it with
 //! `cargo test -p day11 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod sparsity;
 pub mod ista;
 pub mod compressed_sensing;

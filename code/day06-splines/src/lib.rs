@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day06 -- <unit>`, check it with
 //! `cargo test -p day06 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod bezier;
 pub mod bsplines;
 pub mod spline_fit;

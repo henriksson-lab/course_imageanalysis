@@ -2,44 +2,10 @@
 
 use imgcourse::Image;
 
-// ---- From the filter bank unit (given): orthogonal low-pass filters and one 1D level. ----
+// ---- From the filter bank unit (given, in `src/common.rs`): orthogonal low-pass filters and
+// one 1D level. ----
 
-pub const HAAR: [f32; 2] = [std::f32::consts::FRAC_1_SQRT_2, std::f32::consts::FRAC_1_SQRT_2];
-pub const DB2: [f32; 4] = [0.482_962_9, 0.836_516_3, 0.224_143_87, -0.129_409_52];
-pub const DB4: [f32; 8] = [0.230_377_81, 0.714_846_6, 0.630_880_8, -0.027_983_77, -0.187_034_81, 0.030_841_38, 0.032_883_01, -0.010_597_4];
-
-/// The high-pass filter `g[n] = (−1)^n h[L−1−n]`.
-pub fn highpass(h: &[f32]) -> Vec<f32> {
-    let l = h.len();
-    (0..l).map(|n| if n % 2 == 0 { h[l - 1 - n] } else { -h[l - 1 - n] }).collect()
-}
-
-/// One level of the 1D analysis filter bank, periodic: returns `a` followed by `d` in one vector.
-pub fn analysis_1d(x: &[f32], h: &[f32]) -> Vec<f32> {
-    let g = highpass(h);
-    let n = x.len();
-    let mut out = vec![0.0; n];
-    for k in 0..n / 2 {
-        for i in 0..h.len() {
-            out[k] += h[i] * x[(2 * k + i) % n];
-            out[n / 2 + k] += g[i] * x[(2 * k + i) % n];
-        }
-    }
-    out
-}
-
-/// One level of the 1D synthesis filter bank, periodic: the inverse of `analysis_1d`.
-pub fn synthesis_1d(c: &[f32], h: &[f32]) -> Vec<f32> {
-    let g = highpass(h);
-    let n = c.len();
-    let mut x = vec![0.0; n];
-    for k in 0..n / 2 {
-        for i in 0..h.len() {
-            x[(2 * k + i) % n] += h[i] * c[k] + g[i] * c[n / 2 + k];
-        }
-    }
-    x
-}
+pub use crate::common::{analysis_1d, highpass, synthesis_1d, DB2, DB4, HAAR};
 
 // ---- The exercises. ----
 

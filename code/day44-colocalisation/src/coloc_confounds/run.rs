@@ -3,7 +3,8 @@
 //   cargo run -p day44 -- coloc-confounds                      (your code)
 //   cargo run -p day44 --features solution -- coloc-confounds  (the model solution)
 
-use crate::coloc_confounds::sim::{self, Scene};
+use crate::coloc_confounds::sim;
+use crate::common::{self, Scene};
 use crate::coloc_confounds::*;
 use imgcourse::*;
 
@@ -13,17 +14,17 @@ pub fn main() {
     // (about 100 nm at 65 nm pixels), 30 % bleed-through of A into B, a shared uneven background.
     let ideal = Scene { shared: 0.5, ..Scene::default() };
     let measured = Scene { shift: (1.5, 0.0), leak: 0.3, background: 0.25, ..ideal.clone() };
-    let (a0, b0, cells) = sim::scene(&ideal);
-    let (a, b, _) = sim::scene(&measured);
-    let r = |a: &Image<f32>, b: &Image<f32>| sim::pearson(a, b, &cells);
+    let (a0, b0, cells) = common::scene(&ideal);
+    let (a, b, _) = common::scene(&measured);
+    let r = |a: &Image<f32>, b: &Image<f32>| common::pearson(a, b, &cells);
     println!("ideal microscope (same structures, no confounds): r = {:.3}", r(&a0, &b0));
     println!("measured:                                          r = {:.3}", r(&a, &b));
 
     // The single-stained control (only dye A, no haze) gives the leak: subtract its offset, the
     // median outside the cells, then fit over the cells. The beads give the shift.
-    let (ac, bc, _) = sim::scene(&Scene { b_bright: 0.0, background: 0.0, seed: 77, ..measured.clone() });
+    let (ac, bc, _) = common::scene(&Scene { b_bright: 0.0, background: 0.0, seed: 77, ..measured.clone() });
     let outside = cells.map(|c| !c);
-    let (oa, ob) = (sim::percentile(&ac, &outside, 0.5), sim::percentile(&bc, &outside, 0.5));
+    let (oa, ob) = (common::percentile(&ac, &outside, 0.5), common::percentile(&bc, &outside, 0.5));
     let s = leak_slope(&ac.map(|v| v - oa), &bc.map(|v| v - ob), &cells);
     let (beads_a, beads_b) = sim::beads(&measured, 25, measured.shift);
     let (tx, ty) = estimate_shift(&beads_a, &beads_b, 4);
@@ -54,10 +55,10 @@ pub fn main() {
     }
     println!();
 
-    save_rgb(&sim::merge(&a0, &b0), format!("{dir}/ideal.png"));
-    save_rgb(&sim::merge(&a, &b), format!("{dir}/measured.png"));
-    save_rgb(&sim::merge(&a1, &b1), format!("{dir}/1-background.png"));
-    save_rgb(&sim::merge(&a1, &b2), format!("{dir}/2-compensated.png"));
-    save_rgb(&sim::merge(&a1, &b3), format!("{dir}/3-registered.png"));
+    save_rgb(&common::merge(&a0, &b0), format!("{dir}/ideal.png"));
+    save_rgb(&common::merge(&a, &b), format!("{dir}/measured.png"));
+    save_rgb(&common::merge(&a1, &b1), format!("{dir}/1-background.png"));
+    save_rgb(&common::merge(&a1, &b2), format!("{dir}/2-compensated.png"));
+    save_rgb(&common::merge(&a1, &b3), format!("{dir}/3-registered.png"));
     println!("wrote the merges to {dir}/");
 }

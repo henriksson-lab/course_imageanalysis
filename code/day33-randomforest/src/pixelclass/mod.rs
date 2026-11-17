@@ -14,9 +14,8 @@ mod solution;
 #[cfg(feature = "solution")]
 pub use solution::*;
 
-// A small random forest (from the forest unit; filled in).
-pub mod forest;
-pub use forest::{argmax, Forest, Settings, Tree};
+// A small random forest (from the forest unit; filled in, in `src/common.rs`).
+pub use crate::common::{argmax, Forest, Settings, Tree};
 
 /// The program of this unit: `cargo run -p day33 -- pixelclass`.
 pub mod run;

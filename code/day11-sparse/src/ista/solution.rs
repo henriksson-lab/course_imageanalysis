@@ -3,21 +3,8 @@
 
 use imgcourse::linalg;
 
-/// `A x`.
-pub fn mat_vec(a: &[Vec<f64>], x: &[f64]) -> Vec<f64> {
-    a.iter().map(|row| row.iter().zip(x).map(|(r, v)| r * v).sum()).collect()
-}
-
-/// `Aᵀ r`.
-pub fn mat_t_vec(a: &[Vec<f64>], r: &[f64]) -> Vec<f64> {
-    let mut out = vec![0.0; a[0].len()];
-    for (row, ri) in a.iter().zip(r) {
-        for (o, aij) in out.iter_mut().zip(row) {
-            *o += aij * ri;
-        }
-    }
-    out
-}
+/// `A x` and `Aᵀ r` (given, in `src/common.rs`).
+pub use crate::common::{mat_t_vec, mat_vec};
 
 /// The ℓ1 objective `½‖A x − y‖² + λ‖x‖₁`.
 pub fn objective(a: &[Vec<f64>], y: &[f64], x: &[f64], lambda: f64) -> f64 {

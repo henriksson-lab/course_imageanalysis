@@ -5,15 +5,8 @@
 
 use imgcourse::*;
 use crate::morph_binary::*;
+use crate::common::{count, to_f32};
 use std::time::Instant;
-
-fn to_gray(a: &Image<bool>) -> Image<f32> {
-    a.map(|b| if b { 1.0 } else { 0.0 })
-}
-
-fn count(a: &Image<bool>) -> usize {
-    a.pixels().iter().filter(|&&b| b).count()
-}
 
 pub fn main() {
     let dir = "out/morph-binary";
@@ -22,15 +15,15 @@ pub fn main() {
     let img = samples::add_noise(&img, 0.12, 6);
     let a = img.map(|v| v > 0.45);
     save_gray(&img, format!("{dir}/nuclei.png"));
-    save_gray(&to_gray(&a), format!("{dir}/mask.png"));
+    save_gray(&to_f32(&a), format!("{dir}/mask.png"));
     println!("mask: {} pixels", count(&a));
 
     for r in [1, 3] {
         let e = erode(&a, &disc(r), false);
         let d = dilate(&a, &disc(r), false);
         println!("disc of radius {r} ({} pixels): erosion {} pixels, dilation {} pixels", disc(r).len(), count(&e), count(&d));
-        save_gray(&to_gray(&e), format!("{dir}/erode-r{r}.png"));
-        save_gray(&to_gray(&d), format!("{dir}/dilate-r{r}.png"));
+        save_gray(&to_f32(&e), format!("{dir}/erode-r{r}.png"));
+        save_gray(&to_f32(&d), format!("{dir}/dilate-r{r}.png"));
     }
 
     // Inner boundaries of a cleaner mask (no noise), drawn in red on the image.

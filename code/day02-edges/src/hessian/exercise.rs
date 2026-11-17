@@ -2,7 +2,7 @@
 // code, then check it with `cargo test -p day02 hessian::` and look at `cargo run -p day02 -- hessian`.
 #![allow(unused_variables, unused_imports)]
 
-use crate::hessian::gaussian_blur;
+use imgcourse::filters::gaussian_blur;
 use imgcourse::{Border, Image};
 
 /// C1a. The Hessian [Lxx, Lxy, Lyy] of `l` at pixel (x, y), from second differences
@@ -19,7 +19,7 @@ pub fn hessian_at(l: &Image<f32>, x: usize, y: usize) -> [f32; 3] {
 /// C1b. The scale-normalised Hessian at every pixel: blur with a Gaussian of width `sigma`,
 /// take `hessian_at`, and multiply all three entries by σ² (so that scales can be compared).
 ///
-/// Hint: `gaussian_blur(img, sigma)` (in given.rs) gives L; `l.map_xy(|x, y, _| ...)` loops
+/// Hint: `gaussian_blur(img, sigma)` (in `imgcourse::filters`) gives L; `l.map_xy(|x, y, _| ...)` loops
 /// over the pixels; `[a, b, c].map(|v| ...)` scales the three entries.
 pub fn hessian(img: &Image<f32>, sigma: f32) -> Image<[f32; 3]> {
     todo!("C1b: hessian")

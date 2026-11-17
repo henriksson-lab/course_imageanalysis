@@ -4,7 +4,7 @@
 //   cargo run -p day09 --features solution -- radon  (the model solution)
 
 use imgcourse::*;
-use crate::radon::tomo::*;
+use crate::common::{angles, centre, shepp_logan, sinogram_picture};
 use crate::radon::*;
 use std::f32::consts::PI;
 

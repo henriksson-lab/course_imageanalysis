@@ -2,7 +2,7 @@
 // Run: cargo test -p day20 spot_threshold::
 
 use imgcourse::{Image, Rng};
-use day20::spot_threshold::sim::{filter_noise_factor, gaussian_blur, noise_image, poisson};
+use day20::spot_threshold::sim::{filter_noise_factor, gaussian_blur, noise_image};
 use day20::spot_threshold::*;
 
 fn close(a: f32, b: f32, tol: f32) -> bool {
@@ -90,7 +90,7 @@ fn c4_euler_lecture_and_b8() {
 fn c5_anscombe_b9() {
     let mut rng = Rng::new(5);
     for (mu, tol) in [(100.0f32, 0.05), (20.0, 0.06)] {
-        let counts = Image::from_fn(200, 100, |_, _| poisson(&mut rng, mu));
+        let counts = Image::from_fn(200, 100, |_, _| rng.poisson(mu));
         let t = anscombe(&counts);
         let mean = t.mean();
         let var = t.pixels().iter().map(|v| (v - mean).powi(2)).sum::<f32>() / t.pixels().len() as f32;

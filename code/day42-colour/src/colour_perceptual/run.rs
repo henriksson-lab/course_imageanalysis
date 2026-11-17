@@ -5,12 +5,8 @@
 //   cargo run -p day42 --features solution -- colour-perceptual  (the model solution)
 
 use crate::colour_perceptual::*;
+use crate::common::srgb_encode;
 use imgcourse::*;
-
-fn encode(v: f32) -> f32 {
-    let v = v.clamp(0.0, 1.0);
-    if v <= 0.0031308 { 12.92 * v } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 }
-}
 
 /// A synthetic scene, `size × size`, **encoded** sRGB with a little noise: a beige table, a red
 /// apple, a yellow fruit, a green leaf, a blue cup and a grey card; a shadow covers the lower
@@ -38,7 +34,7 @@ fn scene(size: usize, noise: f32, seed: u64) -> (Rgb, Image<bool>) {
         };
         // the shadow: full light above the diagonal u + v = 0.55, a third of it below 0.65
         let light = 1.0 - 0.67 * ((u + v - 0.55) / 0.1).clamp(0.0, 1.0);
-        colour.map(|c| encode(c * light) + noise * rng.normal())
+        colour.map(|c| srgb_encode(c * light) + noise * rng.normal())
     });
     (img, apple)
 }

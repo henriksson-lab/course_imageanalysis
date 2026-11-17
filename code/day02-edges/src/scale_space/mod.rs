@@ -3,10 +3,7 @@
 //! Write your code in `src/scale_space/exercise.rs`. Check it with `cargo test -p day02 scale_space::`, and run it
 //! on the test images with `cargo run -p day02 -- scale-space` (pictures in `out/scale-space/`).
 //! `src/scale_space/solution.rs` is a model solution: `cargo test -p day02 --features solution scale_space::`.
-//! `src/given.rs` has the Gaussian blur of the edges unit, ready to use.
-
-pub mod given;
-pub use given::*;
+//! The Gaussian blur of the edges unit is `imgcourse::filters::gaussian_blur`, ready to use.
 
 #[cfg(not(feature = "solution"))]
 mod exercise;

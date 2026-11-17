@@ -1,7 +1,7 @@
 // Plumbing for "Path tracing": the scene (spheres, planes and a square lamp), the nearest
 // hit, the camera, and a few helpers. Not part of the exercise.
 
-use crate::pathtrace::vec3::{v3, Ray, Vec3};
+use crate::common::{v3, Ray, Vec3};
 use imgcourse::Rng;
 
 #[derive(Clone, Copy, Debug)]

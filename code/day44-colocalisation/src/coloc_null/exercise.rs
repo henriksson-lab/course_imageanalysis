@@ -2,7 +2,7 @@
 // then check it with `cargo test -p day44 coloc_null::` and look at `cargo run -p day44 -- coloc-null`.
 #![allow(unused_variables, unused_imports)]
 
-use crate::coloc_null::sim::pearson;
+use crate::common::pearson;
 use imgcourse::{Border, Image, Rng};
 
 /// C1. The shift curve (slide "The shift curve"): for every shift dx = −max_shift, …, max_shift,

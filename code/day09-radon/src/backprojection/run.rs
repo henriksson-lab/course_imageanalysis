@@ -3,7 +3,7 @@
 //   cargo run -p day09 -- backprojection                      (your code)
 //   cargo run -p day09 --features solution -- backprojection  (the model solution)
 
-use crate::backprojection::tomo::*;
+use crate::common::{angles, centre, projection, shepp_logan, sinogram};
 use crate::backprojection::*;
 use imgcourse::*;
 

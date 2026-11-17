@@ -16,4 +16,3 @@ pub use solution::*;
 
 /// The program of this unit: `cargo run -p day06 -- bezier`.
 pub mod run;
-mod plot;

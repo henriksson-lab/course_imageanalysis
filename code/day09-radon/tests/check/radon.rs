@@ -2,7 +2,7 @@
 // Run: cargo test -p day09 radon::
 
 use imgcourse::Image;
-use day09::radon::tomo::{angles, centre};
+use day09::common::{angles, centre};
 use day09::radon::*;
 use std::f32::consts::PI;
 

@@ -5,9 +5,10 @@
 // Felzenszwalb–Huttenlocher".
 
 use imgcourse::Image;
+use crate::common::sorted;
 
 /// An edge `(a, b, d)` between nodes `a` and `b` with dissimilarity `d`.
-pub type Edge = (usize, usize, f32);
+pub use crate::common::Edge;
 
 /// The edges of the pixel graph of `img`, with `d = |I_p − I_q|`: to the right and down, and
 /// with `eight` also the two diagonals down. Pixel `(x, y)` is node `y · width + x`.
@@ -31,13 +32,6 @@ pub fn grid_edges(img: &Image<f32>, eight: bool) -> Vec<Edge> {
         }
     }
     edges
-}
-
-/// The edges sorted by weight; edges of equal weight keep their order (a stable sort).
-pub fn sorted(edges: &[Edge]) -> Vec<Edge> {
-    let mut e = edges.to_vec();
-    e.sort_by(|a, b| a.2.total_cmp(&b.2));
-    e
 }
 
 /// C1. Union–find: every node points to a parent; a root (its own parent) represents its

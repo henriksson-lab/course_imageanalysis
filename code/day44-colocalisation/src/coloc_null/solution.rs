@@ -1,6 +1,6 @@
 // Model solution for the coding exercises of "Is it more than chance?".
 
-use crate::coloc_null::sim::pearson;
+use crate::common::pearson;
 use imgcourse::{Border, Image, Rng};
 
 /// C1. The shift curve (slide "The shift curve"): for every shift dx = −max_shift, …, max_shift,

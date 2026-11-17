@@ -1,6 +1,6 @@
-//! Plumbing for the tomography units (not an exercise): the coordinates of the lecture, a
-//! test phantom, reading an image between pixels, showing a sinogram, and the projector of
-//! the radon unit (your code there).
+//! Helpers shared by the units of day 9 (not exercises): the coordinates of the lecture, a
+//! test phantom, reading an image between pixels, showing a sinogram, and, for the later units,
+//! the projector of the radon unit and the back-projection of the back-projection unit.
 //!
 //! Coordinates as in the lecture: the origin is the centre of the image, x to the right,
 //! **y up**, angles counter-clockwise. Pixel `(px, py)` of an n × n image has
@@ -106,4 +106,25 @@ pub fn sinogram(img: &Image<f32>, thetas: &[f32]) -> Image<f32> {
         }
     }
     sino
+}
+
+/// Back-projection (the back-projection unit's C2): every pixel adds, for every angle, the
+/// value of the sinogram at its own ρ = x cos θ + y sin θ (read between bins), times π / N_θ.
+pub fn backproject(sino: &Image<f32>, thetas: &[f32], n: usize) -> Image<f32> {
+    let c = centre(n);
+    let bins = sino.height();
+    let cb = centre(bins);
+    Image::from_fn(n, n, |px, py| {
+        let (x, y) = (px as f32 - c, c - py as f32);
+        let mut sum = 0.0;
+        for (a, &theta) in thetas.iter().enumerate() {
+            let t = x * theta.cos() + y * theta.sin() + cb; // the bin position, between bins
+            let k = t.floor();
+            let f = t - k;
+            let k = k as isize;
+            let get = |k: isize| if k >= 0 && (k as usize) < bins { sino[(a, k as usize)] } else { 0.0 };
+            sum += (1.0 - f) * get(k) + f * get(k + 1);
+        }
+        sum * PI / thetas.len() as f32
+    })
 }

@@ -1,9 +1,8 @@
 // Basis functions, corner cutting, local control and exact circles; pictures in out/bsplines/.
 //   cargo run -p day06 -- bsplines                      (your code)
 //   cargo run -p day06 --features solution -- bsplines  (the model solution)
-use super::plot;
 use crate::bsplines::*;
-use plot::*;
+use crate::common::*;
 
 const COLOURS: [Colour; 7] = [RED, ORANGE, GREEN, BLUE, PURPLE, [0.0, 0.6, 0.6], [0.6, 0.4, 0.2]];
 

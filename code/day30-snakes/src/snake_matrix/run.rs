@@ -5,6 +5,7 @@
 
 use imgcourse::*;
 use crate::snake_matrix::*;
+use crate::common::circle;
 
 type Point = [f32; 2];
 
@@ -79,15 +80,6 @@ fn unit_length((u, v): &(Image<f32>, Image<f32>)) -> (Image<f32>, Image<f32>) {
 
 fn dist(a: Point, b: Point) -> f32 {
     ((a[0] - b[0]).powi(2) + (a[1] - b[1]).powi(2)).sqrt()
-}
-
-fn circle(cx: f32, cy: f32, r: f32, n: usize) -> Vec<Point> {
-    (0..n)
-        .map(|i| {
-            let t = 2.0 * std::f32::consts::PI * i as f32 / n as f32;
-            [cx + r * t.cos(), cy + r * t.sin()]
-        })
-        .collect()
 }
 
 fn mean_radius(p: &[Point], c: Point) -> f32 {

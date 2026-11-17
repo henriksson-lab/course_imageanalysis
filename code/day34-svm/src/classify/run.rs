@@ -4,44 +4,8 @@
 //   cargo run -p day34 --features solution -- classify  (the model solution)
 
 use crate::classify::*;
+use crate::common::plot;
 use imgcourse::*;
-
-/// Colours for class −1 (blue) and class +1 (red).
-const BLUE: [f32; 3] = [0.25, 0.45, 0.85];
-const RED: [f32; 3] = [0.85, 0.3, 0.25];
-
-/// A picture of the 2D feature space `lo..hi` (x1 to the right, x2 up), `size × size` pixels:
-/// the background tinted by the sign of `f`, the line `f = 0` in black, and the points as
-/// dots in the colour of their label.
-fn plot(points: &[Point], labels: &[f32], lo: Point, hi: Point, size: usize, f: impl Fn(Point) -> f32) -> Image<[f32; 3]> {
-    let scale = [(hi[0] - lo[0]) / size as f32, (hi[1] - lo[1]) / size as f32];
-    let feature = |px: f32, py: f32| [lo[0] + px * scale[0], hi[1] - py * scale[1]];
-    let mut img = Image::from_fn(size, size, |px, py| {
-        let v = f(feature(px as f32 + 0.5, py as f32 + 0.5));
-        // the line: where f changes sign within one pixel
-        let right = f(feature(px as f32 + 1.5, py as f32 + 0.5));
-        let below = f(feature(px as f32 + 0.5, py as f32 + 1.5));
-        if v * right <= 0.0 || v * below <= 0.0 {
-            [0.0; 3]
-        } else {
-            let c = if v > 0.0 { RED } else { BLUE };
-            c.map(|c| 0.8 + 0.2 * c)
-        }
-    });
-    for (p, &y) in points.iter().zip(labels) {
-        let (cx, cy) = ((p[0] - lo[0]) / scale[0], (hi[1] - p[1]) / scale[1]);
-        for dy in -3..=3isize {
-            for dx in -3..=3isize {
-                let (x, yy) = (cx as isize + dx, cy as isize + dy);
-                let r2 = dx * dx + dy * dy;
-                if r2 <= 9 && img.contains(x, yy) {
-                    img[(x as usize, yy as usize)] = if r2 >= 7 { [0.0; 3] } else if y > 0.0 { RED } else { BLUE };
-                }
-            }
-        }
-    }
-    img
-}
 
 /// Two clouds of `n` points each around the centres `c_plus` and `c_minus`, with standard
 /// deviations `sd` along x1 and x2, turned by `angle` (radians).
@@ -80,20 +44,20 @@ pub fn main() {
     println!("B3 (six points):");
     let (w, b) = nearest_mean(&b3, &b3_labels);
     report("nearest class mean", &b3, &b3_labels, w, b);
-    save_rgb(&plot(&b3, &b3_labels, [-1.0, -1.0], [6.0, 6.0], 300, |x| decision(w, b, x)), format!("{dir}/b3-nearest-mean.png"));
+    save_rgb(&plot(&b3, &b3_labels, &[], false, |x| decision(w, b, [x[0], x[1]]), [-1.0, -1.0], [6.0, 6.0], 300), format!("{dir}/b3-nearest-mean.png"));
     let (w, b, updates) = perceptron(&b3, &b3_labels, 1000);
     report(&format!("perceptron ({updates} updates)"), &b3, &b3_labels, w, b);
-    save_rgb(&plot(&b3, &b3_labels, [-1.0, -1.0], [6.0, 6.0], 300, |x| decision(w, b, x)), format!("{dir}/b3-perceptron.png"));
+    save_rgb(&plot(&b3, &b3_labels, &[], false, |x| decision(w, b, [x[0], x[1]]), [-1.0, -1.0], [6.0, 6.0], 300), format!("{dir}/b3-perceptron.png"));
 
     // 2. Two long parallel clouds, shifted along their length: nearest mean is not the best line.
     let (points, labels) = two_clouds(30, [5.8, 6.8], [4.5, 4.0], [2.0, 0.3], 0.5, 3);
     println!("Two long clouds (60 points):");
     let (w, b) = nearest_mean(&points, &labels);
     report("nearest class mean", &points, &labels, w, b);
-    save_rgb(&plot(&points, &labels, [0.0, 0.0], [10.0, 10.0], 300, |x| decision(w, b, x)), format!("{dir}/long-nearest-mean.png"));
+    save_rgb(&plot(&points, &labels, &[], false, |x| decision(w, b, [x[0], x[1]]), [0.0, 0.0], [10.0, 10.0], 300), format!("{dir}/long-nearest-mean.png"));
     let (w, b, updates) = perceptron(&points, &labels, 10000);
     report(&format!("perceptron ({updates} updates)"), &points, &labels, w, b);
-    save_rgb(&plot(&points, &labels, [0.0, 0.0], [10.0, 10.0], 300, |x| decision(w, b, x)), format!("{dir}/long-perceptron.png"));
+    save_rgb(&plot(&points, &labels, &[], false, |x| decision(w, b, [x[0], x[1]]), [0.0, 0.0], [10.0, 10.0], 300), format!("{dir}/long-perceptron.png"));
 
     // 3. XOR: four clouds in the corners; no line works.
     let mut rng = Rng::new(5);
@@ -109,7 +73,7 @@ pub fn main() {
     report("nearest class mean", &xor, &xor_labels, w, b);
     let (w, b, updates) = perceptron(&xor, &xor_labels, 1000);
     report(&format!("perceptron (gave up after {updates} updates)"), &xor, &xor_labels, w, b);
-    save_rgb(&plot(&xor, &xor_labels, [0.0, 0.0], [10.0, 10.0], 300, |x| decision(w, b, x)), format!("{dir}/xor-perceptron.png"));
+    save_rgb(&plot(&xor, &xor_labels, &[], false, |x| decision(w, b, [x[0], x[1]]), [0.0, 0.0], [10.0, 10.0], 300), format!("{dir}/xor-perceptron.png"));
 
     // 4. Pixels are points: (grey value, mean of the 5 × 5 neighbourhood) of a synthetic
     //    fluorescence image; label +1 = nucleus, −1 = background. Train on 200 random pixels.
@@ -139,6 +103,6 @@ pub fn main() {
     println!("  on all 16384 pixels: {:.1} % correct", 100.0 * correct as f32 / 16384.0);
     save_gray(&img, format!("{dir}/nuclei.png"));
     save_gray(&result.map(|r| if r { 1.0 } else { 0.0 }), format!("{dir}/nuclei-nearest-mean.png"));
-    save_rgb(&plot(&train, &train_labels, [0.0, 0.0], [1.2, 1.2], 300, |x| decision(w, b, x)), format!("{dir}/nuclei-feature-space.png"));
+    save_rgb(&plot(&train, &train_labels, &[], false, |x| decision(w, b, [x[0], x[1]]), [0.0, 0.0], [1.2, 1.2], 300), format!("{dir}/nuclei-feature-space.png"));
     println!("wrote the pictures to {dir}/");
 }

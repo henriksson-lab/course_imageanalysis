@@ -78,19 +78,19 @@ day's crate, `pub mod u;` in `lib.rs`, a subcommand in `main.rs`, `mod u;` in
   `samples::nuclei`; `map`/`map_xy`/`zip_map` take `FnMut`; `sum`/`mean` add in f64;
   `imgcourse` compiled with opt-level 3 in dev builds.
 
-## Library candidates (from the rollout reports)
+## Shared code (deduplicated 2026-11-17)
 
-Helpers that several unit crates now carry as filled-in copies, because workers could not edit
-the library. Moving them into `imgcourse` means editing those crates too (and must not give
-away an earlier unit's exercise). Most requested first:
-
-- Gaussian blur (σ, separable) and gradient; bilinear sampling at a position between pixels.
-- Drawing on colour images: lines, dots, circles, boxes, polygons; small line/scatter plots.
-- `Rng::poisson`; `psnr`/`rmse`; mean/sd/percentiles; normal CDF/erfc.
-- Label plumbing: connected components, union–find, regional minima/maxima, IoU table,
-  boxes from labels; an exact distance transform; a float-keyed priority queue (FIFO ties).
-- `Vec3`/`Mat3` (ray tracing, 3D graphics, cameras); sRGB encode/decode; f16 rounding.
-- Mask helpers for `Image<bool>`; structuring elements (disc, square, line).
-- Domain helpers repeated within a day: tomography projector and phantom, point-pattern
-  generators, TCSPC simulator, Hungarian assignment, sparse max-flow, wavelet filter bank.
-- A faster `get_border` (dominant cost in iterative units).
+- General tools are in the library: `fft`, `linalg`, `filters` (`gaussian_kernel` cut at 4σ,
+  `filter_1d` and `gaussian_blur` with the edge copied, `bilinear`, `rmse`, `psnr`), and
+  `Rng::poisson` (exact below mean 30, rounded normal above).
+- Helpers shared by several units of one day are in that day's `src/common.rs`
+  (`pub mod common;`); units re-export them where tests or programs use the unit's path.
+- Left as local copies on purpose: anything that differs numerically from the library version
+  (3σ kernels, mirror borders, f32 sums, other Poisson cut-offs), so the pages' numbers stay
+  valid; and filled-in copies of an earlier unit's exercise.
+- Some `common.rs` files hold the filled-in version of an earlier unit's exercise (it was
+  already visible in a later unit's folder): day 6 `cubic_bspline`, day 7 `highpass`, day 9
+  `projection`/`sinogram`/`backproject`, day 29 `find`, day 42 `srgb_decode`/`srgb_encode`,
+  day 44 `pearson`.
+- The refactor was checked by running all 209 unit programs before and after: printed output
+  (apart from run times) and every picture byte-identical (`plan/code-dedup-brief.md`).

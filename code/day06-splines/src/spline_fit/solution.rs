@@ -1,5 +1,6 @@
 // Model solution for the coding exercises of "Interpolating, approximating and smoothing splines".
 
+use crate::common::cubic_bspline;
 use imgcourse::{linalg, Border, Image};
 
 /// A point of the plane, `[x, y]`.
@@ -107,18 +108,6 @@ pub fn loo_cv(ys: &[f32], lambda: f32) -> (f32, f32) {
         loo += r * r;
     }
     (loo / n as f32, trace)
-}
-
-/// The cubic B-spline β³ (from the B-spline unit).
-pub fn cubic_bspline(x: f32) -> f32 {
-    let a = x.abs();
-    if a <= 1.0 {
-        2.0 / 3.0 - a * a + 0.5 * a * a * a
-    } else if a < 2.0 {
-        (2.0 - a).powi(3) / 6.0
-    } else {
-        0.0
-    }
 }
 
 /// A point of the closed uniform cubic B-spline with control points `ctrl`; the bump of

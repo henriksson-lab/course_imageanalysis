@@ -10,12 +10,8 @@ pub fn euler_sample(y: f32, sigmas: &[f32], denoise: impl Fn(f32, f32) -> f32) -
     todo!("C1: euler_sample")
 }
 
-/// The mean and standard deviation (dividing by n) of a set of values.
-pub fn mean_sd(v: &[f32]) -> (f32, f32) {
-    let n = v.len() as f32;
-    let mean = v.iter().sum::<f32>() / n;
-    (mean, (v.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / n).sqrt())
-}
+/// The mean and standard deviation (dividing by n) of a set of values (in `src/common.rs`).
+pub use crate::common::mean_sd;
 
 /// C2. The Fréchet distance of two sets of numbers in 1D: fit a Gaussian to each (mean and
 /// standard deviation, dividing by n) and return `(μ1 − μ2)² + (s1 − s2)²`.

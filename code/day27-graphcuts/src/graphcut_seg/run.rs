@@ -4,22 +4,11 @@
 //   cargo run -p day27 -- graphcut-seg                      (your code)
 //   cargo run -p day27 --features solution -- graphcut-seg  (the model solution)
 
+use crate::common::disk_with_arm;
 use crate::graphcut_seg::*;
 use imgcourse::*;
 
 const SIZE: usize = 128;
-
-/// The true labels: a disk of radius 30 and an arm 3 pixels wide running up to the right.
-fn disk_with_arm() -> Image<u32> {
-    Image::from_fn(SIZE, SIZE, |x, y| {
-        let (dx, dy) = (x as f32 - 54.0, y as f32 - 70.0);
-        let along = (dx - dy) / 2f32.sqrt();
-        let across = (dx + dy) / 2f32.sqrt();
-        let disk = dx * dx + dy * dy <= 30.0 * 30.0;
-        let arm = along > 0.0 && along < 85.0 && across.abs() <= 1.5;
-        if disk || arm { 1 } else { 0 }
-    })
-}
 
 fn wrong(a: &Image<u32>, b: &Image<u32>) -> usize {
     a.pixels().iter().zip(b.pixels()).filter(|(p, q)| p != q).count()
@@ -50,7 +39,7 @@ fn overlay(img: &Image<f32>, labels: &Image<u32>, seeds: Option<&Image<u32>>) ->
 
 pub fn main() {
     let dir = "out/graphcut-seg";
-    let truth = disk_with_arm();
+    let truth = disk_with_arm(SIZE);
     let (mu0, mu1) = (80.0 / 255.0, 170.0 / 255.0);
     let inf = f32::INFINITY;
 

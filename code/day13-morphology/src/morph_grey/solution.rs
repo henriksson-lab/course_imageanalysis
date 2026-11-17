@@ -5,19 +5,8 @@
 
 use imgcourse::Image;
 
-/// A digital disc of radius `r`: all offsets with dx² + dy² ≤ r².
-pub fn disc(r: usize) -> Vec<(isize, isize)> {
-    let r = r as isize;
-    let mut se = Vec::new();
-    for dy in -r..=r {
-        for dx in -r..=r {
-            if dx * dx + dy * dy <= r * r {
-                se.push((dx, dy));
-            }
-        }
-    }
-    se
-}
+/// A digital disc of radius `r`: all offsets with dx² + dy² ≤ r² (given, in `src/common.rs`).
+pub use crate::common::disc;
 
 /// A horizontal window of `width` samples centred on the origin (`width` odd), for 1D
 /// signals stored as images of height 1.

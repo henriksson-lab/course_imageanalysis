@@ -3,7 +3,7 @@
 // and look at `cargo run -p day21 -- ght`.
 #![allow(unused_variables, unused_imports)]
 
-use crate::ght::sim::EdgePoint;
+use crate::common::EdgePoint;
 use imgcourse::Image;
 use std::f32::consts::TAU;
 

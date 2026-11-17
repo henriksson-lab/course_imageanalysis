@@ -3,7 +3,7 @@
 // and look at `cargo run -p day21 -- hough-lines`.
 #![allow(unused_variables, unused_imports)]
 
-use crate::hough_lines::sim::EdgePoint;
+use crate::common::EdgePoint;
 use imgcourse::Image;
 use std::f32::consts::PI;
 

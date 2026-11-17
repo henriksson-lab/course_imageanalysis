@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day26 -- <unit>`, check it with
 //! `cargo test -p day26 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod track_linking;
 pub mod track_predict;
 pub mod track_events;

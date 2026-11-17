@@ -1,8 +1,8 @@
 // Model solution for the coding exercises of "Filtered back-projection and sampling".
 // Coordinates as in the lecture: origin at the image centre, y up, θ counter-clockwise
-// (see `tomo.rs`: `projection`, `sinogram`, `backproject`, `angles`).
+// (see `src/common.rs`: `projection`, `sinogram`, `backproject`, `angles`).
 
-use crate::fbp::tomo::backproject;
+use crate::common::backproject;
 use imgcourse::Image;
 use std::f32::consts::PI;
 

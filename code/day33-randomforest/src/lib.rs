@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day33 -- <unit>`, check it with
 //! `cargo test -p day33 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod dtree;
 pub mod forest;
 pub mod forest_objects;

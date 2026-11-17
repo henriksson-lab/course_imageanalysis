@@ -3,6 +3,7 @@
 //   cargo run -p day25 -- flow-constraint                      (your code)
 //   cargo run -p day25 --features solution -- flow-constraint  (the model solution)
 
+use crate::common::{bilinear, blur, flow_colour};
 use crate::flow_constraint::*;
 use imgcourse::*;
 
@@ -67,7 +68,8 @@ pub fn main() {
         }
         normal_flow(ix, iy, f2[(x, y)] - v)
     });
-    save_rgb(&flow.map(|f| flow_colour(f, 1.5)), format!("{dir}/normal-flow.png"));
+    // No answer (`None`) in grey.
+    save_rgb(&flow.map(|f| f.map_or([0.5; 3], |(u, v)| flow_colour(u, v, 1.5))), format!("{dir}/normal-flow.png"));
     save_rgb(&flow_legend(64, 1.5), format!("{dir}/legend.png"));
     let mut count = 0;
     let mut along = 0.0;
@@ -80,55 +82,10 @@ pub fn main() {
     println!("wrote the pictures to {dir}/");
 }
 
-/// The colour wheel: hue = direction (red = right, counter-clockwise on screen), saturation =
-/// speed / `max`, white = still; `None` (no answer) is grey.
-fn flow_colour(f: Option<(f32, f32)>, max: f32) -> [f32; 3] {
-    let Some((u, v)) = f else { return [0.5, 0.5, 0.5] };
-    let angle = (-v).atan2(u).to_degrees().rem_euclid(360.0);
-    let s = (u.hypot(v) / max).min(1.0);
-    // HSV with value 1: hue from the angle, then mix with white by the saturation.
-    let h = angle / 60.0;
-    let x = 1.0 - (h % 2.0 - 1.0).abs();
-    let (r, g, b) = match h as usize {
-        0 => (1.0, x, 0.0),
-        1 => (x, 1.0, 0.0),
-        2 => (0.0, 1.0, x),
-        3 => (0.0, x, 1.0),
-        4 => (x, 0.0, 1.0),
-        _ => (1.0, 0.0, x),
-    };
-    [1.0 - s + s * r, 1.0 - s + s * g, 1.0 - s + s * b]
-}
-
 fn flow_legend(size: usize, max: f32) -> Image<[f32; 3]> {
     let c = size as f32 / 2.0;
     Image::from_fn(size, size, |x, y| {
         let (u, v) = ((x as f32 - c) / c * max, (y as f32 - c) / c * max);
-        if u.hypot(v) > max { [1.0, 1.0, 1.0] } else { flow_colour(Some((u, v)), max) }
+        if u.hypot(v) > max { [1.0, 1.0, 1.0] } else { flow_colour(u, v, max) }
     })
-}
-
-fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let p = |i: f32, j: f32| img.get_border(i as isize, j as isize, Border::Clamp);
-    (1.0 - fy) * ((1.0 - fx) * p(x0, y0) + fx * p(x0 + 1.0, y0)) + fy * ((1.0 - fx) * p(x0, y0 + 1.0) + fx * p(x0 + 1.0, y0 + 1.0))
-}
-
-fn blur(img: &Image<f32>, sigma: f32) -> Image<f32> {
-    let r = (3.0 * sigma).ceil() as isize;
-    let w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
-    let total: f32 = w.iter().sum();
-    let pass = |src: &Image<f32>, along_x: bool| {
-        src.map_xy(|x, y, _| {
-            (-r..=r)
-                .map(|d| {
-                    let (xx, yy) = if along_x { (x as isize + d, y as isize) } else { (x as isize, y as isize + d) };
-                    w[(d + r) as usize] * src.get_border(xx, yy, Border::Mirror)
-                })
-                .sum::<f32>()
-                / total
-        })
-    };
-    pass(&pass(img, true), false)
 }

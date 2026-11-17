@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day48 -- <unit>`, check it with
 //! `cargo test -p day48 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod pipeline3d;
 pub mod rasterise;
 pub mod gpuformats;

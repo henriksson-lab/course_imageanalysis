@@ -3,6 +3,7 @@
 // `cargo run -p day06 -- spline-fit`.
 #![allow(unused_variables, unused_imports)]
 
+use crate::common::cubic_bspline;
 use imgcourse::{linalg, Border, Image};
 
 /// A point of the plane, `[x, y]`.
@@ -66,18 +67,6 @@ pub fn smooth(ys: &[f32], lambda: f32, closed: bool) -> Vec<f32> {
 /// applied to the unit vector `e_i`, and `H_ii` is entry `i` of it.
 pub fn loo_cv(ys: &[f32], lambda: f32) -> (f32, f32) {
     todo!("C4: loo_cv")
-}
-
-/// The cubic B-spline β³ (from the B-spline unit).
-pub fn cubic_bspline(x: f32) -> f32 {
-    let a = x.abs();
-    if a <= 1.0 {
-        2.0 / 3.0 - a * a + 0.5 * a * a * a
-    } else if a < 2.0 {
-        (2.0 - a).powi(3) / 6.0
-    } else {
-        0.0
-    }
 }
 
 /// A point of the closed uniform cubic B-spline with control points `ctrl`; the bump of

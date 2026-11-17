@@ -3,7 +3,7 @@
 //! Write your code in `src/hough_circles/exercise.rs`. Check it with `cargo test -p day21 hough_circles::`, and run it
 //! on synthetic discs and nuclei with `cargo run -p day21 -- hough-circles` (pictures in `out/hough-circles/`).
 //! `src/hough_circles/solution.rs` is a model solution: `cargo test -p day21 --features solution hough_circles::`.
-//! `src/sim.rs` makes the test images and draws the results; it is not part of the exercise.
+//! `src/common.rs` and `src/hough_circles/sim.rs` make the test images and draw the results; they are not part of the exercise.
 
 pub mod sim;
 

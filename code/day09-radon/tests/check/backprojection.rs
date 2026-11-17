@@ -1,7 +1,7 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day09 backprojection::
 
-use day09::backprojection::tomo::{angles, centre, projection};
+use day09::common::{angles, centre, projection};
 use day09::backprojection::*;
 use imgcourse::{fft, Image};
 use std::f32::consts::PI;

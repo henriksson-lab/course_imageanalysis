@@ -5,6 +5,7 @@
 
 use imgcourse::*;
 use crate::local_threshold::*;
+use crate::common::to_gray;
 
 /// Dark discs of radius 4 to 22 on a bright background, lit by light that is dim on the
 /// left and bright on the right, with a darker rim (vignetting) and noise. Returns the image
@@ -43,10 +44,6 @@ fn fading_filaments() -> Image<f32> {
         }
     }
     samples::add_noise(&img.map(|v| v + 0.1), 0.07, 11)
-}
-
-fn to_gray(mask: &Image<bool>) -> Image<f32> {
-    mask.map(|b| if b { 1.0 } else { 0.0 })
 }
 
 /// (false positives, false negatives) of a mask against the truth.

@@ -2,10 +2,10 @@
 // with your code, then check it with `cargo test -p day09 backprojection::` and look at
 // `cargo run -p day09 -- backprojection`.
 // Coordinates as in the lecture: origin at the image centre, y up, θ counter-clockwise
-// (see `tomo.rs`: `centre`, `projection`, `sinogram`, `angles`).
+// (see `src/common.rs`: `centre`, `projection`, `sinogram`, `angles`).
 #![allow(unused_variables, unused_imports)]
 
-use crate::backprojection::tomo::centre;
+use crate::common::centre;
 use imgcourse::{Complex, Image};
 use std::f32::consts::PI;
 

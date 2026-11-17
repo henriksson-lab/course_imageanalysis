@@ -5,6 +5,7 @@
 
 use imgcourse::*;
 use crate::levelset_eq::*;
+use crate::common::{draw_contour, pieces, sheet};
 
 const SIZE: usize = 128;
 
@@ -24,47 +25,8 @@ fn union(a: &Image<f32>, b: &Image<f32>) -> Image<f32> {
     a.zip_map(b, |p, q| p.min(q))
 }
 
-/// The number of separate pieces of the inside, φ < 0 (4-neighbours, flood fill).
-fn pieces(phi: &Image<f32>) -> usize {
-    let mut seen = Image::new(SIZE, SIZE, false);
-    let mut count = 0;
-    for (x, y) in phi.coords() {
-        if phi[(x, y)] >= 0.0 || seen[(x, y)] {
-            continue;
-        }
-        count += 1;
-        let mut stack = vec![(x, y)];
-        seen[(x, y)] = true;
-        while let Some((x, y)) = stack.pop() {
-            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                let (nx, ny) = (x as isize + dx, y as isize + dy);
-                if phi.contains(nx, ny) && phi[(nx as usize, ny as usize)] < 0.0 && !seen[(nx as usize, ny as usize)] {
-                    seen[(nx as usize, ny as usize)] = true;
-                    stack.push((nx as usize, ny as usize));
-                }
-            }
-        }
-    }
-    count
-}
-
 fn area(phi: &Image<f32>) -> usize {
     phi.pixels().iter().filter(|&&v| v < 0.0).count()
-}
-
-/// Mark the pixels just inside the zero level (a neighbour has the other sign).
-fn draw_contour(pic: &mut Image<[f32; 3]>, phi: &Image<f32>, colour: [f32; 3]) {
-    for (x, y) in phi.coords() {
-        if phi[(x, y)] < 0.0 {
-            let edge = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(dx, dy)| {
-                let (nx, ny) = (x as isize + dx, y as isize + dy);
-                phi.contains(nx, ny) && phi[(nx as usize, ny as usize)] >= 0.0
-            });
-            if edge {
-                pic[(x, y)] = colour;
-            }
-        }
-    }
 }
 
 const COLOURS: [[f32; 3]; 4] = [[0.0, 0.0, 0.0], [0.1, 0.3, 0.9], [0.0, 0.6, 0.2], [0.9, 0.1, 0.1]];
@@ -75,7 +37,7 @@ fn grass_fire(name: &str, phi0: &Image<f32>, f: f32, dt: f32, t_end: f32, snapsh
     let speed = Image::new(SIZE, SIZE, f);
     let mut phi = phi0.clone();
     let mut pic = Image::new(SIZE, SIZE, [1.0f32; 3]);
-    let mut n = pieces(&phi);
+    let mut n = pieces(&phi, 0.0);
     let steps = (t_end / dt).round() as usize;
     println!("{name}: {n} piece(s) at t = 0");
     for step in 0..=steps {
@@ -90,22 +52,13 @@ fn grass_fire(name: &str, phi0: &Image<f32>, f: f32, dt: f32, t_end: f32, snapsh
         if (step + 1) % 10 == 0 {
             phi = reinitialise(&phi);
         }
-        let m = pieces(&phi);
+        let m = pieces(&phi, 0.0);
         if m != n {
             println!("{name}: {m} piece(s) from t = {:.1}", t + dt);
             n = m;
         }
     }
     pic
-}
-
-/// Enlarged twice, side by side.
-fn sheet(pics: &[Image<[f32; 3]>]) -> Image<[f32; 3]> {
-    let w = SIZE + 4;
-    Image::from_fn(2 * (pics.len() * w - 4), 2 * SIZE, |x, y| {
-        let (x, y) = (x / 2, y / 2);
-        if x % w < SIZE { pics[x / w][(x % w, y)] } else { [0.5; 3] }
-    })
 }
 
 pub fn main() {
@@ -153,7 +106,7 @@ pub fn main() {
         let t = step as f32 * 0.25;
         if let Some(k) = [0.0, 30.0, 100.0, 250.0].iter().position(|&s| s == t) {
             draw_contour(&mut flow, &phi, COLOURS[k]);
-            println!("star, curvature flow, t = {t:.0}: {} pixels inside ({} piece(s)); area lost per unit time so far {:.2}", area(&phi), pieces(&phi), if t > 0.0 { (a0 - area(&phi) as f32) / t } else { 0.0 });
+            println!("star, curvature flow, t = {t:.0}: {} pixels inside ({} piece(s)); area lost per unit time so far {:.2}", area(&phi), pieces(&phi, 0.0), if t > 0.0 { (a0 - area(&phi) as f32) / t } else { 0.0 });
         }
         phi = curvature_step(&phi, 1.0, 0.25);
         if (step + 1) % 20 == 0 {
@@ -161,7 +114,7 @@ pub fn main() {
         }
     }
 
-    save_rgb(&sheet(&[merge, split, grown]), format!("{dir}/fronts.png"));
-    save_rgb(&sheet(&[explode, flow]), format!("{dir}/cfl-curvature.png"));
+    save_rgb(&sheet(&[merge, split, grown], 0.5), format!("{dir}/fronts.png"));
+    save_rgb(&sheet(&[explode, flow], 0.5), format!("{dir}/cfl-curvature.png"));
     println!("wrote the pictures to {dir}/");
 }

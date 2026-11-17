@@ -1,6 +1,7 @@
-//! A small random forest: the trees of the decision-trees unit, grown on bootstrap samples
-//! with a random subset of `m` features at every split (the forest unit). Filled in here as
-//! a tool; it is not part of the exercises.
+//! Helpers shared by the units of day 33 (`pixelclass` and `forest_objects`): a small random
+//! forest, the trees of the decision-trees unit, grown on bootstrap samples with a random
+//! subset of `m` features at every split (the forest unit). Filled in as a tool; it is not part
+//! of the exercises.
 //!
 //! Every node keeps its (weighted) class counts, so that the impurity decrease of each split
 //! can be read off the tree afterwards. With class weights, each training point of class k

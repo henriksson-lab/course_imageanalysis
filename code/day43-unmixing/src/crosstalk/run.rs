@@ -7,22 +7,6 @@
 use crate::crosstalk::*;
 use imgcourse::*;
 
-/// A Poisson-distributed photon count with the given mean (Knuth's method for small means,
-/// the normal approximation for large ones).
-fn poisson(mean: f32, rng: &mut Rng) -> f32 {
-    if mean < 30.0 {
-        let limit = (-mean).exp();
-        let (mut k, mut p) = (0.0, rng.uniform());
-        while p > limit {
-            k += 1.0;
-            p *= rng.uniform();
-        }
-        k
-    } else {
-        (mean + mean.sqrt() * rng.normal()).round().max(0.0)
-    }
-}
-
 /// The cell: true amounts of dye 1 (nucleus, vesicles) and dye 2 (membrane, vesicles), and
 /// masks of the nucleus, the membrane, the whole cell and the background.
 struct Cell {
@@ -64,8 +48,8 @@ fn record(cell: &Cell, s: Mat2, offset: f32, seed: u64) -> (Image<f32>, Image<f3
     let mut ch2 = ch1.clone();
     for (x, y) in ch1.coords() {
         let (a1, a2) = (cell.dye1[(x, y)], cell.dye2[(x, y)]);
-        ch1[(x, y)] = poisson(offset + s[0][0] * a1 + s[0][1] * a2, &mut rng);
-        ch2[(x, y)] = poisson(offset + s[1][0] * a1 + s[1][1] * a2, &mut rng);
+        ch1[(x, y)] = rng.poisson(offset + s[0][0] * a1 + s[0][1] * a2);
+        ch2[(x, y)] = rng.poisson(offset + s[1][0] * a1 + s[1][1] * a2);
     }
     (ch1, ch2)
 }

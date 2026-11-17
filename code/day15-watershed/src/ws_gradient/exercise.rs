@@ -3,15 +3,13 @@
 #![allow(unused_variables, unused_imports)]
 
 use imgcourse::{Border, Image};
-use std::cmp::{Ordering, Reverse};
+use crate::common::{Entry, N8};
+use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
 
 // ---------------------------------------------------------------------------------------------
 // Given (from earlier units, not part of this exercise): smoothing, regional minima, flooding.
 // ---------------------------------------------------------------------------------------------
-
-/// The 8 neighbours `(dx, dy)` in reading order.
-pub const N8: [(isize, isize); 8] = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)];
 
 /// Given: Gaussian smoothing with standard deviation `sigma` (in pixels), in two passes, with the
 /// edge pixels repeated outside the image. `sigma = 0` returns a copy.
@@ -73,27 +71,13 @@ pub fn regional_minima(f: &Image<f32>) -> (Image<u32>, u32) {
     (labels, count)
 }
 
-#[derive(PartialEq)]
-struct Entry(f32, u64, (usize, usize));
-impl Eq for Entry {}
-impl PartialOrd for Entry {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for Entry {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.0.total_cmp(&other.0).then(self.1.cmp(&other.1))
-    }
-}
-
 /// Given (the flooding unit's C2): Meyer's flooding of `f` from the `markers` with 8 neighbours,
 /// every pixel labelled (each takes the label of the pixel that queued it; no watershed line).
 pub fn watershed(f: &Image<f32>, markers: &Image<u32>) -> Image<u32> {
     let mut labels = markers.clone();
     let mut queued = markers.map(|m| m > 0);
     let mut heap = BinaryHeap::new();
-    let mut arrivals = 0u64;
+    let mut arrivals = 0i64;
     let mut stack: Vec<(usize, usize)> = f.coords().filter(|&p| markers[p] > 0).collect();
     loop {
         // label the pixels in `stack` are done; queue their neighbours

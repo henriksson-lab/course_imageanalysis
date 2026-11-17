@@ -4,6 +4,8 @@
 
 use imgcourse::{Border, Image};
 
+pub use crate::common::bilinear;
+
 /// C1. The cubic B-spline: `2/3 − t² + |t|³/2` for `|t| < 1`, `(2 − |t|)³/6` for
 /// `1 ≤ |t| < 2`, and 0 beyond.
 pub fn bspline3(t: f32) -> f32 {
@@ -68,12 +70,4 @@ pub fn register_ssd(fixed: &Image<f32>, moving: &Image<f32>, spacing: f32, itera
 pub fn gradient(img: &Image<f32>) -> (Image<f32>, Image<f32>) {
     let p = |x: usize, y: usize, dx: isize, dy: isize| img.get_border(x as isize + dx, y as isize + dy, Border::Clamp);
     (img.map_xy(|x, y, _| (p(x, y, 1, 0) - p(x, y, -1, 0)) / 2.0), img.map_xy(|x, y, _| (p(x, y, 0, 1) - p(x, y, 0, -1)) / 2.0))
-}
-
-/// Not an exercise: bilinear interpolation, the edge copied outside the image.
-pub fn bilinear(img: &Image<f32>, x: f32, y: f32) -> f32 {
-    let (x0, y0) = (x.floor(), y.floor());
-    let (fx, fy) = (x - x0, y - y0);
-    let p = |i: f32, j: f32| img.get_border(i as isize, j as isize, Border::Clamp);
-    (1.0 - fy) * ((1.0 - fx) * p(x0, y0) + fx * p(x0 + 1.0, y0)) + fy * ((1.0 - fx) * p(x0, y0 + 1.0) + fx * p(x0 + 1.0, y0 + 1.0))
 }

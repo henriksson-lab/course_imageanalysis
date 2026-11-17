@@ -14,9 +14,8 @@ mod solution;
 #[cfg(feature = "solution")]
 pub use solution::*;
 
-// A priority queue of pixels for Dijkstra's algorithm (plumbing, filled in).
-mod queue;
-pub use queue::MinQueue;
+// A priority queue of pixels for Dijkstra's algorithm (plumbing, filled in, in `src/common.rs`).
+pub use crate::common::MinQueue;
 
 /// The program of this unit: `cargo run -p day32 -- fastmarching`.
 pub mod run;

@@ -4,16 +4,7 @@
 
 use imgcourse::Image;
 
-/// The integral image of the last unit (given): `table[(x, y)]` is the sum of `f(v)` over the
-/// pixels `v` in columns `0..x` and rows `0..y`, so row 0 and column 0 are zero.
-/// `integral(&img, |v| v)` sums the pixels, `integral(&img, |v| v * v)` their squares.
-pub fn integral(img: &Image<f32>, f: impl Fn(f64) -> f64) -> Image<f64> {
-    let mut s = Image::new(img.width() + 1, img.height() + 1, 0.0);
-    for (x, y) in img.coords() {
-        s[(x + 1, y + 1)] = f(img[(x, y)] as f64) + s[(x, y + 1)] + s[(x + 1, y)] - s[(x, y)];
-    }
-    s
-}
+pub use crate::common::integral;
 
 /// The sum over columns `x0..=x1`, rows `y0..=y1` from a table (given): four lookups.
 pub fn rect_sum(s: &Image<f64>, x0: usize, y0: usize, x1: usize, y1: usize) -> f64 {

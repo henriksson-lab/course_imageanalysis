@@ -3,11 +3,10 @@
 // `cargo run -p day07 -- filterbank`.
 #![allow(unused_variables, unused_imports)]
 
-/// Low-pass filters `h` of orthogonal wavelets (the high-pass follows from them, C1).
-pub const HAAR: [f32; 2] = [std::f32::consts::FRAC_1_SQRT_2, std::f32::consts::FRAC_1_SQRT_2];
-pub const DB2: [f32; 4] = [0.482_962_9, 0.836_516_3, 0.224_143_87, -0.129_409_52];
+/// Low-pass filters `h` of orthogonal wavelets (the high-pass follows from them, C1); Haar,
+/// db2 and db4 are in `src/common.rs`.
+pub use crate::common::{DB2, DB4, HAAR};
 pub const DB3: [f32; 6] = [0.332_670_55, 0.806_891_5, 0.459_877_5, -0.135_011_02, -0.085_441_27, 0.035_226_29];
-pub const DB4: [f32; 8] = [0.230_377_81, 0.714_846_6, 0.630_880_8, -0.027_983_77, -0.187_034_81, 0.030_841_38, 0.032_883_01, -0.010_597_4];
 
 /// C1. The high-pass filter of an orthogonal filter bank: the low-pass reversed, with every
 /// second sign flipped, `g[n] = (−1)^n h[L−1−n]` (slide "The math: perfect reconstruction").

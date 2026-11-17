@@ -1,6 +1,6 @@
 // Model solution for the coding exercises of "Rays from the camera, and where they hit".
 
-use crate::raycast::vec3::{Ray, Vec3};
+use crate::common::{Ray, Vec3};
 
 /// The shapes of the scene.
 #[derive(Clone, Copy, Debug)]

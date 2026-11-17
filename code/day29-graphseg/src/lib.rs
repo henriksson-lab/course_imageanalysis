@@ -9,6 +9,7 @@
 //! Run a unit's program with `cargo run -p day29 -- <unit>`, check it with
 //! `cargo test -p day29 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod random_walker;
 pub mod mst_seg;
 pub mod ws_msf;

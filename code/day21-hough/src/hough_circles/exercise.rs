@@ -3,7 +3,7 @@
 // and look at `cargo run -p day21 -- hough-circles`.
 #![allow(unused_variables, unused_imports)]
 
-use crate::hough_circles::sim::EdgePoint;
+use crate::common::EdgePoint;
 use imgcourse::Image;
 
 /// Which way the gradient points at the edge of the objects we look for.

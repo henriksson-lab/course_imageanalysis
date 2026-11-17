@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day34 -- <unit>`, check it with
 //! `cargo test -p day34 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod classify;
 pub mod maxmargin;
 pub mod kernel_trick;

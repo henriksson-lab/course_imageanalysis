@@ -4,6 +4,7 @@
 //   cargo run -p day24 -- descriptors                      (your code)
 //   cargo run -p day24 --features solution -- descriptors  (the model solution)
 
+use crate::common::blur;
 use crate::descriptors::*;
 use imgcourse::*;
 
@@ -154,22 +155,4 @@ fn draw_frame(img: &mut Image<[f32; 3]>, (x, y, sigma, theta): Frame) {
             put(to_screen(t, 0.0));
         }
     }
-}
-
-fn blur(img: &Image<f32>, sigma: f32) -> Image<f32> {
-    let r = (3.0 * sigma).ceil() as isize;
-    let w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
-    let total: f32 = w.iter().sum();
-    let pass = |src: &Image<f32>, along_x: bool| {
-        src.map_xy(|x, y, _| {
-            (-r..=r)
-                .map(|d| {
-                    let (xx, yy) = if along_x { (x as isize + d, y as isize) } else { (x as isize, y as isize + d) };
-                    w[(d + r) as usize] * src.get_border(xx, yy, Border::Mirror)
-                })
-                .sum::<f32>()
-                / total
-        })
-    };
-    pass(&pass(img, true), false)
 }

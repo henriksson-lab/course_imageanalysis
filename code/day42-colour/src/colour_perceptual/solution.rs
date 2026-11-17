@@ -5,14 +5,8 @@ use imgcourse::Image;
 /// A colour image: `[red, green, blue]` per pixel, values in [0, 1].
 pub type Rgb = Image<[f32; 3]>;
 
-/// sRGB decoding (from the last unit): stored value in [0, 1] → linear light.
-pub fn srgb_decode(c: f32) -> f32 {
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
-}
+/// sRGB decoding (from the last unit): stored value in [0, 1] → linear light. In `src/common.rs`.
+pub use crate::common::srgb_decode;
 
 /// C1. Hue (degrees in [0, 360)), saturation and value of a colour with R, G, B in [0, 1]
 /// (slide "The math: computing H, S, V"). For a grey (max = min) return hue 0 and

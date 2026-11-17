@@ -5,6 +5,7 @@
 //   cargo run -p day25 --features solution -- nonrigid-reg  (the model solution)
 
 use imgcourse::*;
+use crate::common::blur;
 use crate::nonrigid_reg::*;
 
 const SPACING: f32 = 16.0;
@@ -70,7 +71,7 @@ pub fn main() {
 
     // 2. Free-form registration. The moving image is the fixed one deformed by a smooth random
     //    field g: moving(y) = fixed(y + g(y)). The true answer d solves moving(x + d) = fixed(x).
-    let fixed = gaussian(&samples::cell(), 1.0).crop(64, 64, 128, 128);
+    let fixed = blur(&samples::cell(), 1.0).crop(64, 64, 128, 128);
     let (w, h) = (fixed.width(), fixed.height());
     let mut rng = Rng::new(4);
     let gx = Image::from_fn(6, 6, |_, _| 2.5 * rng.normal());
@@ -107,22 +108,4 @@ pub fn main() {
     save_gray(&checkerboard(&fixed, &moving), format!("{dir}/checker-before.png"));
     save_gray(&moving, format!("{dir}/moving.png"));
     println!("wrote the pictures to {dir}/");
-}
-
-fn gaussian(img: &Image<f32>, sigma: f32) -> Image<f32> {
-    let r = (3.0 * sigma).ceil() as isize;
-    let w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
-    let total: f32 = w.iter().sum();
-    let pass = |src: &Image<f32>, along_x: bool| {
-        src.map_xy(|x, y, _| {
-            (-r..=r)
-                .map(|d| {
-                    let (xx, yy) = if along_x { (x as isize + d, y as isize) } else { (x as isize, y as isize + d) };
-                    w[(d + r) as usize] * src.get_border(xx, yy, Border::Mirror)
-                })
-                .sum::<f32>()
-                / total
-        })
-    };
-    pass(&pass(img, true), false)
 }

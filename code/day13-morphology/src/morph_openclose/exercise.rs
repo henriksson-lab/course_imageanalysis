@@ -10,22 +10,11 @@
 
 use imgcourse::Image;
 
-/// The 3 × 3 square.
-pub const SQUARE: &[(isize, isize)] = &[(-1, -1), (0, -1), (1, -1), (-1, 0), (0, 0), (1, 0), (-1, 1), (0, 1), (1, 1)];
+/// The 3 × 3 square (given, in `src/common.rs`).
+pub use crate::common::SQUARE;
 
-/// A digital disc of radius `r`: all offsets with dx² + dy² ≤ r².
-pub fn disc(r: usize) -> Vec<(isize, isize)> {
-    let r = r as isize;
-    let mut se = Vec::new();
-    for dy in -r..=r {
-        for dx in -r..=r {
-            if dx * dx + dy * dy <= r * r {
-                se.push((dx, dy));
-            }
-        }
-    }
-    se
-}
+/// A digital disc of radius `r`: all offsets with dx² + dy² ≤ r² (given, in `src/common.rs`).
+pub use crate::common::disc;
 
 /// The diamond of radius `r`: all offsets with |dx| + |dy| ≤ r (the disc of the city-block distance).
 pub fn diamond(r: usize) -> Vec<(isize, isize)> {

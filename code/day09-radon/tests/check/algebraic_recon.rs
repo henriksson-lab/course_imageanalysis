@@ -1,7 +1,8 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day09 algebraic_recon::
 
-use day09::algebraic_recon::tomo::{angles, ray_matrix, sinogram, Row};
+use day09::algebraic_recon::tomo::{ray_matrix, Row};
+use day09::common::{angles, sinogram};
 use day09::algebraic_recon::*;
 use imgcourse::Image;
 

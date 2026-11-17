@@ -2,14 +2,14 @@
 // code, then check it with `cargo test -p day02 scale_space::` and look at `cargo run -p day02 -- scale-space`.
 #![allow(unused_variables, unused_imports)]
 
-use crate::scale_space::gaussian_blur;
+use imgcourse::filters::gaussian_blur;
 use imgcourse::{Border, Image};
 
 /// C1a. The scale-normalised Laplacian of Gaussian, sign flipped so that bright blobs are
 /// positive: −σ² (Lxx + Lyy), where L is the image blurred at `sigma` and the second
 /// derivatives are the differences [1 −2 1] along x and along y (copy the edge outside).
 ///
-/// Hint: `gaussian_blur(img, sigma)` (in given.rs) gives L. Then, at every pixel, read the
+/// Hint: `gaussian_blur(img, sigma)` (in `imgcourse::filters`) gives L. Then, at every pixel, read the
 /// neighbours with `l.get_border(.., .., Border::Clamp)`.
 pub fn normalised_log(img: &Image<f32>, sigma: f32) -> Image<f32> {
     todo!("C1a: normalised_log")

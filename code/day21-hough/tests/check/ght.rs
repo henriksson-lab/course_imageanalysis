@@ -1,7 +1,7 @@
 // Checks for the coding exercises, using the numbers of the pen-and-paper exercises.
 // Run: cargo test -p day21 ght::
 
-use day21::ght::sim::EdgePoint;
+use day21::common::EdgePoint;
 use day21::ght::*;
 use std::f32::consts::{FRAC_PI_2, PI};
 

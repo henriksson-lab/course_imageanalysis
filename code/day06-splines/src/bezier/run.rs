@@ -2,9 +2,8 @@
 // three control polygons (B4); pictures in out/bezier/.
 //   cargo run -p day06 -- bezier                      (your code)
 //   cargo run -p day06 --features solution -- bezier  (the model solution)
-use super::plot;
 use crate::bezier::*;
-use plot::*;
+use crate::common::*;
 
 /// The bump of the lecture, 1 / (1 + 25 x²).
 fn bump(x: f32) -> f32 {

@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day35 -- <unit>`, check it with
 //! `cargo test -p day35 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod kmeans;
 pub mod gaussian_mixture;
 pub mod em;

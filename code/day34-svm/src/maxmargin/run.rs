@@ -5,47 +5,14 @@
 
 use imgcourse::*;
 use crate::maxmargin::*;
-
-const BLUE: [f32; 3] = [0.25, 0.45, 0.85];
-const RED: [f32; 3] = [0.85, 0.3, 0.25];
+use crate::common;
 
 /// A picture of the feature space `lo..hi` (x1 to the right, x2 up): the two sides of the
 /// line tinted, the street `−1 ≤ f ≤ 1` in grey, the line `f = 0` in black, the points as dots
 /// and the support vectors (`y f ≤ 1`) with a black ring.
 fn plot(points: &[Point], labels: &[f32], w: Point, b: f32, lo: Point, hi: Point, size: usize) -> Image<[f32; 3]> {
-    let scale = [(hi[0] - lo[0]) / size as f32, (hi[1] - lo[1]) / size as f32];
-    let f = |px: f32, py: f32| w[0] * (lo[0] + px * scale[0]) + w[1] * (hi[1] - py * scale[1]) + b;
-    let mut img = Image::from_fn(size, size, |px, py| {
-        let (px, py) = (px as f32 + 0.5, py as f32 + 0.5);
-        let v = f(px, py);
-        if v * f(px + 1.0, py) <= 0.0 || v * f(px, py + 1.0) <= 0.0 {
-            [0.0; 3]
-        } else if v.abs() < 1.0 {
-            [0.82; 3]
-        } else {
-            (if v > 0.0 { RED } else { BLUE }).map(|c| 0.8 + 0.2 * c)
-        }
-    });
-    let m = margins(points, labels, w, b);
-    for ((p, &y), &m) in points.iter().zip(labels).zip(&m) {
-        let (cx, cy) = ((p[0] - lo[0]) / scale[0], (hi[1] - p[1]) / scale[1]);
-        let support = m <= 1.01;
-        for dy in -6..=6isize {
-            for dx in -6..=6isize {
-                let (x, yy) = (cx as isize + dx, cy as isize + dy);
-                let r2 = dx * dx + dy * dy;
-                if !img.contains(x, yy) {
-                    continue;
-                }
-                if r2 <= 9 {
-                    img[(x as usize, yy as usize)] = if r2 >= 7 { [0.0; 3] } else if y > 0.0 { RED } else { BLUE };
-                } else if support && (25..=36).contains(&r2) {
-                    img[(x as usize, yy as usize)] = [0.0; 3];
-                }
-            }
-        }
-    }
-    img
+    let support: Vec<bool> = margins(points, labels, w, b).iter().map(|&m| m <= 1.01).collect();
+    common::plot(points, labels, &support, true, |x| w[0] * x[0] + w[1] * x[1] + b, lo, hi, size)
 }
 
 fn report(points: &[Point], labels: &[f32], c: f32, w: Point, b: f32) {

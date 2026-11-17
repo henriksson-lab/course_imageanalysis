@@ -5,13 +5,8 @@
 
 use imgcourse::*;
 use std::time::Instant;
+use crate::common::centred;
 use crate::xcorr_fft::*;
-
-/// Moves shift 0 to the middle of the picture.
-fn centred(c: &Image<f32>) -> Image<f32> {
-    let (w, h) = (c.width(), c.height());
-    Image::from_fn(w, h, |x, y| c[((x + w / 2) % w, (y + h / 2) % h)])
-}
 
 /// `img − its mean`, in the top-left corner of a `size × size` array of zeros.
 fn pad(img: &Image<f32>, size: usize) -> Image<f32> {

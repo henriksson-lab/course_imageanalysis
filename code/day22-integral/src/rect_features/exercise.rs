@@ -4,19 +4,12 @@
 
 use imgcourse::Image;
 
+pub use crate::common::rect;
+
 /// The integral image (given, from the first unit of the day): `table[(x, y)]` is the sum of
 /// the pixels in columns `0..x` and rows `0..y`; row 0 and column 0 are zero.
 pub fn integral(img: &Image<f32>) -> Image<f64> {
-    let mut s = Image::new(img.width() + 1, img.height() + 1, 0.0);
-    for (x, y) in img.coords() {
-        s[(x + 1, y + 1)] = img[(x, y)] as f64 + s[(x, y + 1)] + s[(x + 1, y)] - s[(x, y)];
-    }
-    s
-}
-
-/// The sum over the `w × h` rectangle whose top-left pixel is `(x, y)` (given): four lookups.
-pub fn rect(s: &Image<f64>, x: usize, y: usize, w: usize, h: usize) -> f64 {
-    s[(x + w, y + h)] - s[(x, y + h)] - s[(x + w, y)] + s[(x, y)]
+    crate::common::integral(img, |v| v)
 }
 
 // In all features below, `(x, y)` is the top-left pixel of the whole template and `w × h` the

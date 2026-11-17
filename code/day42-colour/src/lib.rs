@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day42 -- <unit>`, check it with
 //! `cargo test -p day42 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod colour_vision;
 pub mod rgb_linear;
 pub mod colour_perceptual;

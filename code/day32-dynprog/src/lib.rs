@@ -8,6 +8,7 @@
 //! Run a unit's program with `cargo run -p day32 -- <unit>`, check it with
 //! `cargo test -p day32 <unit>::` (see the course page "Coding exercises: getting started").
 
+pub mod common;
 pub mod dp_paths;
 pub mod polar_boundary;
 pub mod livewire;

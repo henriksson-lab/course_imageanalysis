@@ -4,6 +4,7 @@
 //   cargo run -p day32 --features solution -- fastmarching  (the model solution)
 
 use crate::fastmarching::*;
+use crate::common::smooth;
 use imgcourse::*;
 
 /// Arrival times as a picture: dark = early, with white fronts every `every` time units.
@@ -19,24 +20,6 @@ fn fronts(t: &Image<f32>, every: f32, t_max: f32) -> Image<[f32; 3]> {
             [0.1 + 0.8 * g, 0.2 + 0.4 * g, 0.5 - 0.4 * g]
         }
     })
-}
-
-/// Gaussian smoothing in two passes (from the filtering unit; not part of these exercises).
-fn smooth(img: &Image<f32>, sigma: f32) -> Image<f32> {
-    let r = (3.0 * sigma).ceil() as isize;
-    let w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
-    let total: f32 = w.iter().sum();
-    let pass = |src: &Image<f32>, along_x: bool| {
-        src.map_xy(|x, y, _| {
-            let mut sum = 0.0;
-            for d in -r..=r {
-                let (xx, yy) = if along_x { (x as isize + d, y as isize) } else { (x as isize, y as isize + d) };
-                sum += w[(d + r) as usize] * src.get_border(xx, yy, Border::Clamp);
-            }
-            sum / total
-        })
-    };
-    pass(&pass(img, true), false)
 }
 
 pub fn main() {

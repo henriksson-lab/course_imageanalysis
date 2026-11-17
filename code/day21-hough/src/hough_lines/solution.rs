@@ -4,7 +4,7 @@
 // distance ρ_k = −rho_max + k · d_rho. Points are given relative to the origin of the line
 // parameters (the image centre in the program).
 
-use crate::hough_lines::sim::EdgePoint;
+use crate::common::EdgePoint;
 use imgcourse::Image;
 use std::f32::consts::PI;
 

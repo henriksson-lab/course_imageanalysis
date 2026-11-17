@@ -4,12 +4,8 @@
 //   cargo run -p day05 --features solution -- deconv  (the model solution)
 
 use crate::deconv::*;
+use crate::common::rmse;
 use imgcourse::*;
-
-fn rmse(a: &Image<f32>, b: &Image<f32>) -> f32 {
-    let s: f32 = a.pixels().iter().zip(b.pixels()).map(|(p, q)| (p - q).powi(2)).sum();
-    (s / a.pixels().len() as f32).sqrt()
-}
 
 fn negative(a: &Image<f32>) -> f32 {
     100.0 * a.pixels().iter().filter(|&&v| v < 0.0).count() as f32 / a.pixels().len() as f32

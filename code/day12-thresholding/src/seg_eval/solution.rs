@@ -12,16 +12,9 @@ pub struct Counts {
     pub tn: usize,
 }
 
-/// The bin of a grey value `v` in [0, 1] for `bins` equal bins (as in the histogram unit):
-/// `floor(v · bins)`, kept inside `0..bins`.
-pub fn bin_of(v: f32, bins: usize) -> usize {
-    let b = (v * bins as f32).floor();
-    if b < 0.0 {
-        0
-    } else {
-        (b as usize).min(bins - 1)
-    }
-}
+/// The bin of a grey value `v` in [0, 1] for `bins` equal bins (as in the histogram unit, given
+/// in `src/common.rs`): `floor(v · bins)`, kept inside `0..bins`.
+pub use crate::common::bin_of;
 
 /// C1. The confusion matrix of a predicted mask against the ground truth (true = object).
 pub fn confusion(pred: &Image<bool>, truth: &Image<bool>) -> Counts {

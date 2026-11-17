@@ -3,7 +3,7 @@
 // and look at `cargo run -p day50 -- raycast`.
 #![allow(unused_variables, unused_imports)]
 
-use crate::raycast::vec3::{Ray, Vec3};
+use crate::common::{Ray, Vec3};
 
 /// The shapes of the scene.
 #[derive(Clone, Copy, Debug)]

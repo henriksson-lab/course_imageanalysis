@@ -4,35 +4,13 @@
 //   cargo run -p day47 --features solution -- marchingcubes  (the model solution)
 
 use imgcourse::*;
+use crate::common::blur3;
 use crate::marchingcubes::*;
 use std::collections::HashMap;
 
 /// A volume of size n³ whose voxel (x, y, z) is f(x, y, z).
 fn volume(n: usize, f: impl Fn(f32, f32, f32) -> f32) -> Volume<f32> {
     Volume::from_fn(n, n, n, |x, y, z| f(x as f32, y as f32, z as f32))
-}
-
-/// A Gaussian blur of width `sigma` (voxels) along all three axes.
-fn blur3(vol: &Volume<f32>, sigma: f32) -> Volume<f32> {
-    let r = (3.0 * sigma).ceil() as isize;
-    let w: Vec<f32> = (-r..=r).map(|d| (-(d * d) as f32 / (2.0 * sigma * sigma)).exp()).collect();
-    let s: f32 = w.iter().sum();
-    let mut out = vol.clone();
-    for axis in 0..3 {
-        let src = out.clone();
-        out = Volume::from_fn(vol.width(), vol.height(), vol.depth(), |x, y, z| {
-            let mut sum = 0.0;
-            for d in -r..=r {
-                let mut p = [x as isize, y as isize, z as isize];
-                p[axis] += d;
-                if src.contains(p[0], p[1], p[2]) {
-                    sum += w[(d + r) as usize] / s * src[(p[0] as usize, p[1] as usize, p[2] as usize)];
-                }
-            }
-            sum
-        });
-    }
-    out
 }
 
 /// Vertices, edges, triangles, connected components, boundary edges (cracks or holes) and the

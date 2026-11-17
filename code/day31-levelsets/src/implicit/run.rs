@@ -5,35 +5,12 @@
 
 use imgcourse::*;
 use crate::implicit::*;
+use crate::common::pieces;
 
 /// `f(x, y)` sampled on a `size × size` grid covering `[−half, half]²` (y down).
 fn sample(size: usize, half: f32, f: impl Fn(f32, f32) -> f32) -> Image<f32> {
     let h = 2.0 * half / (size - 1) as f32;
     Image::from_fn(size, size, |i, j| f(-half + i as f32 * h, -half + j as f32 * h))
-}
-
-/// The number of separate pieces of the region `φ < c` (4-neighbours, flood fill).
-fn pieces(phi: &Image<f32>, c: f32) -> usize {
-    let mut seen = Image::new(phi.width(), phi.height(), false);
-    let mut count = 0;
-    for (x, y) in phi.coords() {
-        if phi[(x, y)] >= c || seen[(x, y)] {
-            continue;
-        }
-        count += 1;
-        let mut stack = vec![(x, y)];
-        seen[(x, y)] = true;
-        while let Some((x, y)) = stack.pop() {
-            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
-                let (nx, ny) = (x as isize + dx, y as isize + dy);
-                if phi.contains(nx, ny) && phi[(nx as usize, ny as usize)] < c && !seen[(nx as usize, ny as usize)] {
-                    seen[(nx as usize, ny as usize)] = true;
-                    stack.push((nx as usize, ny as usize));
-                }
-            }
-        }
-    }
-    count
 }
 
 /// Blue inside (φ < c), red outside, darker towards the level `c`, black on the level line.

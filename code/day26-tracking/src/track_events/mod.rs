@@ -16,7 +16,8 @@ pub use solution::*;
 
 // Provided: global assignment with alternative costs (not an exercise; see track-linking).
 mod assign;
-pub use assign::{hungarian, join_with_alternatives};
+pub use assign::join_with_alternatives;
+pub use crate::common::hungarian;
 
 /// The program of this unit: `cargo run -p day26 -- track-events`.
 pub mod run;

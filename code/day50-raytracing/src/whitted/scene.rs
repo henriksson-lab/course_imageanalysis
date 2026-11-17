@@ -1,7 +1,7 @@
 // Plumbing for "Shadows, mirrors and glass": the scene, and the ray casting of the last
 // unit (nearest hit with spheres and planes), filled in. Not part of the exercise.
 
-use crate::whitted::vec3::{Ray, Vec3};
+use crate::common::{Ray, Vec3};
 
 /// What a surface does with light.
 #[derive(Clone, Copy, Debug)]

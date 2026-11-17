@@ -14,9 +14,8 @@ mod solution;
 #[cfg(feature = "solution")]
 pub use solution::*;
 
-// Provided: a fast exact assignment solver (not an exercise).
-mod assign;
-pub use assign::hungarian;
+// Provided: a fast exact assignment solver (not an exercise), in `src/common.rs`.
+pub use crate::common::hungarian;
 
 /// The program of this unit: `cargo run -p day26 -- track-linking`.
 pub mod run;
