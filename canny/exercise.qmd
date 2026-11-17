@@ -222,6 +222,98 @@ A synthetic 128 × 128 scene (a rectangle, a disc, a staircase of two upward ste
 **E7.** At σ = 2 with thresholds 8 and 16 Canny finds the nuclear envelope (partly), the outlines of the cell and many edges in the fibrous background and inside the nucleus (texture). With σ = 3 the texture edges thin out and the envelope becomes more continuous; raising $t_\text{high}$ keeps only the strongest outlines. There is no setting that finds "the cell outline" alone: Canny knows only about local contrast.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `canny/src/exercise.rs`.
+
+**C1.** `gaussian_kernel(sigma)` and `gaussian_derivative_kernel(sigma)`: the two 1D kernels, cut
+at 4σ:
+
+```
+r = ⌈4σ⌉
+Gaussian:    w(x) = exp(−x² / 2σ²)       for x = −r … r,  then divide by the sum of all w
+derivative:  w(x) = x · exp(−x² / 2σ²)   for x = −r … r,  then divide by the sum of x · w(x)
+```
+
+The second scaling makes a ramp of slope 1 give exactly 1. The check also tests the noise
+formula of the math slide: the sum of the squared weights is about $1/(4\sqrt\pi\,\sigma^3)$.
+
+**C2.** `filter_rows(img, w)` and `filter_columns(img, w)`: a 1D kernel along every row or every
+column, without flipping, copying the edge outside the image. Then `gradient(img, sigma)`:
+
+```
+Lx = filter_columns( filter_rows(I, derivative), Gaussian )
+Ly = filter_columns( filter_rows(I, Gaussian), derivative )
+```
+
+The checks are B1(a), (b) and (d), with the noisy step as an image one row high.
+
+**C3.** `direction_sector(lx, ly)` and `non_max_suppression(mag, lx, ly)`:
+
+```
+θ = atan2(−Ly, Lx) in degrees, folded onto 0 … 180, rounded to 0, 45, 90 or 135
+step (dx, dy):  0° → (1, 0)   45° → (1, −1)   90° → (0, −1)   135° → (−1, −1)     # y down
+for every pixel p:
+    keep |∇L|(p) if it is ≥ |∇L|(p + step) and ≥ |∇L|(p − step), else 0
+```
+
+The checks are B2 (the four directions) and B3 (the 5 × 5 patch).
+
+**C4.** `hysteresis(strength, low, high)`: the flood from the seeds.
+
+```
+mark every pixel ≥ high, and put it on a list
+while the list is not empty:
+    take a pixel off the list
+    for each of its 8 neighbours n:
+        if n ≥ low and n is not marked: mark n, put n on the list
+```
+
+The check is B4: 7 edge pixels.
+
+Then `cargo run -p canny` and open the pictures in `out/canny/`. The scene is like the demo's: a
+bright square, a disc and a faint rectangle whose contrast fades from 45 to 8 grey levels going
+down, with noise of 12. Magnitudes and thresholds are in grey levels per pixel.
+
+**C5.** Compare `scene-hysteresis-3-10.png` with `scene-single-10.png` and `scene-single-3.png`,
+and the numbers of edge pixels the program prints. What happens to the faint rectangle in each?
+How many pixels with magnitude ≥ 3 are there before and after non-maximum suppression?
+
+**C6.** With the same thresholds 3 and 10, `scene-sigma4.png` (σ = 4) loses the disc and the faint
+rectangle completely. The disc has a contrast of 60. Predict the peak gradient magnitude across
+its edge at σ = 1.5 and at σ = 4, using the demo's rule "a step of height $h$ gives a bump of
+$h/(\sigma\sqrt{2\pi})$". Why does a larger σ need lower thresholds?
+
+**C7.** Compare `cell-sigma1.png`, `cell-sigma2.png` and `cell-sigma4.png` (the micrograph, with
+thresholds lowered as σ grows). At which σ is the nuclear envelope one closed curve, and what
+happens to the texture inside the nucleus?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `canny/src/solution.rs` in the download.
+
+**C5.** Hysteresis (3 and 10): 474 edge pixels. The faint rectangle keeps its top, its whole left
+side down to the bottom and its right side down to about two thirds: the weak pixels hang on to
+the strong top. Only its faintest edge, the bottom, is missing. One threshold of 10: 330 pixels,
+the faint rectangle keeps only its top edge and the top ends of its sides. One threshold of 3:
+787 pixels, the faint rectangle is complete, bottom included, but short noise chains and dots
+appear everywhere in the background and inside the shapes. Before NMS 2809 pixels have a magnitude ≥ 3 (ridges several
+pixels wide, plus noise); after NMS 787 (one-pixel crests).
+
+**C6.** σ = 1.5: $60/(1.5\sqrt{2\pi}) = 16$, above $t_\text{high} = 10$, so the disc's edge has
+seeds. σ = 4: $60/(4\sqrt{2\pi}) = 6.0$, below 10: no seeds, and hysteresis keeps nothing, even
+though the edge is cleaner. The faint rectangle (contrast 45 at most) peaks at 4.5. The
+derivative of a Gaussian measures the slope of the smoothed image, and smoothing spreads a step
+over about 2σ, so its slope drops as 1/σ: the thresholds must drop with it (the lecture's
+"larger σ, smaller magnitudes").
+
+**C7.** At σ = 1 (thresholds 8 and 16) the texture inside the nucleus and the fibres of the
+background give a dense mesh of short edges (17 364 edge pixels); the envelope is there, but hard
+to pick out of the mesh. At σ = 2 (5 and 10, 7552 pixels) the envelope is a closed curve and the
+texture inside the nucleus is almost gone; at σ = 4 (2.5 and 5, 3309 pixels) only the envelope
+and the outlines of the larger dark structures remain.
+:::
+
 ## Where this leads
 
 Canny's σ picks one scale for the whole image. The next unit asks what happens across **all** scales at once: **[scale space](../scale-space/lec.qmd)**, blob detection with the Laplacian of Gaussian, and image pyramids.

@@ -152,6 +152,82 @@ The image is a synthetic fluorescence image of 16 nuclei (6 touching pairs, 3 di
 **E8.** A correctly found nucleus split into halves with a 2-pixel gap: each half has IoU just under 0.5 with it, so TP −1, FP +2 (net predicted objects +1), FN +1. Merging two correctly found separate nuclei: the merged object matches at most one of them; usually it is too large for either (IoU < 0.5): TP −2, FP +1, FN +2. Moving an ellipse: when its IoU crosses $\tau$ its pair stops being a TP and becomes one FP plus one FN.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `object-eval/src/exercise.rs`.
+
+**C1.** `iou_table(truth, pred)`: the IoU table of two label images (0 = background). One pass
+over the pixels counts every object's area and every pair's overlap:
+
+```
+for every pixel:
+    g = true label, p = predicted label
+    if g > 0: area_true[g] += 1
+    if p > 0: area_pred[p] += 1
+    if g > 0 and p > 0: overlap[g][p] += 1
+IoU[g][p] = overlap[g][p] / (area_true[g] + area_pred[p] − overlap[g][p])
+```
+
+The checks are B1 (two squares shifted by one pixel) and a merge.
+
+**C2.** `match_greedy(iou, tau)`: of all pairs with IoU $\ge \tau$, take the largest IoU first,
+then the largest among the objects still free:
+
+```
+pairs = all (IoU, g, p) with IoU ≥ tau, sorted from the largest IoU down
+for every pair (IoU, g, p) in that order:
+    if g and p are both still free: match them
+```
+
+The checks are B2(a, b) and B3(a), where greedy finds only one match.
+
+**C3.** `scores(n_true, n_pred, tp)`: FP, FN, precision, recall, F1 and the matching accuracy
+$TP/(TP + FP + FN)$. The checks are B2 and B4(c), and that F1 never rises with $\tau$ (B2(d)).
+
+**C4.** `average_precision(is_tp, n_true)`: the predictions sorted by score, each marked TP or FP.
+Recall and precision after every prediction; precision made non-increasing from the right;
+then the area under the curve, $\sum_k (R_k - R_{k-1})\,P_k$. The checks are B4(b) and B4(d).
+
+Then `cargo run -p object-eval` and open the pictures in `out/object-eval/`. The program scores
+two segmentations of a synthetic image of 30 nuclei: a global threshold followed by
+connected-component labelling (`threshold.png`), and the true nuclei drawn one pixel too large.
+It prints TP, FP, FN, precision, recall and F1 for several $\tau$, and the pixel Dice.
+`threshold-errors.png` shows the threshold result at $\tau = 0.5$: matched objects green,
+unmatched predictions red, missed nuclei orange.
+
+**C5.** Compare the pixel Dice of the threshold result with its F1 at $\tau = 0.5$. How many
+objects does it find, and what has happened to the others? Look at `threshold-errors.png`.
+
+**C6.** Compare the F1-vs-$\tau$ columns of the two segmentations with your sketches of B5(a)
+and B5(b). Which one would you use to count nuclei, and which to measure their areas?
+
+**C7.** The program also sorts the threshold result's objects by their mean brightness (as a
+score) and computes the average precision at $\tau = 0.5$. Why can it not be larger than the
+final recall?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `object-eval/src/solution.rs` in the download.
+
+**C5.** Pixel Dice 0.988, but F1 only 0.489 at $\tau = 0.5$ (TP 11, FP 4, FN 19). The threshold
+finds 15 objects for 30 nuclei: almost every pixel is labelled correctly, but touching nuclei
+come out as one object. A merged object matches at most one of its nuclei; a large cluster
+matches none (IoU below 0.5 with each) and is an FP, its nuclei all FN. In the picture the red
+objects are such clusters of touching nuclei.
+
+**C6.** Threshold: F1 0.667 for $\tau \le 0.3$ (each of the 15 objects matches one nucleus), 0.489
+at 0.5 and 0.356 from 0.7 up: a low curve, because of the merges, as in B5(b) (but much lower:
+here many nuclei touch). One pixel too large: F1 1.000 up to $\tau = 0.7$,
+0.967 at 0.8, then down to 0.367 at 0.9, the curve of B5(a): high and flat, then a steep drop
+where the IoU of the slightly too large outlines falls below $\tau$; its pixel Dice (0.944) is
+lower than the threshold's. For counting: the one-pixel-too-large outlines (they count 30). For
+areas: neither as it is; the one-pixel bias could be corrected, the merges cannot.
+
+**C7.** AP is 0.326 and the final recall $11/30 = 0.367$. AP adds the precision (at most 1) over
+the recall steps, and the recall steps add up to the final recall: AP $\le$ recall. Nuclei that
+no prediction matches can never be ranked; they cost AP whatever the scores are.
+:::
+
 ## Where this leads
 
 The same matching and AP are used for **detection** with boxes on the [modern deep learning day](../detection/lec.qmd). The [next unit](../agreement/lec.qmd) asks how good the **truth** is, and what to do when the outline or the count matters more than the match: boundary distances and agreement plots.

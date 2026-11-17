@@ -122,6 +122,84 @@ A $128 \times 128$ image: a synthetic test image (three disks, the lower-left on
 **E7.** With $k = 4$ the front grows through the textured nucleus and stops at the dark nuclear envelope (about 2570 pixels). With $k = 8$ the envelope no longer counts as a strong enough edge: the front passes it in places and spreads into the cytoplasm (about 4240 pixels). With $k = 2$ the texture inside the nucleus already counts as edges: the front stops after a few steps (237 pixels). (B4(c) and (a).)
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `geodesic/src/exercise.rs`.
+Grey levels run from 0 to 1 here, so $k = 8$ of the demo becomes $k = 8/255$.
+
+**C1.** `edge_stopping(smoothed, k)`: $g = 1/(1 + |\nabla I|^2/k^2)$ at every pixel of an image
+that is already smoothed, with central differences. The check is B1(b) and B1(c).
+
+**C2.** `braking_step(phi, g, c, eps, dt)`: one step of stage 1, the braking balloon:
+
+```
+for every pixel:
+    balloon   = g · c · |∇φ|            # upwind, for the sign of c (given)
+    smoothing = ε · g · κ|∇φ|           # central differences, as in curvature flow
+    new φ = φ − Δt · balloon + Δt · smoothing
+```
+
+The checks: with $g = 1$ and $\varepsilon = 0$ it is the level set step of B1 of the previous unit;
+with $g = 0.1$ the front moves a tenth as far; and the circles of B3(b), one growing, one shrinking.
+
+**C3.** `advection_step(phi, g, a, dt)`: the pull into the edge, transport with the velocity
+$\mathbf v = -a\nabla g$:
+
+```
+for every pixel:
+    vx, vy = −a · (central differences of g)
+    φx = φ(x) − φ(x−1) if vx > 0, else φ(x+1) − φ(x)      # upwind: where the values come from
+    φy likewise
+    new φ = φ − Δt · (vx φx + vy φy)
+```
+
+The checks: the $g$ of B1, whose valley pulls a zero crossing to its left towards the edge (B1d),
+and a linear case worked out by hand.
+
+Then `cargo run -p geodesic` and open the pictures in `out/geodesic/`: `g.png` is the edge-stopping
+function ($\sigma = 1.5$, $k = 8/255$); `segment.png` shows, left to right, a box shrinking onto
+the objects ($c = -0.4$, $\varepsilon = 0.3$) with the pull ($a = 5$) and without it ($a = 0$), each
+until $t = 180$, and two seeds of radius 10 grown in the disk with the weak edge until $t = 60$ (red:
+$c = 1$, $a = 1$; green: $c = 0.3$, $a = 3$). One step ($\Delta t = 0.25$) is `braking_step`
+followed by `advection_step`.
+
+**C4.** How many pieces and how many wrong pixels does the program report with and without the pull?
+Where in `segment.png` does the front without the pull go wrong, and why there first?
+
+**C5.** Compare the two seeds with the true size of the weak disk (printed). Explain with $g$ what
+happens on the faint right side of the disk.
+
+**C6.** One step costs a few dozen operations per pixel, and a front needs about one step per
+fraction of a pixel it travels. Count the steps of the box run. Why can the step $\Delta t$ not
+simply be made larger? (Look at the time-step rules on the slide "The math: the geodesic active
+contour flow" and in the previous unit.) The program prints nothing about it: estimate the
+largest $|v_x| + |v_y|$ from the steepest $g$.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `geodesic/src/solution.rs` in the download.
+
+**C4.** With the pull: 4 pieces, one per object, and 38 wrong pixels. Without it: 3 pieces and 1741
+wrong pixels. Without the pull the front only slows down on the edges ($g$ is never exactly 0, its
+smallest value here is 0.051) and creeps on into the objects. The disk with the weak edge goes
+first: its $g$ on the faint side is far from 0, so the front hardly slows there; by $t = 180$ it has
+eaten the whole disk, and the fronts have also bitten into the top-left disk and the C.
+
+**C5.** The weak disk has 1005 pixels. The gentle seed ($c = 0.3$, $a = 3$) ends with 988: it stops on
+the edge all round. The strong seed ($c = 1$, $a = 1$) has escaped through the faint right side and
+flooded the background: 5707 pixels after $t = 60$, and still growing. On the faint side $|\nabla I|$ is small compared with $k$, so
+$g$ stays well above 0 and the brake is weak, and the valley of $g$ is shallow, so the pull is weak
+too; a strong balloon simply pushes through.
+
+**C6.** $t = 180$ with $\Delta t = 0.25$: 720 steps over the whole image, each with two passes
+(balloon and curvature, then the pull). The explicit steps have limits: the balloon wave
+$\Delta t \le 1/(\sqrt2\max|gc|) = 1.8$, the curvature term $\Delta t \le 1/(4\varepsilon\max g) = 0.83$,
+and the pull $\Delta t\,(|v_x| + |v_y|) \le 1$. Next to the strong edges $g$ drops from about 1 to
+0.05 within a few pixels, and $|v_x| + |v_y| = a(|g_x| + |g_y|)$ reaches about 3.6 with $a = 5$: the
+pull allows only $\Delta t \le 0.28$, the tightest of the three. Beyond the limit the step can
+explode, as in the previous unit.
+:::
+
 ## Where this leads
 
 Edge-based contours only look at **local differences**: noise, blur and weak edges are their enemies, and the result depends on $\sigma$, $k$ and the balloon. The [next unit](../chanvese/lec.qmd) asks a global question instead: which curve splits the image into two regions that are each as **uniform** as possible? That is the Chan–Vese model, a level set cousin of the graph-cut energy.

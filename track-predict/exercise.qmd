@@ -148,6 +148,97 @@ Particles move at nearly constant velocity in a 256 × 256 px field, with locali
 **E5.** Nearest 18.3 %, global (last) 7.2 %, Kalman 5.3 % (60 particles at 6 px per frame; the preset uses a 12 px fixed gate). With σ = 4 px: 42.3 %, 37.9 % and 17.8 %. All suffer, the fixed-gate trackers most: noise pushes detections out of the 12 px gate and into neighbours' gates, while the Kalman gates include R and adapt, and the velocity estimate averages the noise over several frames.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `track-predict/src/exercise.rs`.
+
+**C1.** `predict(e, q)` and `update(pred, z, r)`: one step of the random-walk filter in 1D:
+
+```
+predict:  x⁻ = x;   P⁻ = P + Q
+update:   K = P⁻ / (P⁻ + R)
+          x = x⁻ + K · (z − x⁻)
+          P = (1 − K) · P⁻
+```
+
+The checks are your answers to B1 and B2(a).
+
+**C2.** `run_filter(first, zs, q, r)`: the filter over a whole sequence, with missed detections:
+
+```
+for every frame:
+    predict
+    if there is a measurement z: update with z      # missed: keep the prediction
+    store the estimate
+```
+
+The checks are B2 (a missed frame, then the measurement 15) and the steady-state gain
+$(\sqrt5 - 1)/2 = 0.618$ for $Q = R$ (B8).
+
+**C3.** `cv_predict(e, dt, q_v)` and `cv_update(pred, z, r)`: the constant-velocity filter, state
+(position, velocity), only the position measured:
+
+```
+predict:  position = position + velocity · Δt
+          P⁻ = F P Fᵀ + Q        F = [[1, Δt], [0, 1]],  Q = [[0, 0], [0, q_v]]
+update:   S = P⁻ₓₓ + R
+          K = (P⁻ₓₓ / S,  P⁻ₓᵥ / S)
+          y = z − predicted position
+          position = position + K₁ · y;   velocity = velocity + K₂ · y
+          P = (I − K H) P⁻               H = (1  0)
+```
+
+The checks are B3 and B7 (gain (2/3, 1/3), position +2, velocity +1), and that the velocity of
+an object moving at 2 per frame is found from its positions alone.
+
+**C4.** `mahalanobis2(y, s)`: the squared distance $d^2 = \mathbf y^\top S^{-1}\mathbf y$ of a 2D
+innovation, with $S^{-1} = \frac{1}{ad - b^2}\begin{pmatrix}d & -b\\ -b & a\end{pmatrix}$ for
+$S = \begin{pmatrix}a & b\\ b & d\end{pmatrix}$. The checks are B4 (1.25σ and 3.54σ) and B9: for
+innovations drawn from $\mathcal N(0, S)$ the mean of $d^2$ is 2.
+
+Then `cargo run -p track-predict` and open `out/track-predict/filters.png`. An object moves along a
+line at 1 unit per frame, turns back at frame 20 (velocity −0.8), and is measured with variance
+$R = 4$; frames 12, 13 and 14 are missed. Two filters follow it: random walk ($Q = 0.1$) and
+constant velocity (velocity noise 0.01). The program prints a table and draws truth (grey),
+measurements (orange; missed frames red), the random-walk estimate (green) and the
+constant-velocity estimate (dark blue, with ±2σ bars).
+
+**C5.** At frame 15, how far behind the truth is each filter? For a random-walk filter following
+an object at speed $v$, the steady lag is $v(1 - K)/K$ (D3), with $K = 0.146$ for $Q = 0.1$,
+$R = 4$. Why is the lag at frame 15 larger than that?
+
+**C6.** Follow the variance $P$ of the constant-velocity filter (last column) through the missed
+frames 12–14 and after. What happens, and what does it mean for a gate?
+
+**C7.** After the turn at frame 20: when does the velocity estimate become negative, and when does
+it reach −0.8? Which filter has the larger error after the turn?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `track-predict/src/solution.rs` in the download.
+
+**C5.** Truth 15: random walk 8.55 (6.45 behind), constant velocity 13.85 (1.15 behind). The
+steady lag $1 \cdot 0.854/0.146 = 5.85$ assumes a measurement in every frame. During the three
+missed frames the random-walk filter only predicts "no motion": it stays at 6.89 while the object
+moves on 3 units, and one measurement at frame 15 pulls it only part of the way back (the green
+line is flat over the gap). The constant-velocity filter keeps moving with its velocity estimate
+(0.70 per frame) through the gap.
+
+**C6.** $P$ is 1.26 at frame 11, then grows to 1.74, 2.36 and 3.16 in the missed frames (the
+prediction moves on: 10.47, 11.17, 11.87), drops to 2.04 with the measurement at frame 15, and is
+back to 1.16 by frame 19. The bars widen over the gap. A gate of k standard deviations of
+$P + R$ grows with it, from $k\sqrt{5.26}$ to $k\sqrt{7.16}$: after a gap the next detection may be
+farther from the prediction and still be accepted.
+
+**C7.** The velocity estimate is 1.18 at frame 20, 0.85 at frame 22, −0.02 at frame 25, −0.36 at
+frame 29 and −0.85 at frame 35: it turns negative about 5 frames after the turn and needs about
+15 frames to reach −0.8. Meanwhile the estimate overshoots: at frame 22 it is 21.64 against the
+truth 18.4. The largest errors after the turn are similar: 3.64 for the random walk (which lags
+behind all the time) and 3.24 for constant velocity (which overshoots, then follows closely:
+−0.85 per frame at frame 35). With a small velocity noise the filter trusts its velocity and is
+slow to change it (slide "Tuning Q and R").
+:::
+
 ## Where this leads
 
 Prediction bridges single missed frames. Longer gaps, objects that **divide** or **touch**, and objects that **enter or leave** need a second stage that joins track pieces: the [next unit](../track-events/lec.qmd), with **lineage trees** and how to **evaluate** tracks.

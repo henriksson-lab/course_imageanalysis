@@ -59,5 +59,28 @@ in `code/Cargo.toml` and to the list on `code.qmd`.
 
 ## Status
 
-- Day 1 done (images, kernels, fourier, pca).
-- Next: the other days, by the same pattern, in course order.
+- Day 1 done (images, kernels, fourier, pca), 2026-11-16.
+- Days 2–51 done 2026-11-17 by parallel workers following `plan/code-rollout-brief.md`:
+  a crate, a `## Code` section and (where the deck has an algorithm) one pseudocode slide per
+  unit. Where a page already used C1, C2, … the code tasks are R1… (or K1…, P1…), and the
+  section says why.
+- Library changes during the rollout: `fft`, `linalg`, `Volume`, `save_labels`,
+  `samples::nuclei`; `map`/`map_xy`/`zip_map` take `FnMut`; `sum`/`mean` add in f64;
+  `imgcourse` compiled with opt-level 3 in dev builds.
+
+## Library candidates (from the rollout reports)
+
+Helpers that several unit crates now carry as filled-in copies, because workers could not edit
+the library. Moving them into `imgcourse` means editing those crates too (and must not give
+away an earlier unit's exercise). Most requested first:
+
+- Gaussian blur (σ, separable) and gradient; bilinear sampling at a position between pixels.
+- Drawing on colour images: lines, dots, circles, boxes, polygons; small line/scatter plots.
+- `Rng::poisson`; `psnr`/`rmse`; mean/sd/percentiles; normal CDF/erfc.
+- Label plumbing: connected components, union–find, regional minima/maxima, IoU table,
+  boxes from labels; an exact distance transform; a float-keyed priority queue (FIFO ties).
+- `Vec3`/`Mat3` (ray tracing, 3D graphics, cameras); sRGB encode/decode; f16 rounding.
+- Mask helpers for `Image<bool>`; structuring elements (disc, square, line).
+- Domain helpers repeated within a day: tomography projector and phantom, point-pattern
+  generators, TCSPC simulator, Hungarian assignment, sparse max-flow, wavelet filter bank.
+- A faster `get_border` (dominant cost in iterative units).

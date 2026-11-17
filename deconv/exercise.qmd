@@ -130,6 +130,87 @@ The demo blurs a test object with a PSF, adds noise (fixed seed) and restores it
 **E7.** Stripes start at the left and right borders and run into the image; RMSE 1.30 (the image is ruined). The step edge runs off the left and right borders and the blur brought light in from outside the field, neither of which the periodic model knows. Padded + tapered: RMSE 0.0497 and the stripes are gone.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `deconv/src/exercise.rs`.
+
+**C1.** The gain of each method at a frequency where the OTF is $H$ (real, for a symmetric PSF):
+`truncated_gain(h, eps)` ($1/H$ where $|H| > \varepsilon$, else 0), `wiener_gain(h, snr)`
+($H/(H^2 + 1/\mathrm{SNR})$) and `tikhonov_gain(h, lambda, d2)` ($H/(H^2 + \lambda\, d^2)$, with
+$d^2 = 1$ for the energy penalty). The checks are your tables of B1, B2 and B5(b), and the gains
+of B3 (sum part $s = 1$, difference part $s = 0.5$).
+
+**C2.** `gaussian_otf(sigma, w, h)`: the OTF $H = e^{-2\pi^2\sigma^2(f_x^2 + f_y^2)}$ of a Gaussian
+PSF for a $w \times h$ image, at every frequency, in the layout of the 2D Fourier transform
+(frequency 0 at pixel (0, 0), the negative frequencies in the upper half). The check is B5(a).
+`laplacian_symbol(fx, fy)`: what the Laplacian does to the wave of frequency $(f_x, f_y)$,
+$\hat L = 4 - 2\cos 2\pi f_x - 2\cos 2\pi f_y$; 0 at frequency 0 (B9).
+
+**C3.** `apply_gain(g, gain)`: filter in frequency space.
+
+```
+G = Fourier transform of g
+for every frequency k:   X(k) = gain(k) · G(k)
+x = real part of the inverse Fourier transform of X
+```
+
+**C4.** `restore(g, otf, method)`: every method of the lecture is C3 with its own gain:
+
+```
+for every frequency (fx, fy), with H = otf(fx, fy):
+    inverse:             gain = 1/H              (0 where H = 0)
+    truncated inverse:   gain = 1/H if |H| > ε, else 0
+    Wiener:              gain = H / (H² + 1/SNR)
+    Tikhonov, energy:    gain = H / (H² + λ)
+    Tikhonov, roughness: gain = H / (H² + λ · L(fx, fy)²)
+restored = apply_gain(g, gain)
+```
+
+The checks: B6 (the energy penalty divides the mean by $1 + \lambda$, the roughness penalty keeps
+it), Tikhonov with the energy penalty and $\lambda = 1/45$ gives exactly Wiener with SNR 45, and
+the inverse restores a noise-free image.
+
+Then `cargo run -p deconv` and open the pictures in `out/deconv/`. The program blurs the
+micrograph with a Gaussian PSF ($\sigma$ = 2 pixels), adds noise of 0.01 (1 % of white), and
+restores it with every method and several settings. It prints the RMSE against the object, the
+mean and the share of negative pixels.
+
+**C5.** Which method and setting gives the smallest error, and how much better is it than the
+observed image? Find two lines of the table that are exactly equal, and explain why.
+
+**C6.** The program prints the image's own SNR, the mean of the squared object over $\sigma_n^2$.
+Compare it with the best Wiener SNR. Then explain the column "mean" for Wiener with SNR 3 and for
+the roughness penalty.
+
+**C7.** Compare `truncated.png` ($\varepsilon$ = 0.15), `wiener-snr300.png`,
+`wiener-snr10000.png` and `tikhonov-roughness.png` ($\lambda$ = 0.001) with `observed.png`. Name
+the artefact in each, and say which line of the gain curves it comes from.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `deconv/src/solution.rs` in the download.
+
+**C5.** The observed image has RMSE 0.1013. The best are Wiener with SNR 300 (0.0800) and the
+roughness penalty with $\lambda$ = 0.001 (0.0802), about 20 % better; the truncated inverse
+reaches 0.0831 at $\varepsilon$ = 0.05. The inverse filter gives $1.7 \cdot 10^{13}$ with half the
+pixels negative. Tikhonov with the energy penalty and $\lambda$ = 0.1 gives exactly the line of
+Wiener with SNR 10 (RMSE 0.1140, mean 0.6002), and $\lambda$ = 0.01 and 0.001 those of SNR 100
+and 1000: with $\hat D = 1$ the two gains are the same formula, with $\lambda = 1/\mathrm{SNR}$.
+
+**C6.** The image's own SNR is 4891, but the best flat SNR is about 300: one SNR for all
+frequencies is a compromise, and it must suit the high frequencies, where the signal of a
+natural image is much weaker than its average (the slide "What Wiener needs to know"). At SNR 3
+the mean drops from 0.6604 to 0.4952, the factor $1/(1 + 1/3) = 0.75$ of the gain at frequency 0
+(B6); the roughness penalty keeps 0.6603 for every $\lambda$, because $\hat L(0) = 0$.
+
+**C7.** Truncated: ripples run parallel to the outline of the nucleus and around the dark
+granules (ringing from the sharp cut of the gain). Wiener SNR 300 and roughness $\lambda$ = 0.001
+look alike: sharper than the observed image, with a little grain; the outline of the nucleus is
+a dark line again. Wiener SNR 10000 is covered in a dense pattern of dots and short worms of the
+same size (RMSE 0.1554, worse than the observed image): the gain still rises where $|H|$ is
+small, so the noise at those frequencies is amplified. The inverse is pure black-and-white noise.
+:::
+
 ## Where this leads
 
 Every method today had one number to choose: ε, the SNR, or λ. The [next unit](../regularise/lec.qmd) asks the general question: what is it we add to the data (the **penalty**, or prior knowledge), how much (choosing **λ**), and why stopping an iteration early does the same job. Unit 3 then replaces the linear filters by **[Richardson–Lucy](../richardson-lucy/lec.qmd)**, which knows that photons are counted and never negative.

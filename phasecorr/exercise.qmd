@@ -122,6 +122,78 @@ Left: the micrograph with frame A (blue) and frame B (red); drag frame B, or set
 **E8.** NCC (through FFTs) finds $(21, 13)$ with NCC 1.000; its second peak $(20, 10)$ has 0.69. Brute force finds the same shift with 268 million multiply-adds and takes around a second or two in the browser (1.6 s in a test run), against tens of milliseconds for the FFT route; the readout shows the times on your machine.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `phasecorr/src/exercise.rs`.
+
+**C1.** `phase_correlation_1d(a, b)`: as the cross-correlation of the last unit, but every product
+is divided by its size first ($\varepsilon$ = `EPS`, a tiny number). The checks are your answers to
+B1 and B2.
+
+**C2.** `hann(n)`: the Hann taper. The check is B5(a).
+
+**C3.** `phase_correlation(a, b, settings)`: the 2D version, with the exponent $p$, an optional
+taper and an optional low-pass weight.
+
+```
+A' = (A − mean of A) · taper,   B' = (B − mean of B) · taper      # taper = 1 if switched off
+FA = FFT(A'),  FB = FFT(B')
+for every frequency k = (kx, ky):
+    P = FA(k) · conj(FB(k))
+    R(k) = P / (|P|^p + ε)
+    if low-pass: R(k) = R(k) · exp(−f² / (2 sd²))       # f = frequency in cycles per pixel
+r = real part of the inverse FFT of R
+```
+
+The checks: a circular shift gives a spike of height 1 and zeros elsewhere; a gain and an offset on
+B change nothing; $p = 0$ is the cross-correlation.
+
+**C4.** `peak_and_ratio(r)`: the highest peak as a signed shift, its height, and its ratio to the
+second-highest **local maximum** (larger than its 8 neighbours, wrapping around), not just the
+second-highest value, which usually sits right next to the peak.
+
+Then `cargo run -p phasecorr`. It registers two $128 \times 128$ crops of the micrograph, B 21 px
+right and 13 px down of A, under several conditions, prints the peak, ratio and height, and saves each
+surface in `out/phasecorr/` (shift 0 in the middle).
+
+**C5.** Compare `cc` with `phase`, and `cc-ramp` with `phase-ramp` (a brightness ramp of 500 grey
+levels across B): peak, ratio, height. Compare the height with your prediction in B4(a), with and
+without the taper (`phase-no-taper`).
+
+**C6.** With strong noise on both crops (SD 120 grey levels): which settings find the shift? Look at
+`phase-noise.png` and `phase-noise-lowpass.png`.
+
+**C7.** `cc-uneven-no-taper`: the whole field is unevenly lit and there is no taper. Where is the
+peak, and why? Then `phase-lattice`: a lattice of blobs 18 px apart. Explain its peak and ratio with
+B6.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `phasecorr/src/solution.rs` in the download.
+
+**C5.** Both find $(21, 13)$. Cross-correlation: ratio 1.90, a broad peak; phase correlation: ratio
+20.8, a single sharp spike of height 0.68 on a flat floor. With the ramp the cross-correlation still
+peaks at $(21, 13)$, but its ratio drops to 1.04: another shift scores almost as high, and a stronger
+ramp would win. Phase correlation is unchanged (0.679, ratio 21.0). The height: B4(a) predicts
+0.75 (the shared fraction); without the taper it is 0.63, with the taper 0.68, which weights the
+middle of the crops, where they share content.
+
+**C6.** Plain phase correlation fails: its highest peak is at $(-1, -7)$ with height 0.041 and ratio
+1.01, while the truth scores only 0.028; the surface is noise. Cross-correlation ($p = 0$) and
+$p = 0.5$ find $(21, 13)$, but with ratios of only 1.12 and 1.06. The low-pass weight (sd 0.08 cycles
+per pixel) gives a smoother, blotchy surface whose brightest blob sits at the truth, ratio 1.46, but its top lands one
+pixel off, at $(21, 12)$. The noisy high frequencies get a full vote in plain phase correlation; the
+remedies weight them down, at the price of a broader peak.
+
+**C7.** The peak is at $(0, 0)$, ratio 1.01, and `cc-uneven-no-taper.png` shows a bright horizontal
+band through the middle: the shifts with $t_y = 0$ all score high. Without a taper the crops jump in brightness where the right
+border meets the left one (and the bottom the top); these jumps are at the same place in A and B and
+do not move with the shift, so they vote for shift 0. With the taper (`cc-uneven-taper`) the peak is
+back at $(21, 13)$, ratio 1.30. The lattice: the peak is at $(3, -5)$, one lattice period (18 px) away
+from the truth in each direction, with ratio 1.09. Every shift by a multiple of 18 moves the lattice
+onto itself, so many peaks are almost equally high: a ratio near 1 says "do not trust this".
+:::
+
 ## Where this leads
 
 The spike sits on whole pixels, and the circular FFT only knows the shift up to the size of the image. The [next unit](../stitching/lec.qmd) turns a peak into a usable shift (the **four candidates**, **sub-pixel** estimation), combines many pairwise shifts into a consistent **mosaic**, and corrects **drift**.

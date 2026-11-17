@@ -90,6 +90,81 @@ A simulated camera images the micrograph. The plot shows noise against signal, i
 **E4.** The read noise is 10 electrons and one ADU is $10\,000/65\,535 \approx 0.15$ electrons, so the read noise is about 66 ADU, around $2^6$. The readout says 10 bits would do ($\log_2 1000 \approx 10$). The lowest ~6 bits of every pixel record read noise very precisely.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `cameranoise/src/exercise.rs`.
+
+**C1.** `gain(cam)`, `dynamic_range(cam)` and `amplitude_db(ratio)` for a camera with a full well,
+a read noise and $b$ ADC bits: $g = N_\text{max}/(2^b - 1)$, $N_\text{max}/\sigma_r$ and
+$20\log_{10}$. The check is B1.
+
+**C2.** `poisson(mean, rng)`: a random photon count.
+
+```
+if mean < 30:                         # count how many uniform numbers it takes
+    p = u;  k = 0                     # u: a new uniform random number in [0, 1) each time
+    while p > exp(−mean):  p = p · u;  k = k + 1
+    return k
+else:                                 # close to a Gaussian with variance = mean
+    return round(mean + sqrt(mean) · z), at least 0          # z: Gaussian, mean 0, SD 1
+```
+
+The check draws 40 000 counts and compares their mean and variance with the mean.
+
+**C3.** `expose(cam, electrons, rng)`: a simulated picture, in ADU.
+
+```
+for every pixel:
+    n = poisson(mean electrons of the pixel), at most the full well
+    charge = n + read noise · z
+    ADU = round(charge / gain), kept between 0 and 2^b − 1
+```
+
+The check is B7: at 100 electrons the camera of B1 has a noise of about 10.5 electrons.
+
+**C4.** `mean_and_sd(values)` and `predicted_noise(cam, signal)` $= \sqrt{S + \sigma_r^2 + g^2/12}$.
+
+**C5.** `psnr(img, reference, peak)`: $10\log_{10}(\text{peak}^2/\text{MSE})$. The checks are B4 and B5.
+
+Then `cargo run -p cameranoise` and open the pictures in `out/cameranoise/`.
+
+**C6.** The program images the micrograph with 10, 100 and 10 000 electrons per pixel on average
+(an ideal camera: shot noise only). Look at `cell-*-electrons.png` and read the printed noise and
+SNR. Which rule from the lecture do they follow?
+
+**C7.** Read the two photon-transfer tables (full well 30 000, read noise 1.5, with a 16-bit and
+an 8-bit ADC). Where does the measured noise follow the prediction, and where not? Explain the
+three exceptions: 1 electron with 16 bits, the last row of both tables, and the rows marked –
+with 8 bits. Compare `lowlight-8bit.png` with `lowlight-12bit.png`.
+
+**C8.** Read the SNR of the averaged frames (400 electrons, read noise 3). Compare with B2 and B6.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `cameranoise/src/solution.rs` in the download.
+
+**C6.** The RMS noise is 3.2, 10.0 and 100.2 electrons, the SNR 3.2, 10.0 and 99.8 (10.0, 20.0 and
+40.0 dB): noise $\sqrt N$, SNR $\sqrt N$. 100 times more light gives 10 times the SNR (20 dB). At
+10 electrons the cell is barely visible in the speckle; at 10 000 it looks clean. (With the
+brightest mean count as the peak, the PSNR is 13.6, 23.6 and 43.6 dB: also 20 dB per factor 100.)
+
+**C7.** With 16 bits the measured noise follows the prediction from 10 to 10 000 electrons (3.48
+against 3.50, 10.28 against 10.11, …). At 1 electron it is lower, 1.37 against 1.81: the ADC
+cannot store negative values, so the negative half of the read noise is clipped to 0. In the last
+row (30 000 electrons, the full well) the noise is about 101 instead of 173: half of the pixels
+saturate, and saturated pixels all read the same. With 8 bits one ADU is 118 electrons: at 1, 10
+and 100 electrons every pixel of the patch reads the same number, so the measured noise is 0
+and there is no SNR to compute. The signal differences are not noisy, they are gone. At 1000
+electrons the measurement (58.8) is above the prediction (46.4): $g/\sqrt{12}$ assumes the
+values spread over many steps. With at most 300 electrons, the 8-bit picture uses only 4 ADU
+values (brightest 3): a few flat patches. With 12 bits it uses 49 (brightest 48) and the cell is
+recognisable, as in demo question E3.
+
+**C8.** One frame: SNR 19.6 (B6: 19.8). 4 frames: 40.2, twice as much (B2: averaging 4 frames
+doubles the SNR). 7 frames: 51.1, just above 50, as B6 predicts. 16 frames: 79.3, four times one
+frame: $\sqrt n$.
+:::
+
 ## Where this leads
 
 The noise model here, Poisson shot noise plus Gaussian read noise, and the SNR and PSNR defined here are used whenever the course measures noise: **denoising** ([denoisers](../denoise/lec.qmd), [wavelet shrinkage](../shrinkage/lec.qmd)), **deconvolution** with Poisson noise ([Richardson–Lucy](../richardson-lucy/lec.qmd)), **reconstruction** of CT images, **compression** ([JPEG](../jpeg/lec.qmd)), and choosing exposure times in quantitative microscopy. The [next unit](../highbit/lec.qmd) is about storing and displaying the 12- and 16-bit numbers such cameras produce.

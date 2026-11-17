@@ -132,6 +132,86 @@ The demo trains a detector on $24 \times 24$ patches: 300 cartoon faces (random 
 **E8.** After 10 rounds: training 0.2 %, test 0.8 %. On the test scene the cascade finds all 9 cells with no false detections (the single 50-stump classifier: 10 false detections). The first stumps are a three-rectangle line (a bright middle band between darker top and bottom), a four-rectangle diagonal and a three-rectangle line across: features that describe a bright round blob with a darker centre.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `viola-jones/src/exercise.rs`.
+Labels are $+1$ (object) and $-1$ (background). The training data and the rectangle features
+(the last unit) are given in `viola-jones/src/data.rs`.
+
+**C1.** `best_stump(values, labels, weights)`: the best threshold and direction for one feature,
+in one pass over the sorted values (the slide "The math: the best threshold in one pass").
+
+```
+sort the examples by value
+error = total weight of the negatives            # threshold below all: everything is "object"
+best = (below all, "object if above", error), or the opposite direction with error total − error
+for each example i, in sorted order:
+    error = error + y(i) · w(i)                  # example i is now below the threshold
+    if the next value is the same: continue
+    threshold = halfway to the next value
+    keep (threshold, "above", error) or (threshold, "below", total − error) if better
+```
+
+The checks are your answers to B1(a) and (c).
+
+**C2.** `adaboost(features, labels, rounds)`: AdaBoost with stumps.
+
+```
+w(i) = 1/n for every example
+repeat for every round:
+    best stump over all features (C1), weighted error ε
+    α = ½ ln((1 − ε) / ε)
+    w(i) = w(i) · e^(−α · y(i) · h(i))        # h(i) = ±1: what the stump says
+    divide every w(i) by the sum of all w
+```
+
+The checks are B1: thresholds 2.5, 4.5, 3.5, errors $\tfrac16$, 0.1, $\tfrac29$, and their votes.
+
+**C3.** `score(stumps, feature_value)`: $\sum_t \alpha_t h_t$; positive means object. The checks are
+the scores of B1(c) and (d).
+
+**C4.** `cascade_rates(stages)`: $D = \prod d_i$, $F = \prod f_i$ and the expected number of features
+per background window, $n_1 + n_2 f_1 + n_3 f_1 f_2 + \dots$ The checks are B2 and B3(a).
+
+Then `cargo run -p viola-jones`. It trains a detector for **nuclei** in synthetic fluorescence
+images: $24 \times 24$ windows centred on a nucleus against background windows, half of them near
+misses (centred 6 to 12 px from a nucleus). It prints the first stumps and the errors, then slides
+the window over a new image and writes `out/viola-jones/detections.png` (green: a detection on a
+nucleus, red: a false one); `examples.png` shows some training windows.
+
+**C5.** Which features does boosting pick first, and why do they suit nuclei? Compare with the
+cartoon faces of the demo (E1).
+
+**C6.** Read the training and test errors after 1, 2, 5, 10 and 20 stumps. Why does the test error
+not follow the training error down to 0?
+
+**C7.** The detector scores 4761 windows of the new image with 20 stumps each. Use the printed
+cascade (10 stages, the lecture's numbers): how many features would a background window need on
+average, and how much faster would that be?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `viola-jones/src/solution.rs` in the download.
+
+**C5.** Round 1: centre − surround over the whole window ($8 \times 8$ centre), "object if above",
+error 2.9 %: a nucleus is a bright blob in the middle of the window. Round 2: a narrow edge down
+near the top, "object if below" (dark above, bright below: the upper rim of a centred nucleus);
+round 3 a centre − surround over the lower part of the window. Their errors, 5.9 % and 6.4 % on the
+reweighted examples, come mostly from the near misses, whose nucleus lies off-centre. Faces have no single bright blob; there the first stumps were the hairline
+and the outline of the face.
+
+**C6.** After 1 and 2 stumps: training 2.9 %, test 3.0 %. After 5: training 0 %, test 3.0 %; after
+10 and 20: training 0 %, test 0.8 % (1 of 132 test windows). The stumps are chosen and weighted on
+the training windows only; boosting keeps reducing the exponential loss on them even after all are
+right, while new windows (unusual nuclei, near misses) can still fall on the wrong side. With 279
+training windows the test error is a rough estimate; one window more or less changes it by 0.8 %.
+On the new image all 12 nuclei are found, with no false detections.
+
+**C7.** $D = 0.904$, $F = 5.9 \cdot 10^{-6}$, and 5.21 features per background window on average,
+although the cascade holds 257. Against 20 features per window, that is about 4 times fewer; against
+a single classifier with all 257 features, about 50 times fewer.
+:::
+
 ## Where this leads
 
 The detector is judged by its detection rate and false detections; matching detections to the truth, precision–recall curves and average precision belong to the [**evaluation** day](../object-eval/lec.qmd). The [**random forests** day](../dtree/lec.qmd) uses the same split search to grow full trees. Modern detectors learn their features with convolutional networks ([**neural networks**](../cnn/lec.qmd), [**modern deep learning**](../detection/lec.qmd)), but the cascade's principle, spending computation only where it is needed, is still used wherever computation is scarce.

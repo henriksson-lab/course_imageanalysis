@@ -153,6 +153,85 @@ A $128 \times 128$ grid. Left: $\phi$ in colour (blue inside, red outside; grey 
 **E8.** Without reinitialisation, mean $|\nabla\phi|$ at the front falls from 1.00 to 0.56 at $t = 100$; the grey level lines inside spread apart (deeper levels move faster, because they are more curved). With reinitialisation every 10 steps it stays 1.00. The area at the end is 2853 without and 2830 with reinitialisation: the curve itself barely changes, but derivatives and the time-step rule rely on $|\nabla\phi| \approx 1$.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `levelset-eq/src/exercise.rs`.
+The 1D grid of the exercises is an image one pixel high.
+
+**C1.** `upwind_gradient(phi, x, y, outward)`: the upwind $|\nabla\phi|$ at one pixel:
+
+```
+D−x = φ(x, y) − φ(x−1, y)        D+x = φ(x+1, y) − φ(x, y)        (outside: copy the edge)
+D−y, D+y likewise
+if outward (F > 0):  s = max(D−x, 0)² + min(D+x, 0)² + max(D−y, 0)² + min(D+y, 0)²
+else:                s = min(D−x, 0)² + max(D+x, 0)² + min(D−y, 0)² + max(D+y, 0)²
+return √s
+```
+
+The checks are the slopes of B1(a), and $\sqrt2$ at $x = 0$ for a shrinking front (B3a).
+
+**C2.** `level_set_step(phi, speed, dt)`: one forward-Euler step, $\phi - \Delta t\,F\,|\nabla\phi|$
+at every pixel, with the upwind gradient for the sign of $F$ there. The checks are B1(b), B2 and
+B3(a, b).
+
+**C3.** `curvature_step(phi, eps, dt)`: one step of curvature flow, $\phi + \Delta t\,\varepsilon\,\kappa|\nabla\phi|$,
+with central differences as in the previous unit and
+$\kappa|\nabla\phi| = (\phi_{xx}\phi_y^2 - 2\phi_x\phi_y\phi_{xy} + \phi_{yy}\phi_x^2)/(\phi_x^2 + \phi_y^2)$.
+The check is B5: a circle of radius 20 shrinks to radius $\sqrt{200}$ at $t = 100$.
+
+**C4.** `reinitialise(phi)`: replace $\phi$ by the signed distance to its zero level:
+
+```
+points = every crossing of the zero level on an edge between two neighbouring pixels
+         (linear interpolation)
+for every pixel p:
+    d = distance from p to the nearest point in points
+    new φ(p) = −d if φ(p) < 0, else d
+```
+
+The check gives it three times a distance and expects the distance back (to within the gaps
+between the crossing points).
+
+Then `cargo run -p levelset-eq` and open the pictures in `out/levelset-eq/`. `fronts.png` shows
+two growing disks (radius 18, centres 48 apart, $F = 1$), a shrinking dumbbell (bar 12 pixels
+thick, $F = -1$) and a growing square, at a few times; $\Delta t = 0.5$, reinitialised every 10
+steps. `cfl-curvature.png` shows a circle after 30 steps of $1.5$ times the CFL limit (black:
+$|\phi| > 1000$; red: the contour), and a star under curvature flow at $t = 0$, 30, 100 and 250.
+
+**C5.** When do the disks merge and the dumbbell split, according to the printed times? Compare
+with B6. What happens at the corners of the growing square?
+
+**C6.** Follow the printed largest $|\phi|$ for the too large step, and compare with the step at
+the limit. Where in the picture has $\phi$ exploded first: at the front, or elsewhere? Why does
+stability matter at pixels far from the front?
+
+**C7.** The star under curvature flow: how many pieces does it have at each time, and how much
+area does it lose per unit time? Compare with the slide "The math: curvature flow".
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `levelset-eq/src/solution.rs` in the download.
+
+**C5.** The disks become one piece at $t = 6.0$ and the dumbbell splits into two at $t = 6.0$, as
+B6 predicts: the gap of 12 pixels closes from both sides at speed 1, and the bar, 12 thick, is eaten
+from both sides. Nothing in the code looks for collisions: the number of pieces is only counted
+afterwards. The growing square keeps straight sides, and its corners become quarter circles
+(every point at distance $t$ from the square, B4).
+
+**C6.** At 1.5 times the limit the largest $|\phi|$ is 55 after 5 steps, 109 after 15, 568 after
+20, 3696 after 25 and 25 902 after 30: it grows several times every 5 steps. At the limit it is 39
+after 30 steps (the far corners of the image, at their true distance). In the picture the exploded
+pixels (black) fill a region in the middle of the circle, far from the front, while the contour is
+still roughly round but ragged. Every pixel is updated by the same rule, and every level line moves
+with speed $F$, not only the zero one: an error that grows anywhere spreads and reaches the front
+sooner or later.
+
+**C7.** One piece at every time (Grayson: curvature flow never splits a curve); the arms pull in,
+the dents fill, and by $t = 250$ it is nearly a circle. Area lost per unit time: 6.40 (up to
+$t = 30$), 6.20 (up to 100), 6.28 (up to 250), close to $2\pi = 6.28$, as for any simple closed
+curve: $A' = -\varepsilon\oint\kappa\,ds = -2\pi\varepsilon$.
+:::
+
 ## Where this leads
 
 The speed $F$ was a number or the curvature. The [next unit](../geodesic/lec.qmd) lets the **image** choose it: fast in flat regions, almost zero on edges. Then the moving front stops on the boundary of the objects: an active contour that can split and merge. A front that only ever grows can be computed much faster by [fast marching](../fastmarching/lec.qmd) (dynamic programming day).

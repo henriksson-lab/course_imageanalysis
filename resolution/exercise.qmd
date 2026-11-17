@@ -215,6 +215,90 @@ A simulated bead slide: 30 beads (40 nm unless changed), NA 1.4, 520 nm, 65 nm p
 **E5.** With a background of 50 photons per pixel (more than a bead's own peak, about 44 photons above the background) the average gives 180 nm, 7.5 % **too narrow**: the noisy background estimate and the higher noise bias the centring and the subtraction. Without subtraction it would be 473 nm. The background must be known well, and the beads must be bright compared with it.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `resolution/src/exercise.rs`.
+The Airy pattern of an ideal lens is given, as `airy(r, na, wavelength)`.
+
+**C1.** `two_points(h, d, xs)`: the profile through two equal points $d$ apart,
+$I(x) = h(x - d/2) + h(x + d/2)$, at the positions `xs`.
+
+**C2.** `dip(profile)`: how far the middle of the profile drops below its highest point,
+$1 - I(\text{middle})/I_\text{max}$; 0 when the middle is the highest point. The checks are the
+numbers of the lecture: 26 % at the Rayleigh distance, none at the Sparrow distance, about 51 %
+and 0.6 % for two points 227 nm apart in blue and red light, and B9 for Gaussian spots.
+
+**C3.** `fwhm(profile, dx)`: the full width at half maximum of a sampled peak:
+
+```
+peak = the largest sample, at index p;  half = peak / 2
+walk right from p to the first sample below half:
+    the crossing lies between it and the sample before, placed by linear interpolation
+walk left from p in the same way
+FWHM = (right crossing − left crossing) · dx
+```
+
+The checks: a triangle, $2.355\,\sigma$ for a Gaussian, and 191 nm ($0.51\lambda/\mathrm{NA}$) for the
+Airy pattern at NA 1.4 and 520 nm.
+
+**C4.** `centroid(img, radius, background)`: a bead's centre with sub-pixel accuracy, the
+brightness-weighted mean position of the pixels near the brightest one, after subtracting the
+background (values below 0 count as 0).
+
+**C5.** `average_beads(img, centres, n, step, background)`: the recipe of the slide "Measuring a PSF
+from beads".
+
+```
+sum = all zeros, (2n + 1) × (2n + 1) points
+for every bead centre (cx, cy):
+    for every point (i, j):
+        sum(i, j) = sum(i, j) + I(cx + (i − n)·step, cy + (j − n)·step) − background
+                                          # between pixels: bilinear interpolation
+PSF = sum / (total of sum)        # normalised to sum 1
+```
+
+The checks: four clean beads at different sub-pixel positions average to the PSF, and with noise
+the average of 16 beads is about 4 times less noisy than one bead (B8).
+
+Then `cargo run -p resolution` and open the pictures in `out/resolution/`. The program prints the
+dips for two points, then simulates a bead slide: 30 beads of 500 photons each, imaged through an
+ideal lens (NA 1.4, 520 nm) onto 65 nm pixels, on a background of 10 photons per pixel, with photon
+noise (`bead-slide.png`). It finds the beads' centres, averages 1 to 30 of them, and prints the
+FWHM of each average. The averaged PSFs are drawn 4 times enlarged, with 0 as black.
+
+**C6.** Before you run: order 450, 520 and 650 nm by the dip they give for two points 227 nm apart.
+Then check with the printed numbers.
+
+**C7.** How does the measured FWHM change from 1 to 30 beads? Compare with the FWHM of the true
+PSF printed above the table. Compare `psf-1-beads.png` with `psf-30-beads.png`.
+
+**C8.** The last line averages 30 beads without subtracting the background (also when finding
+the centres). How much too wide is the PSF? Where do you see the reason in
+`psf-30-beads-no-background.png`?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `resolution/src/solution.rs` in the download.
+
+**C6.** The shorter the wavelength, the smaller the Airy pattern, and the deeper the dip: 50.7 %
+at 450 nm, 26.8 % at 520 nm, only 0.6 % at 650 nm. At 650 nm the Rayleigh distance is
+$0.61 \cdot 650/1.4 = 283$ nm, so 227 nm is close to the Sparrow distance (218 nm), where the dip
+vanishes. (At exactly the Rayleigh distance for 520 nm the dip is 26.5 %; at the Sparrow distance
+0.0 %.)
+
+**C7.** One bead gives 226 nm, 14 % too wide against the true 199 nm (the Airy pattern's 191 nm,
+recorded on 65 nm pixels and sampled between them). Two beads give 216 nm, 3 beads 198 nm, then
+the values settle within a few per cent: 195, 204, 200 and 196 nm for 5, 10, 20 and 30 beads. The
+brightest pixel of a bead holds only about 49 photons, so one bead's profile is lumpy
+(`psf-1-beads.png`: a blob with dark and bright patches around it); the average of 30 is a smooth,
+round spot, with the noise reduced by $\sqrt{30} \approx 5.5$. The centres were found to about
+9 nm, a seventh of a pixel.
+
+**C8.** 224 nm instead of 196 nm, 14 % too wide (compare E3 of the demo, 223 nm). In the picture the
+area around the spot is grey instead of black: the background, normalised along with the PSF,
+lifts the whole profile, so half of the peak is reached further out.
+:::
+
 ## Where this leads
 
 We now know what the microscope does to an object: blur by the PSF, sampling, noise. The [last unit of the day](../illposed/lec.qmd) asks the natural question: if we know the PSF, can we **run the model backwards** and get the object back? Later, fitting a spot with a PSF model locates it far more precisely than the resolution limit ([sub-pixel fitting](../spot-fit/lec.qmd)), and the resolution limit decides what colocalisation can mean ([colocalisation](../coloc/lec.qmd)).

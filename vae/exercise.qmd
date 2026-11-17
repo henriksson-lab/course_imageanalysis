@@ -121,6 +121,104 @@ The demo is the one-dimensional VAE above for one image value $x$. Top: the prio
 **E5.** At the prior: exact 6.500, from 20 draws 8.522. At the best cloud: exact 0.580, from the draws 0.806. Twenty random draws give a noisy estimate of an average. Training averages such estimates over many images and many steps, so the noise cancels out, much as one noisy measurement per step still leads downhill on average.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `vae/src/exercise.rs`.
+Everything is about the one-dimensional VAE of the lecture and the demo: one grey value $x$,
+decoder $\hat x = wz$, pixel noise $\sigma_x$, and the encoder's cloud $\mathcal N(\mu, s^2)$.
+
+**C1.** `reparameterise(mu, s, eps)`: a draw $z = \mu + s\varepsilon$ from the cloud; and
+`kl_to_prior(mu, s)`: the KL to the prior, added over the latent dimensions:
+
+```
+KL = 0
+for every latent dimension d:
+    KL = KL + ½ (mu[d]² + s[d]² − 1 − ln s[d]²)
+```
+
+The checks are your answers to B1, B4 and B5.
+
+**C2.** The reconstruction term in two ways: `reconstruction_exact` with the formula $R(\mu, s)$
+of the Background, and `reconstruction_from_draws`, the way training estimates it:
+
+```
+sum = 0
+for every given eps:
+    z = mu + s · eps
+    sum = sum + (x − w z)² / (2 σx²)
+R ≈ sum / (number of draws)
+```
+
+The checks are the lecture's table and B6, and that many draws come close to the exact value.
+
+**C3.** `fit_cloud(x, w, sigma_x, beta, steps, draws, rate, seed)`: find the best cloud as a VAE
+is trained, by walking downhill on $R + \beta\,\mathrm{KL}$ with $R$ estimated from a few random
+draws. The reparameterisation makes $z$ a formula in $\mu$ and $s$, so it has a gradient.
+The spread is kept as $\ln s$, so that it stays positive:
+
+```
+mu = 0,  log_s = 0                                 # start at the prior
+repeat steps times:
+    s = exp(log_s);   g_mu = 0;   g_s = 0
+    repeat draws times:
+        eps = a random number from N(0, 1);   z = mu + s · eps
+        d = −w (x − w z) / σx²                     # how (x − w z)²/(2σx²) changes with z
+        g_mu = g_mu + d / draws;   g_s = g_s + d · eps / draws
+    g_mu = g_mu + β · mu;   g_s = g_s + β · (s − 1/s)     # the pull of the KL
+    mu = mu − rate · g_mu;   log_s = log_s − rate · g_s · s
+```
+
+The check compares the end of the walk with your answer to B10.
+
+Then `cargo run -p vae` and open the picture in `out/vae/`. The program prints the lecture's table
+with an estimate from 20 draws, five estimates at the prior, and the best cloud for several
+$\beta$ (from C3 and from the formula of B10). `loss-map.png` shows the loss for $\beta = 1$
+over $\mu$ (across, $-0.5$ to $2$) and $s$ (up, 0 to 1.5), dark where it is low, with every step
+of the walk for $\beta = 1$ (red) and $\beta = 5$ (blue).
+
+**C4.** Compare the five estimates of $R$ at the prior from 20 draws with the exact 6.5. Why can
+training still find the right cloud with such noisy numbers (E5)?
+
+**C5.** Read the table for $\beta$ from 0.1 to 10. How do $\mu$, $s$, $R$ and KL change? Which
+$\beta$ gives a plain autoencoder in the limit, and which one ignores the image?
+
+**C6.** In `loss-map.png`, the walks do not end in a point but in a small cloud of positions.
+Why? What would make that cloud smaller? Why is the blue cloud not in the darkest part of
+the map?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `vae/src/solution.rs` in the download.
+
+**C4.** The five estimates are 5.31, 5.31, 3.61, 5.09 and 4.17, against the exact 6.5 (the
+estimate printed in the table, from another 20 draws, is 7.44). Each estimate is the average
+of 20 random squared errors, so it scatters a lot. But the noise has mean zero: the estimates
+are right **on average**. Each training step moves only a little, and over many steps (and many
+images) the errors cancel. The walk of C3 uses only 10 draws per step and still finds the
+cloud.
+
+**C5.** Gradient descent agrees with the formula of B10 to within 0.002:
+
+| $\beta$ | $\mu$ | $s$ | $R$ | KL |
+|---|---|---|---|---|
+| 0.1 | 1.464 | 0.155 | 0.051 | 2.446 |
+| 1 | 1.201 | 0.447 | 0.579 | 1.126 |
+| 5 | 0.668 | 0.744 | 2.491 | 0.296 |
+| 10 | 0.430 | 0.843 | 3.710 | 0.119 |
+
+As $\beta$ grows, the cloud moves from the image ($\mu \to x = 1.5$) towards the prior
+($\mu \to 0$) and widens ($s \to 1$); the reconstruction term rises and the KL falls. As
+$\beta \to 0$ the cloud shrinks to a point at $x$: a plain autoencoder. As $\beta \to \infty$ the
+cloud becomes the prior: every image gets the same cloud, and the image is ignored.
+
+**C6.** Every step uses new random draws, so its gradient is a noisy estimate: near the best
+cloud the steps keep pushing the point around it, and the path fills a small cloud (red around
+$(1.2, 0.45)$, blue around $(0.67, 0.75)$, both stretched along a slanted direction). More draws
+per step, or a smaller rate (or one that shrinks during training), would make the cloud
+smaller. The map shows the loss for $\beta = 1$; the blue walk minimises the loss for
+$\beta = 5$, whose minimum lies elsewhere, nearer the prior at $(0, 1)$.
+:::
+
 ## Where this leads
 
 The trained decoder can now be used on its own: draw $z$ from the prior and decode to **generate** an image, walk from one $z$ to another to **interpolate**, and use the reconstruction error to spot **unusual** images. That is the [next unit](../vae-gen/lec.qmd).

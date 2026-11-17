@@ -139,6 +139,97 @@ A profile of 200 samples with Gaussian noise (fixed seed): **step · ramp · pea
 **E8.** Diagonal $1 + 10 = 11$ at the two ends and $1 + 20 = 21$ inside, $-10$ next to the diagonal, zeros elsewhere: tridiagonal. Gain 0.505 at 0.05 cycles per sample and $1/41 = 0.024$ at 0.5: as in B5.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gmrf/src/exercise.rs`.
+
+**C1.** `penalty(d, ρ)` for the three penalties (quadratic, TV, Huber with its $\delta$), and
+`energy_1d(x, y, λ, ρ)`: $E = \tfrac12\sum_p (x_p - y_p)^2 + \lambda\sum_p \rho(x_{p+1} - x_p)$.
+The checks are B2 (4.5, 1.5, 0.15 against 3, 3, 3), B1(c) and B3(a).
+
+**C2.** `quadratic_1d(y, λ)`: solve $(I + \lambda L)\mathbf x = \mathbf y$ on a path. The matrix is
+tridiagonal, so elimination needs one pass down and one pass up:
+
+```
+row p:  −λ x[p−1] + a[p] x[p] − λ x[p+1] = y[p]       a = 1+λ at the two ends, 1+2λ inside
+down:   c[0] = −λ / a[0],  d[0] = y[0] / a[0]
+        for p = 1 .. n−1:
+            m = a[p] + λ c[p−1]
+            c[p] = −λ / m,  d[p] = (y[p] + λ d[p−1]) / m
+up:     x[n−1] = d[n−1]
+        for p = n−2 down to 0:  x[p] = d[p] − c[p] x[p+1]
+```
+
+The checks are B1(a, b), B3(c), and that the sum of the values is kept.
+
+**C3.** `tv_1d(y, λ, iterations)`: total variation in 1D. Each pair of neighbours gets a number
+$z_p$ between $-\lambda$ and $\lambda$: the $\lambda g_p$ of the math slide, the force that holds
+the two samples together. Given the $z$'s, the samples are $x_p = y_p - (z_{p-1} - z_p)$:
+
+```
+z = 0 for every pair
+repeat iterations times:
+    x[p] = y[p] − (z[p−1] − z[p])          for every p (z = 0 beyond the ends)
+    z[p] = z[p] + ¼ · (x[p+1] − x[p])       for every pair, then clip to [−λ, λ]
+x[p] = y[p] − (z[p−1] − z[p])
+```
+
+Where a pair's $z$ stays strictly inside $(-\lambda, \lambda)$, the two samples end up equal (a
+plateau); where it sticks at $\pm\lambda$, there is a jump. The checks are B3 and B4.
+
+**C4.** `quadratic_2d(y, λ, sweeps)`: quadratic smoothing of an image with 4-neighbours, by
+Gauss–Seidel sweeps (each equation of the system, solved for its own pixel):
+
+```
+x = y
+repeat sweeps times:
+    for every pixel p, row by row:
+        x[p] = (y[p] + λ · Σ over neighbours q of x[q]) / (1 + λ · number of neighbours)
+```
+
+The checks: a one-row image gives the result of C2, and the mean stays the same.
+
+**C5.** `tv_2d(y, λ, iterations)`: C3 for an image, with one $z$ for every horizontal pair and one
+for every vertical pair, and the step $\tfrac18$ instead of $\tfrac14$. The checks: B3(a) as a
+one-row image, and a bright $4 \times 4$ square that stays flat and sharp but is lowered by
+$\lambda \cdot (\text{perimeter}/\text{area}) = \lambda$.
+
+Then `cargo run -p gmrf` and open the pictures in `out/gmrf/`. The program smooths a noisy
+profile like the one of the demo (step, ramp, narrow peak, noise $\sigma_n = 0.3$) and plots data
+(grey), truth (green) and estimate (orange); then it smooths the micrograph with noise.
+
+**C6.** Read the table for the quadratic prior: which $\lambda$ has the smallest error, and what
+happens to the peak as $\lambda$ grows? Compare with TV at $\lambda = 1$. Then compare the peak
+heights of TV at $\lambda = 1, 2, 3$ with the rule $2\lambda/w$ of B4(b).
+
+**C7.** Look at `quadratic-10.png`, `tv-1.png` and `tv-3.png`. Describe the step, the ramp and
+the plateaus in each.
+
+**C8.** Compare `quadratic-2d.png` and `tv-2d.png` with `noisy.png`, and the printed errors.
+What does each do to the nuclear envelope, and to the flat parts of the cell?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gmrf/src/solution.rs` in the download.
+
+**C6.** The noisy data have an RMSE of 0.298. For the quadratic prior the error is smallest near
+$\lambda = 1.5$ (0.194); at $\lambda = 10$ it is 0.242 and the peak (height 2) is only 0.92 high.
+Raising $\lambda$ removes more noise but blurs more, and no $\lambda$ wins both. TV at $\lambda = 1$:
+0.129, with the peak at 1.40. TV peak heights 1.40, 0.90, 0.40 for $\lambda = 1, 2, 3$; the rule
+$2 - 2\lambda/4$ predicts 1.5, 1.0, 0.5: the same steps of 0.5, each a little lower (noise, and
+the background next to the peak rises too).
+
+**C7.** Quadratic ($\lambda = 10$): smooth everywhere; the step is a ramp several samples wide,
+and the peak a low bump. TV ($\lambda = 1$): the step is one sharp jump, the flat parts are flat,
+and the ramp is a staircase. TV ($\lambda = 3$): fewer, larger stairs; the plateau after the step
+and the peak lose contrast, and the error grows to 0.263.
+
+**C8.** RMSE 0.100 (noisy), 0.085 (quadratic, $\lambda = 2$), 0.076 (TV, $\lambda = 0.08$).
+Quadratic smoothing removes the grain but blurs the thin dark nuclear envelope and all fine
+detail. TV keeps the envelope and the edges sharp, but turns flat parts into patches of
+constant grey (a cartoon look, the 2D version of the staircase).
+:::
+
 ## Where this leads
 
 The same two priors return when the image is also **blurred**: the [deconvolution day](../regularise/lec.qmd) adds a point-spread function to the data term (Tikhonov = quadratic, and TV). In 2D, TV denoising keeps object boundaries in microscopy images ([TV flow](../tv-flow/lec.qmd) runs it as a smoothing flow), and its binary cousin, the boundary length, is the smoothness term of graph cuts, of the Ising model and of the [Chan–Vese](../chanvese/lec.qmd) level-set model. The quadratic system $(I + \lambda L)\mathbf x = \mathbf y$ returns with seeds as the [random walker](../random-walker/lec.qmd) (day 29).

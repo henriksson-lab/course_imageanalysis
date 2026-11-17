@@ -98,6 +98,85 @@ The same image, given as numbers in $[0, 1]$, is uploaded to the GPU in two form
 **E6.** 8 bit (RGBA), 8 bit sRGB, 10 bit and float32 (one channel) all take 4 bytes per texel: 16 MiB, 21.3 MiB with mipmaps; 5-6-5, half float and 16-bit integer take 2 bytes: 8 MiB. For one grey channel, float32 gives by far the most precision per 4 bytes; RGBA 8 bit stores the grey value three times and an unused alpha.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gpuformats/src/exercise.rs`.
+Bytes are whole numbers 0–255; colours are values in $[0, 1]$.
+
+**C1.** `byte_offset(x, y, c, stride, channels, bytes)`: where channel $c$ of pixel $(x, y)$ is
+in an interleaved image, $y\,s + x\,C B + c\,B$. Then `read_rgb8(data, width, height, stride)`:
+read an 8-bit RGB image with padded rows:
+
+```
+for every pixel (x, y), for c in 0, 1, 2:
+    img(x, y)[c] = data[y · stride + 3x + c] / 255
+```
+
+The checks are B1 (b), offset 6039, and a $2\times2$ image whose rows carry two padding bytes.
+
+**C2.** `read_u16(data, i, little_endian)`: the 16-bit value number $i$, from the bytes $2i$ and
+$2i + 1$: low byte first (little-endian) or high byte first (big-endian),
+value $= \text{high} \cdot 256 + \text{low}$. The check is B2.
+
+**C3.** `pack565(rgb)`, `unpack565(word)` and `pack1010102(rgb, alpha)`: packed formats.
+
+```
+code(v, bits) = round(v · (2^bits − 1))
+5-6-5:       word = code(R, 5) · 2^11 + code(G, 6) · 2^5 + code(B, 5)
+10-10-10-2:  word = code(R, 10) + code(G, 10) · 2^10 + code(B, 10) · 2^20 + alpha · 2^30
+```
+
+Unpacking takes the bits apart again and divides each code by $2^\text{bits} - 1$. The checks are
+B3: 0xFC00, green decoding to 0.508, and 0xC00803FF.
+
+**C4.** `premultiply(c)` and `over(src, dst)`: $(\alpha R, \alpha G, \alpha B, \alpha)$, and
+$\mathbf c_\text{src} + (1 - \alpha_\text{src})\,\mathbf c_\text{dst}$ in all four channels. The
+check is B4: averaging straight colours gives $(0.75, 0.75, 0.5)$ over white, averaging
+premultiplied ones gives $(1, 0.5, 0.5)$.
+
+**C5.** `half_size(img)` and `mip_chain(img)`: the next mipmap level (the mean of each
+$2\times2$ block), and all levels down to $1\times1$. The check is B7: a $4\times4$ texture has
+$16 + 4 + 1 = 21$ texels in its chain, and the last level is the mean.
+
+Then `cargo run -p gpuformats` and open the pictures in `out/gpuformats/`. The program stores the
+micrograph (in false colour, 253 pixels wide: 759 bytes per row, stride 760) and reads it with the
+right and the wrong stride (`stride-760.png`, `stride-759.png`); stores it as 16-bit values
+0–4000 and reads them in both byte orders (`endian-*.png`); stores a grey ramp from 0.30 to 0.45 in
+8 bits (top) and in 5-6-5 (bottom), contrast-stretched (`ramp-8bit-565.png`); magnifies a red disc
+on a texture whose transparent texels hold green, with straight and with premultiplied alpha, over
+white (`fringe-*.png`); and draws the mipmap chain (`mipmaps.png`), printing its size.
+
+**C6.** Describe `stride-759.png` and `endian-big.png`, and explain each from the bytes. What is
+the largest value read in the wrong byte order?
+
+**C7.** Count the bands in the two halves of `ramp-8bit-565.png` (or predict them from the codes).
+Why are the bands of the lower half tinted?
+
+**C8.** Compare the two `fringe` pictures. Where does the green come from, and why does the
+premultiplied version not show it?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gpuformats/src/solution.rs` in the download.
+
+**C6.** With stride 759 each row starts one byte too early per row: the picture is sheared (a
+third of a pixel per row, so a slanted edge appears where the image wraps around), and the
+channels are read one byte off per row, so its colours cycle from row to row in thin stripes.
+Read big-endian, the low byte (which changes fastest) becomes the high byte: the picture is
+noise, with only faint traces of the cell. The values run up to 64 780 instead of 4000.
+
+**C7.** 8 bits: 39 bands (codes 77 to 115). 5-6-5: 15 bands. Green has 6 bits (codes 19 to 28)
+and red and blue 5 bits (codes 9 to 14), and they step at different values of the ramp. Between
+their steps the three channels are unequal: greenish bands where green has already gone up, and
+purplish ones where red and blue have.
+
+**C8.** With straight alpha the disc has a pale green rim: bilinear filtering averages the opaque
+red texels with their transparent neighbours, whose (invisible) green colour leaks into the
+average. With premultiplied alpha the transparent texels are $(0, 0, 0, 0)$: they add no colour,
+and the edge fades cleanly from red to white. The mipmap chain has 9 levels and 87 381 texels,
+1.3333 times the full image (B7).
+:::
+
 ## Where this leads
 
 The same questions (layout, stride, format, what a filter may average) come back whenever images are moved between a camera, a file, a program and a screen. On the **3D graphics** day, the previous unit drew triangles whose texture coordinates are interpolated perspective-correctly; textures, mipmaps and premultiplied alpha are what that renderer samples and composites. The next unit, **volume rendering**, composites samples along a ray with the same "over" operator. The **colour day** explains why sRGB values must be decoded before averaging; the **floating-point** unit explains the precision of the half float and float32 formats seen here.

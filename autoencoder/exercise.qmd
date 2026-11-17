@@ -113,6 +113,97 @@ Each dot is a two-pixel image (pixel 1 across, pixel 2 up). The blue line throug
 **E5.** After 1500 steps the error is 0.0006, against 0.0170 for PCA: almost thirty times smaller. The green curve starts roughly straight and bends during training until it follows the horseshoe. It is still one number per image: the decoder maps one number $z$ to one point of the plane, so all its outputs lie on one curve; the bends of the ReLU units let that curve bend.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `autoencoder/src/exercise.rs`.
+
+**C1.** `pca_encode(x, mean, components)` and `pca_decode(scores, mean, components)`: PCA as an
+encoder and a decoder, for images (vectors) of any length and any number of components:
+
+```
+encode:  for every component u_k:   s_k = Σ_i u_k[i] · (x[i] − mean[i])
+decode:  x̂ = mean
+         for every component u_k:   x̂ = x̂ + s_k · u_k
+```
+
+The checks are your answers to B1, B2 and B3.
+
+**C2.** `reconstruction_error(images, mean, components)`: encode and decode every image, and
+average the squared length $\|\mathbf x - \hat{\mathbf x}\|^2$ of what is lost. The checks use
+B1, B5 and the matrix $S$ of B9.
+
+**C3.** The autoencoder of the lecture, encoder $2 \to 16 \to 1$ and decoder $1 \to 16 \to 2$:
+`dense(layer, input, relu)` computes one layer, and `forward(ae, x)` runs all four and returns
+their outputs $h_1, z, h_2, \hat{\mathbf x}$:
+
+```
+one layer:   out[o] = b[o] + Σ_i w[o][i] · in[i]
+             if the layer bends:  out[o] = max(0, out[o])
+forward:     h1 = layer 1 (x), bent;   z = layer 2 (h1)
+             h2 = layer 3 (z), bent;   x̂ = layer 4 (h2)
+```
+
+**C4.** `train_step(ae, images, rate)`: one step downhill on the mean squared reconstruction
+error, by backpropagation as in the unit *Neural networks*:
+
+```
+for every image x (n images):
+    run forward; the input of layer 1 is x, of layer k the output of layer k − 1
+    g = 2 (x̂ − x) / n                            # how the error changes with x̂
+    for layer k = 4, 3, 2, 1:
+        grad w[o][i] += g[o] · input[i];   grad b[o] += g[o]
+        g_in[i] = Σ_o w[o][i] · g[o]              # back to the layer's input
+        if that input came out of a bend: g_in[i] = 0 where input[i] = 0
+        g = g_in
+for every layer:  w = w − rate · grad w,   b = b − rate · grad b
+```
+
+One check changes single weights a little and compares the change of the error with your
+gradient; another trains on the moving spot and expects an error below that of PCA.
+
+Then `cargo run -p autoencoder` and open the pictures in `out/autoencoder/`. The program uses
+300 pairs of neighbouring pixels of the micrograph as two-pixel images, then PCA of the
+$8 \times 8$ patches of the whole micrograph (`patches-k1.png`, `-k4`, `-k16`), and finally
+trains the autoencoder on the moving spot for 20,000 steps (`spot.png`: data black, PC1 line
+blue with the errors in red, the decoder curve green).
+
+**C5.** Read the three printed errors for the neighbouring pixels: keeping pixel 1, keeping
+PC1, keeping nothing. Compare them with E1 and E2. What is PC1 of the micrograph's pixel
+pairs?
+
+**C6.** Open `patches-k1.png`, `patches-k4.png` and `patches-k16.png`. Each patch of 64 pixels is
+stored as 1, 4 or 16 numbers. What does the image with one number per patch look like, and
+why? What is lost with 4 numbers, and what with 16?
+
+**C7.** Compare the error of PCA on the moving spot with that of the trained autoencoder. In
+`spot.png`, where are the red PCA errors longest? Count the cost: how many numbers does
+the autoencoder store per image, and how many weights does it have?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `autoencoder/src/solution.rs` in the download.
+
+**C5.** Keeping pixel 1: 0.0497; keeping PC1: 0.0057; keeping nothing: 0.1011. As in E1, keeping
+one pixel loses about half of "keep nothing", and PC1 loses only the smaller eigenvalue
+(0.0057). PC1 is $(0.71, 0.70)$, close to $(1, 1)/\sqrt2$: the brightness of the pair, as in E2
+and B4. The micrograph's pairs spread a little more than the demo's, so the numbers are a
+little larger.
+
+**C6.** With one number per patch the image is a mosaic of $8 \times 8$ squares, each nearly
+flat: PC1 of the patches is "all pixels together", so one score is about the mean brightness
+of the patch. The mean squared error is 0.0171 per pixel. With 4 numbers the squares also get
+a slope (the next components are ramps), so the outline of the nucleus and the large dark
+regions come back, but the fine texture is smoothed away (0.0099). With 16 numbers the image
+looks close to the original; only the finest grain and sharpest edges are softened (0.0038).
+
+**C7.** PCA: 0.0178; the autoencoder: 0.0010 after 20,000 steps (0.0082 after 5,000), almost
+twenty times smaller. The red PCA segments are longest at the two ends of the horseshoe, where
+the curve bends back and is furthest from the line. Both store **one** number per image. PC1
+has 2 numbers (plus the 2 of the mean); the autoencoder has
+$(2 \cdot 16 + 16) + (16 + 1) + (16 + 16) + (16 \cdot 2 + 2) = 131$ weights and shifts, and needs
+thousands of training steps, where PCA needs one eigenvector.
+:::
+
 ## Where this leads
 
 A plain autoencoder rebuilds its training images, but its latent space can have **gaps**: decode a point between training images and nothing guarantees a sensible image. The **variational autoencoder** ([next unit](../vae/lec.qmd)) turns each image into a small cloud and keeps all clouds near one standard bell shape, so that the whole latent space decodes to plausible images and new images can be **generated**.

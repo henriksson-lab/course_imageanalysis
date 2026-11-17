@@ -109,6 +109,88 @@ The demo shows a noisy line profile of 80 samples across a cell (samples 13–50
 **E5.** The threshold moves to $\tfrac12(60 + 110) = 85$. Thresholding now gets 10 samples wrong (bright noise in the background passes the low threshold), and the optimal labelling at $\lambda = 3$ still gets 5 wrong: the cell and the thin structure come out too wide, because background samples next to them now look like object. The smoothness term helps, but it cannot fix a wrong **intensity model**: the data term says the wrong thing everywhere. The model ($\mu_0$, $\mu_1$, $s$) has to fit the image; in the [graph-cut unit](../graphcut-seg/lec.qmd) it is estimated from seed pixels.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `seg-energy/src/exercise.rs`.
+
+**C1.** `data_costs(img, mu0, mu1, s)` and `energy(labels, d0, d1, lambda)`: the data costs
+$D_p(\ell) = (I_p - \mu_\ell)^2/2s^2$ of both labels, and the energy of a labelling with
+4-neighbours and $w_{pq} = 1$:
+
+```
+E = 0
+for every pixel p:
+    E = E + D_p(L_p)
+    if p has a neighbour q to the right and L_p ≠ L_q:  E = E + λ
+    if p has a neighbour q below        and L_p ≠ L_q:  E = E + λ
+```
+
+(Looking only right and down counts every pair of neighbours once.) The checks are your answers
+to B1, B2 and B5.
+
+**C2.** `threshold(d0, d1)`: the minimum for $\lambda = 0$, every pixel its cheaper label. The
+check is B1.
+
+**C3.** `chain_dp(d0, d1, lambda)`: the exact minimum on a chain by dynamic programming:
+
+```
+C(1, ℓ) = D_1(ℓ)                                       for ℓ = 0, 1
+for k = 2, ..., n and ℓ = 0, 1:
+    C(k, ℓ) = D_k(ℓ) + min( C(k−1, ℓ),  C(k−1, 1−ℓ) + λ )
+    from(k, ℓ) = the label of pixel k−1 that gave the minimum
+ℓ = the label with the smaller C(n, ℓ)                 # the minimum energy
+for k = n down to 1:  L_k = ℓ;  ℓ = from(k, ℓ)         # trace back
+```
+
+The checks are your table of B3, the labellings of B2, the thin structure of B4 (kept at
+λ = 7.7, dropped at 7.9), and a comparison with trying all 1024 labellings of random chains of
+10 pixels.
+
+**C4.** `rows_dp(d0, d1, lambda)`: `chain_dp` on every row of an image separately.
+
+Then `cargo run -p seg-energy` and open the pictures in `out/seg-energy/`. The program makes a
+$128 \times 128$ image of a disk with a thin diagonal arm (grey levels 80 and 170 of 255, noise
+50), and compares thresholding with dynamic programming along the rows for λ = 1.5, 4 and 10.
+For every labelling it prints the wrong pixels, the number of boundaries (both directions), the
+data term and the 2D energy at λ = 1.5. Then it treats row 70, through the disk, as a chain.
+
+**C5.** Look at `rows-dp-lambda*.png`. What is wrong with them? Compare the 2D energy at
+λ = 1.5 of the rows-by-DP result (λ = 1.5) with that of the truth. Is the result the minimum of
+the 2D energy? Why not?
+
+**C6.** At λ = 10 the arm is gone from the rows-by-DP result, while the disk survives. Use B4 to
+explain why. (How wide is the arm within one row?)
+
+**C7.** Count the cost: how many additions and comparisons does `chain_dp` need for a row of $n$
+pixels? How many labellings would you have to try instead for a row of 128 pixels?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `seg-energy/src/solution.rs` in the download.
+
+**C5.** The results are made of horizontal streaks: specks have become short horizontal dashes,
+and the left and right edges of the disk are ragged. Each row is smoothed on its own, and a
+boundary between two rows costs nothing in the row energy. The 2D energy (λ = 1.5) of the
+rows-by-DP result is 10057.3, with 1721 boundaries, against 8900.4 for the truth (400
+boundaries): the truth is better, so the row result is not the minimum of the 2D energy. It
+minimises each row, ignoring the vertical boundaries. On a grid the rows are tied to each other
+through loops, and dynamic programming no longer applies: the next units use graph cuts. (The
+row result is still much better than thresholding: 591 wrong pixels at λ = 1.5 and 213 at λ = 4,
+against 3024.)
+
+**C6.** The arm runs diagonally, so in each row it is a piece about 4 pixels wide (3/sin 45°)
+with two boundaries. As in B4, a short piece survives only if its data gain is more than the
+2λ its two boundaries cost. On average an object pixel gains $(170 - 80)^2/(2 \cdot 50^2) = 1.6$,
+so the 4 pixels gain about 6.5: far less than 20 at λ = 10, and already less than 8 at λ = 4,
+where the arm is broken into dashes. The disk is up to 61 pixels wide in a row; its gain is far above 20. (Row 70 as a
+chain: 13 wrong samples at λ = 0, 4 at 1.5, none at 4 and 10; at λ = 100 all 61 disk samples are
+wrong, because one label for the whole row is cheaper than two boundaries.)
+
+**C7.** For every pixel and both labels one minimum of two sums: about $4n$ additions and $2n$
+comparisons, plus $n$ steps back: proportional to $n$. Trying all labellings of 128 pixels means
+$2^{128} \approx 3 \cdot 10^{38}$ labellings.
+:::
+
 ## Where this leads
 
 On a chain, dynamic programming finds the exact minimum. On a 2D image, the same energy with two labels can still be minimised **exactly**, by turning it into a **minimum cut** of a graph: the next two units, [maximum flow](../maxflow/lec.qmd) and [graph-cut segmentation](../graphcut-seg/lec.qmd). The weights $w_{pq}$ then depend on the image, so that boundaries prefer to follow edges.

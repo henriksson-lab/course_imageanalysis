@@ -144,6 +144,82 @@ A synthetic scene (a house, a ground grid, three posts) seen by two cameras ($f 
 **E6.** For points on one plane, many $F$ satisfy all the equations (the planar points are related by a homography; any $F$ compatible with it fits). The three smallest singular values of $A$ are 0.014, 0.009 and 0.008, against 1.6, 1.2 and 0.024 for the general scene: two extra (nearly) null directions. The estimated epipolar lines happen to pass through the planar matches but point in wrong directions, and the epipoles are wrong.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `two-view/src/exercise.rs`.
+A line $(a, b, c)$ is the set of pixels with $a u + b v + c = 0$.
+
+**C1.** `epipolar_line(F, x)` and `line_distance(l, x)`: the line $F(u, v, 1)^\top$ in image 2, and
+the distance $|a u + b v + c| / \sqrt{a^2 + b^2}$ of a pixel from it. The check is B3.
+
+**C2.** `eight_point(matches)`: the normalised eight-point algorithm.
+
+```
+T1, T2 = normalising transforms of the pixels of image 1 and of image 2
+for every match:  p = T1 (u, v, 1),  q = T2 (u', v', 1)
+    add the row ( q₀p₀, q₀p₁, q₀, q₁p₀, q₁p₁, q₁, p₀, p₁, 1 ) to A
+f = the unit vector with the smallest |A f|        # eigenvector of AᵀA
+F̂ = f as 3 rows of 3
+v = the unit vector with the smallest |F̂ v|        # eigenvector of F̂ᵀF̂
+F̂ = F̂ (I − v vᵀ)                                   # rank 2
+F = T2ᵀ F̂ T1
+```
+
+The checks: from exact matches every match lies on its epipolar line and $\det F = 0$; and B2 (a),
+sideways motion, gives the image rows as epipolar lines.
+
+**C3.** `ransac_iterations(p, w, s)`: $N = \log(1 - p)/\log(1 - w^s)$, rounded up. The check is
+the table of B4.
+
+**C4.** `ransac_fundamental(matches, eps, iterations, rng)`:
+
+```
+best = no inliers
+repeat iterations times:
+    pick 8 different matches at random;  F = eight_point(those 8)
+    inliers = matches whose x' lies within eps pixels of the line F x
+    if more inliers than best: best = inliers
+return eight_point(best), best
+```
+
+The check: 40 matches, 12 of them wrong; every correct match must be found.
+
+**C5.** `triangulate_midpoint(c1, d1, c2, d2)`: the middle of the shortest segment between the
+rays $\mathbf c_1 + s\mathbf d_1$ and $\mathbf c_2 + t\mathbf d_2$, from the $2\times2$ system of
+the slide "The math: triangulation". The check is B5 (a): $(0.5, 0, 4)$.
+
+Then `cargo run -p two-view` and open the pictures in `out/two-view/`. The program makes a scene
+of 80 points 4–9 m in front of two cameras ($f = 700$ px, camera 2 1.2 m to the right and turned
+by 10°), with 0.5 px noise, and replaces the image-2 pixel of 20 matches by a random one. It
+estimates $F$ from all matches by least squares and by RANSAC, and draws the epipolar lines of eight
+points into image 2 (`epipolar-ls.png`, `epipolar-ransac.png`; black dots: correct matches, red:
+wrong ones). Then it triangulates the correct matches with the known cameras and prints the depth
+errors.
+
+**C6.** Compare the two pictures and the printed distances. What happens to least squares with a
+quarter of wrong matches? How many inliers does RANSAC find, and are they all correct?
+
+**C7.** Read the printed depth errors for the near points (4–6 m) and the far points
+(7.5–9 m). Do they follow the rule $\delta Z \approx \sqrt2\,\sigma Z^2/(fB)$?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `two-view/src/solution.rs` in the download.
+
+**C6.** Least squares on all matches is useless: all its epipolar lines run through a false
+epipole inside the image, and the correct matches lie 31.8 px from their lines on average. The
+wrong matches pull the whole solution. RANSAC (1177 samples, for $w = 0.5$, $s = 8$) finds 55
+inliers, all of them correct; the other 5 correct matches have so much noise that they fall just
+outside $\varepsilon = 1.5$ px. Its lines run nearly along the image rows, as they should for a
+camera moved sideways, and the correct matches lie 0.59 px from them, about the noise level.
+
+**C7.** RMS depth error 0.024 m for the near points (mean depth 5.07 m) and 0.063 m for the far
+ones (8.29 m): 2.6 times as large for points 1.64 times as far, close to $1.64^2 = 2.7$.
+With $B \approx 1.2$ m, $f = 700$ px and $\sigma = 0.5$ px the rule gives
+$\sqrt2 \cdot 0.5 \cdot 5.07^2/(700 \cdot 1.2) = 0.022$ m and 0.058 m at 8.29 m: the right size.
+Depth error grows with the square of the depth.
+:::
+
 ## Where this leads
 
 With two calibrated cameras and their relative pose known, the epipolar lines can be made the image **rows**: then matching is a 1D search along a row, depth is just a division, and every pixel can be matched. That is **stereo**, the next unit. With many cameras, everything (poses and points) is refined together: **bundle adjustment** in the last unit.

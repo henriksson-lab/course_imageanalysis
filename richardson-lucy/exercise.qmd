@@ -137,6 +137,78 @@ A 3D volume of 64 × 32 × 32 voxels (100 nm across, 200 nm between planes) with
 **E8.** With 800 nm steps the bead goes only from 1178 nm to 808 nm (one plane is 800 nm). The stack samples the PSF axially below Nyquist: the fine axial structure is not in the data, and deconvolution cannot sharpen below the sampling.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `richardson-lucy/src/exercise.rs`.
+
+**C1.** `blur(img, psf)`: blur a periodic image with a PSF (the image repeats across its edges,
+as for the Fourier transform), $\text{out}(x, y) = \sum h(i, j)\, I(x - d_x, y - d_y)$ with
+$(d_x, d_y)$ the offset of PSF pixel $(i, j)$ from its centre.
+
+**C2.** `rl_step(x, y, psf, background)`: one step of the slide "Richardson–Lucy in words", with
+a constant background $b$:
+
+```
+blurred = blur(x, h) + b                 # what the microscope would show
+ratio   = y / blurred                    # pixel by pixel; 0 where blurred = 0
+back    = blur(ratio, h mirrored)        # spread the ratio back
+x_new   = x · back                       # pixel by pixel
+```
+
+The checks are the table of the slide "One step by hand" and your $\mathbf x_1$, $\mathbf x_2$ of B1.
+A PSF that shifts the image one pixel to the right checks that the ratio is spread back with the
+**mirrored** PSF.
+
+**C3.** `richardson_lucy(y, psf, iterations, background)`: start from a flat image (every pixel
+the mean of $y - b$) and repeat C2. The checks: $\mathbf x_3$ of B1, and the total number of
+photons stays that of the data, with no negative pixel.
+
+**C4.** `poisson_deviance(y, m)`: the misfit of the slide "The number of iterations is λ", the
+mean over the pixels of $2\big(y\ln(y/m) - (y - m)\big)$ (the first term is 0 where $y = 0$).
+
+Then `cargo run -p richardson-lucy` and open the pictures in `out/richardson-lucy/`. The program
+makes a fluorescence-like object from the micrograph (half size, inverted: bright structures on a
+dark background, $72 \times 72$ pixels), blurs it with a Gaussian PSF ($\sigma$ = 1.5 pixels) and
+records it as photon counts, 100 photons at brightness 1. It restores it with your Richardson–Lucy and prints,
+after $k$ steps, the RMSE against the object, the misfit, the total and the smallest pixel. At the
+end it adds a background of 20 photons per pixel and restores without and with the background
+term.
+
+**C5.** At which $k$ is the error smallest? What do the misfit and the error do after that? Where
+would the rule "stop when the misfit reaches 1" stop? Check the last two columns against the
+promises of the lecture.
+
+**C6.** Open `rl-5.png`, `rl-20.png` and `rl-200.png` next to `truth.png` and `observed.png`.
+Describe what happens as $k$ grows.
+
+**C7.** Compare the two restorations with the background of 20 photons per pixel
+(`rl-20-background-ignored.png` and `rl-20-background-modelled.png`): their RMSE, their total,
+and how they look.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `richardson-lucy/src/solution.rs` in the download.
+
+**C5.** The observed image (divided by 100) has an RMSE of 0.1119. RL reaches its smallest error,
+0.0915, at $k$ = 5, then the error grows again: 0.1031 at 20, 0.1313 at 50, 0.2270 at 200
+(semi-convergence). The misfit keeps falling all the time (1.277 at $k$ = 1, 0.938 at 5, 0.773 at
+200): fitting the data ever better is not getting closer to the object. It first drops below 1 at
+$k$ = 3 (0.990), close to the best $k$. The total stays 231 678 photons, exactly that of the data,
+and the smallest pixel stays positive (5.9 photons after one step, 0.023 after 200): RL keeps the
+photons and never goes negative.
+
+**C6.** After 5 steps the photon noise is gone and the image is a little sharper than the
+observed one, but still soft. After 20 steps it is sharper but grainy. After 200 steps the noise has
+become a dense pattern of bright dots and dark gaps all over the image: the speckles of the slide
+"Artefacts".
+
+**C7.** Background ignored: RMSE 0.2251, total 335 358, the data's photons including the
+$20 \times 72 \times 72 = 103\,680$ background photons. The background is explained as object
+light, so the whole image is too bright and grainy. Background modelled: RMSE 0.0979, total
+231 788, almost exactly the object's photons, and the picture looks like the restoration without
+a background.
+:::
+
 ## Where this leads
 
 The [next unit](../denoise/lec.qmd) asks what to do when there is nothing to un-blur (classical **denoisers** compared by what they destroy) and, most importantly, what a restored image may be used for: which **measurements** survive deconvolution and which do not.

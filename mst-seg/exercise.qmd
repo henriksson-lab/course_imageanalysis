@@ -149,6 +149,90 @@ A $256 \times 256$ image: a synthetic **test scene** (a textured disc; two flat 
 **F7.** σ = 0: 88 regions (pixel noise makes many small regions, especially along edges); σ = 2.5: 13 regions (edges are blurred into ramps of small steps; weaker boundaries such as the faint step are crossed).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `mst-seg/src/exercise.rs`.
+A graph is a number of nodes $0 \dots n-1$ and a list of edges `(a, b, d)`. For an image,
+`grid_edges` (given) makes the pixel graph with $d = |I_p - I_q|$, and `sorted` (given) sorts
+edges by weight, keeping the order of equal weights (so in 1D, left to right).
+
+**C1.** `UnionFind`: `new(n)`, `find(a)` and `union(a, b)`, as in the
+[labelling unit](../label-connectivity/lec.qmd):
+
+```
+find(a):   while parent[a] ≠ a:
+               parent[a] = parent[parent[a]]        # path halving: shorter next time
+               a = parent[a]
+           return a
+union(a, b):  ra = find(a), rb = find(b)
+              if ra = rb: return "already joined"
+              hang the smaller of the two under the larger; add up the sizes
+```
+
+**C2.** `kruskal(n, edges)`: the edges of a minimum spanning tree, in the order they are joined:
+
+```
+for each edge (a, b, d), sorted by d:
+    if union(a, b) succeeds: keep the edge          # else it would close a cycle
+```
+
+The check is B1: AD, BE, BD, CF, BC, total weight 15.
+
+**C3.** `single_linkage(n, edges, t)`: join across every edge with $d < t$; the regions are the
+components. The checks are B1(c) and B5(a) (6 regions at $t = 3$, one at $t = 4$).
+
+**C4.** `felzenszwalb(n, edges, k)`: Kruskal's order with FH's test:
+
+```
+Int = 0 for every node
+for each edge (a, b, d), sorted by d:
+    A = find(a),  B = find(b)
+    if A ≠ B and d ≤ min(Int[A] + k/size[A], Int[B] + k/size[B]):
+        R = union(A, B);  Int[R] = d
+```
+
+The checks are B2(c, d), G3, B3, B4(a) and B5(b).
+
+**C5.** `merge_small(n, edges, labels, min_size)`: the minimum-size clean-up: rebuild the given
+regions, then go through the edges in increasing order and join the two regions of an edge if
+either has fewer than `min_size` nodes.
+
+Then `cargo run -p mst-seg` and open the pictures in `out/mst-seg/`. The program works on the
+micrograph with grey levels 0–255, smoothed with σ = 0.8, with 8 neighbours, as in the lecture.
+
+**C6.** How many regions does single linkage give at $t = 3$, 6 and 12? Compare with the slide
+"Single linkage: thresholding the edges". The program also prints the heaviest edge of the
+minimum spanning tree. Without running anything else: from which $t$ on is the whole image one
+region? Why?
+
+**C7.** How many regions does FH give at $k = 50$, 300 and 1500, before and after the clean-up?
+At which $k$ is the nucleus one region of its own (`fh-300.png`), and what happens to it at
+$k = 1500$?
+
+**C8.** The program times the minimum spanning tree (building the edges, sorting, one pass)
+and FH. How does the cost grow with the number of pixels?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `mst-seg/src/solution.rs` in the download.
+
+**C6.** 25 514, 9996 and 1072 regions: within a few regions of the lecture's numbers (the
+smoothing differs slightly). At $t = 6$ the nucleus is one region, but the background is in
+many pieces; at $t = 12$ one region covers almost everything. The heaviest tree edge is 28.7:
+for every $t > 28.7$ the whole image is one region, because the tree path between any two
+pixels then has no edge $\ge t$ (single linkage = the tree minus its edges $\ge t$).
+
+**C7.** $k = 50$: 2004 regions, 584 after the clean-up; $k = 300$: 681 and 135; $k = 1500$: 302
+and 30 (the lecture: 583, 136, 30). At $k = 300$ the nucleus is one region with an irregular
+border; at $k = 1500$ it has merged with its surroundings through a weak part of its envelope,
+and almost the whole image is one region apart from small dark specks.
+
+**C8.** In our run the tree took about 56 ms for 65 536 pixels and 260 610 edges, and FH with the
+clean-up about 100 ms per $k$ (it sorts the edges again). Sorting $m$ edges costs about
+$m \log m$, the pass with union–find is nearly linear: the whole method grows only a little
+faster than the number of pixels.
+:::
+
 ## Where this leads
 
 Kruskal grows a forest without seeds. Start it from **markers** instead, and use the altitude of a landscape as the weights, and you get the watershed: [watershed as a minimum spanning forest](../ws-msf/lec.qmd). Keeping the whole merge order gives a [hierarchy](../merge-trees/lec.qmd).

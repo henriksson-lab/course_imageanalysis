@@ -159,6 +159,85 @@ Do the pen-and-paper part first, then the demos. Questions marked *(math)* are f
 **M6.** The rare blob holds 5 % of the data. Mode dropping removes the first component, the big blob (95 %!): all samples are in the rare blob, precision 0.94 (all realistic), recall 0.05 (only the rare blob's real points are covered), Fréchet 6.7 because the mean moves to the rare blob. (Dropping a rare blob instead would leave the Fréchet distance almost unchanged.)
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `diffusion-sampling/src/exercise.rs`.
+The program works with 1D data in the noise-level form $y = x_0 + \sigma\varepsilon$ of B8, with
+the exact best denoiser of the data (given), as in the samplers demo.
+
+**C1.** `euler_sample(y, sigmas, denoise)`: the deterministic sampler, one Euler step per noise
+level (B8, B9):
+
+```
+for i = 0 … n−1:
+    d = (y − D(y, σ_i)) / σ_i
+    y = y + (σ_{i+1} − σ_i) · d
+```
+
+The checks are B3 (a)–(d): with the denoiser $y/(1 + \sigma^2)$, a point at one standard deviation
+ends at 0.316 (one step), 0.535 (3 → 1.5 → 0), 0.632 (3 → 1 → 0) and 0.89 (ten steps).
+
+**C2.** `frechet_1d(a, b)`: fit a mean and a standard deviation to each set, and return
+$(\mu_1 - \mu_2)^2 + (s_1 - s_2)^2$. The checks are B4 and B5 (b).
+
+**C3.** `precision_recall(real, generated, k)`: the $k$-NN balls of the lecture, in 1D:
+
+```
+radius of a real point r = distance to its k-th nearest real point
+precision = fraction of generated points within the radius of at least one real point
+recall    = the same with the roles swapped (balls around the generated points)
+```
+
+The checks: a set against itself gives (1, 1); one of two modes gives precision 1 and recall 0.5;
+samples between the modes give (0, 0).
+
+**C4.** `nearest_distances(samples, training)`: for each sample, the distance to the nearest training
+point (B6).
+
+Then `cargo run -p diffusion-sampling` and open the pictures in `out/diffusion-sampling/`. The data
+are two modes at ±1.5 (sd 0.3). The sampler starts at σ = 80 and uses 1 to 100 steps, with levels
+dense at low noise (evenly spaced in $\sigma^{1/7}$, as modern samplers do). With 5 steps it also
+tries levels evenly spaced in σ and in log σ. Every run is judged against 2000 held-out real points.
+Last, a "memoriser" returns copies of 20 of its 200 training points. The histograms `steps*.png`
+show the samples (blue) over the data density (black).
+
+**C5.** Read sd, the fraction off the data, Fréchet distance, precision and recall against the number
+of steps. What do 1 and 2 steps produce, and why (B3 (a))? From how many steps is the sampler as good
+as it gets? Why does the Fréchet distance not reach 0? Then compare the three spacings at 5 steps.
+
+**C6.** The memoriser: which metric catches it, and which do not? Compare its median distance to
+the nearest training point with that of the held-out real points and of the diffusion samples.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `diffusion-sampling/src/solution.rs` in the download.
+
+**C5.** Real data: sd 1.53. One step: all samples at the mean (sd 0.03, 100 % off the data, Fréchet
+2.27, recall 0). One step to σ = 0 returns the denoiser's answer at σ = 80, which is the mean of the
+data (B3 (a), P2). Precision is not quite 0 (0.10): a real point at 0.38 lies alone in the gap between
+the modes, its ball is wide (0.34), and it reaches some samples near 0. Two steps are no better here:
+the second level is already 0.002, so the first step does all the work. 5 steps: sd 0.97, 23.6 % off
+the data, Fréchet 0.32 (`steps5.png`: two humps pulled towards the middle). 10 steps: sd 1.35, 5.1 %,
+0.048. 20 steps: sd 1.44, 1.4 %, 0.023. 100 steps: sd 1.51, 0.4 %, 0.016, precision and recall
+0.99. The spread grows towards the data's from below: too few steps give too little spread, and
+samples between the modes. From about 20 steps the sampler is close to its best. The Fréchet distance
+stays at about 0.016 because both sets are finite. By chance the real points have mean +0.05 and the
+samples −0.07, and $0.12^2 \approx 0.015$. Spacings at 5 steps: evenly in σ is useless (sd 0.12, all
+off the data). Its levels are 80, 60, 40, 20 and 0.002, all but the last far above the data's
+scale, so one step jumps from 20 to almost 0. Evenly in log σ (80, 5.7, 0.40, 0.028, 0.002) is
+better than the default (80, 17.5, 2.5, 0.17, 0.002) here: Fréchet 0.21 against 0.32. With so few
+steps, the result depends on where two or three levels happen to fall relative to the scale of
+the data (P4).
+
+**C6.** Memoriser: sd 1.55, 0 % off the data, precision 1.00: every copy is a real-looking point.
+But recall is 0.00: 2000 samples sit on 20 places, their balls are tiny, and no real point falls
+inside one. The Fréchet distance is 0.41, high only because the 20 copies happen to be unevenly
+split between the modes (with more copies it could be as low as the sampler's, as in M3). The
+clearest alarm is the nearest-training distance: median 0.0001 for the memoriser, against 0.0039
+for held-out real points and 0.0037 for the diffusion samples. Real data never lie that close to a
+training point (B6).
+:::
+
 ## Where this leads
 
 Samplers follow a denoiser; the next unit, [Conditioning, guidance and latent diffusion](../guidance/lec.qmd), changes **which** denoiser: one that knows a label, pushed harder with guidance, or one that works in a VAE's latent space. The same metrics will show what guidance trades.

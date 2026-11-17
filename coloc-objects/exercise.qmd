@@ -134,6 +134,100 @@ The demo simulates two channels at physical scale: pixel 65 nm, NA 1.4, A at 520
 **E7.** 60 nm, 2000 photons: precision 9 nm (A) and 14 nm (B), measured mean 64 nm, predicted 62 nm; pixel $r$ = 0.86, so pixels call these pairs colocalised, while the centroids recover the 60 nm. True distance 0 (2000 photons): measured mean 22 nm. Few photons (150, true 0 nm): precision 24 and 33 nm, measured mean 43 nm, predicted 52 nm. The bias grows with the localisation error; a "distance" of 40 nm can be a true 0.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `coloc-objects/src/exercise.rs`.
+Spots are lists of positions $(x, y)$; the distance between two points is given.
+
+**C1.** `nearest(a, b)` and `fraction_within(a, b, d_max)`: for every A spot the nearest B
+spot and its distance, then the share of A spots with that distance $\le d_\text{max}$:
+
+```
+for every A spot p:
+    best = infinity
+    for every B spot q:  if dist(p, q) < best: best = dist(p, q), remember q
+fraction = (number of A spots with best ≤ d_max) / (number of A spots)
+```
+
+The check is B1(a, b).
+
+**C2.** `one_to_one(a, b, d_max)`: the number of pairs when every spot may be used once. Take
+the closest pairs first (a greedy approximation of the optimal assignment of the lecture):
+
+```
+pairs = all (A spot, B spot) with distance ≤ d_max, sorted by distance
+for each pair, closest first:
+    if neither spot is used yet: count it, mark both as used
+```
+
+The check is B1(c): 2 pairs, not 3.
+
+**C3.** `chance_level(rho, d)` $= 1 - e^{-\rho\pi d^2}$ and `corrected(f_obs, f_chance)`
+$= (f_\text{obs} - f_\text{chance})/(1 - f_\text{chance})$. The check is B2.
+
+**C4.** `overlap_shares(a, b)`: the share of labelled A objects that overlap the B mask by any
+pixel, by more than half of their pixels, and with their centroid:
+
+```
+for every pixel with label l > 0:
+    area[l] += 1;  sum_x[l] += x;  sum_y[l] += y
+    if B is on there: in_B[l] += 1
+for every label l:
+    any       if in_B[l] > 0
+    majority  if in_B[l] > area[l] / 2
+    centroid  if B is on at (round(sum_x[l] / area[l]), round(sum_y[l] / area[l]))
+```
+
+The check is B3: 75 %, 25 % and 50 %.
+
+**C5.** `cross_k(a, b, area, r)` and `relocate(n, mask, rng)`: the cross-K function (count the
+pairs within $r$, times $|W|/(n_A n_B)$), and $n$ random positions inside the mask (draw anywhere
+in the image, keep the point only if it falls in the mask). The checks: a small example by hand,
+$L(r) \approx r$ for independent spots (B8), and relocated points all inside the cells.
+
+Then `cargo run -p coloc-objects` and open the pictures in `out/coloc-objects/` (A spots green,
+B spots magenta rings, yellow links to a B spot within $d_\text{max}$). The program simulates spot
+positions in two cells (pixel 65 nm, 33.8 µm², localisation precision 20 nm per axis, $d_\text{max}$ =
+130 nm): 40 A spots with 60 % paired at 0 nm plus 8 extra B spots (`scene1`), independent sparse
+(12 B spots) and dense (120), and all A spots paired at 300 nm (`scene4`). It prints the observed,
+chance and corrected fractions and the one-to-one share; then $L(r) - r$ for $r$ = 50 … 500 nm
+against an envelope of 39 relocations of B, inside the cells and over the whole image; and the
+mean measured distance of 2000 pairs.
+
+**C6.** In which scenes is the observed fraction more than chance? What happens with 120
+independent B spots, at 130 and at 260 nm?
+
+**C7.** Compare the two envelopes for the independent spots. Which one is honest, and why does the
+other call independent spots "attracted"? Where does the curve of the pairs at 300 nm leave the
+envelope, and what did the fraction within 130 nm say about the same scene?
+
+**C8.** Predict the mean measured distance for true distances 0, 60 and 200 nm from B4 and the
+Rayleigh formula, then compare with the printed values.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `coloc-objects/src/solution.rs` in the download.
+
+**C6.** Pairs at 0 nm: 65.0 % observed against 4.9 % by chance, corrected 63.2 % (the true paired
+share is 60 %, and one-to-one gives exactly 60.0 %: a few unpaired A spots find a B spot by
+chance). Independent and sparse: 2.5 % against 1.9 %. Independent and dense: 12.5 % against
+17.2 % (corrected −5.7 %): nothing beyond chance, and 12.5 % alone would have looked like some
+colocalisation. At 260 nm: 50.0 % observed, 53.0 % by chance: a large fraction that means
+nothing. Pairs at 300 nm: 7.5 % against 6.1 %: at 130 nm these pairs are invisible.
+
+**C7.** For the independent spots the curve stays inside the envelope from relocations inside
+the cells at every radius, but lies above the whole-image envelope from 350 nm on. Relocations
+over the whole image put B spots outside the cells, far from every A spot, so random spots look
+less close than real unrelated spots inside the cells can be, and the data look "attracted". The
+pairs at 300 nm are inside the envelope up to 250 nm and above it from 300 nm on: the spots keep
+a distance of about 300 nm, which the fraction within 130 nm (7.5 % against 6.1 %) cannot see.
+
+**C8.** B4: true 0 nm gives $\sqrt{20^2 + 20^2}\cdot\sqrt{\pi/2} = 35.4$ nm; the program measures
+35.6 nm. 60 nm: rms $\sqrt{60^2 + 1600} = 72$ nm, mean about 67 nm (the lecture); measured 67.3 nm.
+200 nm: 202.0 nm, almost no bias, because the distance is much larger than the localisation
+error (28 nm for the difference vector per axis).
+:::
+
 ## Where this leads
 
 Objects and distances make the question precise, but every channel still carries what the microscope added: the next unit, [what the microscope does to colocalisation](../coloc-confounds/lec.qmd), puts background, bleed-through, chromatic shift and the resolution limit into one forward model and corrects them in order. Below about 10 nm even centroids are not enough: [FRET](../fret-physics/lec.qmd), the next day (day 45), measures proximity by energy transfer. For localisation microscopy, where the data are lists of coordinates rather than images, the same distance statistics are applied to the coordinates themselves. The full toolbox for point patterns (the G, F and J functions, edge corrections, two cell types and an uneven density) is the [spatial statistics day](../point-patterns/lec.qmd) (day 19); its [cross-type functions](../marked-patterns/lec.qmd) are the cross-K of this unit.

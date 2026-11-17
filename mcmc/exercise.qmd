@@ -162,6 +162,95 @@ A $256 \times 256$ periodic lattice (choose $64^2$ or $128^2$ for speed), animat
 **E6.** Quench: domains form and coarsen, but with this seed the lattice ends in two stripes across the whole torus ($m \approx 0.1$, $E/n \approx -1.966$) and stays there. Slow cooling (from 3.5 to 0.5 over 300 sweeps): one domain, $m = -1$ (a ground state, apart from rare thermal flips). The stripes are a local minimum: their straight walls can only move by flips that raise the energy by 4 first (accepted with $e^{-8} = 0.0003$ at $T = 0.5$), so they effectively never do. With other seeds a quench may also reach one domain, and slow cooling may also end in stripes; slower cooling makes stripes rarer.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `mcmc/src/exercise.rs`.
+The lattice is an image of spins $\pm 1$ and is **periodic**: the right neighbour of the last
+column is the first column, and likewise for rows.
+
+**C1.** `local_field(s, x, y, J, h)`: the neighbours' vote $u = J \cdot (\text{sum of the 4
+neighbouring spins}) + h$, with wrap-around at the edges. The check is B1.
+
+**C2.** `gibbs_sweep(s, J, h, T, rng)`: one sweep of the Gibbs sampler, changing `s` in place:
+
+```
+for every pixel (x, y), row by row:
+    u = local field at (x, y)
+    p = 1 / (1 + e^(−2u/T))
+    s(x, y) = +1 if random() < p, else −1
+```
+
+**C3.** `metropolis_sweep(s, J, h, T, rng)`: one sweep of Metropolis; returns the number of
+accepted flips:
+
+```
+for every pixel (x, y), row by row:
+    ΔE = 2 · s(x, y) · (local field at (x, y))
+    if ΔE ≤ 0 or random() < e^(−ΔE/T):
+        s(x, y) = −s(x, y)
+```
+
+**C4.** `energy_and_magnetisation(s, J, h)`: the energy per spin $E/n$ (each pair of neighbours
+once: pair every pixel with its right neighbour and the one below, with wrap-around) and the
+magnetisation $m$.
+
+The checks for C2 and C3 run each sampler for 40 000 sweeps on the $3 \times 3$ torus at $T = 3$,
+and compare the fraction of sweeps spent at each energy level with the exact probabilities of
+the [Ising unit](../ising/exercise.qmd) (E2). A second check is B2(b): a lone $-1$ among $+1$
+neighbours flips back even at $T = 0.01$, and nothing else flips.
+
+**C5.** `anneal(s, J, T0, T1, sweeps, rng)`: simulated annealing with a geometric schedule;
+returns the temperatures used:
+
+```
+r = (T1 / T0)^(1 / (sweeps − 1))
+T = T0
+repeat sweeps times:
+    one Metropolis sweep at temperature T
+    T = T · r
+```
+
+The check is B6(a): from 4 to 0.5 in 100 steps, $r = 0.979$.
+
+Then `cargo run -p mcmc` and open the pictures in `out/mcmc/`. The program draws samples of a
+$128 \times 128$ lattice at three temperatures, scans the temperature on $64 \times 64$, measures
+critical slowing down, and compares a quench with slow cooling for 8 random starts.
+
+**C6.** Compare `sample-cold.png`, `sample-critical.png` and `sample-hot.png` with the printed
+$E/n$ and $m$. Which picture has clusters of every size? The program also prints how often a
+pixel changes per sweep with Gibbs and with Metropolis at $T = 2$: which changes more often,
+and does that agree with B3?
+
+**C7.** Read the T-scan. Where does $\langle|m|\rangle$ agree with Onsager's curve, and where not?
+The scan starts every temperature from all $+1$: what could go wrong at low $T$ if it started
+from random spins instead? (Look at `quench.png`.)
+
+**C8.** How many sweeps does it take from all $+1$ until $|m| < 0.1$ at $T = 4, 3, 2.5, 2.3$? How
+many of the 8 quenches, and how many of the 8 slow coolings, end in one domain?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `mcmc/src/solution.rs` in the download.
+
+**C6.** Cold ($T = 1.5$): one sign has taken over, with scattered single flipped spins
+($E/n = -1.950$, $m = -0.986$). Critical ($T = 2.27$): clusters of every size, from single pixels
+to blobs tens of pixels across ($E/n = -1.399$, close to $-\sqrt2$; $m = 0.51$ after 300
+sweeps, still wandering). Hot ($T = 5$): fine-grained noise ($E/n = -0.422$, $m = 0.01$).
+Per sweep, Gibbs changed 10.4 % of the pixels and Metropolis 11.3 %: Metropolis changes more
+often, as in B3(c), and both sample the same distribution.
+
+**C7.** Below $T_c$ the averages lie on Onsager's curve (0.980 at $T = 1.6$, 0.912 against 0.911
+at $T = 2$, 0.778 against 0.785 at $T = 2.2$). Above $T_c$ they are small but not 0 (0.12 at
+$T = 2.4$, 0.04 at $T = 3.2$): a finite lattice always has some net magnetisation by chance,
+most near $T_c$. From random spins, a cold lattice can freeze into stripes that span the torus
+(as in `quench.png`), with $|m|$ far below the equilibrium value for hundreds of sweeps: the
+scan would show dips that have nothing to do with the model.
+
+**C8.** 2, 6, 31 and 3416 sweeps: near $T_c$ the large clusters must be taken apart one pixel at
+a time (critical slowing down). Only 2 of the 8 quenches end in one domain; the other 6 stay in
+stripes ($E/n \approx -1.90$); all 8 slow coolings end in one domain ($E/n = -2$).
+:::
+
 ## Where this leads
 
 So far the field $h$ was the same for every pixel. In the [next unit](../mrf-denoise/lec.qmd) the field comes from a **noisy image**: the Ising model becomes a **prior** for the clean image, and sampling, annealing and the exact minimum cut become tools for Bayesian **denoising**. Much later, the sampler of a diffusion model adds the same kind of random-walk correction steps (Langevin steps, [sampling from diffusion models](../diffusion-sampling/lec.qmd), day 41).

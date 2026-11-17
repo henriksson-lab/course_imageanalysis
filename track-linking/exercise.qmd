@@ -171,6 +171,104 @@ A seeded movie of 60 frames: particles in a 256 × 256 px field move by random w
 **E6.** Directed particles move speed × Δt = 4 px per frame on top of the diffusion, so the displacement and the ratio rise (0.24 → 0.34), and the global error rate from 3.6 % to 4.8 % (nearest neighbour 6.9 % → 7.5 %). The extra errors sit where tracks cross or run close: the linker looks only at the last position and does not know where each particle is heading.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `track-linking/src/exercise.rs`.
+
+**C1.** `cost_matrix(from, to, gate)`: the cost of every candidate link, with the gate:
+
+```
+for every detection i at frame t, every detection j at frame t+1:
+    d² = (x_i − x_j)² + (y_i − y_j)²
+    c[i][j] = d²  if d² ≤ gate²,  else ∞
+```
+
+The check is your matrix of B1(a).
+
+**C2.** `nearest(cost)`: every row takes its cheapest column (none if all its costs are ∞).
+Conflicts are allowed. The check is the conflict of B1(a).
+
+**C3.** `greedy(cost)`: the cheapest free pair first, never revisited:
+
+```
+repeat:
+    (i, j) = the cheapest pair with c[i][j] < ∞, row i and column j both still free
+    if there is none: stop
+    link i → j
+```
+
+The checks are B1(b) (total 26) and B3(b) (B is left without a link).
+
+**C4.** `global_by_search(cost)`: global assignment by trying every possibility: each row gets a
+different column, all costs finite, and the total is as small as possible:
+
+```
+try(row i, columns chosen so far, total so far):
+    if every row has a column: keep this choice if its total is the smallest so far
+    for every free column j with c[i][j] < ∞:
+        try(row i + 1, chosen + j, total + c[i][j])
+start with try(row 0, nothing chosen, 0)
+```
+
+The checks are B1(c) and B3(a), and a comparison with a fast exact solver (the Hungarian
+algorithm, provided in the download) on random $6 \times 6$ matrices.
+
+**C5.** `augmented(cost, b)` and `link_with_ends(cost, b, solver)`: ends and starts of tracks at
+cost b, with the augmented matrix of the math slide:
+
+```
+M = (m + n) × (n + m) matrix, all ∞
+M[i][j]         = c[i][j]      the links (m rows at t, n columns at t+1)
+M[i][n + i]     = b            row i ends its track
+M[m + j][j]     = b            column j starts a track
+M[m + j][n + i] = 0            leftover dummies pair up
+solve M; row i given a column j < n is a link, a column ≥ n means "ends"
+```
+
+The checks are your matrix of B7 and the ranges of b of B2(b).
+
+Then `cargo run -p track-linking` and open the pictures in `out/track-linking/`. The program
+simulates 80 particles in a $256 \times 256$ px field for 40 frames (random walk, bouncing off the
+walls) at difficulty ratios 0.2, 0.5 and 1. It links every pair of frames with `nearest`,
+`greedy` and global assignment (`link_with_ends` with the fast solver, gate 5 rms displacements,
+b = (3 rms)²), and counts the true links missed. The pictures show 15 frames at ratio 0.5, with
+right links green and wrong ones red.
+
+**C6.** Compare the three error rates at each ratio with the estimate $a/(1+a)$ printed next to
+them. Which method is best, and by how much at ratio 0.5? Where are the red links in the two
+pictures?
+
+**C7.** At ratio 0.5, compare the fraction of perfect tracks (global) with $(1 - e)^{39}$, the
+fraction you would expect if every link were wrong independently with the error rate $e$. Which
+is larger, and why?
+
+**C8.** `global_by_search` tries up to $n!$ assignments for $n$ rows and columns. How many is
+that for $n = 10$, 20 and 80? Why does the program use a different solver?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `track-linking/src/solution.rs` in the download.
+
+**C6.** Errors (true links missed) for nearest, greedy and global: ratio 0.2: 2.9 %, 2.6 %,
+1.7 % (estimate 3.0 %); ratio 0.5: 13.3 %, 12.9 %, 7.4 % (estimate 16.4 %); ratio 1: 41.3 %,
+40.8 %, 29.5 % (estimate 44.0 %). Nearest neighbour follows the estimate (a little below it; near
+the walls a particle has fewer neighbours), greedy is barely better, and global assignment is
+clearly best: at ratio 0.5 it misses 44 % fewer links than nearest neighbour. At ratio 1 every
+method fails. In the pictures the red links sit where two or more particles come close; the
+nearest-neighbour picture has many more of them.
+
+**C7.** 11 of 80 tracks (14 %) are perfect, against $(1 - 0.074)^{39} \approx 5$ %. More tracks
+survive than the independent estimate says, because the errors are not spread evenly: they
+cluster on particles that pass through crowded places, while particles that stay alone are never
+linked wrongly. (At ratio 0.2: 68 % against 51 %.) The lesson of the slide "Errors compound"
+still holds: even at 7 % errors per link only a small fraction of long tracks is perfect.
+
+**C8.** $10! = 3.6 \cdot 10^6$, $20! = 2.4 \cdot 10^{18}$, $80! \approx 7 \cdot 10^{118}$. At
+$10^9$ assignments per second, 20 rows already take about 80 years. The Hungarian algorithm finds
+the same optimum in about $n^3$ steps: $160^3 \approx 4 \cdot 10^6$ for the augmented matrix of 80
+particles, a few milliseconds.
+:::
+
 ## Where this leads
 
 Linking to the **last** position fails for fast objects, especially at crossings. The [next unit](../track-predict/lec.qmd) links to the **predicted** position and lets the uncertainty of the prediction set the gate: motion models and the **Kalman filter**. After that: [missed detections, divisions and lineage trees](../track-events/lec.qmd), and [what tracks measure](../track-analysis/lec.qmd).

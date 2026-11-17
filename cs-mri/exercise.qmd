@@ -104,6 +104,105 @@ The phantom (256 × 256) is undersampled in k-space and reconstructed by zero fi
 **E6.** TV turns the texture into flat patches with sharp boundaries (cartoon); Haar wavelets give blocks. Both remove fine, low-contrast texture, which is not sparse in either representation. This is why MRI images (mostly smooth tissue regions with edges) suit compressed sensing better than textured micrographs.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `cs-mri/src/exercise.rs`.
+k-space is the 2D DFT of the image (computed with the fast transform, from the Fourier unit), and
+one line is one row of it; the 2D Haar transform of the wavelets day is given.
+
+**C1.** `variable_density_mask(n, lines, centre, q, seed)`: which of the `n` lines to measure:
+
+```
+measure every line with |frequency| ≤ centre/2
+while fewer than `lines` lines are measured:
+    draw one line f > 0 not yet measured, with probability ∝ (1 − |f| / (n/2))^q
+    measure f and −f                     # the phantom is real: k and −k come together
+```
+
+The checks: the number of lines, the full centre, the pairs $f, -f$, and that lines near the
+centre are drawn far more often.
+
+**C2.** `zero_filled(img, mask)`: 2D DFT, the rows that were not measured set to 0, inverse DFT,
+real part. The checks are D2 (a) and (b): the 8-sample profile with a 5 at row 2 comes back as
+2.5 at rows 2 and 6 (every 2nd line) and 1.25 at rows 0, 2, 4, 6 (every 4th).
+
+**C3.** `data_consistency(x, kspace, mask)`: the gradient step with step 1 (D7):
+
+```
+K = 2D DFT of x
+on every measured line: K = the measured data
+x_new = real part of the inverse 2D DFT of K
+```
+
+The checks: with all lines measured the result is the truth; with none, $\mathbf x$ does not
+change; otherwise the measured lines agree with the data afterwards.
+
+**C4.** `cs_reconstruct(kspace, mask, λ, levels, iterations)`: the CS-MRI reconstruction with
+FISTA and Haar-wavelet ℓ1:
+
+```
+x = zero-filled image,  z = x,  t = 1
+repeat:
+    g = data_consistency(z)
+    c = Haar transform of g
+    soft-threshold every detail coefficient of c at λ   # keep the coarse averages
+    x_new = inverse Haar transform of c
+    t_new = (1 + sqrt(1 + 4 t²)) / 2
+    z = x_new + (t − 1)/t_new · (x_new − x)
+    x = x_new,  t = t_new
+```
+
+The checks: on a piecewise-constant 64 × 64 image with a third of the lines, CS has a clearly
+smaller error than zero filling; with all lines and λ = 0 it returns the truth.
+
+Then `cargo run -p cs-mri` and open the pictures in `out/cs-mri/`. The program takes the
+256 × 256 head phantom (no noise) and four masks: the 63 central lines, every 2nd line plus a
+centre of 17, and random variable-density masks (centre 16, q = 3) with 4× and 8× fewer lines.
+It writes the masks (frequency 0 in the middle), the zero-filled images and the CS
+reconstructions (λ = 0.01, 5 Haar levels, 100 iterations), and does the same at 4× for a
+phantom with five small faint lesions, shown with a narrow grey window.
+
+**C5.** Make a table of the printed PSNRs (zero filled and CS) for the four masks. For each mask,
+what does CS change in the picture, and what does it not change?
+
+**C6.** Compare `lesions.png` with `lesions-cs-random4x.png`. Can you find the five lesions in
+the reconstruction? What PSNR does the program print for it, and what does that tell you?
+
+**C7.** Count the cost of one iteration on a 256 × 256 image: a 2D FFT needs about
+$N^2\log_2 N$ butterfly operations for an $N \times N$ image. Compare with multiplying by the
+matrix $PF$ written out ($N^2$ unknowns, up to $N^2$ measurements).
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `cs-mri/src/solution.rs` in the download.
+
+**C5.**
+
+| mask | lines | zero filled | CS |
+|---|---|---|---|
+| centre only | 63 (4.1×) | 24.4 dB | 22.8 dB |
+| every 2nd + centre | 136 (1.9×) | 20.9 dB | 23.9 dB |
+| random, 4× | 65 (3.9×) | 20.6 dB | 28.5 dB |
+| random, 8× | 33 (7.8×) | 18.7 dB | 20.4 dB |
+
+Centre only: CS removes the ringing, but the edges stay soft along $y$ and the small bright discs
+lose contrast; the PSNR even falls, because the high frequencies were never measured and the
+threshold costs contrast. Every 2nd line: the ghost copy of the bright rim stays in the CS image
+as arcs across the head (the ghost is as sparse as the object). Random 4×: the streaks are gone
+and the edges are sharp, with some Haar blockiness: +7.9 dB. Random 8×: the image breaks into
+blocks; CS gains only 1.7 dB.
+
+**C6.** In the phantom the five faint discs are visible as small grey dots in the narrow window.
+In the CS reconstruction at 4× they cannot be told apart from the blocky texture of the brain
+region. The PSNR is 28.5 dB, the same as for the phantom without lesions: losing the lesions
+costs almost nothing in PSNR, so a good PSNR says nothing about small, faint details.
+
+**C7.** $N = 256$: $256^2 \cdot 8 \approx 5 \cdot 10^5$ per 2D FFT, about $10^6$ for the two
+FFTs of one iteration, plus a Haar transform pair (a few operations per pixel). The
+matrix $PF$ written out has up to $65\,536^2 \approx 4.3 \cdot 10^9$ complex entries: thousands of
+times more work per multiplication, and tens of gigabytes of memory.
+:::
+
 ## Where this leads
 
 Wavelets and TV are hand-made priors. The next unit **learns** the atoms from the images themselves ([dictionary learning](../dictionaries/lec.qmd)); the diffusion day learns a whole prior ([diffusion priors](../diffusion-inverse/lec.qmd)). Both promise better reconstructions and both bring the question of what the prior adds that was not measured.

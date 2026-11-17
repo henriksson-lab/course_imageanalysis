@@ -205,6 +205,80 @@ A sphere (an icosphere, subdivision levels 0–3), a torus or a low-poly gem, dr
 **S5.** Brightest where $\mathbf n$ points at the light ($\mathbf n\cdot\mathbf l = 1$), darker as $\cos\theta$ falls, black where $\mathbf n\cdot\mathbf l \le 0$. With the light at the edge of the disc it comes from the side, perpendicular to the viewing direction: the terminator (where $\mathbf n\cdot\mathbf l = 0$) runs straight across the visible disc, and the half facing away from the light is black.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `rasterise/src/exercise.rs`.
+Screen coordinates are as in the lecture: $y$ up, pixel $(i, j)$ has its centre at $(i + 0.5, j + 0.5)$.
+
+**C1.** `edge(a, b, p)`: the edge function
+$E_{ab}(\mathbf p) = (b_x - a_x)(p_y - a_y) - (b_y - a_y)(p_x - a_x)$. The check is B1 (a) and the
+table of B1 (b).
+
+**C2.** `barycentric(a, b, c, p)`: the barycentric coordinates of $\mathbf p$, or nothing if
+$\mathbf p$ is outside or the triangle is a back face:
+
+```
+area = E_ab(c)
+if area ≤ 0: back face (or flat), skip
+e_a, e_b, e_c = E_bc(p), E_ca(p), E_ab(p)
+if any of them < 0: outside
+return (e_a, e_b, e_c) / area
+```
+
+The checks are B1 (c) and B4.
+
+**C3.** `draw_triangle(colour, depth, v, shade)`: draw one triangle with a z-buffer. Each corner
+is $(x, y, \text{depth})$; `shade` turns the barycentric coordinates of a pixel into its grey value
+(so that the same function can draw flat, Gouraud or per-pixel shading):
+
+```
+for every pixel (i, j) in the triangle's bounding box (inside the image):
+    p = (i + 0.5, j + 0.5)
+    if p is inside, with barycentrics (b_a, b_b, b_c):
+        z = b_a z_a + b_b z_b + b_c z_c
+        if z < depth(i, j):
+            depth(i, j) = z
+            colour(i, j) = shade(b_a, b_b, b_c)
+```
+
+The check is B2: both drawing orders must give the same buffers.
+
+**C4.** `perspective_correct(b, w, f)`: interpolate $f/w$ and $1/w$ with the screen weights, then
+divide (slide "Perspective-correct interpolation"). The check is B5.
+
+**C5.** `phong(n, l, v, ka, kd, ks, s)` and `blinn_phong(...)`: ambient + Lambert + specular
+(slide "The math: Phong and Blinn–Phong"). The check is B7.
+
+Then `cargo run -p rasterise` and open the pictures in `out/rasterise/`. The program draws a
+coarse sphere (100 triangles) with Blinn–Phong lighting in three ways, `sphere-flat.png` (one
+value per triangle from its face normal), `sphere-gouraud.png` (the lighting computed at the
+corners and interpolated) and `sphere-pixel.png` (the normal interpolated and the lighting
+computed at every pixel), and prints the brightest value of each. It also draws a checkerboard floor in
+perspective, `floor-affine.png` and `floor-correct.png`.
+
+**C6.** Compare the three spheres and the printed brightest values. Which one has a highlight,
+and why does Gouraud shading lose it (B8)?
+
+**C7.** Compare the two floors. Where does the affine one go wrong, and why there?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `rasterise/src/solution.rs` in the download.
+
+**C6.** Only the per-pixel sphere has a sharp highlight (brightest value 1.36, shown as white).
+The flat sphere shows facets, with one bright facet (0.96) where the face normal is closest to
+the mirror direction. Gouraud is smooth but has no highlight at all (brightest 0.91): the
+specular term is computed only at the corners, and none of them lies near the mirror point, so
+interpolating the corner values cannot create a peak inside a triangle. A finer sphere would
+bring corners closer to the mirror point.
+
+**C7.** In the affine floor the rows of checks bend and kink along the diagonal of the square,
+where the two triangles meet, and the far checks are too large. Each triangle is interpolated
+linearly on the screen, but the far half of the floor is squeezed into fewer pixels. The error
+is largest along the diagonal and towards the far end, where the corners' $w$ differ most
+(2 near, 8 far). The corrected floor has straight rows of checks that shrink with distance.
+:::
+
 ## Where this leads
 
 The fragment stage does more than light a pixel: it reads **textures**, images stored on the graphics card and sampled with the interpolation of the *images* unit. The next unit is about how those images are stored (formats, bit depth, sRGB), filtered (mipmaps against aliasing) and blended (premultiplied alpha), which is also the compositing used along a ray in **volume rendering**.

@@ -98,6 +98,75 @@ The demo shows a synthetic 12-bit fluorescence image (4 cells, two saturated spo
 **E6.** The stored values are HU + 1024, but the window is in HU: air (−1000 HU, stored 24) shows as level 117 and all soft tissue is above 240, so white. Apply the rescale (subtract 1024, from the file header) before windowing, or shift the window by 1024.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `highbit/src/exercise.rs`.
+
+**C1.** `sub_wrap(a, b)`, `add_wrap(a, b)` and `sub_saturate(a, b)` for 16-bit unsigned numbers,
+computed in a wider type:
+
+```
+wrap-around:  (a − b) mod 65 536        # a result in 0 … 65 535, also when a − b < 0
+saturation:   a − b, clipped to 0 … 65 535
+```
+
+The checks are B2 and B6.
+
+**C2.** `pack12(p1, p2)` and `unpack12(bytes)`: two 12-bit pixels in 3 bytes, as in B3.
+
+```
+byte 1 = top 8 bits of p1                    = p1 shifted right by 4
+byte 2 = low 4 bits of p1, then top 4 of p2  = (p1 AND 0xF) shifted left by 4, OR p2 shifted right by 8
+byte 3 = low 8 bits of p2                    = p2 AND 0xFF
+```
+
+**C3.** `window(v, lo, hi)`: the display level $\operatorname{round}(255\cdot\operatorname{clip}((v - \ell)/(h - \ell), 0, 1))$.
+The checks are B1 and B4.
+
+**C4.** `percentile(values, p)`: sort, then take the value at position $\operatorname{round}(p\,(n - 1))$;
+for auto-contrast windows.
+
+Then `cargo run -p highbit` and open the pictures in `out/highbit/`. The 12-bit image has nuclei
+on a background of 160 with noise, and two small saturated spots.
+
+**C5.** Compare `fluo-0-65535.png`, `fluo-0-4095.png` and `fluo-percentiles.png`. Which level does
+the brightest pixel get in the first? What are the percentile limits, and why do they give more
+contrast than 0 … 4095? What does the program say about the MSB-aligned values?
+
+**C6.** Compare `subtract-wrap.png`, `subtract-saturate.png` and `subtract-float.png` (all with
+the window −60 … 600) and the printed background means. Explain the wrap-around mean, and the
+difference between the saturated and the float mean. Compare with B8 (the background noise has
+an SD of about 13).
+
+**C7.** Look at the four CT windows `ct-soft.png`, `ct-lung.png`, `ct-bone.png`, `ct-narrow.png`,
+and at `ct-stored-soft.png`. In which window is the faint lesion (60 HU in soft tissue of 40 HU,
+above the centre) easiest to see, and why? What went wrong in the last picture?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `highbit/src/solution.rs` in the download.
+
+**C5.** With the window 0 … 65 535 the brightest pixel, 4095, is level 16: the image is almost
+black. With 0 … 4095 the nuclei show, but dimly: they reach only about half of the range, and
+only the saturated spots are white. The percentiles are 128 and 1898: the 0.5 % of pixels above
+1898 (the spots and the brightest nuclei) turn white, and the rest is spread over all 256
+levels. MSB-aligned, the image has 1631 different values, exactly as many as LSB-aligned, all
+multiples of 16 (a comb), and the brightest (65 520) is level 255: it looks right with 0 … 65 535
+but holds no more information.
+
+**C6.** With wrap-around every background pixel below 160 becomes a number near 65 535, so the
+background is white speckle and its mean is 30 883; 44.9 % of all pixels end up above 4095. With
+saturation those pixels become 0: the background looks right, but its mean is 12.3 instead of 7.3
+(float, the correct value). The difference, 5.0, is about $0.40 \times 13$: the negative half of
+the noise was cut off, as B8 predicts ($\sigma/\sqrt{2\pi}$).
+
+**C7.** In the narrow window (−5 … 145) the lesion is level 111 against 77 for the tissue around
+it; in the soft-tissue window 140 against 128; in the lung window 240 against 236 and in the bone
+window 79 against 77, hardly visible. A narrow window spreads the small difference of 20 HU over
+more display levels. In `ct-stored-soft.png` the stored values (HU + 1024) went through a window
+meant for HU: air (stored 24) is level 117 and the whole body is white. Subtract the 1024 first.
+:::
+
 ## Where this leads
 
 Every later method works on these numbers: thresholds, filters and measurements should be applied to the raw (or float-converted) values, never to a display rendering. The [next unit](../contrast/lec.qmd) bends the window into curves (gamma, log, equalisation, CLAHE). How floating point, the type we convert to, behaves is the topic of the [unit after it](../floatingpoint/lec.qmd). How a graphics card stores and filters pixel values is a unit of the 3D graphics day ([GPU formats](../gpuformats/lec.qmd)).

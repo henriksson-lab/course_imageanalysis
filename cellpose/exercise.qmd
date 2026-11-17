@@ -209,6 +209,92 @@ Now the real network. Cellpose 3 runs in this browser (Rust compiled to WebAssem
 **E7.** (a) Inverted (the default for this sample): 70 cells, F1 0.871 (TP 61, FP 9, FN 9). Not inverted: the nuclei network sees dark nuclei on a bright background, the opposite of its training data; 48 masks, 25 removed by the flow check, 23 kept, all on the light **gaps between** nuclei: F1 0.000. A generalist still has a domain; polarity is the user's job. (b) Dense (313 nuclei): 301 cells, F1 0.958 (TP 294, FP 7, FN 19); the readout's errors include about 5 merges and 2 splits (measured from the overlap table). A merge shows as one colour wheel spanning two touching nuclei (no reversal of the colours at the contact); a split as two wheels inside one nucleus, typically an elongated or dividing one. (c) Depends on your image; the explanation is always in the Flows view (two wheels in one object, or one wheel over two).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `cellpose/src/exercise.rs`.
+As in the flowtrack demo, the "network" of the program is simulated: its arrows are the exact
+training targets, with or without noise. The target and the whole decoding are yours.
+
+**C1.** `heat_target(mask, steps)`: the training target of one cell. The source is the cell pixel
+nearest the median of the cell's $x$ and $y$ coordinates (given).
+
+```
+heat = 0 everywhere
+repeat steps times:
+    heat(source) = heat(source) + 1
+    for every cell pixel p:
+        new(p) = mean of heat over the pixels of the 3 × 3 neighbourhood of p that lie in the cell
+    heat = new
+```
+
+The checks are B1 (a) and (c).
+
+**C2.** `arrows(heat, mask)`: at every cell pixel the vector (heat right − heat left, heat below −
+heat above), with 0 for neighbours outside the cell, scaled to length 1. The checks are B1 (b) and
+(c), and a disc whose arrows must point to its centre.
+
+**C3.** `follow(flow, mask, steps)`: put a particle on every pixel of the mask and move it along the
+arrows. The position is a real number; the arrow is read at the nearest pixel:
+
+```
+for every mask pixel p:
+    x = p
+    repeat steps times:
+        x = x + arrow at (x rounded to a pixel)
+    end(p) = x
+```
+
+**C4.** `group_ends(ends, mask, min_count)`: count the end points in every pixel. The pixels with at
+least `min_count` end points are sink pixels, and sink pixels that touch (8-neighbours) form one
+sink. Number the sinks 1, 2, … (flood fill, as in connected components). A mask pixel gets the
+number of the sink its particle ended in, or 0 if it ended elsewhere. The checks are B2 (with
+both an even and an odd number of steps) and B5.
+
+**C5.** `flow_error(predicted, own)`: the mean of $|\text{predicted arrow} - \text{own arrow}|^2$
+over the pixels of a mask. The check is B3 (a) and (b).
+
+Then `cargo run -p cellpose` and open the pictures in `out/cellpose/`. The scene has five cells:
+a C, a bent rod, a disc and two touching discs (`truth.png`). The program decodes it six ways and
+prints the objects, the masks removed by the flow check (threshold 0.4) and TP, FP and FN at
+IoU ≥ 0.5. Sinks need at least 3 end points per pixel.
+
+**C6.** Compare `heat-c-10.png` with `heat-c-192.png` (the C's heat after 10 steps and after the
+default 2 × (width + height) steps, on a log scale). Then compare the runs with 200 and with 10
+Euler steps, with and without the flow check. Which cells suffer from too few steps, and why
+those? What does the flow check do with the pieces?
+
+**C7.** Noisy arrows (`flows-noisy.png`), with and without the flow check, and the shared field of
+the touching pair. Which errors appear, and which of them does the flow check catch? Why does it
+not catch the merge?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `cellpose/src/solution.rs` in the download.
+
+**C6.** After 10 steps only a spot around the source on the back of the C has heat. After 192
+steps the whole C is warm, warmest at the source, so every pixel has an arrow that leads around
+the bend (as in F1). Exact arrows with 200 Euler steps give all 5 cells (TP 5, FP 0, FN 0). With 10
+steps, 714 pixels end on the way to their sink. The particles that stop in the same place
+still form 26 small "sinks", so without the flow check there are 26 objects: TP 4, FP 22, FN 1.
+The bent rod suffers most: its longest path, from a tip to the middle, is far longer than 10
+pixels. Only its middle becomes a mask, too small to match (FN), and the mask counts as an FP.
+The C keeps its back but loses the tips of its arms, which still matches. The discs are fine:
+their longest path is their radius, 13 to 15 pixels, and the particles that are short of the
+centre still end within the sink. The flow check removes 21 of the small pieces, whose arrows
+point to a centre elsewhere: 5 objects, TP 4, FP 1, FN 1, and 806 cell pixels without an object.
+As in F3 and E3, the count looks almost normal, but the masks are wrong.
+
+**C7.** Smooth noise on the arrows creates extra sinks. Without the flow check: 14 objects, TP 5,
+FP 9. The C breaks into several pieces (the largest still matches), and smaller pieces appear
+elsewhere, for example at the edge of the touching pair. With the check, 10 masks are removed and
+4 objects remain: the rod, the disc and the pair are found, but the C is lost completely (FN 1),
+because each of its pieces has arrows that point to the other sinks. As in F4, the check turns a
+split into a miss. With the shared field, the pair comes out as one object (4 objects, TP 4, FN 1),
+and the check removes nothing. The merged mask's own target is computed from the merged mask, and
+that is exactly the shared field that was predicted. So its flow error is 0. The flow check can
+only find arrows that do not fit their mask, not a mask that is one cell too many.
+:::
+
 ## Where this leads
 
 The flow route turns the pixel map into a decoding that follows bends; its weak points are touching cells with weak contact and the cell size. The [next unit](../yolo/lec.qmd) leaves pixel maps behind: **detectors** predict a list of boxes directly, one pass over the image, and need suppression instead of following arrows. The [comparison unit](../cellnets-compare/lec.qmd) then runs the flow route, star-convex polygons and the classical pipeline on the same annotated images.

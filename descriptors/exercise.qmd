@@ -123,6 +123,100 @@ View 1 is a synthetic scene (or a repetitive scene, or the micrograph) with DoG 
 **E8.** Gradient histogram: 47 of 59 (80 %); binary: 32 of 38 (84 %). Blur removes small keypoints, so fewer have a partner; the binary descriptor uses its own orientation (intensity centroid) and its keypoints with a partner are fewer, but in this scene it copes with the blur about as well.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `descriptors/src/exercise.rs`.
+
+**C1.** `cell_histogram(votes)`: the 8-bin histogram of one cell, each vote
+(magnitude, direction) to the nearest bin. The check is A1, before and after turning by 90°.
+
+```
+hist = 8 zeros
+for every vote (m, θ):  hist[round((θ mod 360°) / 45°) mod 8] += m
+```
+
+**C2.** `normalise_clip(v, clip)`: normalise to length 1, clip, normalise again. The check is A2.
+
+```
+v = v / |v|
+every entry = min(entry, clip)
+v = v / |v|
+```
+
+**C3.** `sample_patch(img, x, y, sigma, theta, n)`: an $n \times n$ patch read in the keypoint
+frame, $12\sigma$ wide and turned by θ (bilinear interpolation between pixels). Then
+`normalised_patch(patch)`: the simplest descriptor, the patch minus its mean, divided by its length.
+
+```
+step = 12σ / n
+for every sample (i, j):
+    u = (i + ½ − n/2) · step;   v = (j + ½ − n/2) · step        # in the frame
+    patch(i, j) = I(x + u cos θ + v sin θ,  y − u sin θ + v cos θ)   # y points down
+```
+
+**C4.** `gradient_descriptor(patch)`: the 128 numbers of a 16 × 16 patch.
+
+```
+for every pixel of the patch:
+    gradient by central differences; direction θ, magnitude m
+    weight w = Gaussian of σ = 8 px around the patch centre
+    vote (w · m, θ) in the cell (⌊x/4⌋, ⌊y/4⌋)
+descriptor = the 16 cell histograms (C1), one after the other
+return normalise_clip(descriptor, 0.2)                      # C2
+```
+
+The checks: gain and offset do not change it (B7), and a vertical step edge only fills the 0° bins.
+
+**C5.** `binary_descriptor(patch, pairs)` and `hamming(a, b)`. The bits are packed 64 to a word.
+The checks are A3 and A4.
+
+```
+bit i = 1 if patch(p_i) < patch(q_i)
+Hamming distance = number of 1 bits in (a XOR b), word by word
+```
+
+Then `cargo run -p descriptors` and open the pictures in `out/descriptors/`. View 2 is the
+micrograph turned by 30°, zoomed 1.2 times, 1.5 times brighter and with noise. The program takes
+242 points on a grid where the micrograph has contrast, and their frames from the known transform
+(σ = 2 in view 1, 2.4 in view 2, θ = 30° in view 2), so that only the descriptors are tested. It
+counts how often the nearest descriptor in view 2 is the true partner. `view1.png` and `view2.png`
+show some of the frames; `patches.png` shows one point's patch in view 1, in view 2 with θ, and in
+view 2 without θ.
+
+**C6.** How often is the partner the nearest with θ, and without θ (θ = 0 in both views)? Explain
+with `patches.png`.
+
+**C7.** The program also moves the frame in view 2 by 2 and by 4 px. Compare the gradient histogram
+with the normalised patch. Why does one of them suffer less?
+
+**C8.** The binary descriptor: read the mean Hamming distance to the partner and to the other
+points. How many standard deviations below the distance of unrelated descriptors (B9) is the
+partner? How many bytes do the 242 binary descriptors take, and how many the gradient histograms
+as 4-byte numbers?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `descriptors/src/solution.rs` in the download.
+
+**C6.** With θ: 242 of 242 (100 %) for the gradient histogram and also for the normalised patch.
+Without θ: 29 (12 %) and 14 (6 %). In `patches.png` the first two patches (view 1, and view 2
+read in the turned frame) look the same, apart from noise; the third (view 2 read without
+turning) shows the same structure turned by 30°. Every number of both descriptors depends on which
+way the structure points in the patch, so without θ the vectors no longer match.
+
+**C7.** Frame 2 px off: gradient histogram 237 (98 %), normalised patch 207 (86 %). 4 px off: 135
+(56 %) against 60 (25 %). The patch compares pixel by pixel, so a shift changes every number. The
+histogram only asks which way the gradients point within each 4 × 4 cell (here 6 to 7 px wide in
+the image): a small shift moves only a few votes to the neighbouring cell. At 4 px, more than half
+a cell, it degrades too.
+
+**C8.** 13.0 bits to the partner, 127.8 to the other points: as B9 predicts for unrelated
+descriptors, 128 ± 8. The partner lies $(128 - 13)/8 \approx 14$ standard deviations below. With θ
+the nearest binary descriptor is the partner for all 242 points. Memory: $242 \cdot 32 = 7\,744$
+bytes for the bits, $242 \cdot 128 \cdot 4 = 123\,904$ bytes for the histograms, 16 times more (as
+in A5).
+:::
+
 ## Where this leads
 
 The next unit compares descriptors between two images: [matching, with the ratio test and the mutual check](../feature-matching/lec.qmd). The [geometry day's two-view unit](../two-view/lec.qmd) uses the matches to estimate the epipolar geometry.

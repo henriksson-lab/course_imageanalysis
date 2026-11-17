@@ -206,6 +206,95 @@ Marching cubes on a whole volume (48³ voxels, or the nuclei stack), recomputed 
 **M8.** 4 components (A, B, C, D), volume 77.8 µm³ (area 146.6 µm²), against 79.2 µm³ for the ideal ellipsoids. At $c = 0.3$: 95.9 µm³, larger, because the surfaces move out into the blurred edges. Which $c$ is "right" is the subject of the next unit.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `marchingcubes/src/exercise.rs`.
+The tasks are numbered R1, R2, ... (C is taken by the demo questions above). The corner and edge
+numbering is that of the figure; the code has it as tables, with the 6 faces listed anticlockwise
+seen from outside the cube.
+
+**R1.** `cube_case(values, c)`: $\sum 2^k$ over the corners above $c$. The check is B1(a).
+
+**R2.** `edge_vertex(values, c, e)`: the vertex on edge $e$ (from corner $a$ to $b$) in the unit
+cube, $\mathbf p_a + t(\mathbf p_b - \mathbf p_a)$ with $t = (c - I_a)/(I_b - I_a)$, or nothing if the edge is
+not crossed. The checks are B1(b) and (c).
+
+**R3.** `cube_loops(values, c, rule)`: the loops of crossed edges in one cube, generated from the
+faces, as on the slide "Generating the triangle table":
+
+```
+segments = []
+for each face, corners f0 f1 f2 f3 anticlockwise seen from outside:
+    face edge i runs from corner f_i to f_(i+1)
+    crossed = the face edges whose two corners are on opposite sides of c
+    2 crossed: one segment;  4 crossed (a saddle): cut off each corner above c
+        (separate) or below c (join; or the decider decides), as in marching squares
+    each segment runs from the face edge that goes from below c to above c
+        to the face edge that goes from above c to below c
+chain: start a loop with any unused segment (a → b); while not back at a:
+    take the unused segment that starts at the current edge, step to its end
+```
+
+The direction of the segments makes every loop run anticlockwise seen from outside a bright object,
+so its triangles face outwards. The checks: B1(d) (one loop through e0, e2, e4, e6); B4(a); C4
+(case 9: 2 triangles with "separate", 4 with "join", and the decider at $I_0 = 0.8$ and $0.9$,
+with $c = 0.51$ to stay clear of the borderline $f^\ast = c$);
+C3 (case 23 is a hexagon); and in all 256 cases every crossed edge lies in exactly one loop.
+
+**R4.** `gradient(vol, spacing, i, j, k)`: central differences divided by the spacing,
+$\partial_x I \approx (I_{i+1} - I_{i-1})/(2\Delta x)$; one-sided at the border. The checks are
+B5(a) and (b).
+
+**R5.** `marching_cubes(vol, spacing, c, rule)`: the whole volume:
+
+```
+for every cube (x, y, z):
+    for each loop of R3:
+        for each crossed edge of the loop:
+            if this grid edge has no vertex yet: make one, at (a + t·(b − a)) · spacing,
+                with the normal −∇I / |∇I| (R4 at a and b, mixed with t)
+        triangles (v1, v2, v3), (v1, v3, v4), …
+```
+
+The checks: a sphere of radius 4.3 voxels gives a closed surface (every edge has two triangles,
+running along it in opposite directions), $\chi = 2$, about 2 triangles per vertex, and outward
+normals; a torus gives $\chi = 0$; a spacing of 2 along $z$ doubles the heights; and in a noisy
+volume "separate" and the decider leave no cracks, while the complement rule of the 15-case table
+does (B6).
+
+Then `cargo run -p marchingcubes` and open the pictures in `out/marchingcubes/`. The program
+extracts the surfaces of a small sphere (radius 4.3 voxels), two Gaussian blobs at three values of
+$c$, a torus, and a noisy ball of radius 15 (inside a dark frame) without and with a blur of σ = 1.5
+voxels. For each it prints the vertices, edges, triangles, connected components, boundary edges
+(edges with a triangle on one side only) and $\chi = V - E + F$, and it draws shaded pictures.
+
+**R6.** Compare `sphere-face-normals.png` with `sphere-gradient-normals.png`. Are the triangles
+different? Check the numbers of the sphere against the lecture's slide "Shared edges".
+
+**R7.** Read the lines of the two blobs, the torus and the noisy ball. Between which values of
+$c$ do the blobs merge, and what happens to $\chi$? What do noise, the complement rule and blurring
+do to the components and the boundary edges? (Look at `noisy-ball.png` and
+`noisy-ball-blurred.png`.)
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `marchingcubes/src/solution.rs` in the download.
+
+**R6.** The triangles are the same; only the normals used for shading differ. With one normal per
+triangle the sphere is a faceted ball of flat patches; with the gradient normals, interpolated
+across each triangle, the same mesh looks like a smooth sphere. The sphere has 312 vertices and
+620 triangles, as on the slide, and $\chi = 312 - 930 + 620 = 2$: about 2 triangles per vertex.
+
+**R7.** At $c = 0.6$ and $0.5$ two components, $\chi = 4$ (two sphere-like surfaces); at $c = 0.49$
+one component, $\chi = 2$: they merge between 0.49 and 0.5, at the saddle value 0.499 between the
+two Gaussians (M1). The torus is one closed surface with $\chi = 0$ (3 840 vertices, 7 680 triangles).
+The noisy ball falls apart into 1 919 components (28 740 triangles): thousands of tiny surfaces
+around voxels that the noise pushed across $c$, and a rough ball (`noisy-ball.png`). With the
+decider there are 0 boundary edges; the complement rule, on the same noise, leaves 1 164 boundary
+edges: cracks where neighbouring cubes cut a shared face differently. Blurred first: one component,
+$\chi = 2$, 8 340 triangles and a smooth ball.
+:::
+
 ## Where this leads
 
 The mesh is a measurement instrument: the next unit computes **areas and volumes** from it, compares them with counting voxels, and looks at the choice of $c$, smoothing, anisotropic voxels and mesh size. Rendering the mesh (projection, rasterisation, Lambert and Phong shading) is the 3D-graphics day.

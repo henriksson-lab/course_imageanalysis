@@ -192,6 +192,87 @@ A small convolutional network (conv $3 \times 3$ with 8 kernels → pool → con
 **V7.** All four examples are classified correctly (protrusion with probability 1.00), and the protrusion cell rotated by 90° or 180° is still a protrusion (1.00). The training masks were generated in every orientation, so rotation was already "augmented" by the data: the network has learned the invariance from examples. Test accuracy 99.0 %.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `cnn/src/exercise.rs`.
+
+**C1.** `conv_layer(input, kernels, relu)`: a convolutional layer with valid padding. The input
+is a list of channels (images of the same size); each kernel has one small weight image per
+input channel and a bias, and gives one feature map:
+
+```
+for every kernel:
+    for every output position (x, y):          # (w − kw + 1) × (h − kh + 1) positions
+        sum = bias
+        for every input channel c:
+            for every kernel position (u, v):
+                sum = sum + weight[c](u, v) · input[c](x + u, y + v)
+        map(x, y) = max(0, sum)                # if relu
+```
+
+The checks are B1(a), B1(c) (the kernel $-K_1$ gives 0 everywhere after the ReLU) and B5(a, b)
+(a 1D signal is an image one row high).
+
+**C2.** `max_pool(map, size)`: the largest value of every `size × size` block; leftover rows and
+columns are dropped. The check is B1(b).
+
+**C3.** Counting: `conv_weights(k, c_in, c_out)` $= k^2C_\text{in}C_\text{out} + C_\text{out}$,
+`output_size(n, k, p, s)` $= \lfloor(n + 2p - k)/s\rfloor + 1$, and `receptive_field(layers)`, the
+recursion of the lecture for a list of layers (kernel, stride):
+
+```
+r = 1, j = 1
+for every layer (k, s):
+    r = r + (k − 1) · j
+    j = j · s
+    record (r, j)
+```
+
+The checks are B2(a), B3, B4 and B6.
+
+Then `cargo run -p cnn` and open the pictures in `out/cnn/`. The program runs a hand-made
+layer of four kernels (Sobel x, Sobel y, the Laplacian, and a Gaussian with the bias $-0.5$) on
+the micrograph (`layer1.png`, each map stretched to its own range), pools the maps
+(`layer1-pooled.png`), and applies a second layer with one kernel stack over all four channels:
+it adds the two edge maps and subtracts 4 times the Gaussian map (`layer2.png`). Then it shifts
+the input and compares the maps.
+
+**C4.** Which structures light up in each map of `layer1.png`? Why is the fourth map so
+different from the other three?
+
+**C5.** Before you open `layer2.png`: where should the second layer respond? Then look. What
+can layer 2 express that no single map of layer 1 can?
+
+**C6.** Read the three "shift" lines of the output. Explain them with B5: when is the
+convolutional map a shifted copy, and when the pooled map?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `cnn/src/solution.rs` in the download.
+
+**C4.** Sobel x: edges where the image gets brighter to the right, such as one side of the
+nuclear envelope; Sobel y: edges where it gets brighter downwards; both also respond to the
+granular texture everywhere. The Laplacian gives thin lines and specks: fine detail and noise.
+The Gaussian map with bias $-0.5$ is a smoothed copy of the image, cut off below 0.5 by the ReLU:
+only the bright regions outside the cell survive, while the nucleus and the dark parts of the
+cell are 0. The bias turns "smooth" into "bright here".
+
+**C5.** Edges, but only where it is not bright: the response is strong inside the darker cell,
+on the nucleus and its texture, and almost 0 in the bright regions outside, where the large
+negative weight on the fourth channel wins. Layer 2 combines channels at the same place ("an
+edge here **and** not a bright region"), which no single kernel of layer 1 can do. It works on
+the pooled maps, so the map is $125 \times 125$ ($127 - 3 + 1$), and with $3 \cdot 3 \cdot 4 + 1 = 37$
+weights.
+
+**C6.** A shift by $(8, 4)$ and one by $(2, 0)$: the convolutional map is the original map
+shifted by the same amount (largest difference 0 away from the border), and the pooled map is
+the original pooled map shifted by half, $(4, 2)$ and $(1, 0)$. A shift by $(1, 0)$: the
+convolutional map is still an exact shifted copy, but the pooled map is not a copy of the
+original pooled map, neither unshifted nor shifted by one block (largest differences 1.9): the
+values fall into other $2 \times 2$ blocks. Convolution is equivariant for every shift, pooling
+only for shifts by multiples of its stride, as in B5(c).
+:::
+
 ## Where this leads
 
 A classification network says **what** is in the image. The [next unit](../unet/lec.qmd) keeps the convolutional layers but drops the dense layer at the end: an **encoder–decoder** (U-Net) outputs a class probability for **every pixel**, a segmentation. The [**moments** day](../moment-invariants/lec.qmd) shows the opposite route to invariance: features that are invariant by construction.

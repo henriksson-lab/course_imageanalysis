@@ -119,6 +119,77 @@ A synthetic 12-bit fluorescence image with known ground truth: 60 Gaussian spots
 **M6.** Lossless: 55 586 bytes, 2.4× smaller, all numbers identical. Noise sd within 5% of 35.1 (33.3 to 36.9): qualities 95 and 100 (36.3 and 35.2); at 90 it is 33.6, 4.3% low, just inside; from 75 down (30.8) it is outside. High-frequency power within 5% of 1.08%: only quality 100 (1.11%); already at 95 it is 1.19% (+10%), at 90 0.67% (−38%). Texture measures are the most fragile.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in
+`compress-science/src/exercise.rs`.
+
+**C1.** `lift53(x)`: one level of the reversible 5/3 wavelet of a signal of even length, by
+lifting. It returns the smooth half $s$ and the detail half $d$:
+
+```
+for n in 0 .. len/2 − 1:                                  # predict
+    d[n] = x[2n+1] − floor((x[2n] + x[2n+2]) / 2)         # past the end: use x[2n] for x[2n+2]
+for n in 0 .. len/2 − 1:                                  # update
+    s[n] = x[2n] + floor((d[n−1] + d[n] + 2) / 4)         # before the start: use d[0] for d[−1]
+```
+
+The checks are a short signal worked out by hand, and that a constant signal has no detail.
+
+**C2.** `unlift53(s, d)`: the inverse, with the same rounded terms in reverse order:
+
+```
+for every n:  x[2n]   = s[n] − floor((d[n−1] + d[n] + 2) / 4)
+for every n:  x[2n+1] = d[n] + floor((x[2n] + x[2n+2]) / 2)
+```
+
+(with the same rules at the ends as in C1)
+
+The check: random whole numbers come back exactly (B7).
+
+**C3.** `wavelet2d(img)`: `lift53` on every row (smooth half left, detail half right), then on
+every column of the result (smooth half on top). The low-pass band LL ends up in the top-left
+quarter.
+
+**C4.** `bitplane_guess(value, bits, planes)`: the decoder has the top `planes` bits of a value
+and guesses the middle of all values that start with those bits. The check is B6.
+
+**C5.** `chunks_read(region, chunk)`: the number of chunks a region read touches, the product
+over the dimensions of $\lfloor (b-1)/c \rfloor - \lfloor a/c \rfloor + 1$. The checks are B4
+and the lecture's x–z plane.
+
+Then `cargo run -p compress-science` and open the pictures in `out/compress-science/`. The
+program checks that every row of the micrograph comes back exactly, applies three levels of
+the 2D wavelet (each to the LL quarter of the level before), saves the three LL bands
+(`ll-level*.png`) and all coefficients (`wavelet-3-levels.png`, details × 2 around mid grey), and
+prints the entropy of the pixels and of the coefficients. It also prints the bit-plane guesses
+of B6 and the chunk counts of the lecture.
+
+**C6.** Compare the entropy of the wavelet coefficients with the best residual entropy of the
+lossless unit (6.50 bits per pixel with the average predictor). What can a decoder do with the
+wavelet code stream that it cannot do with the prediction residuals?
+
+**C7.** From the chunk counts, compute the read amplification (decoded / needed) for the two
+accesses and the two chunk shapes. Which chunk shape suits which access?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `compress-science/src/solution.rs` in the download.
+
+**C6.** The pixels have 7.68 bits per pixel, the three-level wavelet coefficients 6.61: an ideal
+lossless ratio of about $8 / 6.61 = 1.21$, close to the best predictor (6.50). The grain of the
+micrograph limits both. But the wavelet stream holds the image at several resolutions: the LL
+bands `ll-level1-128.png`, `ll-level2-64.png` and `ll-level3-32.png` are the micrograph at 128,
+64 and 32 pixels, which a decoder reads without the detail bands. Prediction residuals are only
+useful all together.
+
+**C7.** A 512 × 512 region of one slice: chunks 256 × 256 × 1 read 4 chunks, 0.52 MB for
+0.52 MB needed (amplification 1); chunks 64³ read 64 chunks, 33.55 MB (64 times). An x–z plane:
+chunks 256 × 256 × 1 read 800 chunks, 104.86 MB for 0.41 MB (256 times); chunks 64³ read 64
+chunks, 33.55 MB (82 times). Thin slice chunks suit slice viewing; cubic chunks are the
+compromise when profiles through z are needed too.
+:::
+
 ## Where this leads
 
 The day's chain is complete: entropy codes, prediction, transforms, quantisation, and their effect on data. Wavelet coding (the [previous day](../dwt2d/lec.qmd)) and JPEG 2000 replace the 8 × 8 blocks by a multiresolution transform; learned codecs (neural networks trained together with an entropy model) push the same rate–distortion trade-off further, with the same caution for scientific data: a codec that invents plausible detail is worse than one that blurs.

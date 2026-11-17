@@ -165,6 +165,86 @@ Tab **image**: a seeded synthetic 256 × 256 image (spots of σ = 1.5 px, amplit
 **E7.** F1 is unchanged (0.92: the shifted detections are still within the 2 px gate); the RMSE rises from 0.31 to 0.73 px and the mean offset is (0.43, 0.51) instead of about zero. Only the mean offset says that the error is systematic.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `spot-crowd/src/exercise.rs`.
+
+**C1.** `count_peaks(profile)`: the number of samples larger than both neighbours. The check
+samples two equal Gaussians finely and counts their maxima: B1 (a)–(c).
+
+**C2.** `match_greedy(truth, det, gate)`:
+
+```
+pairs = every (i, j) with distance(truth i, detection j) ≤ gate, sorted by distance
+for each pair (i, j), closest first:
+    if truth i and detection j are both still free: match them
+```
+
+**C3.** `match_optimal(truth, det, gate)` for a small group, by trying every possibility:
+
+```
+search(i):                      # the best matching of truths i, i+1, … with the free detections
+    if no truths are left: return (0 pairs, distance 0)
+    best = search(i + 1)        # truth i stays unmatched
+    for every free detection j within the gate of truth i:
+        mark j used;  result = search(i + 1) plus the pair (i, j);  mark j free
+        keep result if it has more pairs than best, or as many with a smaller total distance
+    return best
+```
+
+The program splits a whole image into small independent groups first (given in the code); the
+work grows very fast with the size of a group.
+
+**C4.** `scores(truth, det, pairs)`: TP, FP, FN, precision, recall, F1, Jaccard and the RMSE of
+the matched distances. The checks for C2–C4 are B2 and the example of the slide "Greedy vs optimal
+matching".
+
+**C5.** `pr_curve(is_tp, n_truth)`: precision and recall after each ranked detection, and AP as in
+the Background table. The check is B3.
+
+Then `cargo run -p spot-crowd`. It makes the image of the matching demo (spots of σ = 1.5,
+amplitudes 8–80, noise 10) with 80, 300 and 1 000 spots, detects them with the zero-mean matched
+filter at $k = 4$ (the first two units), matches with a gate of 2 px and prints the scores; then F1
+and RMSE against the gate, and the precision–recall curve over all candidates down to $k = 2$.
+`out/spot-crowd/matching-*.png` show the matches: rings are true spots (white matched, yellow
+missed), dots are detections (green matched, red false).
+
+**C6.** Read the density table and look at `matching-1000.png`. Which kind of error grows with
+density? Where are the missed spots? Do the numbers agree with the demo's density plot?
+
+**C7.** Read the gate table. Where is the flat part of F1? Why does a gate of 0.5 px give 28 FP
+**and** 40 FN, and why is the RMSE smallest there?
+
+**C8.** Compare the greedy and optimal TP counts in the density table. Is the difference you saw
+in B2 important for these images? Count the cost: why is trying every possibility fine here, but
+not for a group of 30 truths and 30 detections all within each other's gates?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `spot-crowd/src/solution.rs` in the download.
+
+**C6.** 80 spots: 68 detections, TP 66, FP 2, FN 14, recall 0.82, F1 0.89. 300: recall 0.67,
+F1 0.80. 1 000: 494 detections, TP 493, FP 1, FN 507, recall 0.49, precision 1.00, F1 0.66, as in
+the demo (recall 0.49, F1 0.66). Misses grow; false spots do not. In the picture most yellow
+rings sit next to a white one: two spots closer than the filter can separate give one candidate,
+which matches one of them. The RMSE also rises with density (0.54, 0.61, 0.72 px): the light of a
+neighbour pulls the maximum to one side.
+
+**C7.** F1 is 0.54 at 0.5 px, 0.86 at 1 px and flat at 0.89 from 1.5 px on, so a gate of 2 px is
+in the flat part. The detections are integer pixel positions, up to 0.7 px from the true centre
+even without noise: with a 0.5 px gate many correct detections are not matched; each counts as a
+false detection and leaves its spot missed (TP 40, FP 28, FN 40). The RMSE (0.37 px) is smallest
+because only the best-placed pairs are matched: a small gate cuts off the larger errors (B4).
+
+**C8.** Greedy and optimal give the same TP here (66, 200, 493): conflicts like B2, where the
+closest pair blocks a better assignment, need detections that lie between two truths, which is
+rare with these spacings and a gate of 2 px. They become frequent with larger gates or very
+crowded spots, and then greedy undercounts the detector. The search tries, for each truth, "no
+match" or every free detection in its gate: with a few points per group that is a handful of
+cases, but with 30 truths each having several candidates it is of the order of
+$(\text{candidates}+1)^{30}$; the assignment solver of the math slide does it in polynomial time.
+:::
+
 ## Where this leads
 
 - [**Tracking**](../track-linking/lec.qmd) (day 26): detections with positions and error bars are linked over time; the gating and assignment of this unit come back, now between frames.

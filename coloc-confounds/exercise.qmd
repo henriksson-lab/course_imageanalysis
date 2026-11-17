@@ -118,6 +118,87 @@ The demo simulates spots at pixel 65 nm, NA 1.4, A at 520 nm and B at 670 nm, in
 **E7.** $r$: 0.91 (0 nm), 0.84 (50), 0.67 (100), 0.48 (150), 0.30 (200). Object fraction: 94 %, 96 %, 78 %, 13 %, 7 %. Neither method separates 0 from 50 nm: both are far below the resolution (FWHM ≈ 184 nm in this model). The object fraction separates 100 from 150 nm sharply because it thresholds a measured distance at $d_\text{max}$ = 130 nm (with the localisation error smearing the step); $r$ fades smoothly with the overlap of the PSFs, as the Gaussian formula says (dashed curve).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `coloc-confounds/src/exercise.rs`.
+Pearson's $r$ over a mask is given.
+
+**C1.** `leak_slope(a, b, mask)` and `compensate(b, a, s)`: the slope through the origin
+$\sum AB/\sum A^2$ of a single-stained control, and $\hat B = B - \hat s A$ at every pixel. The
+checks are B1(c, d, e).
+
+**C2.** `gaussian_overlap(s1, s2, delta)`: the normalised overlap of two Gaussian spots,
+$\frac{2\sigma_1\sigma_2}{\sigma_1^2 + \sigma_2^2}\exp\big(-\delta^2/2(\sigma_1^2 + \sigma_2^2)\big)$.
+The checks are B2 and B3.
+
+**C3.** `subtract_background(img, radius)`: the white top-hat, image minus its opening with a
+square of side $2r + 1$:
+
+```
+for every pixel: low(x, y)  = minimum of img  over the square around (x, y)
+for every pixel: open(x, y) = maximum of low  over the square around (x, y)
+result = img − open
+```
+
+The checks: a ramp becomes 0, a constant offset becomes 0, a one-pixel spot keeps its height.
+
+**C4.** `estimate_shift(a, b, max_shift)` and `shift_image(img, dx, dy)`: the chromatic shift
+from bead images, and the shift back:
+
+```
+subtract the mean from A and from B
+for every (tx, ty) with |tx|, |ty| ≤ max_shift:
+    c(tx, ty) = Σ A(x, y) · B(x + tx, y + ty)          # zero outside the image
+(tx, ty) = the best one; refine tx with a parabola through c(tx−1, ty), c(tx, ty), c(tx+1, ty),
+                         and ty likewise
+shift back: B_registered(x, y) = B(x + tx, y + ty), read between pixels by bilinear interpolation
+```
+
+The checks use bead images with known shifts, and small images shifted by whole and half pixels.
+
+Then `cargo run -p coloc-confounds` and open the pictures in `out/coloc-confounds/`. The program
+makes the synthetic two-cell scene of this day's programs with half of B's structures on A's, once
+**ideal** and once **measured** through a microscope that shifts B by 1.5 px (about 100 nm at 65 nm
+pixels), leaks 30 % of A into B and adds a haze shared by both channels. It measures the leak on a
+single-stained control and the shift on beads, then corrects in order (background, compensation,
+registration), printing $r$ inside the cells after each step; then it tries the wrong order,
+skips the background, and uses wrong leak factors. Last, the overlap of a 78 nm and a 100 nm spot
+at several distances.
+
+**C5.** Write down $r$ for the ideal and the measured images and after each step. Why does $r$
+drop **below** the ideal after compensation, and rise again after registration? Look at
+`2-compensated.png` and `3-registered.png`.
+
+**C6.** Why is "registered before compensating" worse, and why does skipping the background
+leave $r$ so high? Compare with B5.
+
+**C7.** From the printed overlaps, at what distance do a green and a red spot overlap by one
+half? Compare with B2(c).
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `coloc-confounds/src/solution.rs` in the download.
+
+**C5.** Ideal $r = 0.403$, measured 0.716. The control gives $\hat s = 0.291$ (true 0.3) and the
+beads a shift of (1.51, 0.00) px (true (1.5, 0)). After background subtraction 0.533, after
+compensation 0.289, after registration **0.401**, back at the ideal. After compensation the
+leaked copy is gone, but the shared structures still sit 1.5 px apart: the shift was hidden under
+the leak (in `2-compensated.png` the shared spots show green and magenta halves side by side). After
+registration they are white again (`3-registered.png`), as in the ideal image. This is E6.
+
+**C6.** Registering first moves the leaked copy of A in channel B away from A's position;
+compensation then subtracts $\hat s A$ at A's position, leaving a positive copy beside a negative
+one: $r = 0.328$ instead of 0.401. Without background subtraction $r = 0.611$: compensation
+subtracts $\hat s$ times A's haze, but B's haze is a full copy of the shared haze, so most of it
+remains and correlates the channels (B5: background first, because the later steps assume that zero
+means no dye). Wrong factors: $\hat s = 0.15$ gives 0.494 (leak left over), $\hat s = 0.6$ gives
+0.142 (a negative copy of A in B).
+
+**C7.** 0.71 at 100 nm and 0.48 at 150 nm, so one half at a little under 150 nm. For two equal
+spots of 78 nm, B2(c) gives 130 nm; the red spot is wider, which spreads the overlap a little
+further (and lowers it to 0.97 at 0 nm).
+:::
+
 ## Where this leads
 
 This was the last unit of the colocalisation day. The other fluorescence days of Part VIII build on the same two-channel forward model: [FRET](../fret-physics/lec.qmd) (day 45) measures proximity below 10 nm by energy transfer, and needs exactly the bleed-through and cross-excitation corrections of this unit ([sensitised emission](../sensitised-emission/lec.qmd)); [FLIM](../lifetime/lec.qmd) (day 46) measures fluorescence lifetimes. The unmixing of many overlapping dyes is the [spectral unmixing day](../crosstalk/lec.qmd); comparing coefficients between conditions is the [statistics of the evaluation day](../replicates/lec.qmd).

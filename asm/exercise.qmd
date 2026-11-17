@@ -134,6 +134,86 @@ A $128 \times 128$ synthetic image of a nucleus (or a hand) of a shape the model
 **A8.** With clutter blobs (and the 10 px start), the profile model ends at 1.80 px and the strongest edge at 1.99 px: here both work, because the blobs are mostly outside the search range. With one mode only, the clean image gives 1.38 px, even slightly better than 3 modes (1.61): fewer modes means fewer ways to follow wrong suggestions, as long as the object needs no more.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `asm/src/exercise.rs`.
+
+**C1.** Two rules for choosing an offset along the normal, from a profile with values at the
+offsets $-m, \dots, m$:
+
+- `strongest_edge(profile)`: the offset of the largest value;
+- `match_profile(profile, model)`: slide the model ($2k + 1$ values) over the profile and add the
+  squared differences:
+
+```
+for every centre c from −(m−k) to m−k:
+    cost[c] = Σ over j from −k to k of (profile[c + j] − model[j])²
+best = the centre with the smallest cost
+```
+
+The checks are your answers to B1(a) and B1(b).
+
+**C2.** `project_clamp(y, model)`: $b_j = \boldsymbol\phi_j\cdot(\mathbf y - \bar{\mathbf x})$, each
+clamped to $\pm3\sqrt{\lambda_j}$, and the model shape $\bar{\mathbf x} + \sum_j b_j\boldsymbol\phi_j$.
+The checks are B2(b) and B2(c).
+
+**C3.** `normals(points)`: the outward unit normal at every landmark, perpendicular to the line
+from the previous to the next landmark, and pointing away from the centroid.
+
+**C4.** `suggest(img, points, m, model_profile)`: step 2 of the search loop:
+
+```
+for every landmark p with normal n:
+    for o from −(m+k) to m+k:
+        g[o] = I(p + (o + ½) n) − I(p + (o − ½) n)       # I read between pixels
+    g = g / Σ |g|
+    best = match_profile(g, model_profile)
+    suggestion = p + best · n
+```
+
+**C5.** `asm_iteration(img, model, pose, b, m, model_profile)`: one iteration of the search loop:
+the model shape in the image, the suggestions, the pose that fits the model shape onto them
+(Procrustes, given), the suggestions taken back into the model frame, then `project_clamp`. The
+check searches for a disk with a circle model.
+
+Then `cargo run -p asm` and open `out/asm/search.png`. The program trains a shape model (40
+synthetic nuclei, 32 landmarks, 3 modes) and one mean profile (from 10 clean training images), then
+searches a new nucleus in two noisy images (noise 0.25 on a contrast of 0.5; the right one with a
+dark bar across the top), starting from the mean shape 10 pixels right, 4 up, turned by 10° and 5 %
+too small. Green dashed: the true outline; yellow: the active shape model after 12 iterations; red:
+12 rounds of suggestions only, without the shape model.
+
+**C6.** Compare the printed errors: the root mean square distance of each landmark to its true
+position, and the mean distance of the landmarks to the true outline. Why is the first number so
+much larger than the second for the active shape model? Which method handles the bar better, and
+why?
+
+**C7.** The program searches a lightly smoothed copy of the noisy image. Predict what happens to
+the suggestions without smoothing, and why the shape model suffers less from it than the
+suggestions alone.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `asm/src/solution.rs` in the download.
+
+**C6.** Noise: the landmarks start 12.58 px (RMS) from their true positions and 5.73 px from the
+true outline. The active shape model ends 4.47 px from the true positions but only 1.28 px from the
+outline; the suggestions alone end 13.31 px and 4.23 px away, with spikes and loops. The yellow outline
+lies on the green one, but its landmarks have slid along it: the start was turned by 10°, and a
+rotation of a smooth, roundish outline changes little in the image, so nothing pulls each landmark
+back to its own place. With the bar: 4.81 and 1.52 px for the active shape model, 13.21 and 4.23 px
+for the suggestions alone. The suggestions near the bar latch onto the bar's edges; the shape model
+is fitted to all 32 suggestions at once, so a few wrong ones are outvoted and the outline across the
+bar is filled in from what nuclei look like.
+
+**C7.** Without smoothing, every derivative sample is a difference of two noisy pixels: the profiles
+are mostly noise and many suggestions jump to random offsets. Suggestions alone follow every jump.
+The pose and the three mode parameters are fitted to all suggestions together, and random errors
+partly cancel, so the shape model still moves in the right direction; but the search needs more
+iterations and ends less accurately (with this program, without smoothing: 8.8 px RMS instead of
+4.5 for the noisy image).
+:::
+
 ## Where this leads
 
 Shape models learn what an object class looks like from examples. The same idea grows into **active appearance models** (shape and grey levels together), **3D shape models** of organs, and **shape priors** inside graph cuts and level sets. [Level sets](../implicit/lec.qmd), the next day, take the other road: no landmarks and no training, but curves that can split and merge. The [dynamic programming day](../polar-boundary/lec.qmd) finds a closed boundary exactly instead of by local search. A learned, nonlinear shape space of cell masks: the [variational autoencoder](../vae-gen/lec.qmd) (day 38).

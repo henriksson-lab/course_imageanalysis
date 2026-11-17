@@ -158,6 +158,96 @@ A field with known truth, blurred by an Airy PSF (NA 1.0, Rayleigh distance 4.88
 **M5.** Wiener (SNR 300) at 1000 photons: peak ratio 3.66, integrated 4.27, FWHM 3.53 px, separation 5.82 px, 16 spots. RL at $k$ = 100: 4.75, 4.38, 2.22 px, 5.85 px, 11 spots. Wiener sharpens much less (the FWHM stays large) and its ringing adds a few false maxima; RL sharpens more and keeps a correct count at this stopping point. Neither keeps peak ratios.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `denoise/src/exercise.rs`.
+
+**C1.** `median_filter(img, radius)`: the middle value of the $(2r + 1) \times (2r + 1)$ window
+around every pixel (mirror the image at its edges).
+
+```
+for every pixel p:
+    values = the pixels of the window around p
+    sort values
+    out(p) = values[middle]
+```
+
+The checks are your answers to B1(a) and B1(c), and isolated outliers vanish.
+
+**C2.** `bilateral(img, radius, sigma_s, sigma_r)`: a weighted mean over the window, each
+neighbour weighted by how close and how similar it is:
+
+```
+for every pixel p:
+    sum = 0, total = 0
+    for every neighbour q in the window:
+        w = exp(−|p − q|² / 2σs²) · exp(−(I(p) − I(q))² / 2σr²)
+        sum = sum + w · I(q);  total = total + w
+    out(p) = sum / total
+```
+
+The checks: B2 (10.007, and a weight of 0.5 for the 50 at $\sigma_r = 34$, which gives 18), and
+with a huge $\sigma_r$ it is a Gaussian-weighted mean.
+
+**C3.** `nonlocal_means(img, patch, search, h)`: the same weighted mean, over a larger search
+window, with weights from whole patches:
+
+```
+for every pixel p:
+    for every pixel q in the search window (inside the image):
+        d² = mean over the patch offsets o of (I(p + o) − I(q + o))²
+        w = exp(−d² / h²)
+    out(p) = (sum of w · I(q)) / (sum of w)
+```
+
+The checks: with a tiny $h$ only the pixel itself matches and the image is unchanged, and on a
+noisy lattice of dots the error drops.
+
+Then `cargo run -p denoise` and open the pictures in `out/denoise/`. The program builds a test
+image like the lecture's (a step, a ramp crossed by a 1-pixel line, a lattice of dots, one unique
+spot; `truth.png`), adds Gaussian noise of 20 grey levels, and denoises it with a Gaussian blur
+($\sigma$ = 1.5), your median ($3 \times 3$ and $5 \times 5$), bilateral ($\sigma_s$ = 2,
+$\sigma_r$ = 30) and non-local means (patch $3 \times 3$, search $15 \times 15$, $h$ = 30). It
+prints the PSNR on the whole image and on each quarter, and the values of a line pixel and of the
+centre of the spot. For each filter it also writes the method noise (noisy − denoised, 0 = grey).
+At the end it does the same for salt-and-pepper noise.
+
+**C4.** Which filter has the best PSNR overall, and which is worse than doing nothing? Find the
+quarter that explains each.
+
+**C5.** Follow the line pixel and the centre of the spot through the table. Which filters erase
+the line? What happens to the spot with non-local means, and why?
+
+**C6.** Look at the method-noise pictures. Which of them show structure, and which look like pure
+noise? Then compare `salt-pepper-gaussian.png` and `salt-pepper-median3.png`.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `denoise/src/solution.rs` in the download.
+
+**C4.** The noisy image has 22.1 dB. Non-local means is best overall (32.7 dB; 38.9 on the step
+and 37.8 on the quarter with the spot, where the flat areas find many similar patches), then the
+bilateral filter (29.5 dB), the $3 \times 3$ median (25.5 dB). The Gaussian (19.2 dB) and the
+$5 \times 5$ median (17.3 dB) are worse than doing nothing: both wipe out the lattice (13.6 and
+11.5 dB in that quarter, against 22.1 noisy). The dots cover 12 pixels (4 across); the $5 \times 5$
+median sees them as a minority in every window. In the other quarters both still gain.
+
+**C5.** The line pixel (truth 191, ramp beside it about 111) drops to 118 and 122 with the two
+medians: the line is a minority in every window and is erased (B1c). The Gaussian smears it to
+133. The bilateral filter keeps it (187); non-local means weakens it (162), because few patches
+elsewhere contain the line. The spot's centre (truth 220) is blurred down by the Gaussian (173)
+and the $5 \times 5$ median (192). With non-local means it keeps its noisy value, 236: no other
+patch looks like the spot, so the pixel is averaged only with itself and is not denoised at all.
+With a larger $h$ it would be averaged with dissimilar patches and fade instead (the lecture's
+"smears the unique spot").
+
+**C6.** The Gaussian's method noise shows the step edges, the line, the whole lattice and the
+spot: it removed signal everywhere. The $3 \times 3$ median's shows mainly the line. The
+bilateral's and non-local means' look like pure noise, with only the line faintly visible.
+Salt and pepper: the Gaussian turns every outlier into a grey smudge (19.8 dB), while the median
+removes almost all of them and keeps the edges sharp (23.4 dB, from 15.4).
+:::
+
 ## Where this leads
 
 This ends the restoration thread of Part I (images as numbers): from pixels and filters to the noise of the camera, the optics that blur and the restoration that undoes as much as the data allow. Part II returns to denoising with other tools: [wavelet shrinkage](../shrinkage/lec.qmd), edge-preserving smoothing ([bilateral filter and non-local means](../bilateral-nlm/lec.qmd) in depth) and [sparse representations](../sparsity/lec.qmd). Part III starts from the restored or raw image and turns it into **objects**, beginning with **[thresholding](../histogram/lec.qmd)**, where the median returns in one line. Statistics of measurements, and how to compare them honestly, are the evaluation day's ([replicates](../replicates/lec.qmd)).

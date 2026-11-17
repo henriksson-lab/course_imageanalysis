@@ -158,6 +158,106 @@ The demo makes two synthetic channels inside two cells: structures in A; in B a 
 **E6.** $r$ = 0.26 at $f = 0.25$, 0.69 at 0.5, 0.94 at 0.75. It grows with $f$ but is not equal to it: $r$ measures how well a straight line explains B from A, which mixes the shared fraction with the intensities and the noise.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `coloc/src/exercise.rs`.
+Every function takes the two channels and a mask: only the pixels of the region count.
+
+**C1.** `pearson(a, b, mask)`: Pearson's $r$ over the pixels of the mask:
+
+```
+mean_A, mean_B = means over the region
+s_AB = s_AA = s_BB = 0
+for every pixel i in the region:
+    dA = A_i − mean_A,  dB = B_i − mean_B
+    s_AB += dA · dB,  s_AA += dA²,  s_BB += dB²
+r = s_AB / sqrt(s_AA · s_BB)
+```
+
+The checks are B1(b) ($r = 0.916$), B4 and B5(c), and B7: a gain and an offset of A leave $r$ unchanged.
+
+**C2.** `overlap(a, b, mask)`: the same loop without subtracting the means gives
+$\sum AB$, $\sum A^2$, $\sum B^2$, and from them the overlap coefficient, k1 and k2. Checks: B1(c),
+B3(a) and B6.
+
+**C3.** `manders(a, b, mask, ta, tb)`:
+
+```
+for every pixel i in the region:
+    if A_i > tA:  sumA += A_i;  if B_i > tB: bothA += A_i
+    if B_i > tB:  sumB += B_i;  if A_i > tA: bothB += B_i
+M1 = bothA / sumA,  M2 = bothB / sumB
+```
+
+Checks: B2, B3(b, c) and B4.
+
+**C4.** `ranks(values)` and `spearman(a, b, mask)`: rank the pixel values of each channel
+(ties share the average of their ranks), then Pearson's $r$ of the ranks.
+
+```
+sort the positions by value
+for each group of equal values, taking sorted places k+1 … m:
+    every member gets the rank (k+1 + m) / 2
+```
+
+Checks: the ranks of B5(a) and Spearman's coefficient of B5(b, c).
+
+**C5.** `orthogonal_line(a, b, mask)` and `costes(a, b, mask, steps)`: the slope of the
+orthogonal regression line from the slide "The math: the regression line", then the walk down
+the line:
+
+```
+if r(region) ≤ 0: no Costes threshold
+slope, intercept = orthogonal regression line
+for k = 1, 2, …, steps:
+    tA = max A − k · (max A − min A) / steps
+    tB = slope · tA + intercept
+    below = pixels of the region with A ≤ tA or B ≤ tB
+    if r(below) ≤ 0: stop
+report tA, tB
+```
+
+The check runs it on a synthetic colocalised image with background 0.04: the thresholds must
+stop just above the background, with $r \le 0$ below them.
+
+Then `cargo run -p coloc` and open the pictures in `out/coloc/`. The program makes five
+synthetic two-cell images (grey values 0 to 1, background 0.04, noise 0.015): *perfect* (B has
+A's structures), *independent*, *leak* (independent, plus 40 % of A in B), *a-inside-b* (small A
+spots inside large B structures) and *diffuse* (independent, plus a diffuse signal in both cells).
+For each it prints $r$ inside the cells and over the whole image, the overlap coefficient,
+Spearman, the Costes thresholds and M1, M2, and it saves the merge and the scatter plot with the
+thresholds (A to the right, B upwards).
+
+**C6.** Compare $r$ over the cells and over the whole image for *diffuse*, and look at
+`diffuse-scatter.png` and `diffuse-merge.png`. Which slide of the lecture is this?
+
+**C7.** For *perfect*, Spearman is far below $r$. Why? For *leak*, nothing is colocalised:
+which numbers say otherwise, and what in `leak-scatter.png` gives the leak away?
+
+**C8.** For *a-inside-b*, which numbers describe the situation, and which does not?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `coloc/src/solution.rs` in the download.
+
+**C6.** Inside the cells $r = -0.045$, over the whole image $r = 0.656$. The structures are
+independent; the whole image adds a dense blob of background pixels at (0.04, 0.04) and moves the
+cell pixels to about (0.19, 0.19), so the scatter plot is stretched along the diagonal between
+the two clusters. This is the slide "Pearson's correlation" (the region matters), as in E3.
+
+**C7.** *perfect*: $r = 0.932$ but Spearman 0.453. Most pixels in the cells are background,
+whose ranks are set by independent noise in the two channels; every rank counts equally, while
+in $r$ the few bright pixels with large deviations dominate. *leak*: $r = 0.325$ (independent:
+$-0.045$), Spearman 0.282, and with the Costes thresholds M1 = 0.777 (independent: 0.194): the
+leaked copy of A in channel B looks like colocalisation. In `leak-scatter.png` the leak is a
+second, straight arm of slope about 0.4 rising from the background blob, next to the L shape of
+the independent structures.
+
+**C8.** M1 = 0.916 and M2 = 0.493: almost all of A lies where B is, about half of B has no A.
+Together they describe "A inside B". $r = 0.593$ alone does not say which channel lies inside
+the other.
+:::
+
 ## Where this leads
 
 Every number of this unit needs a reference for "no colocalisation": the next unit, [is it more than chance?](../coloc-null/lec.qmd), builds one with shift curves and block randomisation. Colocalisation coefficients are per image or per cell; to compare conditions they go through the same aggregation and statistics as every other measurement ([the evaluation day: replicates](../replicates/lec.qmd)). [FRET](../fret-physics/lec.qmd) (day 45) and [fluorescence lifetimes](../lifetime/lec.qmd) (day 46), the other days of this part, measure molecular proximity below the resolution limit.

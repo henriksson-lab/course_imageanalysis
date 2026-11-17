@@ -159,6 +159,87 @@ A 256 × 256 checkerboard (or the micrograph) with a control grid (spacing 16, 3
 **E6.** The deformed region is about 4 spacings wide (±2h): 256 px at h = 64, 64 px at h = 16. A 20-pixel bulge needs spacing 16 or less (with 32 or 64 the smallest possible deformation is wider than the bulge).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `spline-images/src/exercise.rs`.
+
+**C1.** `prefilter_1d(f)`: the B-spline coefficients of one row, so that
+$\tfrac16(c_{k-1} + 4c_k + c_{k+1}) = f_k$ (mirror outside the row), in two recursive passes with
+$z_1 = \sqrt3 - 2$:
+
+```
+c⁺[0] = sum over j = 0 … 14 of z1^j · 6·f[−j]      # f[−j]: read in the mirrored row
+for k = 1 … n−1:          c⁺[k] = 6·f[k] + z1 · c⁺[k−1]        # left to right
+c[n−1] = z1 / (z1 − 1) · c⁺[n−1]                   # the mirror: c[n] = c[n−1]
+for k = n−2 down to 0:    c[k] = z1 · (c[k+1] − c⁺[k])         # right to left
+```
+
+The checks are B1(b), the impulse's coefficients $1.732, -0.464, 0.124$, and that $\tfrac16(c_{k-1} + 4c_k + c_{k+1})$
+gives the row back at every position.
+
+**C2.** `prefilter(img)`: C1 along every row, then along every column of the result.
+
+**C3.** `bspline_value(coef, x, y)`: the interpolated value at a position between pixels,
+
+```
+value = 0
+for l = floor(y) − 1 … floor(y) + 2:
+    for k = floor(x) − 1 … floor(x) + 2:
+        value = value + coef[k, l] · β³(x − k) · β³(y − l)      # outside: mirror
+```
+
+The checks: after the prefilter it passes through every pixel; on the impulse it gives 1 at the
+pixel and 0.600 halfway (B1b); without the prefilter $\tfrac23$ and $\tfrac{23}{48}$ (B1a).
+
+**C4.** `cubic_convolution_kernel(s)` and `cubic_convolution(img, x, y)`: the same 4 × 4 sum on the pixels
+themselves, with the kernel $1.5|s|^3 - 2.5|s|^2 + 1$ for $|s| \le 1$, $-0.5|s|^3 + 2.5|s|^2 - 4|s| + 2$
+for $1 < |s| < 2$. The checks are B1(c) (0.5625) and B2 ($-6.25$ and $106.25$ next to the step).
+
+**C5.** `ffd_displacement(d, h, x, y)`: the displacement of a free-form deformation,
+$\mathbf u = \sum_{k,l}\mathbf d_{kl}\,\beta^3(x/h - k)\,\beta^3(y/h - l)$, the same 4 × 4 sum in units of the
+control spacing $h$. The check is B3: 4, 1, 0.25 and 0 pixels for a 9-pixel move, 2.875 half a
+spacing away, and a translation when all control points move together.
+
+Then `cargo run -p spline-images` and open the pictures in `out/spline-images/`.
+
+**C6.** The program prints, for each interpolator, the value at the impulse pixel and halfway to the
+next one, and the range of values near a step from 0 to 100. Which interpolators pass through the
+samples? Which overshoot, and by how much? Compare `zoom.png` (nearest, bilinear, B-spline without
+prefilter, cubic convolution, cubic B-spline, left to right).
+
+**C7.** The micrograph is rotated ten times by 36° with each interpolator (`rotate10.png`, same
+order). Rank them by the printed RMS change. Which one blurs although it is a cubic spline, and
+why?
+
+**C8.** `ffd-one.png` and `ffd-one-jacobian.png`: one control point moved 9 pixels to the right
+(the Jacobian determinant minus 1, grey = 0). Where is the image compressed and where stretched,
+and what is the smallest determinant? Then `ffd-fold.png`: two neighbours moved 44 pixels towards
+and past each other. How many pixels fold?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `spline-images/src/solution.rs` in the download.
+
+**C6.** At the pixel, every interpolator gives 1 except the B-spline without prefilter (0.667):
+nearest, bilinear, cubic convolution and the prefiltered B-spline interpolate. Halfway: nearest 0
+(it rounds 20.5 to the next pixel), bilinear 0.500, unfiltered B-spline 0.479, cubic convolution
+0.562, cubic B-spline 0.600. Near the step, nearest, bilinear and the unfiltered B-spline stay
+within 0 to 100; cubic convolution goes from −7.4 to 107.4 and the cubic B-spline from −10.8 to
+110.8. In `zoom.png` nearest shows blocks, bilinear and especially the unfiltered B-spline are
+blurred, and the two interpolating cubics are smooth and sharp.
+
+**C7.** Cubic B-spline 11.2, cubic convolution 14.7, bilinear 21.4, B-spline without prefilter 25.0,
+nearest 27.7 grey levels. The B-spline without prefilter blurs: each rotation applies the
+$\tfrac16[1\;4\;1]$ smoothing again in both directions, and ten rotations add up (third picture). Nearest
+does not blur but shreds the edges into jagged steps (first picture).
+
+**C8.** The pixel at the control point moves 4.00 pixels, the next control point 1.00, diagonally
+0.25 (B3). The image is compressed (determinant below 1, dark) just to the right of the control point
+and stretched (light) to its left; the smallest determinant is 0.875 ($= 1 - \tfrac49\cdot\tfrac{9}{32}$).
+With the two neighbours moved by ±44 pixels the smallest determinant is −0.146 and 239 pixels are
+folded: in `ffd-fold.png` the checkerboard between the two points is squeezed and overlaps itself.
+:::
+
 ## Where this leads
 
 **Non-rigid registration** ([optical flow day](../nonrigid-reg/lec.qmd)) searches for the control displacements of an FFD that make two images agree, with a smoothness penalty. **Spline snakes** ([snakes day](../snakes/lec.qmd)) use the closed B-splines of [unit 3](../spline-fit/lec.qmd) as contours and the B-spline interpolated image for exact forces.

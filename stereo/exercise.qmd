@@ -146,6 +146,94 @@ A rectified 192 × 144 pair with ground truth: **random dots** (background $d = 
 **E7.** Winner-take-all updates take tens of milliseconds, SGM 8 a few hundred: the aggregation over 8 directions, each touching every pixel × disparity, dominates; the cost volume itself is cheaper (and is only recomputed when the cost or the window changes).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `stereo/src/exercise.rs`.
+The left pixel $(x, y)$ matches the right pixel $(x - d, y)$; a cost volume is one image of costs
+per disparity $d$.
+
+**C1.** `sad_cost_volume(left, right, max_d, radius)`:
+
+```
+for d in 0 … max_d:
+    for every left pixel (x, y):
+        C_d(x, y) = sum over the window (i, j) of |L(x+i, y+j) − R(x+i−d, y+j)|
+```
+
+Outside the images, read 0. The check is B2: SAD 12, 12 and 0 for $d = 0, 1, 2$, and equal costs
+for a constant row.
+
+**C2.** `census(img)` and `hamming(a, b)`: the 8-bit census code of every pixel (row by row, the
+first neighbour in the highest bit, 1 = darker than the centre), and the number of bits in which
+two codes differ. The check is B3: 11001100, 10001100, distance 1, and the same code for
+$2W_1 + 10$.
+
+**C3.** `winner_take_all(costs)`: at every pixel the disparity of the lowest cost. The check is B2.
+
+**C4.** `scanline_dp(costs, p1, p2)`: the cheapest disparity path through one row, `costs[x][d]`:
+
+```
+total[0][d] = C[0][d]
+for x = 1 … n−1, for every d:
+    total[x][d] = C[x][d] + min over e of ( total[x−1][e] + jump(e, d) )
+    from[x][d]  = the e that gave the minimum         # jump: 0, p1 if |e−d| = 1, else p2
+path[n−1] = the d with the smallest total[n−1][d]
+for x = n−1 … 1:  path[x−1] = from[x][path[x]]
+```
+
+The check is B5: with $P_1 = 1$, $P_2 = 2$ the straight path $d = 1$; with $P_1 = 0.25$ the
+winner-take-all path.
+
+**C5.** `subpixel_offset(c_minus, c0, c_plus)`: the minimum of the parabola,
+$(C_- - C_+)/\big(2(C_- - 2C_0 + C_+)\big)$. The check is B6: $+0.25$.
+
+Then `cargo run -p stereo` and open the pictures in `out/stereo/` (disparity maps: brighter =
+nearer). The program makes a rectified pair of random texture, $160\times120$ pixels: a slanted
+ground (disparity 6 at the top to 18 at the bottom) and a raised square (disparity 26), with true
+disparities in `truth.png`. It prints the percentage of bad pixels (more than 1 off; occluded
+pixels and the left strip $x < 32$ are not counted) for:
+
+- SAD with windows $3\times3$, $7\times7$, $15\times15$ and winner-take-all (`wta-sad*.png`);
+- a square whose inside is one flat grey, with winner-take-all and with scanline DP
+  ($P_1 = 0.3$, $P_2 = 3$) on $3\times3$ SAD (`textureless-*.png`);
+- a right camera with gain 0.5 and offset 0.3, with SAD and with census, $7\times7$
+  (`gain-*.png`);
+
+and the mean disparity error on the ground with whole disparities and with the parabola.
+
+**C6.** Compare the three window sizes, by the numbers and the pictures. Why is $3\times3$ noisy,
+and why is $15\times15$ worse again than $7\times7$? What is the noisy strip just left of the
+square?
+
+**C7.** Compare winner-take-all and DP on the textureless square. Where does DP get the inside's
+disparity from? What artefact does DP leave?
+
+**C8.** What does the gain change do to SAD and to census? How much does the parabola improve
+the disparity of the ground?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `stereo/src/solution.rs` in the download.
+
+**C6.** $3\times3$: 4.4 % bad, with isolated wrong specks all over the ground (9 pixels of texture
+are sometimes matched as well by a wrong window). $7\times7$: 2.4 %. $15\times15$: 6.6 %: the
+square's corners are rounded and the square grows to the sides, because a window centred on a
+ground pixel next to the square contains part of the square, and the square's texture wins
+(foreground fattening). The noisy strip just left of the square is the background that the right
+camera cannot see (occluded): it has no correct match, and it is not counted.
+
+**C7.** Winner-take-all: 19.6 % bad; the flat inside gets random disparities, because every
+disparity matches a flat grey equally well. DP: 0.3 %: along each row the path keeps the
+disparity of the textured frame across the flat inside, since a jump costs $P_2$ and staying costs
+nothing extra. It leaves horizontal streaks in the occluded strip left of the square, where each
+row decides on its own.
+
+**C8.** SAD gets worse, from 2.4 % to 3.2 % bad, because the offset and gain make even the correct
+window differ. Census is unaffected by any increasing change of brightness and gives 0.7 %
+(better even than SAD on the original pair). The parabola halves the mean error on the ground,
+from 0.249 px with whole disparities to 0.125 px.
+:::
+
 ## Where this leads
 
 Stereo turns two calibrated, rectified cameras into a depth map. With many cameras whose poses are **unknown**, the cameras and the points have to be found together: **structure from motion** and **bundle adjustment**, the next unit, followed by dense **multi-view stereo**, which sweeps depth planes through many views at once.

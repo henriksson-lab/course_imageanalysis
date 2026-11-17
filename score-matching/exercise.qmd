@@ -155,6 +155,92 @@ A $128 \times 128$ image (a crop of the course micrograph, or synthetic nuclei),
 **S6.** After 500 steps the plateaus inside the modes are already right (error at σ = 0.6: 0.138 against 0.132 exact; at σ = 0.15 the network maps −1.5 to −1.52). What lags is the steep jump **between** the modes at low noise: at σ = 0.15 and $x = 0.3$ the network gives 0.35 where the exact denoiser gives 0.62, and still 0.38 after 1 500 steps. Set the noise level slider to 0.15 to see it. The low-noise, between-mode detail is the hardest part.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `score-matching/src/exercise.rs`.
+The fast Fourier transform of the library may be used. Here it is a tool, not the exercise.
+
+**C1.** `noise_level(alpha_bar)`: SNR $= \bar\alpha/(1-\bar\alpha)$ and $\sigma = 1/\sqrt{\text{SNR}}$.
+The check is B1.
+
+**C2.** `from_noise(x, eps, alpha_bar)`: from a predicted noise to the clean estimate, the score and
+the velocity:
+
+```
+a = √ᾱ,  b = √(1 − ᾱ)
+x̂0 = (x − b · ε̂) / a
+score = −ε̂ / b
+v = a · ε̂ − b · x̂0
+```
+
+The check is B5.
+
+**C3.** `binned_average(pairs, lo, hi, bins)`: denoising score matching without a network. Sort the
+training pairs (noisy, clean) into equal bins by their noisy value, and average the clean values in
+each bin:
+
+```
+for every pair (x, x0) with lo ≤ x < hi:
+    b = floor((x − lo) / bin width)
+    sum[b] = sum[b] + x0;   count[b] = count[b] + 1
+mean of bin b = sum[b] / count[b]
+```
+
+The checks are B4 (a), and B4 (c): with 40 000 pairs the bin averages approach $\tanh(x)$.
+
+**C4.** `radial_power(img)`: the radially averaged power spectrum. Every frequency $(f_x, f_y)$ adds
+its power $|F|^2/n^2$ to the ring $r = \text{round}(\sqrt{f_x^2 + f_y^2})$, and each ring is
+averaged. Checks: white noise of variance 4 has power 4 in every ring, and a cosine with 4 periods
+has its power at $r = 4$.
+
+**C5.** `wiener_denoise(noisy, sigma, power)`: the best denoiser of a Gaussian image model with that
+power spectrum, as in the noise-spectrum demo:
+
+```
+F = DFT of the noisy image
+for every frequency, in ring r:   F = F · P(r) / (P(r) + σ²)
+result = inverse DFT of F
+```
+
+The check is B3: a flat spectrum of power 4 gives the gains 0.8, 0.5 and 0.2.
+
+Then `cargo run -p score-matching` and open the pictures in `out/score-matching/`. Part 1: 400
+training pairs of two narrow modes at ±1.5 at σ = 0.15, 0.6 and 2.5. The plots `pairs-sigma*.png`
+show the pairs (grey), the binned average (green) and the exact best denoiser (blue). The program
+prints the sparse bins and the denoising error on fresh pairs. Part 2: a $128 \times 128$ crop of the
+micrograph, scaled to mean 0 and variance 1, at log-SNR 2.3, 0, −2.3 and −4.6. It prints the
+crossover ring and the error of the noisy and the Wiener image, and saves both images.
+
+**C6.** Part 1: describe the exact denoiser at the three noise levels, and where the binned average
+departs from it. Where does a noisy value of 1.5 go at σ = 2.5? Relate this to B3 and to S1–S2.
+
+**C7.** Part 2: compare the crossover rings with B2 and N1, and the errors with N2. Then look at
+`wiener-logsnr*.png`. What survives at each noise level?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `score-matching/src/solution.rs` in the download.
+
+**C6.** At σ = 0.15 the denoiser is a staircase: a gentle slope through each mode and a steep jump at
+0. Each noisy value goes back to its own mode. 12 of the 20 bins have fewer than 3 pairs: the
+region between the modes is almost empty. At σ = 0.6 the jump is softer (only 1 sparse bin), and
+at σ = 2.5 the curve is nearly a straight line through 0: a noisy 1.5 goes to 0.52 (as in S2). The
+noise no longer tells which mode a value came from, so the best guess shrinks towards the mean
+(B3). The binned average follows the exact curve where there are many pairs. Its error on fresh
+pairs is a little larger: 0.013 against 0.011, 0.091 against 0.083, and 1.89 against 1.66 at
+σ = 2.5. In the last case about a third of the noisy values fall outside −3 … 3, and they get the
+average of the outermost bin. Where there are no pairs, regression learns nothing: the same problem as a
+network's tails (S3).
+
+**C7.** The image stays above the noise floor up to ring 61 at SNR 10, 21 at SNR 1, 7 at SNR 0.1 and
+3 at SNR 0.01. As in B2 and N1, each tenfold drop in SNR divides the crossover by about 3. At SNR 1
+the error drops from 0.999 (noisy) to 0.193 (Wiener). N2 measured 1.005 and 0.197 on the demo's
+crop. At SNR 0.1: 9.97 against 0.370; at SNR 0.01: 99.4 against 0.557. In the pictures, the Wiener
+estimate at SNR 1 keeps the nucleus, its envelope and the large dark regions, but the fine texture is
+gone. At SNR 0.1 only a smooth outline of the nucleus is left, and at SNR 0.01 only bright and dark
+patches, the coarse layout. The noise erases the fine detail first.
+:::
+
 ## Where this leads
 
 The denoiser at every noise level is all a sampler needs. The next unit, [Samplers, steps, and judging the samples](../diffusion-sampling/lec.qmd), follows its arrows from noise to data, deterministically or with fresh noise, and asks how many steps that takes and how to judge the result.

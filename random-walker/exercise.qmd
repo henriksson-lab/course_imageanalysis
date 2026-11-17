@@ -169,6 +169,104 @@ A $128 \times 128$ image: synthetic scenes (**objects**: a bright disc with a th
 **R7.** The cytoplasm between the nucleus and the image border is uncertain (pale): it is far from the strokes and its texture gives many weak links. Two or three background strokes on the cytoplasm around the nucleus (left, right, below) are usually enough for the 0.5 contour to follow the nuclear envelope everywhere.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `random-walker/src/exercise.rs`.
+Seeds are a label image: 0 = free pixel, 1 = object seed, 2 = background seed (3, 4, … for more
+labels). A chain is a one-row image. The exercises number the nodes from 1, the code from 0.
+
+**C1.** `chain_voltages(weights, seeds)`: the voltages of a chain, the way B1 and B3 compute them
+by hand:
+
+```
+for every pair of consecutive seeds a < b (voltages Va, Vb):
+    R = Σ of 1/w over the edges from a to b                 # total resistance
+    r = 0
+    for i = a .. b−1:
+        V[i] = Va + (Vb − Va) · r / R;   r = r + 1/w[i]
+before the first seed and after the last one: V = that seed's voltage
+```
+
+The checks are B1(a), B3(a) and B4.
+
+**C2.** `edge_weights(img, σ)`: the contrast weight $w = \exp(-(I_p - I_q)^2/2\sigma^2)$ of every
+edge to the right neighbour and to the one below. Grey values are between 0 and 1 here, so
+$\sigma = 0.08$ is about 20 grey levels of 255.
+
+**C3.** `averaging_sweep(x, seeds, weights)`: every free pixel, row by row, takes the weighted
+mean of its neighbours; returns the largest change:
+
+```
+for every free pixel p, row by row:
+    x_p = Σ_q w_pq x_q / Σ_q w_pq            # the values already updated in this sweep
+```
+
+The check repeats it until nothing changes on the $3 \times 3$ grid of B5.
+
+**C4.** `random_walker(seeds, weights, label, tol, max_iterations)`: the exact probabilities,
+by **conjugate gradients** on the system $L_U\mathbf x_U = \mathbf b$ (the lecture's math slide).
+First `apply_lu(v, seeds, weights)` (C4a): multiplying by $L_U$ needs no matrix; for a free pixel,
+$(L_U\mathbf v)_p = d_p v_p - \sum_{q \text{ free}} w_{pq} v_q$, with $d_p$ the sum of all its
+weights, and 0 at the seeds. Then `random_walker` (C4b), with the right side
+$b_p = \sum_{q \text{ seed}} w_{pq}\,x_q$, what the seeds pull with:
+
+```
+x = 0,  r = b,  p = r                         # images, 0 at the seeds
+repeat until r·r is small enough:
+    q = L_U p
+    α = (r·r) / (p·q)
+    x = x + α p,   r_new = r − α q
+    p = r_new + (r_new·r_new) / (r·r) · p,   r = r_new
+```
+
+The checks are B5, B1 as a one-row image, B2(a) (3/5), and three labels whose probabilities
+sum to 1 at every pixel.
+
+**C5.** `walk_estimate(seeds, weights, label, start, walks, rng)`: release random walks from
+`start`, each step to neighbour $q$ with probability $w_{pq}/d_p$, until a seed; return the
+fraction that ends at a seed of `label`. The check is 4000 walks from node 3 of B1.
+
+Then `cargo run -p random-walker` and open the pictures in `out/random-walker/`. The program
+repeats the chains, segments the micrograph (at half size) from one object stroke in the
+nucleus and background strokes on three borders, solves a flat image with seeds in two corners,
+and segments synthetic nuclei with one seed per nucleus.
+
+**C6.** The program runs averaging sweeps on the chain of B3, from 0.5 at the free nodes, until
+the largest change is below 0.001. How many sweeps does it take, and how close are the values
+to the exact ones of C1? Compare with demo question W3.
+
+**C7.** Open `cell-seeds.png` (0.5 contour in yellow) and `cell-probability.png`. Where does the
+contour follow the nuclear envelope, and where not? How many CG iterations were needed? Compare
+the two probed probabilities with the 200 walks: are the differences what you expect?
+
+**C8.** Read the probabilities along the diagonal of the flat image. Where does the probability
+change fastest? Which failure mode of the lecture is this? In `nuclei-walker.png`, what fraction
+of the pixels got their true label, and why does it work so well there?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `random-walker/src/solution.rs` in the download.
+
+**C6.** 24 sweeps; the values are then 0.624, 0.548, 0.471, 0.393, 0.314 against the exact 0.615,
+0.538, 0.462, 0.385, 0.308 of C1: about 0.01 too high, although every sweep changed them by less
+than 0.001. The same numbers as in W3. A small change per sweep does not mean a small error:
+averaging converges slowly, which is why the walker is solved by conjugate gradients.
+
+**C7.** The yellow contour follows the nuclear envelope on the left, top and right. At the bottom
+it leaves the envelope and takes in a piece of the darker cytoplasm below the nucleus, which is
+far from all background strokes. Conjugate gradients needed 530 iterations (relative residual
+$10^{-5}$); 2997 pixels are object. Probes: 0.647 against 0.650 from 200 walks, and 0.345 against
+0.325. With 200 walks the standard error is $\sqrt{p(1-p)/200} \approx 0.034$: both estimates
+are within one standard error.
+
+**C8.** 1.00, 0.89, 0.80, 0.71, 0.61, 0.50, 0.38, 0.27, 0.16, 0.11, 0.00: the steepest change is
+right next to the two seeds (from 1 to 0.89 in one pixel, and from 0.11 to 0 in the last), and
+in between the probability falls slowly through 0.5 in the middle. Only the geometry decides:
+"far from all seeds". The nuclei: 99.4 % of the pixels get their true label. Every nucleus has
+its own seed and a strong edge all round (bright nuclei on a dark background), so each walk is
+trapped where it starts.
+:::
+
 ## Where this leads
 
 The random walker solves one linear system on the pixel graph. The [next unit](../mst-seg/lec.qmd) uses the same graph differently: with **dissimilarities** and **spanning trees**, segmentation becomes a greedy grouping (single linkage, Felzenszwalb–Huttenlocher). In the [watershed as a spanning forest](../ws-msf/exercise.qmd#explore) unit, the walker, the graph cut and the watershed run side by side on the same seeds.

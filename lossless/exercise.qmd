@@ -120,6 +120,80 @@ The demo shows an image $x$, the residual $e = x - \hat x$ of a predictor (white
 **P8.** Ideal residual size 59 728 B, DEFLATE 79 341 B (raw 131 072 B, DEFLATE of the raw pixels 82 742 B). DEFLATE codes **bytes**: each 16-bit residual is split into a low byte (noisy) and a high byte (0 or 255 depending on the sign), and the Huffman stage of DEFLATE cannot see that the two belong together. Lossless formats for 16-bit data therefore predict on the values themselves and code the residuals with their own entropy coder, or regroup the bytes before DEFLATE (the "shuffle" filters of chunked array formats, last unit).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `lossless/src/exercise.rs`.
+
+**C1.** `predict(a, b, c, predictor)`: the prediction $\hat x$ of the seven predictors in the
+background table (none, left, up, average, planar, Paeth, MED). For MED:
+
+```
+if c ≥ max(a, b):      predict min(a, b)
+else if c ≤ min(a, b): predict max(a, b)
+else:                  predict a + b − c
+```
+
+The checks are your answers to B2 and B3.
+
+**C2.** `residuals(img, predictor)`: the residual image, with the grey levels as whole numbers:
+
+```
+for every pixel (x, y), row by row:
+    a, b, c = the left, upper and upper-left neighbours     # 0 outside the image
+    e(x, y) = I(x, y) − predict(a, b, c)
+```
+
+The check is B1(a).
+
+**C3.** `decode(res, predictor)`: rebuild the image from its residuals. The neighbours come from
+the image you are rebuilding, which at each step holds exactly what the encoder saw:
+
+```
+for every pixel (x, y), row by row:
+    a, b, c = the left, upper and upper-left neighbours in out   # 0 outside
+    out(x, y) = predict(a, b, c) + e(x, y)
+```
+
+The checks are B1(c), and that `decode` undoes `residuals` exactly for every predictor (B7).
+
+**C4.** `entropy(values)`: the entropy of a list of whole numbers (they can be negative), as in
+the previous unit. The check is B1(b).
+
+Then `cargo run -p lossless`. The program prints a table of entropies (bits per pixel) for
+every predictor: the micrograph, a smooth synthetic image with noise of standard deviation 0 to
+20 grey levels, and a flat field of grey level 128 with noise 10. In `out/lossless/` are the
+smooth image and the micrograph with their residuals (mid grey = 0, contrast × 4).
+
+**C5.** Which predictor gives the smallest residual entropy for the micrograph, for the smooth
+image without noise, and for the smooth image with noise 1.5? Explain the difference with P2.
+
+**C6.** Follow the column of the left predictor as the noise grows, and compare with the
+pixels' entropy (column "None"). Then compare the flat field with your estimates in B4.
+
+**C7.** Look at `cell-residual-left.png`. What is left after prediction, and what does that mean
+for the best lossless compression ratio of the micrograph?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `lossless/src/solution.rs` in the download.
+
+**C5.** Micrograph: average is best (6.50 bits per pixel), then MED 6.55 and Paeth 6.62; left
+6.82, planar 6.88 (pixels 7.68). Smooth image without noise: MED 1.18, Paeth 1.21 and planar
+1.23 beat average (1.48) and left (1.60): on a smooth slope the predictors that follow the
+slope ($a + b - c$ is exact on a plane) win. With noise of 1.5 the order changes: average 3.08
+is best and planar 3.65 is worst. Now the residual is mostly noise, and planar adds the noise of
+three neighbours at full weight, while average halves the noise of two (P2).
+
+**C6.** Left predictor at noise 0, 1.5, 5, 10, 20: 1.60, 3.25, 4.91, 5.90, 6.89 bits; the pixels
+6.87, 6.89, 6.96, 7.09, 7.35. The gain shrinks from 5.3 bits to 0.5 bits. The flat field
+(pixels 5.37, left 5.91, average 5.73) matches B4 (5.37, 5.87, 5.66): on pure noise prediction
+costs bits.
+
+**C7.** The fine grain of the micrograph is everywhere in the residual, with the outlines of the
+nucleus and the organelles on top. That grain cannot be predicted. With the best predictor the
+ideal ratio is $8 / 6.50 = 1.23$, the "1.2 to 2.5 times" of the lecture.
+:::
+
 ## Where this leads
 
 Prediction removes the inter-pixel redundancy one pixel at a time, and it is exact. The next unit, [transform coding](../dct/lec.qmd), takes a different route: a **change of basis** (the DCT) that packs the image into a few large coefficients, which can then be **quantised**. That step is lossy, and it is how JPEG reaches 10 to 20 times smaller files. JPEG reuses the prediction idea once: the DC coefficient of each block is coded as the difference from the previous block.

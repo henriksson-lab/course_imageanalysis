@@ -181,6 +181,87 @@ Top: a 1D profile: a structure that fades from bright to faint, a faint separate
 **H5.** With $t_\text{low} = 120$, $t_\text{high} = 220$: 790 seeds, 3619 pixels kept, 821 rejected. The strong edges (the outline of the cell, the dark granules and membranes) are kept as connected networks, together with the weaker edges attached to them; isolated weak texture edges are rejected (blue). Raising $t_\text{high}$ removes whole chains at once: first those that contain no very strong pixel.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `local-threshold/src/exercise.rs`.
+
+As in the exercises, objects are dark (object where $I < T$), and pixels outside the image copy
+the edge pixel.
+
+**C1.** `local_mean_std(img, r)`: the mean $m$ and the standard deviation $s$ over the
+$(2r + 1) \times (2r + 1)$ window around every pixel, from two box sums
+(slide "Local mean and variance are box filters"), each made in two passes:
+
+```
+for every pixel (x, y):                          # pass 1: along the row
+    S1(x, y) = sum of I(x + d, y)     for d = −r … r
+    S2(x, y) = sum of I(x + d, y)²    for d = −r … r
+for every pixel (x, y):                          # pass 2: along the column
+    n = (2r + 1)²
+    m(x, y) = (sum of S1(x, y + d) for d = −r … r) / n
+    s(x, y) = sqrt( (sum of S2(x, y + d) for d = −r … r) / n − m(x, y)² )
+```
+
+The checks are B2 (the means and standard deviations of the profile, window 3) and B7.
+
+**C2.** `rule_threshold(rule, m, s)`: the threshold of mean − C, Niblack or Sauvola for one
+pixel. The checks are B3 (a)–(c). **C3.** `local_threshold(img, r, rule)`: object where
+$I(x) < T(x)$. The checks are B2 (b) (mean − C finds positions 3 and 8) and B2 (c) (Niblack also
+position 1).
+
+**C4.** `hysteresis(img, low, high, eight)`, for bright structures:
+
+```
+kept = seeds = the pixels above t_high;   put the seeds on a stack
+while the stack is not empty:
+    take a pixel p from the stack
+    for every neighbour q of p (4 or 8):
+        if q is inside the image, not kept, and above t_low:
+            mark q kept;  put q on the stack
+```
+
+The checks are B5 (b), (c) and (d): 3 pixels with 4-connectivity, 6 with 8.
+
+Then `cargo run -p local-threshold` and open the pictures in `out/local-threshold/`. The program
+makes dark discs (radius 4 to 22) on a background lit from about 79 on the left to 202 on the
+right, with vignetting and noise (`discs.png`), and prints the false positives (FP) and false
+negatives (FN) of each method against the truth. It also runs hysteresis on faint filaments.
+
+**C5.** The program tries every global threshold and keeps the best. How many errors remain, and
+where (`global.png`)? Compare with dividing by the background, and with mean − C for the windows
+$11 \times 11$, $51 \times 51$, $81 \times 81$ and $241 \times 241$ (`mean-c-r5.png` …
+`mean-c-r120.png`). Which window fails as in B4 (a), and which as in B4 (b)?
+
+**C6.** Niblack and Sauvola with the same $51 \times 51$ window: compare their false positives,
+and find them in `niblack.png`. Which question of the by-hand part predicts this?
+
+**C7.** The filaments (`filaments.png`, thresholds 0.30 and 0.55): compare the pixel counts of
+the two single thresholds with hysteresis, and look at the three masks. Why does hysteresis with
+4-connectivity keep fewer pixels than with 8?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `local-threshold/src/solution.rs` in the download.
+
+**C5.** The best global threshold (60) misses 5357 object pixels and adds 154: only the discs on
+the dim left side are found, because on the bright side even the discs are brighter than 60.
+Dividing by the background (a $61 \times 61$ mean) and thresholding the ratio at 0.85 gives
+52 FP and 0 FN. Mean − C: $11 \times 11$ gives 3808 FN, with the large discs as hollow rings
+(B4 (a)); $51 \times 51$ (84 FP, 0 FN) and $81 \times 81$ (142 FP, 0 FN) work; $241 \times 241$
+is nearly global again, and the dim left edge and the dark corners become object: 3435 FP (B4 (b)).
+
+**C6.** Niblack: 6206 FP; Sauvola: 0 FP (and 1 FN). Niblack's false positives are speckle in
+the empty background, away from the discs: there its threshold sits just below the local mean,
+and a fixed fraction of the noisy background falls below it (B3 (a)). Sauvola's threshold lies far
+below the mean in flat regions (B3 (b)).
+
+**C7.** Above the high threshold: 401 pixels, the filaments only on their bright halves; above
+the low threshold: 588, the whole filaments plus scattered noise pixels; hysteresis: 537 with
+8-connectivity, the whole filaments without the isolated noise. With 4-connectivity it keeps 507:
+the thin curves step diagonally in places, and the pixels after such a step are not connected to
+a seed through a side.
+:::
+
 ## Where this leads
 
 Local thresholds and hysteresis still decide pixel by pixel. **Graph cuts** ([day 27](../seg-energy/lec.qmd)) let neighbouring pixels agree through an explicit energy, with thresholding as its $\lambda = 0$ case; the **top-hat** ([day 13](../morph-grey/lec.qmd)) gives a background estimate that is not pulled by the objects; and **connected components** ([day 14](../label-connectivity/lec.qmd)) is the algorithm behind hysteresis. [Next unit](../seg-eval/lec.qmd): how do we know a segmentation is good? We measure it **against the ground truth**.

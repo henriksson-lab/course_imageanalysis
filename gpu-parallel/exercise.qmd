@@ -155,6 +155,92 @@ A **model** of a GPU multiprocessor with the rules of a real one (not a measurem
 **E6.** 100 % down to $N = 26$ warps; at 13 warps 54.5 %, at 8 warps 34.8 %. $(k + L)/k = 208/8 = 26$. With 255 registers per thread only $65\,536/(32 \cdot 255) = 8$ warps fit (occupancy 25 %), so the utilisation stays at 34.8 % whatever $N$ is asked for: a big per-thread program costs latency hiding.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gpu-parallel/src/exercise.rs`.
+There is no GPU code here: the functions model a GPU with the rules of a real one, as the demo
+does, and count what it would do.
+
+**C1.** `warp_cycles(inside, cost_a, cost_b)`: the cycles of one warp for
+`if inside: A else: B`:
+
+```
+cycles = 0
+if any lane is inside:  cycles = cycles + cost_a      # the others are masked off
+if any lane is outside: cycles = cycles + cost_b
+```
+
+The check is B2 (a).
+
+**C2.** `divergence(mask, warp_w, warp_h, cost_a, cost_b)`: run the branch over a whole image,
+cut into warps of `warp_w` × `warp_h` pixels:
+
+```
+for every tile of warp_w × warp_h pixels:
+    lanes = the mask values of its 32 pixels
+    c = warp_cycles(lanes, cost_a, cost_b);   cycles += c
+    if c = cost_a + cost_b: diverged += 1
+    useful += cost_a for every lane inside, cost_b for every lane outside
+efficiency = useful / (32 · cycles)
+```
+
+The checks are B2 (b), B2 (c) and B5.
+
+**C3.** `loop_efficiency(iterations)`: a warp runs its loop as long as its slowest lane; the
+efficiency is the sum of the iterations ÷ (lanes × the largest). The check is B4.
+
+**C4.** `utilisation(n_warps, k, latency, loads)`: latency hiding on one multiprocessor that
+issues one instruction per cycle.
+
+```
+every warp: k instructions left, ready at cycle 0, `loads` loads to do
+for cycle = 0, 1, 2, … while some warp has loads left:
+    w = the warp served last if it is ready, else the next ready warp (if any)
+    if there is one: issue one instruction of w; busy += 1
+        if it was w's k-th: w waits for its load until cycle + 1 + latency; k left again; loads − 1
+utilisation = busy / (the cycle when the last load arrives)
+```
+
+The checks: one warp with $k = 4$, $L = 200$ is busy $4/204$ of the time, and 13 warps with $k = 8$
+about half the time, as Little's law says.
+
+Then `cargo run -p gpu-parallel` and open the pictures in `out/gpu-parallel/`.
+
+**C5.** The program runs the branch (100 cycles inside a nucleus, 10 outside) over 256 × 256
+synthetic nuclei, with warps of 32 × 1, 8 × 4 and 4 × 8 pixels. Read the numbers of diverged
+warps, the cycles and the efficiencies, and look at `warps-32x1.png` and `warps-8x4.png` (orange:
+all lanes inside, blue: all outside, red: mixed). Why are the tiles better?
+
+**C6.** The program then runs a loop of 1 iteration in the background and 2 to 20 in the nuclei
+(brighter = more), with warps = rows. Read the lane efficiency. Without divergence, how many
+warp-iterations would the same work need?
+
+**C7.** Read the latency table (20 loads per warp) and compare the simulation with Little's law,
+$\min(1, Nk/(k + L))$. How many warps does it take to keep the multiprocessor busy for $k = 4$ and for
+$k = 8$? Why is the simulation a little below the formula?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gpu-parallel/src/solution.rs` in the download.
+
+**C5.** Rows of 32: 1028 of 2048 warps diverge, 126 880 cycles against 69 569 without divergence,
+efficiency 54.8 %. Tiles of 8 × 4: 436 diverge, 94 410 cycles, 73.7 %; 4 × 8 tiles about the
+same (426, 74.1 %). In the pictures, nearly every row-warp that touches a nucleus is red, a long red band
+across the nucleus; with tiles only a thin red ring of tiles along the outline of each nucleus is
+mixed, and the tiles inside it are orange. A compact tile of 32 pixels has a much shorter perimeter
+than a row of 32, so fewer of them are cut by a boundary.
+
+**C6.** Lane efficiency 51.8 %: the warps run 17 533 warp-iterations, but the useful work (4.4
+iterations per lane on average) would fill only 51.8 % of them, about 9100. Every row-warp that
+crosses a nucleus waits for its brightest pixel.
+
+**C7.** $k = 4$: 2.0, 3.9, 7.8, 15.6, 30.9, 49.8, 60.9 and 96.2 % for 1 to 64 warps, close to
+$N\cdot4/204$ (51 warps needed for 100 %). $k = 8$: 3.8 % for one warp, 95.4 % at 26 warps and
+98.1 % at 64, with Little's law reaching 100 % at $208/8 = 26$. The simulation stays a little
+below because of the start and the end: at the start all warps are ready together and then all
+wait together, and at the end the last loads are waited for with nothing left to do.
+:::
+
 ## Where this leads
 
 The waiting in the last demo was for **memory**. The next unit, [memory is the bottleneck](../gpu-memory/lec.qmd), shows that most image operations are limited by how fast bytes move, not by arithmetic, and how coalescing, tiling, fusing and keeping data on the GPU help.

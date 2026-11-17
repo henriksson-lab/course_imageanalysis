@@ -181,6 +181,84 @@ Left: the training set, **raw** or **aligned** (aligned: every landmark's scatte
 **E8.** Both have three parameters; the first three modes carry 93.5 % (nuclei) and 96.2 % (leaves) and the rest is small. Nuclei: mode 1 (69.4 %) makes the outline longer and thinner or rounder (the elongation), mode 2 bends it, mode 3 deepens the dent. Leaves: mode 1 (66.1 %) changes the width and the bend of the midrib together, and mode 3 moves the widest point. PCA finds the directions of largest variance, not the parameters of the generator: when two parameters happen to vary together in the training set, a mode mixes them.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `shape-models/src/exercise.rs`.
+
+**C1.** `procrustes(p, q, allow_scale)`: the similarity ($a$, $b$ and the shift $\mathbf t$) that
+maps the landmarks $\mathbf p$ best onto $\mathbf q$:
+
+```
+cp, cq = centroids of p and q
+for every landmark i:  p'_i = p_i − cp,  q'_i = q_i − cq
+a = Σ p'·q' / Σ |p'|²
+b = Σ (p'_x q'_y − p'_y q'_x) / Σ |p'|²
+if no scaling:  (a, b) = (a, b) / length of (a, b)
+t = cq − M cp,   M = [[a, −b], [b, a]]
+```
+
+The checks are B1 ($a = 1.2$, $b = 0.9$, $\mathbf t = (-1, -1.5)$) and B2 (the rigid fit, remaining
+sum of squares 0.833).
+
+**C2.** `gpa(shapes, rounds)`: generalised Procrustes analysis, as on the slide "Aligning a whole
+training set":
+
+```
+every shape: centred, scaled to size 1
+first = shape 0;  mean = first
+repeat rounds times:
+    align every shape to mean (Procrustes, with scaling)
+    mean = landmark-by-landmark average of the aligned shapes
+    mean = centred, size 1, then turned onto first (Procrustes, rigid)
+```
+
+The check: five copies of one shape, in different poses, all end exactly on the mean.
+
+**C3.** `shape_model(vectors)`: the mean of the shape vectors $(x_1, y_1, x_2, y_2, \dots)$, their
+covariance matrix (divide by the number of shapes), and its eigenvalues and eigenvectors, largest
+first (the eigenvectors may come from a library routine: the PCA unit was about how). The check is
+B4(a, b).
+
+**C4.** `generate(mean, modes, b)` gives $\bar{\mathbf x} + \sum_j b_j\boldsymbol\phi_j$, and
+`project(x, mean, modes, values, k, clamp)` the parameters $b_j = \boldsymbol\phi_j\cdot(\mathbf x - \bar{\mathbf x})$
+of the first $k$ modes, each limited to $\pm3\sqrt{\lambda_j}$ if `clamp` is on. The checks are
+B4(c, d, e).
+
+Then `cargo run -p shape-models` and open `out/shape-models/leaves.png`. The program makes 40
+synthetic leaves from three hidden parameters (width, bend of the midrib, where the widest point
+lies), puts them in random positions, sizes and angles, and builds a shape model. The picture
+shows the raw leaves, the aligned leaves with their mean, and modes 1 to 3 at $-3$ (blue) and $+3$
+(red) standard deviations.
+
+**C5.** Describe the first three modes in words, and give their shares of the variance (printed).
+How many modes would you keep? Look at mode 1 at $+3$ standard deviations: what is wrong at one
+end, and why can a linear model do that?
+
+**C6.** The program also fits a new leaf, bent more than the training leaves, with 3 modes, with
+and without clamping, and builds the model again with 10 of the 40 leaves numbered one landmark
+off. What do the printed numbers show?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `shape-models/src/solution.rs` in the download.
+
+**C5.** Mode 1 (76.1 %) makes the leaf wider or narrower. Mode 2 (10.3 %) bends the midrib, so the
+leaf curves to one side. Mode 3 (6.0 %) moves the widest point towards the base or the tip. Then
+1.5, 0.6 and 0.5 %: landmark noise. Keep 3 modes, the three hidden parameters; after them the
+eigenvalues drop sharply. At $+3$ standard deviations mode 1 makes the leaf so narrow that its
+two sides cross near one end. The model adds the same displacement vector whatever the size of
+$b_1$: it has no idea that a width cannot become negative, and the training leaves were not
+exactly linear in their parameters.
+
+**C6.** The new leaf needs $b_2 = -4.31\sqrt{\lambda_2}$: more bent than any training leaf. Without
+clamping, 3 modes fit it to a distance of 0.034 (in units where the leaf has size 1); clamping $b_2$
+to $-3$ leaves 0.058: the model refuses the implausible part. With 10 misnumbered leaves the total
+variance almost doubles (0.0124 to 0.0227), and the first two modes (48.1 and 38.7 %) are now
+mostly the renumbering, which moves every landmark along the outline: 87 % in two modes, against
+86 % for width and bend before. A model that looks just as compact can be describing the wrong
+thing.
+:::
+
 ## Where this leads
 
 A point distribution model says which shapes are plausible. The [next unit](../asm/lec.qmd) uses it to **search an image**: move each landmark towards a better position, like a snake, then pull the whole set back to the nearest plausible shape: the **active shape model**.

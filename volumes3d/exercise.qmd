@@ -168,6 +168,82 @@ The demo shows a synthetic stack of nuclei: $64 \times 64 \times 20$ voxels of $
 **E6.** $64 \times 64 \times 50 = 204\,800$ voxels; the matrix has 0.2 on the whole diagonal and the same origin. The slices look the same, slightly smoother along $z$: resampling interpolates between existing slices and adds no information.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `volumes3d/src/exercise.rs`.
+A volume is indexed `vol[(i, j, k)]` (column, row, slice); its `Grid` holds the spacing and the
+origin (no rotation).
+
+**C1.** `voxel_to_world(grid, v)` and `world_to_voxel(grid, p)`: $x = o_x + i\,\Delta x$ and back,
+$i = (x - o_x)/\Delta x$, for each of the three axes. The checks are B1(b) and (c).
+
+**C2.** `trilinear(vol, v)`: the value at a fractional voxel position, 0 outside the volume:
+
+```
+(x0, y0, z0) = (floor x, floor y, floor z);  x1 = x0 + 1 (but not past the last voxel), ...
+(fx, fy, fz) = (x − x0, y − y0, z − z0)
+along x:  c00 = mix(I(x0,y0,z0), I(x1,y0,z0), fx),  c10, c01, c11 likewise
+along y:  c0 = mix(c00, c10, fy),  c1 = mix(c01, c11, fy)
+along z:  value = mix(c0, c1, fz)                     # mix(a, b, f) = a + f·(b − a)
+```
+
+The checks are B2(a) and (c), and a position exactly on the last voxel.
+
+**C3.** `oblique_slice(vol, grid, centre, u, w, pixel, width, height)`: the pseudocode of the
+lecture: for every output pixel, the world point $\mathbf c + s(p\,\mathbf u + q\,\mathbf w)$ (with
+$p, q$ counted from the middle of the output), then `world_to_voxel`, then `trilinear`. The check is
+B6: in a volume whose value is $i + 10j + 100k$, the output pixel $(p, q) = (5, 10)$ must read the
+value at voxel $(35, 38.66, 12)$.
+
+**C4.** `mip_z(vol)`: for every $(x, y)$, the largest value over $z$. The check is B3(a).
+
+**C5.** `label_3d(mask, connectivity)`: connected components in 3D, with 6 or 26 neighbours:
+
+```
+for every voxel v that is in the mask and has no label yet:
+    count = count + 1;  label v with count;  stack = [v]
+    while the stack is not empty:
+        take a voxel off the stack
+        for each of its 6 (or 26) neighbours n inside the volume:
+            if n is in the mask and has no label: label n with count, put n on the stack
+```
+
+The checks are B3(b) and (c): 3 objects with 6 neighbours, 2 with 26, and 1 in the MIP.
+
+Then `cargo run -p volumes3d` and open the pictures in `out/volumes3d/`. The program builds the stack
+of the demo: $64 \times 64 \times 20$ voxels of $0.2 \times 0.2 \times 0.5$ µm, origin (10, 20, 4) µm,
+with nuclei A and B overlapping in $x$–$y$ at different depths, a long cell C tilted by 35° in the
+$x$–$z$ plane, and a small nucleus D. It saves an $xy$ slice, the $xz$ slice through row 31 drawn
+with pixels of 0.2 µm (with the true spacing, and with a header that wrongly says $\Delta z = 0.2$ µm),
+an oblique slice along C and the $xy$ plane through C's centre, and the MIP. It counts the objects
+above 100 in the MIP and in 3D and prints their volumes.
+
+**C6.** Compare `slice-xz-j31.png` with `slice-xz-j31-squashed.png`. What happened to the two
+nuclei, and by what factor are their volumes wrong in the squashed version (B5)?
+
+**C7.** How long is C in `oblique-C.png` and in `flat-C.png` (printed)? Why the difference? How many
+objects do the MIP and the 3D labelling find, and which two merge in `mip-z.png`? Compare the printed
+volumes with the true ellipsoids: A $\tfrac43\pi \cdot 1.6 \cdot 1.6 \cdot 1.2 = 12.9$ µm³,
+B 12.0 µm³, C 21.7 µm³, D 2.1 µm³.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `volumes3d/src/solution.rs` in the download.
+
+**C6.** With the true spacing the $xz$ slice is 9.6 µm tall (48 pixels of 0.2 µm), and A (above) and
+B (below) are round-ish ellipses separated by background. Squashed, the same 20 slices span only
+4 µm: both nuclei are flat pancakes, 0.4 times as tall. Every length along $z$, and therefore every
+volume, is multiplied by $0.2/0.5 = 0.4$.
+
+**C7.** Along the tilted plane C is 35 pixels long, 7.0 µm (its true length is 7.2 µm; the partial
+voxels at its tips fall below 100). In the $xy$ plane through its centre only 19 pixels, 3.8 µm: that
+plane cuts the tilted cell at an angle, through its narrow direction (E5). The MIP finds 3 objects,
+the 3D labelling 4 (with 6 and with 26 neighbours alike): A and B overlap in $x$–$y$ and merge into
+one blob in the MIP, while in 3D background separates them (E2). The voxel volumes are 12.7, 22.0,
+2.1 and 11.7 µm³ (A, C, D, B in the order the labelling finds them): within about 3 % of the
+ellipsoids, because the spacing is used.
+:::
+
 ## Where this leads
 
 The next unit looks for the **boundary** of a bright object in 2D: the curve where the image crosses a value $c$, found with marching squares. The unit after it does the same in 3D (marching cubes), and the last one measures the resulting surfaces. Rendering volumes directly (projections from any direction, volume rendering) is the 3D-graphics day.

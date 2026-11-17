@@ -119,6 +119,97 @@ A synthetic tissue (mask with a vessel) of tumour cells (orange) and immune cell
 **E7.** σ = 5 µm: p = 0.125 (clusters explained as density); σ = 40 µm: p = 0.025, clustered beyond the density. Both are internally consistent. The data alone cannot decide: you need a reason for the scale of "density" (e.g. a tissue compartment of 50 µm, or the density of another cell type, or a covariate such as the distance to the vessel), chosen before looking.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `marked-patterns/src/exercise.rs`.
+Points are pairs $(x, y)$ in µm in the window $[0, a] \times [0, b]$, labels are 0 (tumour) and
+1 (immune). The pattern generators, the translation weight and Φ are given.
+
+**C1.** `cross_k(type0, type1, a, b, r, translation)`: the cross-K, type-1 points around type-0
+points:
+
+```
+s = 0
+for every point i of type 0:
+    for every point j of type 1:
+        if distance(i, j) ≤ r:  s = s + w_ij        # translation weight, or 1
+K01 = |W| / (n0 · n1) · s
+```
+
+The check is B1 (with cells placed so that the close pairs have the distances of the table),
+and that independent types give $K_{01} \approx \pi r^2$ even when one type is clustered.
+
+**C2.** `permute_labels(labels, rng)`: the null model of random labelling, a random order of the
+same labels (the Fisher–Yates shuffle):
+
+```
+for k = last index down to 1:
+    j = a random whole number from 0 to k
+    swap labels k and j
+```
+
+The check: the labels are kept, and every order is equally likely.
+
+**C3.** `mark_connection(points, labels, r, h)`: of the pairs whose distance lies within $h$ of
+$r$ (each pair once), the share with different labels. The check is B3(a): random labels give
+$2p_0p_1$; two separated halves give almost 0.
+
+**C4.** `k_inhom(points, a, b, r, sigma)`: the inhomogeneous K:
+
+```
+for every point i:
+    ρ_i = sum over the OTHER points j of exp(−d_ij² / 2σ²) / (2πσ²),  divided by e(x_i)
+                                         # e: the edge correction of the point-patterns unit
+K_inhom = 1/|W| · sum over i ≠ j with d_ij ≤ r of  w_ij / (ρ_i · ρ_j)
+```
+
+The check: a gradient without interaction looks clustered with the plain K, but not with
+$K_\text{inhom}$ ($\sigma = 40$ µm).
+
+Then `cargo run -p marked-patterns`. It tests cross-L ($r$ = 2 to 40 µm, 39 simulations, MAD
+test against the mean of the simulations) for four tissues in $200 \times 200$ µm, under
+relocation of the immune cells and under random labelling: attraction (half of the immune cells
+next to a tumour cell), independent types, packed tissue (cells at least 7.5 µm apart) with
+random types, and the same packed cells segregated along a wavy line. Then the mark connection
+function of the packed tissue, and $L - r$ of a gradient with the plain and the inhomogeneous K.
+
+**C5.** Read the table. For which tissues do the two nulls agree, and where do they disagree?
+Explain each disagreement. Which null answers which question?
+
+**C6.** Compare the mark connection values with $2p_0p_1$ for both labellings of the packed
+tissue. Why is the random one a little low at 8 µm?
+
+**C7.** Compare the plain and the inhomogeneous $L - r$ of the gradient. What does σ = 200 µm do?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `marked-patterns/src/solution.rs` in the download.
+
+**C5.** Attraction (324 tumour, 90 immune cells): $L_{01}(10) - 10 = 4.44$, both nulls reject
+($p = 0.025$, the smallest possible). Segregated packed tissue: $-8.92$, both reject. Independent
+types: relocation $p = 0.675$ (no relation, which is true), but random labelling $p = 0.025$:
+the tumour cells sit in nests and the immune cells do not, so the labels are **not** spread at
+random over the positions, although the two populations ignore each other. Packed tissue with
+random types: relocation $p = 0.025$ ($L_{01}(10) - 10 = -3.50$: "repulsion", because relocated
+immune cells may land closer than 7.5 µm to a tumour cell, which real cells cannot), random
+labelling $p = 0.375$ (the truth: the types are random). Relocation asks "are two separately
+formed populations related?", random labelling "given where the cells are, are the types placed
+at random?".
+
+**C6.** Random types: $2p_0p_1 = 0.41$; observed 0.34, 0.39, 0.40, 0.40 at 8, 10, 20, 40 µm,
+close to it. At 8 µm (the ring from 6 to 10 µm) only about 80 pairs remain,
+because no pair is closer than 7.5 µm: the share is uncertain by about ±0.05.
+Segregated: $2p_0p_1 = 0.48$ but only 0.01 to 0.06 up to 20 µm, 0.20 at 40 µm: close neighbours
+are almost always of the same type.
+
+**C7.** Plain K: $L - r$ = 0.17, 1.15, 2.41, 3.20 at 5, 10, 20, 30 µm: "clustered", growing with
+$r$, although the cells do not interact. Inhomogeneous with $\sigma = 20$ or 40 µm: between −0.7 and
+−1.7, slightly below 0 (the leave-one-out estimate makes it a little conservative), and no
+clustering. With $\sigma = 200$ µm the estimated density hardly varies over the window, and the
+curve returns towards the plain one (0.80, 1.72, 2.21 at 10, 20, 30 µm): the bandwidth decides
+what counts as density.
+:::
+
 ## Where this leads
 
 These are the core tools of spatial statistics for cells. The [colocalisation day](../coloc-objects/lec.qmd) applies the cross-K to two-colour spots, and tissue-scale analyses of multiplexed images build per-cell neighbourhood counts from the same idea. To find the clusters themselves, see [k-means](../kmeans/lec.qmd) and [Gaussian mixtures](../gaussian-mixture/lec.qmd) (day 35). The same null-model logic in time is the mean squared displacement of [track analysis](../track-analysis/lec.qmd) (day 26), and the statistics of whole experiments are [replicates](../replicates/lec.qmd) (day 37).

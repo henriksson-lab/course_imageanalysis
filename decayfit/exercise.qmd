@@ -181,6 +181,91 @@ The cell with two species (0.6 and 3.5 ns) whose photon fractions vary across it
 **E12.** τ = 1.29 and 2.61 ns (true 1.3 and 2.6). The map of the 2.61 ns fraction is high almost everywhere and lower along the mitochondria and the membrane, where donors are in the FRET state. In a FRET experiment the two lifetimes (donor alone, donor with acceptor) are the same in every pixel; only the interacting fraction varies, which is exactly the assumption of global analysis.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `decayfit/src/exercise.rs`.
+A histogram has $n$ equal bins over one laser period $T$; the IRF is a histogram with the same bins
+that sums to 1.
+
+**C1.** `model(tau, photons, background, irf, period)`: the expected histogram, by reconvolution:
+
+```
+for every bin i (from a = i·Δt to b = (i+1)·Δt):
+    d_i = (exp(−a/τ) − exp(−b/τ)) / (1 − exp(−T/τ))     # periodic decay, area 1
+μ = background in every bin
+for every IRF bin k, for every bin i:
+    μ[(i + k) mod n] += photons · irf[k] · d_i           # circular convolution
+```
+
+The check uses the gate fractions of B4 (τ = 1 and 3 ns), and checks that an IRF in bin 3 shifts the
+decay by 3 bins.
+
+**C2.** `cost(y, mu, kind)`: least squares $\sum (y_j - \mu_j)^2$; χ² with data weights
+$\sum (y_j - \mu_j)^2 / y_j$ (weight 1 for an empty bin); the Poisson deviance
+$2\sum [y_j \log(y_j/\mu_j) - (y_j - \mu_j)]$ with $0 \log 0 = 0$.
+
+**C3.** `fit(y, irf, period, kind, start_tau)`: fit τ, the photons and the background:
+
+```
+θ = (start τ, 0.9 · total counts, 0.1 · total / n)
+repeat up to 50 times:
+    μ = model(θ);  J = the change of μ with each parameter      # τ: a small finite difference
+    w_j = 1, 1/y_j or 1/μ_j, depending on the cost
+    solve (Jᵀ W J) δ = Jᵀ W (y − μ)                               # 3 equations, 3 unknowns
+    if the background would become negative: keep it at 0 and solve for the other two
+    try θ + δ, θ + δ/2, θ + δ/4, ... until the cost goes down
+    stop if it does not
+```
+
+The checks: a noise-free histogram is fitted exactly from a start of 1.5 ns with all three costs;
+200 noisy histograms of 1 000 photons give an unbiased τ with a spread close to the
+$1/\sqrt N$ limit (B2).
+
+**C4.** `mean_lifetimes(alpha, tau)`: $\bar\tau_a$ and $\bar\tau_f$ of a mixture. The checks are
+B3(b), B3(c) and the lecture's example.
+
+**C5.** `amplitudes(y, shapes)`: the least-squares amplitudes of known decay shapes in one pixel
+(global analysis): a matrix with one row per bin and one column per shape, solved by linear least
+squares. The check is B4(b).
+
+Then `cargo run -p decayfit` and open the pictures in `out/decayfit/`. The program first fits 300
+noisy histograms of a 2.5 ns decay (IRF σ = 0.15 ns, 0.2 background counts per bin) with each cost,
+at 100, 1 000 and 10 000 photons, and prints the mean, the spread and the relative RMS error.
+Then it makes a $96 \times 96$ FLIM image of nuclei holding two species, 0.6 and 3.5 ns, whose photon
+fraction changes from left to right. It finds the two lifetimes once from the summed decay of all
+pixels with at least 80 photons (for every pair on a grid the amplitudes are linear, C5; it keeps
+the pair with the lowest deviance), then the amplitudes of every pixel with C5.
+`fraction-long.png` is the photon fraction of the long species per pixel, `fraction-true.png` the
+truth.
+
+**C6.** Read the table. Which cost is biased, in which direction, and does the bias shrink with more
+photons? Which cost has the smallest error? Compare the Poisson fit's spread with the ideal
+$\tau/\sqrt N$: what F-value do you get?
+
+**C7.** Compare `fraction-long.png` with `fraction-true.png`, and read the global lifetimes and the
+printed error of the fractions. Why can a pixel with a few hundred photons give a useful fraction
+here, when a two-lifetime fit of that pixel alone could not (E10)?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `decayfit/src/solution.rs` in the download.
+
+**C6.** χ² with $1/y$ is biased short: 2.18 ns at 100 photons, 2.33 at 1 000 and 2.47 at 10 000
+(true 2.5). The bias shrinks as the bins fill up, but slowly. Least squares and the Poisson fit are
+nearly unbiased (2.48 to 2.53 ns). The Poisson fit has the smallest relative RMS error at every
+photon count: 19.9 %, 4.7 % and 1.4 %, against 24.8 %, 6.5 % and 2.1 % for least squares. Its spread
+of 0.11 ns at 1 000 photons against the ideal 0.079 ns gives $F \approx 1.4$: higher than the
+demo's 1.1 to 1.2, because this fit also estimates the background, which trades off against τ and
+costs some precision.
+
+**C7.** The global lifetimes come out at 0.60 and 3.50 ns, the truth, from 211 510 photons in 1 032
+pixels. The fraction map shows the same left-to-right rise as the truth, speckled: the error per
+pixel is −0.003 ± 0.089. With the two lifetimes fixed, each pixel is a linear problem with two
+unknowns, which a few hundred photons can pin down; the hard, nonlinear part (the lifetimes) used
+the photons of all pixels together. A free two-lifetime fit per pixel would need thousands of
+photons (E10).
+:::
+
 ## Where this leads
 
 Fits are slow (a nonlinear search per pixel or per region) and need a model. The [next unit](../phasor/lec.qmd) computes **two numbers per pixel with no fit and no model**, the phasor, and reads mixtures, lifetimes and calibration directly from a plot.

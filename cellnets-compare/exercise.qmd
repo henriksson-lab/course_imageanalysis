@@ -145,6 +145,81 @@ All numbers were measured with the same code as the demo (tools/figs/cellnets-co
 **E6.** For example: "For dense fluorescence nuclei like the dense image I would use Cellpose (nuclei): F1 0.97 at τ = 0.5 and 0.93 at 0.7 with 5 merges in 313 nuclei, against 0.52 / 0.30 and 38 merges for the classical pipeline; at about 9 s per image a screen of 1000 images takes under 3 hours. I would check it on a held-out annotated subset of my own images." Or: "For sparse bright nuclei I would use the classical pipeline with σ = 0: F1 1.00 / 1.00 on the sparse image, like StarDist, in well under a second per image and without downloading anything."
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `cellnets-compare/src/exercise.rs`.
+The networks run in the demo. The code is about the comparison itself: scoring two methods on the
+same annotated images, and asking whether their difference is real. The overlap table and the IoU
+table of two label images (the evaluation day) are given.
+
+**C1.** `f1_curve(iou, n_pred, taus)`: F1 at several thresholds τ ≥ 0.5 from the IoU table. Above
+0.5 every object has at most one partner (B7), so no matching problem needs solving:
+
+```
+for every τ:
+    TP = number of (true, predicted) pairs with IoU ≥ τ
+    F1(τ) = 2 · TP / (number of true objects + number of predicted objects)
+```
+
+The checks are B1 (method A) and B2 (a).
+
+**C2.** `merges_and_splits(inter)`: from the overlap table (pixels of true object $t$ inside
+predicted object $p$):
+
+```
+merge: a predicted object p that contains at least half of each of two or more true objects
+split: a true object t that contains at least half of each of two or more predicted objects
+```
+
+The check is B2 (b): P3 contains 0.93 of T1 and 0.83 of T2.
+
+**C3.** `bootstrap_interval(d, resamples, seed)`: the 95 % interval for the mean of per-image
+differences, as in B6 (b):
+
+```
+repeat resamples times:
+    draw n values from d with replacement;  store their mean
+sort the stored means
+interval = (value at 2.5 % of the list, value at 97.5 % of the list)
+```
+
+The check is B6: mean 0.076, interval about [0.004, 0.199].
+
+Then `cargo run -p cellnets-compare` and open the pictures in `out/cellnets-compare/`. The program
+segments ten synthetic images of 25 nuclei (many touch or overlap) with two simple classical
+pipelines. Both smooth the image, threshold it and label the connected parts. "Low" uses the
+threshold 0.3, "high" the threshold 0.6. It prints per image the objects, merges, splits and F1 at
+τ = 0.5 and 0.7, the mean F1 curves, and bootstrap intervals for "high − low". The pictures show
+image 1.
+
+**C4.** Before you run: which threshold will merge more touching nuclei, and which will outline
+the nuclei worse? Then read the printout and look at `low.png` and `high.png`. Which method would
+you use to count, and which to measure areas?
+
+**C5.** Is "high" worse than "low" at τ = 0.5? At τ = 0.7? Use the two bootstrap intervals. Then
+compare with the B6 lines printed at the end: what changes without the dense image?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `cellnets-compare/src/solution.rs` in the download.
+
+**C4.** One might expect the higher threshold to merge less. It does a little (2 to 7 merges per
+image against 4 to 8), but both merge a lot: these nuclei overlap, and a threshold cannot separate
+nuclei that form one bright region. Mean F1 at τ = 0.5, 0.6, 0.7, 0.8, 0.9: low 0.603, 0.495,
+0.445, 0.445, 0.201; high 0.581, 0.466, 0.356, 0.250, 0.051. The high threshold cuts the
+nuclei too small, and the dim nuclei break into ragged fragments along their texture
+(`high.png`). It even produces a few splits. The curve of "high" falls much faster: it finds
+almost as many nuclei as "low", but outlines them badly. For counting, the two are close (both
+poor because of the merges). For areas, "low" is clearly better.
+
+**C5.** At τ = 0.5: high − low = −0.022, interval [−0.082, +0.027]. It contains 0: on ten images
+the two methods cannot be told apart at finding nuclei. At τ = 0.7: −0.089, interval [−0.167,
+−0.017], entirely below 0: "high" outlines worse, and ten images are enough to show it. The B6
+lines: all seven images, mean 0.076, interval [0.004, 0.198] (the lecture has [0.004, 0.199]: the resampling is random, and a
+different generator gives slightly different percentiles). Without the dense image: mean 0.017, interval [−0.001, 0.037], which
+touches 0. One image decides the comparison (B6 (c)).
+:::
+
 ## Where this leads
 
 This unit closes the day on networks for cells and objects: you can now open each of four networks, decode its output by hand, find its failures, and measure on your own annotated images whether it beats a classical pipeline and at what cost. The [next day](../score-matching/lec.qmd) turns from finding objects to **generating images**: diffusion models, which learn to remove noise step by step, and what they can and cannot restore in a micrograph. The nuclei and cells found here come back whenever a pipeline needs objects: [**tracking**](../track-linking/lec.qmd) them over time and [**measuring**](../intensity-features/lec.qmd) them.

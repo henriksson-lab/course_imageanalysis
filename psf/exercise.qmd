@@ -138,6 +138,93 @@ The demo computes the PSF of an ideal lens from its pupil on a 256 × 256 grid o
 **E7.** FWHM 186 nm for the Gaussian, 192 nm for the lens. The OTF curves differ most at low frequencies (at 1 cycle/µm: 0.89 for the Gaussian against 0.77) and near the cut-off; around 3–4 cycles/µm they nearly agree. Beyond the cut-off the Gaussian OTF is small but not zero (0.03 at 5.4 cycles/µm): it lets through a little of what a real lens cannot pass. In log scale the Gaussian PSF has no rings.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `psf/src/exercise.rs`.
+
+**C1.** `image_of_points(points, psf)`: the image of a row of point sources as a **sum of shifted
+copies of the PSF**, one per point, scaled by its brightness. Light that falls off the ends of the
+row is lost.
+
+```
+image = row of zeros
+for every point p:
+    for every PSF element j:              # r = the middle of the PSF
+        image[p + j − r] = image[p + j − r] + brightness[p] · psf[j]    # if inside the row
+```
+
+The checks are the three points of the lecture (brightness 1, 2, 1 at positions 1, 4, 6) and your
+answer to B1.
+
+**C2.** `gaussian_psf(sigma)`: the Gaussian approximation of the PSF on a square of
+$2\lceil 3\sigma\rceil + 1$ pixels, normalised to sum 1; `motion_psf(length)`: a line of
+`length` pixels along $x$, each $1/\text{length}$.
+
+**C3.** `blur(img, psf, border)`: blur a whole image with a PSF of any (odd) size. The same sum of
+shifted PSFs, written the other way round: each output pixel collects the light that reaches it.
+
+```
+for every pixel (x, y):
+    sum = 0
+    for every PSF pixel (i, j):           # offset from the PSF's centre: (dx, dy)
+        sum = sum + psf(i, j) · I(x − dx, y − dy)    # outside the image: the border rule
+    out(x, y) = sum
+```
+
+The minus signs flip the PSF, unlike the filters of the filtering unit: the check blurs a single
+bright pixel with a lopsided PSF and expects the PSF itself, the right way round.
+
+**C4.** `otf(psf, k)`: the OTF of a symmetric 1D PSF at $k$ cycles per pixel,
+$H(k) = \sum_j h_j \cos\big(2\pi k (j - r)\big)$. The checks: $(1, 2, 1)/4$ keeps the three waves
+of the frequency unit by 1, 0.5 and 0, and motion over 5 pixels has zeros at $k = 1/5$ and $2/5$
+(B6).
+
+**C5.** `lens_mtf(k, na, wavelength)`: the MTF of an ideal lens, the formula of the slide
+"The math: the pupil and the Airy pattern". The check is B4.
+
+Then `cargo run -p psf` and open the pictures in `out/psf/`. The micrograph is treated as the
+true object with 40 nm pixels and imaged through two lenses (Gaussian approximation, 520 nm), and
+through 1 µm of motion along $x$. The program also images gratings of several periods and prints
+their contrast.
+
+**C6.** Compare `image-na14.png` and `image-na5.png` with `object.png`. What is left of the small
+dark granules, and of the outline of the nucleus? Then look at `image-motion.png`: in which direction is the
+image still sharp?
+
+**C7.** In the table for NA 1.4, compare the column "contrast in the image" with "OTF of the
+PSF". Why must they agree? Then compare the Gaussian with the ideal lens: where does the Gaussian
+approximation keep too much contrast, and what does it do with the 160 nm grating?
+
+**C8.** In the table for motion, which gratings vanish, and which one comes out with negative
+contrast? Open `grating-700nm.png` and `grating-700nm-motion.png` side by side: where are the
+bright stripes of the image?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `psf/src/solution.rs` in the download.
+
+**C6.** At NA 1.4 ($\sigma$ = 1.95 pixels = 78 nm) the granules are still visible but soft, and the
+outline of the nucleus is a thin, blurred line. At NA 0.5 ($\sigma$ = 5.46 pixels = 218 nm) the
+granules are gone and only the dark shape of the nucleus and the large structures remain. With
+motion along $x$ everything is smeared into horizontal streaks 25 pixels (1 µm) long, and the
+steep left and right edges of the nucleus are wide ramps. Along $y$ nothing is blurred: the
+streaks change sharply from one row to the next, as in B6(c).
+
+**C7.** A grating $0.5 + 0.5\cos(2\pi k x)$ is imaged as $0.5 + 0.5\,H(k)\cos(2\pi k x)$ (slide
+"The math: convolution and the OTF"), so the contrast that is measured is $H(k)$: 0.888, 0.620,
+0.309, 0.146 and 0.009 in both columns. The Gaussian keeps too much at low frequencies (0.888
+against 0.765 for the ideal lens at period 1 µm, 0.620 against 0.538 at 500 nm), agrees well
+around 3–4 cycles/µm (0.309 against 0.305, 0.146 against 0.150), and lets through a trace (0.009)
+of the 160 nm grating, which lies beyond the cut-off of 5.38 cycles/µm, where a real lens passes
+nothing.
+
+**C8.** The gratings with periods 1000 nm and 500 nm vanish (contrast 0.000): 1 µm of motion
+averages exactly one or two whole periods (zeros of the OTF at 1 and 2 cycles/µm). The 2000 nm
+grating keeps 0.637 of its contrast. The 700 nm grating comes out with −0.218, the value of B10:
+the image has bright stripes exactly where the object has dark ones, shifted by half a period, at
+22 % of the contrast.
+:::
+
 ## Where this leads
 
 The OTF says which frequencies the optics deliver. The [next unit](../resolution/lec.qmd) asks the practical questions that follow: when are two points **resolved**, how large may a **pixel** be (Nyquist for a microscope), why is the PSF **longer along the optical axis**, and how do we **measure** a PSF with beads. Later, the forward model is run backwards ([deconvolution](../deconv/lec.qmd)), spot detectors are tuned to the PSF ([point detection](../spot-filters/lec.qmd)), and tomography replaces the PSF by line integrals ([the Radon transform](../radon/lec.qmd)).

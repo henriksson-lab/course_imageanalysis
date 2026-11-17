@@ -189,6 +189,90 @@ Localisation-microscopy mode: blinking molecules on rings and lines, localised i
 **E15.** 3 blocks (3 pairs): max error 2.72 px: a single drift per block of 1333 frames cannot follow the drift. 40 blocks (780 pairs): max 0.43 px: finer time steps, and many redundant pairs make up for the fewer localisations per block. Strong drift (35 px): max 15 px; within one block the molecules move so far that the block images are smeared and the block drift is meaningless: use more, shorter blocks. All pairs: every block is compared with every other one, so each drift is determined by many measurements; one bad pair is outvoted, and errors do not add up along a chain (the mosaic's least squares, in time).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `stitching/src/exercise.rs`.
+Phase correlation (the last unit) is given, as `phase_correlation` and `argmax`.
+
+**C1.** `candidates(p, q, w, h)`: the four shifts of a circular peak at $(p, q)$ in tiles of
+$w \times h$.
+
+**C2.** `ncc_overlap(a, b, tx, ty)`: the NCC of the two tiles on their actual overlap, and the number
+of overlapping pixels. The checks are the candidates and overlaps of B1(b).
+
+**C3.** `register_pair(a, b, min_overlap)`: from a pair of tiles to one shift.
+
+```
+(p, q) = position of the highest peak of the phase correlation of A and B
+for (tx, ty) in (p, q), (p − w, q), (p, q − h), (p − w, q − h):
+    (score, n) = NCC of A and B on their overlap at (tx, ty)
+    if n < min_overlap: skip
+    keep the candidate with the best score
+shift = the kept candidate; confidence = its score
+```
+
+**C4.** `parabola(cm, c0, cp)`: the sub-pixel offset of a peak from three samples. The checks are
+B2(a) and (b).
+
+**C5.** `global_positions(n, pairs)`: least squares on the graph of tiles, separately in $x$ and $y$,
+with tile 0 fixed at $(0, 0)$.
+
+```
+L = (n−1) × (n−1) zeros,  b = n−1 zeros               # one row per tile 1 .. n−1
+for every pair (i, j) with shift d and weight w:
+    L(i, i) += w,   L(j, j) += w,   L(i, j) −= w,   L(j, i) −= w
+    b(j) += w · d,  b(i) −= w · d
+    (leave out every entry that belongs to tile 0)
+positions = solve L · x = b
+```
+
+The checks are B3(b), B3(c) and B4.
+
+Then `cargo run -p stitching` and open the pictures in `out/stitching/`. The program cuts nine
+$128 \times 128$ tiles from the micrograph (enlarged 1.5 times) at stage positions with errors of up to
+$\pm 6$ px, not whole pixels, each with its own brightness and noise. It registers every pair of
+neighbours, trusts the pairs with NCC $\ge 0.7$, and places the tiles by their stage positions, by a
+chain of pairs and by global least squares. It does this three times: as described, with the region
+shared by tiles 4 and 5 left empty and **all** pairs trusted, and with that empty region and only the
+trusted pairs. At the end it estimates sub-pixel shifts of a row of the micrograph with C4.
+
+**C6.** In the first run, which pair is wrong, and how does its NCC give it away? Compare the largest
+position errors of the stage, the chain and the global solution, and look at `mosaic-stage.png` and
+`mosaic-global.png`. Why is the residual of pair 0-1 exactly 0?
+
+**C7.** In the runs with the empty overlap: what does pair 4-5 measure, with what confidence? What
+happens to the chain and to the global solution when all pairs are trusted, and how do the residuals
+point to the culprit? What changes when only the trusted pairs are used?
+
+**C8.** Read the sub-pixel table: for which true shifts is the parabola exact, and in which direction
+is it wrong for the others?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `stitching/src/solution.rs` in the download.
+
+**C6.** Pair 0-3 reports $(0, 72)$ instead of about $(-4.5, 110.6)$, with NCC 0.31: the highest
+phase-correlation peak was not the true one (the tiles overlap in only about 17 rows), and none of
+its four candidates fits. All other pairs score 0.82 to 0.98 and are within one pixel of the truth (they measure whole pixels).
+Largest position error: stage 9.1 px, chain 2.6 px, global 1.0 px. In the stage mosaic the tiles do
+not fit: the outline of the nucleus and the membranes jump at the seams; the global mosaic is
+continuous. With 0-3 untrusted, tile 0 is connected to the rest by pair 0-1 alone, so nothing pulls
+against that pair: tile 1 is placed exactly where it says.
+
+**C7.** Pair 4-5 measures $(-67, -36)$ with NCC 0.03: an empty region matches nothing. Trusting all
+pairs, the chain, which passes through 4-5, puts the last tiles 171.6 px off; the global solution
+spreads the error over all pairs (largest error 17.3 px), and the residual of 4-5 is 164.5 px,
+against 2.5–7 px for the good pairs (21.6 for the wrong pair 0-3): the largest residual names the
+wrong pair. Trusting only NCC $\ge 0.7$, both wrong pairs are dropped: the global solution is within
+1.3 px, with no residual above 0.31 px; the chain must fall back on the stage position for 4-5 and
+is 9.2 px off.
+
+**C8.** Exact at 3.0 and at 3.5 (where the two middle samples are equal and the parabola is
+symmetric). In between it is pulled towards the nearest whole pixel: 3.1 → 3.051, 3.3 → 3.183,
+3.7 → 3.817, errors up to 0.12 px. That is pixel locking: the sharp phase-correlation peak is not
+a parabola.
+:::
+
 ## Where this leads
 
 A shift is the simplest transform. Rotation and scale can be turned into shifts in log-polar coordinates of the magnitude spectrum (the Fourier–Mellin method); large rotations, zooms and perspective are handled by matching [keypoints](../keypoints/lec.qmd) and fitting a transform ([from matches to a transform](../feature-alignment/lec.qmd), day 24); deforming tissue and moving cells need [optical flow](../flow-constraint/lec.qmd), [non-rigid registration](../nonrigid-reg/lec.qmd) (day 25) and [tracking](../track-linking/lec.qmd) (day 26). The graph Laplacian of global alignment returns on the graph-cuts day, in [**normalized cuts**](../ncut/lec.qmd); its nonlinear big sibling is bundle adjustment in [structure from motion](../sfm/lec.qmd). Measuring a chromatic shift on beads before colocalisation or FRET uses the same tools ([colocalisation confounds](../coloc-confounds/lec.qmd), [sensitised emission](../sensitised-emission/lec.qmd)).

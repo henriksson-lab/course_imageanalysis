@@ -122,6 +122,121 @@ A 2D scene of $N$ discs and segments (seeded layouts: uniform, clustered, a "tea
 **E8.** The wall spans the whole scene, so its box is as big as the root, and whichever leaf holds it has a huge box: every ray that crosses the middle of the scene enters that box and tests the wall. In this scene the effect on the average is small (31.5 tests per ray at $N = 1024$ against 31.1 for the uniform layout), because only one object is long; scenes made of many long, thin objects (grass, hair) are hard for BVHs.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `bvh/src/exercise.rs`. As in
+the demo, everything is in 2D: the objects are discs, the boxes rectangles, and the perimeter
+takes the place of the surface area.
+
+**C1.** `slab_test(o, d, box)`: the interval of $t$ in which the ray is inside the box.
+
+```
+t_near = −∞;   t_far = +∞
+for each axis k:
+    t0 = (min_k − o_k) / d_k;   t1 = (max_k − o_k) / d_k     # d_k = 0 gives ±∞
+    if t0 > t1: swap them
+    if t0 > t_near: t_near = t0          # written so that a NaN never wins
+    if t1 < t_far:  t_far = t1
+hit if t_near ≤ t_far and t_far > 0
+```
+
+The checks are B1 (a)–(c), and B7 (c): an origin on a slab plane with $d_k = 0$.
+
+**C2.** `build_median(discs, max_leaf)`: a BVH by median splits.
+
+```
+build(objects):
+    node.box = the box around all objects
+    if there are at most max_leaf objects: node is a leaf with these objects
+    else: sort the objects by their centres along the longer side of the box of the centres
+          node.left = build(first half);   node.right = build(second half)
+```
+
+The check is B2 (a): the intervals of B2 are discs on the $x$ axis, and the tree must have the
+7 boxes of your answer.
+
+**C3.** `traverse(bvh, discs, o, d)`: the nearest hit, nearest child first, counting the tests.
+
+```
+if the ray misses the root's box: return no hit            (1 box test)
+stack = [(root, t where the ray enters its box)];   best = ∞
+while the stack is not empty:
+    take (node, t_enter) from the top
+    if t_enter > best: skip it
+    if node is a leaf: test its discs, keep the nearest hit in best
+    else: slab-test both children (2 box tests); push the ones that are hit, the farther first
+```
+
+The checks are B2 (b) and (c), 5 box tests and 2 disc tests each, and the same hits as testing
+every disc, for 200 random rays.
+
+**C4.** `sah_cost(parent, left, n_left, right, n_right)` = $1 + \frac{A_L}{A}N_L + \frac{A_R}{A}N_R$
+(the check is B3), and `build_sah(discs)`:
+
+```
+build(objects):                                        # n objects
+    best = (cost n: a leaf)
+    for each axis:
+        sort the objects by their centres along the axis
+        for i = 1 … n − 1:   cost = sah_cost(box of all, box of the first i, i, box of the rest, n − i)
+                             keep the cheapest (axis, i)
+    if no split beats the leaf: node is a leaf
+    else: split at the best (axis, i) and build both halves
+```
+
+The check: every disc in exactly one leaf, the same hits as testing every disc, and a lower SAH
+cost than the median tree on a clustered scene.
+
+**C5.** `grid_walk(o, d, cells, cell_size)`: the cells of a grid that the ray visits, in order,
+with the $t$ at which it enters each.
+
+```
+cell = the cell holding o;   output (cell, t = 0)
+per axis k: step_k = sign(d_k);  t_next_k = t of the next cell boundary;  t_delta_k = cell_size / |d_k|
+repeat:
+    k = the axis with the smaller t_next_k
+    cell_k = cell_k + step_k;   if outside the grid: stop
+    output (cell, t_next_k);   t_next_k = t_next_k + t_delta_k
+```
+
+The check is B4.
+
+Then `cargo run -p bvh` and open the pictures in `out/bvh/`.
+
+**C6.** Read the tables of tests per ray against $N$ for the uniform scene. How do brute force, the
+two BVHs and the grid grow from $N = 16$ to $4096$? Compare the BVHs with $2\log_2 N$.
+
+**C7.** Read the last table: rays aimed at the "teapot" in the stadium. How many tests do the grid and
+the SAH tree need? Why does the grid get *better* as $N$ grows here?
+
+**C8.** Compare `median-levels.png` and `sah-levels.png`: the boxes of the first two levels below the
+root (orange, then blue) of the two trees for four clusters of 64 discs. How do the trees split
+the clusters, and what are their SAH costs (printed)?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `bvh/src/solution.rs` in the download.
+
+**C6.** Brute force grows like $N$: 16 to 4096 tests. The median BVH needs 8.8, 16.1, 24.4, 27.7
+and 33.5 tests per ray, the SAH BVH 7.5 to 31.0: about $2\log_2 N$ (8 at $N = 16$, 24 at $N = 4096$)
+plus a few, mostly box tests; fewer than 4 disc tests per ray at every $N$. The grid, with about
+$\sqrt{N/2}$ cells per side, stays at 4 to 9 disc tests per ray (plus 1.5 to 3.2 cells walked): for
+evenly spread discs a grid is excellent.
+
+**C7.** For 256, 1024 and 4096 discs the grid tests 231, 160 and 77 discs per ray; the SAH tree
+needs 29 to 31 tests (boxes and discs together) for every $N$. Almost all discs sit in one or two
+grid cells, and a ray into the teapot tests all of them. The cells get smaller as $N$ grows (the
+grid has $\sqrt{N/2}$ cells per side but the teapot keeps its size), so the teapot is split over
+more cells; the tree adapts to the clustering by itself.
+
+**C8.** The median tree cuts at the median of the longer side: its first split separates the left
+pair of clusters from the right pair, and its boxes are tall rectangles with a lot of empty space
+between the two clusters inside them. The SAH tree's first split puts the two upper and the two
+lower clusters together, in flatter boxes with less perimeter; at the next level both trees have
+one tight box per cluster. SAH cost 18.6 against 22.2 for the median tree, although the median tree is the shallower one
+(depth 7 against 10): balance is not what makes a tree cheap.
+:::
+
 ## Where this leads
 
 The tree makes each ray cheap. Unit 4, [Path tracing](../pathtrace/lec.qmd), spends that budget on many random rays per pixel to compute light that bounces everywhere, and fights the noise this creates. The same trees reappear wherever geometry must be searched: picking a vertex with the mouse, the inside/outside test of a mesh, nearest neighbours of points.

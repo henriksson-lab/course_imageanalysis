@@ -154,6 +154,110 @@ A hidden camera ($f = 820$ px, principal point $(335, 245)$, $640 \times 480$ pi
 **E7.** 2 views: $f_x \approx 3100$; 3 views: no valid $K$ at all; 5 views: $f_x \approx 7300$. Seen face-on, a board at distance $Z$ photographed with focal length $f$ looks the same as one at $2Z$ with $2f$: the images cannot separate $f$ from the distance. Tilting the board breaks the tie, because foreshortening depends on $f$.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `cameras/src/exercise.rs`.
+The conventions are those of the lecture: the camera looks down $+z$, $x$ right, $y$ down.
+
+**C1.** `project(cam, X)`: the pixel of a world point, or nothing if it is behind the camera:
+
+```
+(X, Y, Z) = R · X + t
+if Z ≤ 0: not visible
+u = f X / Z + cx,   v = f Y / Z + cy
+```
+
+The checks are B1, and a rotated camera compared with $P = K[R \mid \mathbf t]$.
+
+**C2.** `pixel_ray(cam, u, v)`: the centre $\mathbf c = -R^\top\mathbf t$ and the direction
+$R^\top\big((u - c_x)/f,\ (v - c_y)/f,\ 1\big)$. The checks are B2, and that points along the ray of a
+rotated camera project back onto the pixel.
+
+**C3.** `distort(x, y, k1, k2)` and `undistort(xd, yd, k1, k2)`: radial distortion of normalised
+coordinates, and its inverse by fixed-point steps:
+
+```
+distort:    r² = x² + y²,  return (1 + k1 r² + k2 r⁴) · (x, y)
+undistort:  (x, y) = (xd, yd)
+            repeat 20 times:
+                r² = x² + y²
+                (x, y) = (xd, yd) / (1 + k1 r² + k2 r⁴)
+```
+
+The checks are B4 (a) and (c), and that `undistort` undoes `distort`.
+
+**C4.** `dlt(points, pixels)`: the camera matrix from $n \ge 6$ known points (slide "The math: the
+DLT"):
+
+```
+T, U = normalising transforms of the pixels and of the world points
+for every point:  X̂ = U X (4 entries),  (û, v̂) = T (u, v)
+    add the rows  ( 0ᵀ,  −X̂ᵀ,  v̂ X̂ᵀ )  and  ( X̂ᵀ,  0ᵀ,  −û X̂ᵀ )  to A
+p̂ = the unit vector with the smallest |A p̂|      # eigenvector of AᵀA, smallest eigenvalue
+P̂ = p̂ as 3 rows of 4;   P = T⁻¹ P̂ U
+```
+
+The normalising transforms are given. The check: from exact pixels of a hidden camera, with 72
+points and with 6, every point reprojects exactly and $P$ is the true matrix up to scale.
+
+**C5.** `decompose(P)`: split $P$ into $K$, $R$ and $\mathbf t$. The left $3\times3$ block is
+$M = KR$; take its rows apart from the bottom up:
+
+```
+if det M < 0: P = −P
+for i = 2, 1, 0:
+    rest = row i of M
+    for j > i:  K[i][j] = (row i of M) · R_j,   rest = rest − K[i][j] R_j
+    K[i][i] = |rest|,   R_i = rest / K[i][i]
+scale K and the last column of P so that K[2][2] = 1;   t = K⁻¹ · (last column)
+```
+
+The check recovers $f = 820$, $(c_x, c_y) = (335, 245)$, $R$ and $\mathbf t$ from $-3P$.
+
+Then `cargo run -p cameras` and open the pictures in `out/cameras/`. The program photographs 72
+corners on two walls at right angles with a hidden camera ($f = 820$, principal point
+$(335, 245)$), calibrates it with your DLT in several situations and prints $K$ and the RMS
+reprojection error. `residuals-noise.png` and `residuals-distortion.png` show the residual
+arrows (from the seen corner to where the estimated camera puts it, 30 times longer). It also
+distorts a checkerboard picture with $k_1 = -0.3$ and undistorts it again
+(`checker-barrel.png`, `checker-undistorted.png`).
+
+**C6.** Compare the calibrations from 6 points (with and without noise) and from 72 points with
+noise. Six noisy points give a *smaller* RMS error than 72; why is that calibration still the
+worse one? What RMS do you expect for 72 points with noise $\sigma = 0.5$ px (slide "The math:
+the reprojection error")?
+
+**C7.** Compare the two residual pictures and the printed $K$. Which one shows noise, and which a
+missing model term? What does the DLT do with the distortion it cannot model?
+
+**C8.** What happens with the 36 points on one wall? Explain with B5 (b).
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `cameras/src/solution.rs` in the download.
+
+**C6.** Six exact points give the exact camera ($f = 820.0$, RMS 0). With 0.5 px noise the six
+points give $f_x = 841.9$, a principal point $(354.2, 270.2)$ and a skew of $-4.5$, with an RMS of
+only 0.29 px: 12 equations for 11 unknowns, so the camera bends to fit the noise of these few
+points almost exactly. The small error measures the fit, not the camera. 72 points average the
+noise out: $f_x = 819.7$, $f_y = 820.6$, principal point $(334.1, 246.4)$, RMS 0.73 px, close to
+$\sigma\sqrt2 = 0.71$ px.
+
+**C7.** `residuals-noise.png`: short arrows in random directions, neighbours unrelated: noise.
+`residuals-distortion.png` (noise only 0.1 px): the arrows form a smooth pattern, neighbours point
+the same way, and they are longest at the outer corners of the target (top left, right): a model
+term is missing. The RMS is 0.81 px, eight times the noise. The DLT absorbs as much of the
+distortion as a pinhole camera can: $f_x = 945$ instead of 820 and a principal point $(347, 179)$
+far from $(335, 245)$. `checker-barrel.png` shows the same distortion on a picture: straight edges
+bow outwards, most at the corners; `checker-undistorted.png` is straight again (black where the
+distorted picture had no data).
+
+**C8.** The calibration breaks down: the printed $K$ is "NaN" (not a number), nonsense. All
+points have $Z = 0$, so the third column of $P$ never enters the equations: $A$ has a whole
+family of null vectors (4 dimensions), and the one returned has nothing to do with the camera.
+Its left $3\times3$ block is singular, so there is no $K$ to extract.
+:::
+
 ## Where this leads
 
 The calibrated camera turns pixels into rays. The next unit takes **two** cameras: a point in one image constrains its match in the other to a **line**, and two matched rays give a 3D point. The reprojection error comes back as the objective of **bundle adjustment**, which refines many cameras and thousands of points at once.

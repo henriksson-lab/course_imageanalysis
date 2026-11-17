@@ -174,6 +174,96 @@ The [four-route demo](../instances/exercise.qmd#explore) of the previous day, on
 **E8.** (a) 15 objects (TP 14, FP 1, F1 0.97): the C is split into two pieces (S). One piece is matched to the C (IoU ≥ 0.5), the other is a false positive. The rays of a pixel in either half leave the C at the opening. (b) 64 rays: unchanged (15 objects, F1 0.97); 8 rays: 19 objects, F1 0.73, because corners are cut on the elongated and bent cells too, and they split. More rays do not fix the C. (c) NMS 0.1: unchanged (15). 0.6: 19 objects (F1 0.85); 0.9: 28 objects (F1 0.67): overlapping duplicates survive (more FP). Nothing fixes the C: no single polygon from one point can describe it. The [next unit](../cellpose/lec.qmd) (flow fields) can.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `stardist/src/exercise.rs`.
+The "network" of the program is simulated, as in the decoding demo: the objectness is the exact
+distance map with a little noise, and the rays are computed from the true labels with your C1.
+Everything after the network is yours.
+
+**C1.** `rays(labels, cx, cy, n)`: the $n$ ray lengths of a point, ray 0 to the right. A pixel
+$(x, y)$ covers the square from $x - \tfrac12$ to $x + \tfrac12$, so a point belongs to the pixel
+at its rounded coordinates:
+
+```
+own = label at (cx, cy)
+for k = 0 … n−1:
+    direction = (cos 2πk/n, sin 2πk/n)
+    r = 0
+    while the pixel at (cx, cy) + (r + step) · direction is inside the image and has label own:
+        r = r + step
+    ray k = r
+```
+
+The check is B1 (a): the $8 \times 4$ rectangle from its centre.
+
+**C2.** `polygon_area(rays)`: the triangle rule, $A = \tfrac12\sin\tfrac{2\pi}{n}\sum_k r_k r_{k+1}$
+with $r_n = r_0$. The checks are B1 (b), B2 (b) and the disc of B6.
+
+**C3.** `inside_polygon(px, py, vertices)`: is a point inside a polygon? Send a half-line from the
+point to the right and count the edges it crosses:
+
+```
+inside = false
+for every edge from (x1, y1) to (x2, y2):
+    if one end is above py and the other is not:
+        x = x1 + (py − y1) · (x2 − x1) / (y2 − y1)     # where the edge meets the line y = py
+        if x > px: inside = not inside
+```
+
+**C4.** `polygon_iou(a, b)`: the IoU of two polygons, counted in pixels (a pixel belongs to a
+polygon if its centre is inside). Count only the pixels in the box around both polygons. The
+check is the rectangle of E7 (a): 600 of 800 pixels, IoU 0.75.
+
+**C5.** `nms(scores, prob_threshold, nms_threshold, iou)`: greedy polygon NMS, as on the slide
+"Decoding: from candidates to objects":
+
+```
+candidates = all with score ≥ probability threshold, sorted by score, highest first
+kept = empty list
+for each candidate c in that order:
+    if IoU(c, k) ≤ NMS threshold for every k in kept:
+        add c to kept
+```
+
+The check is B4: all three settings.
+
+Then `cargo run -p stardist` and open the pictures in `out/stardist/`. The program makes 45 synthetic
+nuclei (some lie on top of each other) and decodes them with five settings of the two thresholds.
+It then decodes a C-shaped cell.
+
+**C6.** Read the printed counts. What does each change of threshold do to the number of objects,
+FP and FN? Why does strong suppression (NMS 0.02) lose no touching nucleus here, when it lost
+neighbours in the decoding demo (E7 (e))?
+
+**C7.** Compare `labels-default.png` with `truth.png`. Where are the errors, and what do those
+nuclei have in common? Then look at `cshape-labels.png`. Which part of the lecture explains both?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `stardist/src/solution.rs` in the download.
+
+**C6.** 44 nuclei are visible (one of the 45 is completely covered by others). Default
+(probability 0.5, NMS 0.3): 1401 candidates, 47 objects, TP 42, FP 5, FN 2. Probability 0.15:
+3542 candidates, 52 objects, FP 10: the extra candidates sit near the borders of the nuclei, and
+for a nucleus that is not star-convex their polygons cover only a piece of it, so they survive NMS
+as extra objects. Probability 0.85: 223 candidates, 42 objects, FN 4: two small slivers of nuclei
+(60 and 65 pixels) have no grid cell left above the threshold. NMS 0.02: 46 objects, as good as
+the default. NMS 0.9: 90 objects, FP 40: near-copies of the same polygon are no longer removed.
+Strong suppression costs nothing here because the rays are exact: they stop exactly at the
+neighbour's border, so the polygons of touching nuclei barely overlap (the slide "Why touching
+nuclei separate"). In the demo the simulated rays are noisy and blurred across the contact, so
+neighbouring polygons overlap more, and a very low threshold deletes them.
+
+**C7.** The errors are where one nucleus lies over another. The nucleus underneath becomes a
+crescent, or a ring around a smaller nucleus. The two nuclei missed at the default setting are
+such shapes: even the best polygon from any of their pixels reaches only IoU 0.48 and 0.46 with
+them. Their pieces are the false positives. The C-shaped cell comes out as 2 objects: one piece
+large enough to match the C (TP), and the other arm as a separate object (FP). This is the slide
+"Which shapes fit?": no single point sees the whole of a C, a ring or a crescent, so no polygon of
+rays can describe it, however good the network.
+:::
+
 ## Where this leads
 
 The same idea works in **3D** (rays on a sphere, polyhedra, the same NMS) for nuclei in stacks. For cells that are not star-convex (bent, branched, irregular cytoplasm), the [next unit](../cellpose/lec.qmd) lets the network predict **flows** that follow the shape instead of straight rays. The [last unit of the day](../cellnets-compare/lec.qmd) compares this network with a classical distance-transform-and-watershed pipeline on the same annotated images, by F1 and by cost.

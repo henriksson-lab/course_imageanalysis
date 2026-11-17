@@ -161,6 +161,85 @@ Monte Carlo with 20 000 seeded pairs of photon counts with means $N_A$ and $N_D$
 **F6.** $F_c = 20$, $\sigma$ = 20.7 predicted (20.8 observed): about 100 % relative noise. Bleaching at 600/800: $E = 0.25$, $\sigma_E = 0.0405$ predicted (0.0402 observed). At 60/80: 0.128 predicted (0.130 observed), and the mean shifts to 0.240: dim ratios are biased.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `ratiometric/src/exercise.rs`.
+
+**C1.** `ratio_image(a, d, bg_a, bg_d, min_sum)`: subtract the background, mask, divide:
+
+```
+for every pixel:
+    A' = A − bg_A,  D' = D − bg_D
+    if A' + D' ≥ min_sum:  R = A' / D'
+    else:                  R = no value          # outside the cells
+```
+
+The check is B1: 0.25 for both pixels after subtraction, 0.333 and 0.667 without.
+
+**C2.** `ratio_of_sums(a, d, mask)` $= \sum A / \sum D$ and `mean_of_ratios(a, d, mask)`, the
+mean of $A/D$ over the pixels (skipping $D \le 0$). The check is B4: 0.550 and 1.00.
+
+**C3.** `calibrate(r, kd, r_min, r_max)` $= K_d (R - R_\text{min})/(R_\text{max} - R)$. The check
+is B5.
+
+**C4.** `bin(img, k)`: sum every $k \times k$ block into one pixel.
+
+**C5.** `intensity_modulated(ratio, intensity, r_lo, r_hi, i_max)`: the colour from the ratio (a
+colour map from blue to red is given), the lightness from the intensity:
+
+```
+for every pixel:
+    if R has no value: black
+    else: colour_map((R − r_lo) / (r_hi − r_lo)) · min(intensity / i_max, 1)
+```
+
+Then `cargo run -p ratiometric` and open the pictures in `out/ratiometric/`. The program simulates
+a biosensor ($R_\text{min} = 0.5$, $R_\text{max} = 2.5$, $K_d = 200$ nM) in cells of different
+thickness and expression (about 150 photons per pixel, background 40): most cells at 150 nM, cell
+1 with a gradient from 50 to 1000 nM, cell 2 at 2000 nM. It saves the donor channel, the ratio
+with and without a mask (black $R_\text{min}$, white $R_\text{max}$) and the intensity-modulated
+display; it prints the ratio of sums and the calibrated concentration per cell, with and without
+background subtraction; the ratio of sums and the mean of ratios at 6 photons per pixel, also after
+binning; and a simulation of 20 000 Poisson pairs for four photon numbers.
+
+**C6.** Compare `donor.png` with `ratio.png`, and `ratio-no-mask.png` with `ratio-imd.png`. How
+many background pixels get a negative ratio without a mask?
+
+**C7.** In the table, what does forgetting the background do to $R$ and to $c$? For cell 1 (the
+gradient) and cell 2, compare the calibrated concentration with the true mean concentration. Why
+are they so different, even with the background subtracted?
+
+**C8.** At 6 photons, compare the ratio of sums with the mean of ratios, before and after binning.
+In the Poisson simulation, compare the bias and the CV of 20/5 and 5/20 photons with the delta
+method.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `ratiometric/src/solution.rs` in the download.
+
+**C6.** In the donor channel the cells differ in brightness (thickness and expression); in the
+ratio image the 150 nM cells look alike, cell 2 is bright and cell 1 shows its gradient. Without a
+mask the background is noise divided by noise: 7290 of 15 551 background pixels are negative and
+1935 are beyond ±5 or undefined, so the picture is a carpet of black and white. The
+intensity-modulated display keeps the ratios and lets the dim background fade to black.
+
+**C7.** For the 150 nM cells (true $R = 1.357$): subtracted 1.347 to 1.399 (147 to 163 nM);
+without subtraction 1.234 to 1.302 (116 to 134 nM): pulled towards 1, by different amounts in
+dimmer and brighter cells. Cell 2 (2000 nM, true mean $R$ 2.318): 2.284 with subtraction, which
+calibrates to only 1649 nM: near $R_\text{max}$ a small error in $R$ is a large error in $c$;
+without subtraction 1.831 and 398 nM. Cell 1: the true mean concentration is 502 nM, but its
+ratio 1.779 calibrates to 355 nM. The calibration curve is convex, so $c$ of the mean ratio is
+below the mean of $c$ (E6, the same trap as averaging $E$ over distances).
+
+**C8.** At 6 photons (true 1.357): ratio of sums 1.356, mean of pixel ratios 1.665 (+23 %). Binned
+2 × 2: 1.361 and 1.425; 4 × 4: 1.349 and 1.361. The ratio of sums does not need binning; the mean
+of ratios becomes usable only when each ratio has enough photons. Poisson pairs: 400/1000 and
+100/400 behave as predicted (CV 5.9 % and 11.2 %, no bias). 20/5: mean 5.128 instead of 4 (+28 %,
+the formula $1/N_D$ predicts +20 %), CV 72.5 % against 50 % predicted, and 124 of 20 000 draws with
+$D = 0$. 5/20: +5.5 % (predicted +5 %), CV 51.9 %. A dim denominator causes the bias and the tail
+(F2).
+:::
+
 ## Where this leads
 
 The ratio is the everyday tool of FRET imaging: one number per pixel and frame, cancelling much of what makes intensities lie. Its weak points are the background, bleaching, motion and the statistics of dim counts, all of which a careful analysis controls. Lifetimes (the FLIM day, day 46; FRET by lifetime in [FLIM-FRET](../flim-fret/lec.qmd)) avoid ratios altogether: a lifetime does not depend on concentration, and it separates the fraction bound from the efficiency. The noise propagation of this unit, the delta method, returns wherever a measurement is a ratio or a difference of noisy numbers.

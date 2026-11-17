@@ -188,6 +188,80 @@ A $128 \times 128$ phantom measured with a chosen number of **angles**, **angula
 **E12.** Noisy + TV ($\lambda = 0.01$): 0.027, clean flat regions with sharp edges. $\lambda = 0.05$: 0.048: a cartoon, with the small ellipses merged or flattened and low-contrast details gone. Too much prior overrides the data: fine texture and small, faint structures are what TV removes first.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in
+`algebraic-recon/src/exercise.rs`. The matrix $A$ is stored by rows: row $i$ lists the pixels
+that ray $i$ touches, with their weights. The matrix of a real scan (the projector of the first
+unit, as a sparse matrix) is given.
+
+**C1.** `forward(a, x)` and `back(a, y, n_pixels)`: the products $A\mathbf x$ (for every ray, the
+weighted sum of its pixels) and $A^\top\mathbf y$ (every ray adds its value, with the same
+weights, to its pixels). The checks are B1, B2(b) and B4(b), and
+$\langle A\mathbf x, \mathbf y\rangle = \langle \mathbf x, A^\top\mathbf y\rangle$.
+
+**C2.** `art_sweep(a, b, x, ω)`: one sweep of ART over all rays, changing $\mathbf x$ in place:
+
+```
+for every ray i:
+    error = b[i] − (sum over the ray's pixels j of a_ij · x[j])
+    norm2 = sum over the ray's pixels j of a_ij²
+    for every pixel j of the ray:
+        x[j] = x[j] + ω · error / norm2 · a_ij
+```
+
+The checks are B3 step by step, B5(a) and (b), and the cycle of B6(b).
+
+**C3.** `sirt_step(a, b, x, ω)`: one SIRT step:
+
+```
+r = b − A x                                    # all errors, with the x you start with
+for every ray i:     r[i] = r[i] / (sum of the weights of ray i)
+c = Aᵀ r
+for every pixel j:   x[j] = x[j] + ω · c[j] / (sum of the weights of the rays through j)
+```
+
+The checks are B4(a), and that many steps fit the data.
+
+Then `cargo run -p algebraic-recon` and open the pictures in `out/algebraic-recon/`. The program
+reconstructs a $96 \times 96$ Shepp–Logan phantom: with SIRT from 60 angles (after 1 and after
+100 steps), with ART ($\omega = 0.5$) from 60 angles of noisy data, printing the error against
+the truth, the relative data residual $\|A\mathbf x - \mathbf b\|/\|\mathbf b\|$ and the
+relative size of the noise, and with
+ART from only 20 angles, without and with non-negativity (negative pixels set to 0 after every
+sweep).
+
+**C4.** Compare `sirt-step1.png` with `sirt-100.png`. What is the first SIRT step, and why does
+it look like that? (B4.)
+
+**C5.** ART on noisy data: follow the error and the residual over the sweeps. When would you
+stop, and how could you know without the truth? Compare `art-noisy-best.png` with
+`art-noisy-30.png`.
+
+**C6.** 20 angles: how much does non-negativity help, and where in the pictures?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `algebraic-recon/src/solution.rs` in the download.
+
+**C4.** The first step from zero is a scaled back-projection (B4: $A^\top\mathbf b$ divided by
+the weights): a blurred, glowing phantom, RMSE 0.193. After 100 steps the image is sharp, RMSE
+0.083, and the residual is 0.024: the iterations remove the blur of back-projection step by
+step.
+
+**C5.** RMSE after sweeps 1, 2, 3, 5, 10, 20, 30: 0.108, 0.086, 0.079, 0.0775, 0.080, 0.084,
+0.088; the lowest, 0.0774, after sweep 4. The residual keeps falling: 0.160, 0.106, 0.074,
+0.043, 0.022, 0.017, 0.016. After sweep 4 the iteration fits the noise: semi-convergence. Stop
+early. Without the truth: stop when the residual has fallen to the size of the noise in the
+data, which the program prints (0.037). That happens shortly after sweep 5, close to the best
+sweep; fitting the data any better means fitting the noise (a discrepancy rule, as for
+Richardson–Lucy on the deconvolution day). The 30-sweep image is grainier than the best one.
+
+**C6.** Without the constraint the RMSE is 0.113, with it 0.062, almost half. Without it,
+streaks of positive and negative values run through the empty space around the head; setting
+the negative values to 0 removes most of them, and the inside of the head is cleaner too.
+:::
+
 ## Where this leads
 
 The same ideas (a linear forward model, least squares, early stopping, priors) run through the deconvolution day ([regularisation](../regularise/lec.qmd)) and through every modern reconstruction method. Low-dose clinical CT and electron tomography routinely use iterative reconstruction with priors; for emission tomography (PET, SPECT) the data term is the Poisson likelihood and the iteration is MLEM, which is [Richardson–Lucy deconvolution](../richardson-lucy/lec.qmd) with the projector as the blur.

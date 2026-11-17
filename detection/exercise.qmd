@@ -113,6 +113,83 @@ The demo has four modes on a $128 \times 128$ synthetic cell image; the question
 **E6.** The rod fills 16 % of its box. A measurement inside the box (mean intensity, texture) would be dominated by background. A box says where an object is, not which pixels belong to it.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `detection/src/exercise.rs`.
+A box is $[x_0, x_1] \times [y_0, y_1]$ with a score.
+
+**C1.** `iou(a, b)`: the IoU of two boxes in closed form:
+
+```
+w = max(0, min(a.x1, b.x1) − max(a.x0, b.x0))       # width of the intersection
+h = max(0, min(a.y1, b.y1) − max(a.y0, b.y0))       # height of the intersection
+IoU = w·h / (area a + area b − w·h)
+```
+
+The checks are your answers to B1 and B2 (a).
+
+**C2.** `nms(boxes, t)`: greedy non-maximum suppression; returns the indices of the kept boxes:
+
+```
+remaining = all boxes, sorted by score, highest first
+while boxes remain:
+    best = the first remaining box;  keep it and take it out
+    take out every remaining box with IoU(best, box) > t
+```
+
+The checks are your answers to B2 (b) and (c).
+
+**C3.** `boxes_from_labels(labels)`: the true box of every object of a label image: the smallest
+box holding all its pixels (pixel $(x, y)$ covers $[x, x + 1] \times [y, y + 1]$).
+
+**C4.** `count_matches(detections, truth, t)`: score the kept boxes. Walk through them from the
+highest score down; a box is a true positive if its best IoU with a true box **not yet
+matched** is at least $t$ (that true box is then matched), else a false positive; true boxes
+left over are false negatives. The check counts TP, FP and FN of B2 (b).
+
+Then `cargo run -p detection` and open the pictures in `out/detection/`. A simulated detector
+gives every true nucleus 5 jittered boxes (each side moved by about a pixel, the score higher
+the better the box fits) and adds 3 false boxes with low scores. The program runs NMS for $t$
+from 0.1 to 0.9 on a sparse image (12 nuclei) and a crowded one (45 nuclei, many touching or
+overlapping), and prints the boxes, TP, FP, FN and F1. The pictures show the candidates (yellow)
+and the boxes kept with $t = 0.5$ (green).
+
+**C5.** On the sparse image, which $t$ give the best F1, and what goes wrong above
+$t = 0.6$? What are the false positives at $t = 0.5$?
+
+**C6.** On the crowded image, compare $t = 0.1$, $0.2$ and $0.5$. Why is the best $t$ smaller than
+on the sparse image, and why is no $t$ perfect? Use the printed largest IoU between two true
+boxes. Count the cost: how many IoUs does NMS compute at most for the 223 candidates?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `detection/src/solution.rs` in the download.
+
+**C5.** The 11 visible nuclei (one of the 12 is hidden under another) get 58 candidates.
+$t = 0.1$: 13 boxes, F1 0.92; $t = 0.2$ to $0.5$: 14 boxes, TP 11, FP 3, FN 0, F1 0.88: every
+nucleus keeps one box, and the false positives are the three false boxes (at $t = 0.1$ one of
+them is deleted because it overlaps a better box a little). Above 0.6 the duplicates survive:
+$t = 0.7$ keeps 27 boxes (16 FP, F1 0.58), $t = 0.9$ keeps 57 of the 58 (F1 0.32). A score
+threshold below the real boxes' scores would remove the three false boxes (they score at most
+0.4).
+
+**C6.** Crowded image (44 visible nuclei, 223 candidates):
+
+| $t$ | boxes | TP | FP | FN | F1 |
+|---|---|---|---|---|---|
+| 0.1 | 34 | 33 | 1 | 11 | 0.85 |
+| 0.2 | 44 | 41 | 3 | 3 | 0.93 |
+| 0.5 | 57 | 42 | 15 | 2 | 0.83 |
+
+With $t = 0.1$ the box of a nucleus deletes the boxes of its touching neighbours: 11 nuclei
+lose their box. With $t = 0.5$ duplicates survive next to each other (15 FP). The best here is
+$t = 0.2$, lower than on the sparse image because the neighbours' boxes overlap. No $t$ is
+perfect: some nuclei overlap each other so much (the largest IoU between two true boxes is 0.75)
+that their boxes overlap more than the duplicates of one nucleus do. Cost: at most
+$222 + 221 + \dots + 1 = 223 \cdot 222 / 2 = 24{,}753$ IoUs, fewer because many boxes are deleted
+early.
+:::
+
 ## Where this leads
 
 Boxes are the outputs of detection networks; how a real network produces them on a grid (anchors, centre heat maps, distances to the box sides) comes on the next day ([single-shot detection](../yolo/lec.qmd)). The [next unit](../attention/lec.qmd) asks how a network can relate a pixel to the **whole** image (attention and transformers) and where networks come from that nobody trained on your images (pretraining). The scoring of detections is the [evaluation day](../object-eval/lec.qmd)'s.

@@ -154,6 +154,91 @@ A $64 \times 64$ image is rebuilt from its moments up to order $N$ (slider) with
 **E5.** Legendre: smallest at $N = 24$ (0.268), 0.340 at $N = 40$; Zernike: $N = 18$ (0.257), 0.421 at 40; Fourier: $N = 22$ (0.238), 0.318 at 40. Low orders capture the shape; the noise is spread over all orders, so high orders add more noise than shape. As with a low-pass filter, stopping early is a denoiser.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `orthogonal-moments/src/exercise.rs`.
+Pixel `i` of `n` has its centre at $(2i + 1)/n - 1$ in $[-1, 1]$ (the function `centre` is given).
+
+**C1.** `legendre(n, x)`: $P_n(x)$ by the three-term recurrence, keeping only the last two values:
+
+```
+prev = 1,  p = x                       # P0 and P1
+for k = 1 .. n−1:
+    next = ((2k + 1) · x · p − k · prev) / (k + 1)
+    prev = p,  p = next
+```
+
+The checks are $P_3$ and $P_4$ of B8 at a few points, and $P_n(\pm 1) = (\pm 1)^n$.
+
+**C2.** `gram_schmidt(max_degree, xs)`: Gram–Schmidt on the monomials sampled at the points `xs`,
+with every vector scaled to length 1. The result is a set of polynomials that are **exactly**
+orthogonal on these points (the discrete orthogonal polynomials of the slide "Pixels: sampled
+polynomials are not orthogonal"):
+
+```
+for n = 0 .. max_degree:
+    v = (x_i^n for every point i)
+    for every vector b made so far:
+        v = v − (v · b) · b
+    t[n] = v / length(v)
+```
+
+The check is B1 on the three points $-1, 0, 1$ (the third vector is $x^2 - \tfrac23$, scaled), and
+orthonormality on 16 pixels up to degree 10.
+
+**C3.** `legendre_moments(img, order)`: the image on $[-1, 1]^2$, the polynomials sampled at the
+pixel centres, $\Delta x = 2/\text{width}$, $\Delta y = 2/\text{height}$:
+
+```
+for every p, q with p + q ≤ N:
+    a[p][q] = (2p+1)(2q+1)/4 · sum over pixels of P_p(x) · P_q(y) · I(x, y) · Δx · Δy
+```
+
+The checks are B7 (a $4 \times 4$ image of ones has $a_{20} = -5/32$, not 0) and B3 ($|x|$
+sampled 400 times: $a_0 = 0.5$, $a_1 = 0$, $a_2 = 0.625$).
+
+**C4.** `reconstruct(a, width, height)`: $\hat I(x, y) = \sum_{p+q \le N} a_{pq} P_p(x) P_q(y)$ at
+every pixel centre. The check: a polynomial of degree 2 comes back from its moments up to
+order 2.
+
+Then `cargo run -p orthogonal-moments`. It rebuilds a nucleus, a letter F and a piece of the
+micrograph ($64 \times 64$) from their moments up to order $N = 2, 8, 20, 40$, prints the
+relative errors, and draws them in `out/orthogonal-moments/reconstructions.png` (one row per
+image: the input, then the four orders).
+
+**C5.** Describe the reconstructions as $N$ grows. Where do the ripples appear, and how are
+they spaced?
+
+**C6.** For the micrograph the error at $N = 40$ is larger than at $N = 20$. Why? The program
+also prints the error at $N = 40$ with the discrete polynomials of C2. Compare with E4.
+
+**C7.** Count the cost: $(N+1)(N+2)/2$ moments, each a sum over all $64 \times 64$ pixels. How
+many multiplications does C3 need at $N = 40$? Why is it worth computing every $P_p$ at every
+column once, before the loops?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `orthogonal-moments/src/solution.rs` in the download.
+
+**C5.** At $N = 2$ (6 numbers) every image is a blurry blob: errors 0.559 (nucleus), 0.774 (F),
+0.241 (micrograph). At $N = 8$ the nucleus is a bright oval band and the F a smeared
+shape; at $N = 20$ both are clearly recognisable (0.216, 0.320), at $N = 40$ sharper still
+(0.176, 0.215). Next to every edge the reconstruction overshoots, and faint ripples run
+parallel to the image border, closer together near it: the zeros of $P_n$ crowd towards
+$\pm 1$.
+
+**C6.** The micrograph is bright up to the image border. With the polynomials sampled at the
+pixel centres, the high orders are no longer orthogonal on the $64 \times 64$ grid, and the
+error lands where they are largest: a bright frame of stripes along the border. The error
+rises from 0.187 ($N = 20$) to 0.357 ($N = 40$). With the discrete orthogonal polynomials it is
+0.140 at $N = 40$. The demo shows the same for its crop (0.349 sampled, 0.094 discrete).
+
+**C7.** 861 moments × 4096 pixels ≈ 3.5 million multiply-and-add steps (two multiplications
+each). If $P_p(x)$ and $P_q(y)$ were computed by the recurrence inside the loop, each would cost
+up to 40 more steps: some 100 times more work. With the table, the polynomials cost only
+$41 \times 64$ evaluations per direction.
+:::
+
 ## Where this leads
 
 Legendre moments live on a square, and a rotated image mixes them in a complicated way. The [next unit](../zernike/lec.qmd) moves to the **disc** and polar coordinates: **Zernike** polynomials are orthogonal there, and their magnitudes do not change at all when the image rotates.

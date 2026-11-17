@@ -147,6 +147,75 @@ The same demo in H-DAB mode: a hematoxylin counterstain, a light eosin, and some
 **D2.** Ruifrok: threshold 0.29, 14. Wrong DAB vector: 0.39, 14, and the H map gets $-0.60$ times the DAB (positive nuclei look hematoxylin-poor). Nearly parallel: 0.62, 14, with a noisier DAB map ($\kappa = 9.8$). The count is robust because the positive nuclei are strongly brown and well separated from the background: crosstalk changes the DAB **values** (and the threshold) but not which nuclei are above it. Weakly positive nuclei, or touching nuclei, would be miscounted first; the H measurements in DAB-positive nuclei are not robust at all.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `stain-unmixing/src/exercise.rs`.
+Images hold linear intensities in $[0, 1]$ (8-bit values divided by 255); a stain matrix has the
+unit stain vectors (red, green, blue) as its columns.
+
+**C1.** `optical_density(img, i0)`: $\mathrm{OD}_c = -\log_{10}(I_c / I_{0,c})$ in every pixel,
+with $I$ first raised to at least $1/255$. The checks are B1(a), B5 and B6(a).
+
+**C2.** `transmit(amounts, s, i0)`: Beer–Lambert, $I_c = I_{0,c}\,10^{-\sum_k s_{ck} C_k}$. The
+check is B2(c): the transmissions of two stains multiply.
+
+**C3.** `stain_matrix(s1, s2)` and `deconvolve(od, s)`: colour deconvolution:
+
+```
+h = s1 / |s1|,  e = s2 / |s2|
+r = h × e, scaled to length 1            # the residual column
+S = [h  e  r];  S⁻¹ once
+for every pixel:  (C_1, C_2, C_res) = S⁻¹ · od
+```
+
+The checks are B3(a), B1(c) and B6(b).
+
+**C4.** `macenko(od, beta, alpha)`: the stain vectors from the image, the four steps of the slide
+"Estimating the stain vectors: Macenko":
+
+```
+keep the pixels with |od| > β
+v1, v2 = the two leading eigenvectors of Σ od odᵀ        # flip v1 to point into the cloud
+φ = atan2(od · v2, od · v1) for every kept pixel
+the stains = cos φ · v1 + sin φ · v2 at the α and 100 − α percentiles of φ
+```
+
+The check: on mixtures of two known stains, the pure ones included, it finds both within 0.1°.
+
+Then `cargo run -p stain-unmixing` and open the pictures in `out/stain-unmixing/`. The program
+renders a synthetic H&E slide by Beer–Lambert with this slide's own stain vectors, a white level
+of 242, detector noise and 8-bit rounding (`slide.png`). It separates it with the published
+vectors, with the true ones and with Macenko's estimate ($\beta = 0.15$, $\alpha = 1$): `he-*.png`
+show the H map (left) and the E map (right), stain dark on white. For each it prints how much of
+each true stain ends up in each map, and the mean of the residual map. Last, it analyses the slide
+with the white level 205.
+
+**C5.** How far are the published vectors from this slide's stains? How much eosin ends up in the
+H map with the published vectors, and what does the H map look like? Compare with the true vectors
+and with Macenko's estimate (demo questions T1, T2 and T6).
+
+**C6.** With the white level set to 205, what OD does the empty background get, and what does the
+H map show there? Compare with B6.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `stain-unmixing/src/solution.rs` in the download.
+
+**C5.** This slide's hematoxylin is 3.1° and its eosin 13.9° from the published vectors. With the
+published vectors the H map is $0.94\,H + 0.21\,E$ and the E map $0.07\,H + 0.81\,E$: a fifth of the
+eosin lands in the H map, which shows a grey haze over the whole tissue, darker where the eosin
+is strong; only the empty holes are white. The residual map is not zero (mean 0.065): the eosin is not in the
+plane of the two published vectors. With the true vectors the maps are exactly $1.00\,H$ and
+$1.00\,E$ and the residual is 0. The H map is white wherever there are no nuclei. Macenko's
+estimate is 2.4° (H) and 1.0° (E) from the truth, and gives $1.07\,H + 0.04\,E$ and
+$-0.09\,H + 0.97\,E$, close to the identity.
+
+**C6.** The background gets OD $-0.070$ in every channel (B6(a): $-0.072$; 8-bit rounding of the
+white level makes the small difference), and the H map in the empty holes averages $-0.125$
+instead of 0 (B6(b): $-0.132$). It is "less than no stain", and the whole background of the H map
+is negative.
+:::
+
 ## Where this leads
 
 Colour deconvolution is the last piece of the day: a fluorescence image, a lambda stack, a hyperspectral scene and a stained slide are all $\mathbf y = M\mathbf a$. The concentration maps are ordinary grey images: threshold them ([day 12](../otsu/lec.qmd)), label and measure the objects ([days 14](../label-connectivity/lec.qmd) and [16](../intensity-features/lec.qmd)). Stain normalisation between scanners deconvolves with one slide's vectors and recombines with a reference slide's. The fluorescence days that follow use the day's model: [colocalisation](../coloc/lec.qmd) (day 44) and [FRET](../sensitised-emission/lec.qmd) (day 45) correct bleed-through before comparing channels, and [FLIM](../decayfit/lec.qmd) (day 46) unmixes decays instead of spectra.

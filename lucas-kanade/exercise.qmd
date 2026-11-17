@@ -136,6 +136,101 @@ Frame 1 is a 128² crop of the micrograph (or a synthetic scene), frame 2 is fra
 **E8.** 0.07 px with the pyramid against 0.29 px for a single solve. The arrows follow the rotation: short near the centre, longest at the edges (3 px), where the motion is too large for a single linearised solve.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `lucas-kanade/src/exercise.rs`.
+
+**C1.** `gradients(f1, f2)`: $I_x$, $I_y$ by central differences of the mean of the two frames (as
+in B10), and $I_t = f_2 - f_1$.
+
+**C2.** `lk_solve(j, b)`: solve $J\mathbf u = -\mathbf b$ for one window, with
+$J = \begin{pmatrix}a & c\\ c & d\end{pmatrix}$; then `lk_window(pixels)`: add up $J$ and
+$\mathbf b$ from a list of pixels $(I_x, I_y, I_t)$ and solve. The checks are B1, B2, B4 and B5.
+
+```
+J = (Σ Ix², Σ Ix·Iy, Σ Iy²),   b = (Σ Ix·It, Σ Iy·It)
+det = a·d − c²                              # 0: no unique answer
+u = −( d · b1 − c · b2) / det
+v = −(−c · b1 + a · b2) / det
+```
+
+**C3.** `min_eigenvalue(j)`: the confidence $\mu_2 = \tfrac{a + d}{2} - \sqrt{\big(\tfrac{a - d}{2}\big)^2 + c^2}$.
+The checks are B2, B3 and B4.
+
+**C4.** `lucas_kanade(f1, f2, rho)`: the flow and $\mu_2$ at every pixel, with a Gaussian window.
+
+```
+Ix, Iy, It = gradients(f1, f2)
+Sxx = blur(Ix·Ix, ρ);  Sxy = blur(Ix·Iy, ρ);  Syy = blur(Iy·Iy, ρ)
+Sxt = blur(Ix·It, ρ);  Syt = blur(Iy·It, ρ)
+for every pixel:
+    (u, v) = lk_solve((Sxx, Sxy, Syy), (Sxt, Syt))     # 0 where it fails
+    μ2 = min_eigenvalue((Sxx, Sxy, Syy))
+```
+
+**C5.** `pyramid_lk(f1, f2, levels, iterations, rho)`: coarse to fine, with warping.
+
+```
+pyramids of f1 and f2: level 0 = the frames, each next level = blur and keep every second pixel
+u = v = 0 at the coarsest level
+for every level, coarsest first:
+    if not the coarsest: u, v = the flow of the level above, enlarged twice and doubled
+    repeat `iterations` times:
+        g = f2 of this level, read at (x + u, y + v)       # warp back
+        (du, dv) = lucas_kanade(f1 of this level, g)
+        u = u + du;  v = v + dv
+```
+
+The checks: a smooth pattern moved by $(0.6, -0.4)$ (C4) and by $(5, 3)$ (C5).
+
+Then `cargo run -p lucas-kanade` and open the pictures in `out/lucas-kanade/`. The program moves the
+micrograph (blurred with σ = 1) by $s \cdot (0.8, 0.6)$ px, a shift of length $s$, adds noise, and
+prints the mean endpoint error for one solve, for 3 warping iterations, and for a pyramid of 4
+levels × 3 iterations. Then, with stronger noise (0.05), it tries three window sizes and compares
+the error where $\mu_2$ is small with the rest. Flow pictures use the colour wheel of the
+previous unit (red = right, white = still).
+
+**C6.** Read the table. Up to which shift does one solve work? What do the warping iterations
+rescue, and what not? Compare `flow-8px-one-solve.png` with `flow-8px-pyramid.png`.
+
+**C7.** With noise 0.05: the mean error for ρ = 1.5, 3 and 6. Why does it fall? What would a
+large window cost if the motion were not the same everywhere?
+
+**C8.** Where is $\mu_2$ small in `confidence.png` (shown as $\sqrt{\mu_2}$, dark = small)? Compare
+the error in the lowest tenth of $\mu_2$ with the rest, and look at `flow-1px-confident.png`,
+where that tenth is grey.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `lucas-kanade/src/solution.rs` in the download.
+
+**C6.** Mean endpoint error (px):
+
+| shift | one solve | 3 warping iterations | pyramid 4 × 3 |
+|---|---|---|---|
+| 1 | 0.15 | 0.10 | 0.11 |
+| 2 | 0.38 | 0.12 | 0.11 |
+| 4 | 1.70 | 0.78 | 0.11 |
+| 8 | 7.13 | 6.78 | 0.11 |
+
+One solve works up to about a pixel; at 2 px its error is already 0.38. Warping rescues 2 px and
+halves the error at 4 px: the first estimate points the right way, and each iteration corrects
+what is left. At 8 px it fails: the first linearisation is meaningless, and warping by a wrong
+estimate does not help. The pyramid keeps 0.11 px at every shift, because at its coarsest level
+8 px is 1 px. `flow-8px-one-solve.png` is a speckle of all colours (random directions), the
+pyramid's flow one even pink-magenta (right and down) everywhere.
+
+**C7.** 0.61 px at ρ = 1.5, 0.39 at ρ = 3, 0.31 at ρ = 6: more pixels per window average the
+noise in $\mathbf b$ away. Here the motion is the same everywhere, so a large window costs
+nothing; at a motion boundary a large window mixes the two motions (E7).
+
+**C8.** $\mu_2$ is smallest inside the nucleus, where the texture is fine and faint, and in the
+other smooth, darker regions (bottom left); it is largest in the bright, finely textured
+cytoplasm. In the lowest tenth of $\mu_2$
+the mean error is 0.63 px, elsewhere 0.37 px: noise is amplified by $1/\mu_2$ (B5). The grey
+patches of `flow-1px-confident.png` lie mostly in the nucleus, a few near the image edges.
+:::
+
 ## Where this leads
 
 Lucas–Kanade leaves holes wherever a window has no texture. The next unit, [**Horn–Schunck**](../horn-schunck/lec.qmd), asks instead that the whole flow field be smooth, which fills the holes, and shows how to **evaluate** a flow field with and without ground truth.

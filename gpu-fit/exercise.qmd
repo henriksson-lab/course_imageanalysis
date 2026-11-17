@@ -154,6 +154,93 @@ The roofline calculator of the [memory unit](../gpu-memory/exercise.qmd#explore)
 **N2.** With $C = 8$ the intensity falls 8-fold ($9C/4$: about 18 in float32, 36 in float16). The float32 point drops below the ridge (memory-bound); the float16 points sit on the bandwidth slope, and the matrix units give no more than float16 on the lanes: both are limited by the bytes. Matrix units pay off only for layers with many channels (large matrices); small layers are memory-bound like any filter.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gpu-fit/src/exercise.rs`.
+The parallel algorithms are written as passes: every pass reads only the result of the previous
+pass, so all pixels of a pass could be done at the same time on a GPU.
+
+**C1.** `propagate_once(mask, labels)` (C1a) and `label_propagation(mask)` (C1b): label
+propagation.
+
+```
+label(p) = raster number of p (1, 2, 3, … row by row) for foreground pixels, 0 elsewhere
+repeat:
+    for every foreground pixel p, all at once (reading the previous labels):
+        new(p) = min(label(p), label of each foreground 4-neighbour)
+    if nothing changed: stop
+    label = new;  passes = passes + 1
+```
+
+The checks are B3 (a) (row 3 after one pass), B3 (b) (20 passes) and B8 (a) (a bar).
+
+**C2.** `label_pointer_jumping(mask)`: after each propagation pass, every pixel replaces its label
+$L$ by the label that pixel number $L$ has now:
+
+```
+after = the labels after the propagation pass
+for every foreground pixel p, all at once:
+    q = the pixel whose raster number is after(p)
+    if after(q) < after(p): new(p) = after(q)
+```
+
+The checks: the same labels as C1, and B3 (c): 9 passes.
+
+**C3.** `dp_wavefront(cost)`: fill $D(x, y) = \text{cost}(x, y) + \min(D(x-1, y), D(x, y-1), D(x-1, y-1))$
+one anti-diagonal at a time:
+
+```
+for s = 0 … width + height − 2:                 # one parallel step each
+    for every cell (x, y) with x + y = s:         # all independent
+        D(x, y) = cost(x, y) + the smallest of the neighbours that exist (0 if none)
+    record how many cells step s had
+```
+
+The checks are B4 (11 steps, at most 5 cells) and the same table as filling row by row.
+
+**C4.** `amdahl(s, k)` $= 1/(s + (1 - s)/k)$. The check is B2.
+
+**C5.** `sum_f16(values)` and `sum_mixed(values)`: sums of values stored in float16, with every
+partial sum rounded to float16, or kept in float32. `to_f16` (ready to use) rounds to the nearest
+float16. The checks are B5 (a) and (b): 4097 → 4096, 65 535 → ∞, and $10\,000 \times 0.01$ = 32 and
+100.02.
+
+Then `cargo run -p gpu-fit` and open the pictures in `out/gpu-fit/`.
+
+**C6.** Read the passes for the spiral and for the synthetic nuclei, with and without pointer
+jumping, and look at `spiral-passes.png` (each pixel shaded by the pass in which its label last
+changed: dark = early). Explain the order of the shades.
+
+**C7.** Read the steps and the cells per step of the DP wavefront for a 10 × 16 and a 1000 × 1000
+table. How busy can a GPU with 10 000 lanes be on the second?
+
+**C8.** Read the float16 sums of 0.01. Why is the float16 sum of 1000 terms a little *below* 10, and
+the sum of 3000 terms (32) *above* 30?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gpu-fit/src/solution.rs` in the download.
+
+**C6.** The spiral (312 pixels, one component) needs 310 propagation passes, 45 with pointer
+jumping; the nuclei (13 379 pixels in 15 components) 139 and 50. In the picture the shade grows
+steadily from the outer end of the spiral (top left, where label 1 starts) inwards to the centre:
+the smallest label crawls along the spiral one pixel per pass. Pointer jumping cuts the passes
+by a factor of about 7 for the spiral and 3 for the nuclei: a jump lets a label skip ahead along a
+chain of labels instead of moving one pixel per pass.
+
+**C7.** 10 × 16: 25 steps, at most 10 cells, 6.4 on average (the lecture's numbers).
+1000 × 1000: 1999 steps, at most 1000 cells, 500 on average: at best a tenth of the 10 000 lanes,
+on average a twentieth, and a barrier between every two steps.
+
+**C8.** Each term is stored as 0.010002 in float16. Up to 32, every partial sum is rounded to the
+float16 grid, whose spacing grows with the sum. Between 4 and 8 it is 1/256, and adding 0.010002
+rounds to $+0.0117$ (a gain); between 8 and 16 it is 1/128 = 0.0078, and every addition rounds
+down to $+0.0078$ (a loss): 1000 terms end a little below 10 (9.953). Between 16 and 32 the spacing
+is 1/64 = 0.0156, and every addition rounds up to $+0.0156$: 3000 terms climb too fast, to 32. From 32 on the spacing is 1/32 = 0.031, more than twice 0.010002, and the sum stays
+at 32 for ever. With a float32 sum: 10.002, 30.006, 100.02, 1000.9, only the storage error of
+0.010002.
+:::
+
 ## Where this leads
 
 The day ends here. The patterns return wherever speed matters: the FFT and filters on large stacks, [neural networks](../cnn/lec.qmd), [volume rendering](../volrender/lec.qmd). The parallel versions of irregular algorithms (jump flooding for distance transforms, tile-wise connected components, parallel watershed and push–relabel) are a further step, beyond this day.

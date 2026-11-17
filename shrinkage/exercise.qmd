@@ -145,6 +145,84 @@ The same method on a 1D test signal of 1024 samples (standard deviation 7) with 
 **E9.** Doppler: hard 0.492, soft 0.695. The fast oscillations at the left are lost by both, but soft also damps the oscillations it keeps. Bumps with soft $t = 6$: RMSE 1.986, worse than the noisy signal (1.004): the narrow bumps have their tops cut off; at the universal threshold it is 1.398, still worse than doing nothing. Spiky signals need lower thresholds.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `shrinkage/src/exercise.rs`.
+The 2D wavelet transform of the [last unit](../dwt2d/exercise.qmd#code) is given (`dwt2d`,
+`idwt2d`, with Haar, db2 and db4).
+
+**C1.** `hard(w, t)` and `soft(w, t)`: keep or kill; kill or shrink towards 0 by $t$. The check is B1.
+
+**C2.** `median_sigma(values)`: $\hat\sigma_n = \operatorname{median}(|w|)/0.6745$, and
+`universal_threshold(σ, N)` $= \sigma\sqrt{2\ln N}$. The checks are B3(a) (1.78) and B2 (94.2 for
+$\sigma_n = 20$, $N = 256^2$).
+
+**C3.** `threshold_details(c, levels, t, soft)`: threshold every coefficient of the pyramid except the
+LL band in the top-left corner.
+
+**C4.** `denoise(img, h, levels, t, soft)`:
+
+```
+c = dwt2d(img, levels)
+for every coefficient w of c outside the LL corner:
+    w = hard(w, t)  or  soft(w, t)
+return idwt2d(c, levels)
+```
+
+The checks: as B4, in 2D (a vertical edge $0 \mid 100$ becomes $10 \mid 90$ with soft thresholding at
+$t = 20$, stays with hard, vanishes with hard at $t = 120$); $t = 0$ changes nothing; pure noise is
+removed at the universal threshold.
+
+**C5.** `cycle_spin(img, h, levels, t, soft, shifts)`:
+
+```
+sum = zero image
+for dy = 0 … shifts−1, dx = 0 … shifts−1:
+    s = img shifted by (dx, dy), wrapping around
+    sum = sum + (denoise(s) shifted back by (dx, dy))
+return sum / shifts²
+```
+
+The checks: one shift is plain denoising, and with all $4 \times 4$ shifts of a 2-level transform a
+shifted input gives a shifted output.
+
+Then `cargo run -p shrinkage` and open the pictures in `out/shrinkage/`.
+
+**C6.** The program adds noise of $\sigma_n = 20$ to a synthetic shapes image (`shapes.png`, `noisy.png`)
+and denoises it with db4, 4 levels. Compare $\hat\sigma_n$ with $\sigma_n$, and the PSNR at the universal
+threshold with the best soft and hard thresholds it finds. Look at `universal-soft.png`,
+`removed-soft.png` and `removed-hard.png` (noisy minus denoised, at the best thresholds): what was
+removed besides noise?
+
+**C7.** Cycle spinning with Haar (soft, $t = 3\hat\sigma_n$): read the PSNR for 1, 4 and 16 shifts and
+compare `haar-shifts1.png` with `haar-shifts16.png` (the disc, enlarged).
+
+**C8.** The micrograph: the program prints $\hat\sigma_n$ of the clean image, and the PSNR before and
+after denoising with noise $\sigma_n = 10$ and $40$. Explain both results (compare `cell-noisy40.png`
+and `cell-denoised40.png`).
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `shrinkage/src/solution.rs` in the download.
+
+**C6.** $\hat\sigma_n = 20.14$ for $\sigma_n = 20$; the universal threshold is $94.8 = 4.71\,\hat\sigma_n$. The noisy
+image has 22.1 dB. At the universal threshold soft gives 27.6 dB and hard 29.4 dB; the best soft
+threshold is $1.75\,\hat\sigma_n$ (30.8 dB), the best hard one $3.25\,\hat\sigma_n$ (30.5 dB), close to the demo
+(E1). `universal-soft.png` is clean but blurred, with soft edges and faint blotches: the threshold is
+far too high for soft thresholding. Both removed parts look like noise, but the outlines of the four shapes
+show in them, more clearly for soft: some edge contrast was removed with the noise (B4).
+
+**C7.** 29.7 dB with 1 shift, 30.7 with 4, 31.2 with 16. Without shifts the disc's edge is a staircase
+of blocks and the flat parts show faint squares on the Haar grid; averaged over 16 shifts the edge
+is smooth and the blocks are gone.
+
+**C8.** The clean micrograph already gives $\hat\sigma_n = 11.0$: its fine texture lives in the finest D band
+and is taken for noise. With $\sigma_n = 10$, $\hat\sigma_n = 15.9$, the threshold is too high, and denoising
+makes the image **worse**: 28.1 → 25.1 dB, the texture is removed with the noise. With
+$\sigma_n = 40$ the noise dominates ($\hat\sigma_n = 42.0$) and denoising helps, 16.1 → 20.3 dB, but the outline of the nucleus survives better than the fine
+texture, which is replaced by smooth, wavelet-shaped blotches.
+:::
+
 ## Where this leads
 
 This was the last unit of the wavelets day. The **compression day** (the next day, starting with [entropy](../entropy/lec.qmd)) turns sparse coefficients into bits: quantisation, entropy coding, JPEG and JPEG 2000. Other denoisers are introduced on the **deconvolution** day ([denoise](../denoise/lec.qmd)) and compared in [all smoothers on one image](../smoothers/lec.qmd); total variation and MRF priors are on the **Ising** day ([gmrf](../gmrf/lec.qmd)). The [sparse representations day](../sparsity/lec.qmd) generalises soft thresholding to any linear problem (blur, missing pixels, too few measurements) and learns the basis from the images.

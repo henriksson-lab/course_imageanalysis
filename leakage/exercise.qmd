@@ -149,6 +149,90 @@ $k$ candidate methods (settings), each with the same true accuracy (grey dots, o
 **T5.** Yes: the chosen candidates are better than average (fresh 83.2 % against the mean true accuracy of 80 %). But the reported score (89.1 %) is still 5.9 points too high. Choose on validation data, report on test data.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `leakage/src/exercise.rs`.
+
+**C1.** `knn_predict(train_x, train_y, query, k)`: the $k$ nearest neighbours vote. The distance
+is the ordinary (Euclidean) distance between feature vectors. The checks are small cases with
+$k = 1$, 3 and 5.
+
+**C2.** `block_folds(w, h, block, folds, seed)`: cut the image into `block × block` squares and
+give every square a random fold. With `block = 1` every pixel gets its own fold: the random
+pixel split.
+
+**C3.** `roles(folds, test_fold, buffer)`: the role of every pixel when one fold is tested:
+
+```
+for every pixel (x, y):
+    if fold(x, y) = test fold:                            role = test
+    else if a test pixel lies within buffer pixels
+            (in x and in y) of (x, y):                    role = buffer
+    else:                                                 role = train
+```
+
+**C4.** `best_of_k(k, n, accuracy, runs, seed)`: the demo "peeking at the test set" as a
+simulation:
+
+```
+repeat runs times:
+    for each of the k candidates:
+        score = share of n test objects that are right   # each right with probability accuracy
+    reported = the largest score
+    fresh = the score of a new test on n new objects
+return the means of reported and of fresh
+```
+
+The checks: one candidate is honest (both about 0.80); 50 candidates on 100 objects report
+about 0.89 (the lecture's number).
+
+Then `cargo run -p leakage` and open the pictures in `out/leakage/`. The program cross-validates
+your $k$-nearest-neighbour classifier ($k = 3$) on pixels, with 4 folds and five splits (random
+pixels, random $8 \times 8$ blocks, the same blocks with a 4-pixel buffer, by image, by day).
+Each pixel is described by six numbers: the means of its $3 \times 3$ to $17 \times 17$
+neighbourhoods and two local slopes. Two data sets: 8 synthetic nuclei images from 4 days, 2
+per day, each day with its own brightness and contrast (`images-and-truth.png`: images on the
+left, one row per day, the true masks on the right), with their true labels; and 8 pieces of
+the micrograph with **random** blob labels that have nothing to do with the image (chance:
+50 %). `roles-blocks-buffer.png` shows one fold of the block split with buffer: red test, blue
+training, grey buffer. Last, the program runs `best_of_k`.
+
+**C5.** Read the column of random labels. Which splits would make you believe that there is
+something to learn? Why does the random pixel split score so high?
+
+**C6.** Read the column of real labels and compare it with the line "always answering
+background". Which number answers "how well does it work on images of a new day"? Look at the
+bottom row of `images-and-truth.png`: why is that split so much worse?
+
+**C7.** Compare the optimism printed by `best_of_k` with the formula $\sigma\,E[\max Z]$ of the
+Background table, $\sigma = \sqrt{a(1-a)/n}$.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `leakage/src/solution.rs` in the download.
+
+**C5.** Random pixels 68.3 %, random blocks 52.5 %, blocks with buffer 48.9 %, by image 50.0 %,
+by day 49.9 %. Only the random pixel split (and a little the blocks without buffer) suggests that
+the classifier has learned something. It has not: every test pixel has training pixels right
+next to it, with almost the same six numbers (the neighbourhood means overlap) and, because the
+blobs are larger than a pixel, almost always the same label. The nearest neighbour copies it.
+The buffer removes those neighbours, and the score drops to chance.
+
+**C6.** Random pixels 98.5 %, blocks 98.0 %, blocks with buffer 97.3 %, by image 97.7 %, but by day
+80.7 %; always answering "background" gives 79.9 %. For new days: by day, 80.7 %, hardly better
+than the trivial answer. The fold that tests the fourth day scores only 31 % (the other three days 96 to
+99 %). The fourth day has a background as bright as the nuclei of the other days: a classifier
+trained on the other three days has never seen such images and calls most of the background
+"nucleus", while in every other split some pixels of the fourth day are in the training set. The gap between "by image"
+and "by day" is the domain shift (demo question L5).
+
+**C7.** With true accuracy 0.80 and $n = 100$, $\sigma = 0.04$. One candidate: reported 80.0 %,
+fresh 80.2 %, no optimism. $k = 10$: optimism 6.3 points, formula $1.54 \cdot 4 = 6.2$. $k = 50$:
+8.6 points, formula $2.25 \cdot 4 = 9.0$ (a little less, because a score of 100 objects can only
+take steps of 1 %). $k = 50$ with $n = 1000$: 2.8 points, formula $2.25 \cdot 1.26 = 2.8$. The fresh
+scores stay at 80 %: the best-looking candidate was only lucky.
+:::
+
 ## Where this leads
 
 The same logic holds for the **statistics of measurements**: cells from one dish are not independent, just as pixels from one image are not. The [next unit](../replicates/lec.qmd) asks what the unit of replication is in an experiment, and how to report an effect honestly.

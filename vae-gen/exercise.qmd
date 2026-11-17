@@ -116,6 +116,96 @@ The demo has two tabs with **fixed, pre-trained** weights. Left: the latent spac
 **E6.** Example 2 with noise 0.3: the encoder input is speckled, the decoded image is a clean round cell, and the error (against the clean mask) is 0.009, against 0.045 for the noisy input itself. Example 4: the noisy code lands elsewhere and the decoded cell has the wrong orientation: error 0.110, worse than the noisy input (0.047). In the digits tab the decoded image is also free of speckle, but often a different or blurrier digit; in squared error it is usually worse than the noisy input, because the digit reconstructions are blurry even without noise (mean error 0.041 over the test set).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `vae-gen/src/exercise.rs`.
+
+Instead of a trained network, the code uses a decoder you can understand completely: the
+**spot decoder** draws a soft bright spot (a small round "cell") on a $24 \times 24$ image, and
+the latent code $z = (z_1, z_2)$ is its position (the centre of the image plus $4z$ pixels).
+It is curved like a real decoder, and the prior $\mathcal N(0, I)$ puts most spots near the
+centre. The checks use the bar decoder of Part A.
+
+**C1.** `latent_walk(decode, za, zb, n)` and `pixel_fade(a, b, n)`: the two ways to go from one
+image to another, each in $n$ equally spaced steps:
+
+```
+for k = 0, 1, ..., n − 1:
+    t = k / (n − 1)
+    walk:  decode( (1 − t) za + t zb )
+    fade:  (1 − t) · image A + t · image B           # pixel by pixel
+```
+
+The checks are your answers to B1 and B2.
+
+**C2.** `fraction_within(radius, n, seed)`: draw $n$ codes from the prior and count the fraction
+with $z_1^2 + z_2^2 \le r^2$. The check is B4.
+
+**C3.** `encode_by_search(img, decode, lo, hi, n)`: an encoder without a network. Try every code
+on an $n \times n$ grid and keep the one whose decoded image is closest:
+
+```
+best error = ∞
+for every z on the grid from lo to hi (in both coordinates):
+    e = mean of (img − decode(z))² over the pixels
+    if e < best error:  best error = e,  best z = z
+```
+
+A VAE's encoder learns to give (roughly) this answer in one pass.
+
+**C4.** `threshold(errors, q)`: the anomaly threshold, the smallest error such that a fraction
+$q$ of the normal errors is at or below it: sort the errors and take number
+$\lceil qn \rceil$ (counting from 1). The check is B6.
+
+Then `cargo run -p vae-gen` and open the pictures in `out/vae-gen/` (all enlarged 4 times).
+`generated.png`: 8 images decoded from draws of the prior. `walk-vs-fade.png`: the latent walk
+(top) and the pixel fade (bottom) between two spots. The program then encodes 300 normal noisy
+spots by search, sets the threshold at 99 % of their errors, and tests six images
+(`anomalies.png`: inputs on top, their reconstructions below): a normal spot, two spots, a ring,
+a slightly wider spot, a large spot and a faint spot. Finally it denoises a very noisy spot
+(`denoise.png`: clean, noisy, decoded).
+
+**C5.** Compare the two rows of `walk-vs-fade.png`, and read the brightest pixel at the midpoint
+of each. Which row is a picture of "one cell", and why (B2, B3)?
+
+**C6.** Read the printed errors and verdicts. Which of the six test images are flagged, and
+what do their reconstructions look like? Which result would you **not** have expected, and what
+does it tell you about this kind of detector? Why is the threshold so close to the errors of
+normal spots?
+
+**C7.** Compare the error of the noisy input with that of the decoded image (both against the
+clean spot). Would denoising by search also work for an image of two spots?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `vae-gen/src/solution.rs` in the download.
+
+**C5.** The walk moves one spot step by step from the lower left to the upper right; at the
+midpoint its brightest pixel is 1.00: a whole spot in the middle. The fade dims one spot and
+brightens the other in place; at the midpoint there are two half-bright spots (brightest pixel
+0.50), a double exposure. Only the walk shows one cell at every step: the decoder is curved, so
+a straight line in $z$ moves the spot, while the straight line in pixel space (the fade) is what
+a linear decoder (PCA) would give.
+
+**C6.** The 300 normal spots have errors from 0.0021 to 0.0031; 99 % are at or below 0.0030
+(3 of 300 above). Test images: normal spot 0.0026 (normal); two spots 0.0234, rebuilt as the left
+spot alone (flagged); ring 0.1003, rebuilt as a single spot on the upper part of the ring
+(flagged); the slightly wider spot 0.0027 (normal, rebuilt as an ordinary spot); the large spot
+0.0128 (flagged); the faint spot 0.0095 (flagged), and its code is the corner $(3, 3)$ of the
+grid: the decoder cannot draw a dim spot, and the closest it can do is a spot pushed almost
+out of the image, a nearly black image. A faint cell is "unusual" to this model only because
+the decoder cannot draw it, not because it is a strange cell. The detector flags whatever the
+decoder cannot draw, and passes whatever it can (the wider spot). The threshold is close to the
+normal errors because this decoder draws normal spots perfectly: what is left is almost only
+the noise ($0.05^2 = 0.0025$ per pixel). A real VAE rebuilds normal images less well, and its
+threshold lies well above the noise.
+
+**C7.** Noisy input: 0.0929; decoded: 0.0005, almost two hundred times smaller. The code found is
+$(-0.90, 0.45)$ for the true $(-1, 0.5)$: the decoder can only draw clean spots, so the noise is
+gone. For an image of two spots it would return one of them (as in C6): denoising by decoding
+replaces whatever the model cannot draw with something it can.
+:::
+
 ## Where this leads
 
 - **Bigger latent spaces** (10–100 dimensions) rebuild far more detail; the 2D maps here are for looking, not for best quality.

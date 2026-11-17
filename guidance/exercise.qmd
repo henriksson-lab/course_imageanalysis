@@ -147,6 +147,81 @@ The 2D latent space of the cell-shape VAE of the [VAE day](../vae/lec.qmd) (its 
 **L5.** The decoder: a latent of two numbers cannot carry an outline pixel by pixel. Nearby latent points decode to smoothly varying shapes with the decoder's typical grey edge; the diffusion model only chooses the point in the plane.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `guidance/src/exercise.rs`.
+As in the 1D guidance demo, the "network" is exact: the noise prediction of a mixture of
+Gaussians, with the label (one class) and without it (both classes). It is given.
+
+**C1.** `guided(eps_cond, eps_uncond, w)`: $(1+w)\,\hat\varepsilon_\text{cond} - w\,\hat\varepsilon_\text{uncond}$.
+The check is B1.
+
+**C2.** `class_posterior(x, mean_a, mean_b, sd, prior_a)`: $p(A \mid x)$ for two Gaussian classes, by
+Bayes: prior × density of A, divided by the same sum over both classes. The checks are B2 (a) and
+(b).
+
+**C3.** `sharpened_mean_sd(w, …)`: the mean and standard deviation of the sharpened density
+$p(x \mid A)\,p(A \mid x)^w$, by summing over a fine grid:
+
+```
+for x from −10 to 10 in steps of 0.001:
+    q = p(x | A) · p(A | x)^w
+    S0 = S0 + q;   S1 = S1 + x · q;   S2 = S2 + x² · q
+mean = S1 / S0;   sd = sqrt(S2 / S0 − mean²)
+```
+
+The check is G4: for $w = 3$, mean −1.54 and sd 0.77.
+
+**C4.** `guided_sample(x, alpha_bars, w, eps_cond, eps_uncond, rng)`: the samplers of the
+introduction (deterministic, or stochastic with fresh noise), with the guided noise prediction:
+
+```
+for each level ᾱ (rising to 1), next level ᾱ′:
+    ε = (1 + w) · ε_cond(x, ᾱ) − w · ε_uncond(x, ᾱ)
+    x̂0 = (x − √(1 − ᾱ) · ε) / √ᾱ
+    deterministic:  x = √ᾱ′ · x̂0 + √(1 − ᾱ′) · ε
+    stochastic:     x = a draw from the Gaussian of the introduction's stochastic step
+```
+
+The checks: with $w = 0$ the samples have the class's mean and sd, and with $w = -1$ those of both
+classes together.
+
+Then `cargo run -p guidance` and open the pictures in `out/guidance/`. Class A is $\mathcal N(-1, 1)$,
+class B is $\mathcal N(+1, 1)$. The program draws 2000 samples of class A (100 steps) for
+$w = 0, 1, 3, 8$, deterministic and stochastic. It prints their mean and sd, the fraction beyond the
+line that only 1 % of real A members cross ($x < -3.33$), and the sharpened density's mean and sd.
+The histograms `w*-*.png` show the samples (blue), class A (black) and the sharpened density (red).
+Last, it runs a class A with a sub-mode near B, as in G5.
+
+**C5.** How do the samples move as $w$ grows? Compare them with the sharpened density, and the
+deterministic with the stochastic sampler. What fraction of the samples is "more A than any real
+A" at $w = 8$?
+
+**C6.** The class with a sub-mode: what happens to the sub-mode as $w$ grows, and what does that
+mean for a generator of "treated" cells (B5)?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `guidance/src/solution.rs` in the download.
+
+**C5.** $w = 0$: mean −0.99, sd 1.01 (deterministic), as the class (0.9 % beyond the line, expected
+1 %). $w = 1$: −1.60, 0.77 (deterministic), −1.49, 0.79 (stochastic); sharpened density −1.29,
+0.86. $w = 3$: −2.34, 0.60 and −1.95, 0.71; sharpened −1.54, 0.77 (as in G2 and G4). $w = 8$:
+−3.42, 0.49 with **54.0 %** beyond the 1 % line (deterministic), −2.44, 0.68 and 9.9 %
+(stochastic); sharpened −1.81, 0.69. The samples move away from B and become narrower. They move
+further than the sharpened density: guidance is applied at every noise level, and the effects add
+up. The deterministic sampler overshoots most; the fresh noise of the stochastic one pulls it back
+part of the way. At $w = 8$ more than half the deterministic samples are more extreme than 99 % of
+real class members: caricatures of A (G3).
+
+**C6.** The sub-mode at 0.6 holds 40 % of class A. Samples above −0.5: 39.8 % at $w = 0$, 14.8 % at
+$w = 1$, 1.1 % at $w = 3$ (stochastic sampler; G5 reads 38 %, 14 % and 1.1 % from its
+histogram). The sub-mode lies close to B, where $p(A \mid x)$ is uncertain, and guidance removes it
+almost completely. A guided generator of "treated" cells would show only the treated cells that
+look least like controls. The real diversity of the class is lost, and the effect looks larger than
+it is (B5).
+:::
+
 ## Where this leads
 
 When the condition is a measured image, conditional generation becomes restoration. The last unit, [Diffusion priors for inverse problems](../diffusion-inverse/lec.qmd), asks which parts of such a restoration were measured and which were imagined.

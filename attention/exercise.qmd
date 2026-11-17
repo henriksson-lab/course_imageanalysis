@@ -208,6 +208,95 @@ A simulated two-class classifier on 4000 test samples. **Overconfidence** multip
 **C5.** Underconfident: confidence 75.1 % against accuracy 89.0 %, ECE 13.9 %; the bars lie above the diagonal. A temperature $T < 1$ (about 0.4) sharpens the probabilities and fixes it; **fit T** finds it.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `attention/src/exercise.rs`. The coding tasks are numbered R1, R2, …, because this page already uses C1, C2, … for the demo questions.
+
+**R1.** `weights_and_average(scores, values)`: the softmax of the scores, and the weighted
+average of the values (vectors):
+
+```
+m = the largest score                       # subtracting it changes nothing, but avoids overflow
+e_j = exp(score_j − m)
+weight_j = e_j / Σ_l e_l
+output = Σ_j weight_j · value_j
+```
+
+**R2.** `attend(query, keys, values, temperature)`: attention for one query, with the score
+$\mathbf q \cdot \mathbf k_j / T$ for every token, then R1. The checks are your answers to B1.
+
+**R3.** `patch_attention(img, p, content, position, temperature)`: one attention layer on the
+$p \times p$ patches of an image, with hand-set scores as in the demo:
+
+```
+for every patch i:
+    for every patch j:
+        d = mean of (patch i − patch j)² over the pixels
+        g = (grid distance between patch i and patch j)²
+        score_j = (−content · d − position · g) / T
+    output patch i = weighted average of all patches (R1)
+```
+
+The checks: with $T \to 0$ every patch keeps itself; without the position term, shuffling the
+patches only shuffles the output (B8); with it, it does not.
+
+**R4.** `ece(confidence, correct, bins)`: the expected calibration error, with equal confidence
+bins between 0.5 and 1:
+
+```
+for every prediction: put it in its bin by confidence
+for every bin b with n_b predictions:
+    ECE = ECE + (n_b / n) · | accuracy in b − mean confidence in b |
+```
+
+The check is your answer to B6.
+
+**R5.** `fit_temperature(logits, labels, candidates)`: temperature scaling for two classes: for
+every candidate $T$, the negative log-likelihood $-\frac1n\sum_i \ln p_i(\text{true class})$ with
+$p = \sigma(z/T)$; return the $T$ with the smallest. The checks: B10's numbers, and logits that
+are 3 times too large give $T \approx 3$.
+
+Then `cargo run -p attention` and open the pictures in `out/attention/` (enlarged 4 times). The
+program cuts a $64 \times 64$ crop of the micrograph into 64 patches of $8 \times 8$ and runs one
+attention layer: position only, content only, and on a noisy copy (noise sd 0.1) content only
+at three temperatures, a non-local means. For the query patch at grid position (3, 3) it prints
+the weight it keeps for itself and the number of patches it effectively averages
+($1/\sum_j w_j^2$), and for every output the mean squared difference from the clean crop.
+Then it simulates an overconfident two-class network (logits 3 times too large), fits $T$ on
+validation data, and prints accuracy, mean confidence and ECE before, after, and on test data
+whose classes have moved closer together.
+
+**R6.** Compare `position-only.png` and `content-only.png` with `input.png`. Which one is a
+convolution, and what does the other one do? Then compare `noisy.png` with the three
+non-local-means outputs: which temperature denoises, and what goes wrong at the other two?
+
+**R7.** Read the calibration numbers. Which $T$ is fitted, and what does it change and not
+change? What happens on the shifted data? Compare with the calibration demo's questions above.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `attention/src/solution.rs` in the download.
+
+**R6.** Position only: the query keeps 32 % for itself and averages about 6 patches in effect, the
+same bell-shaped weights for every patch: a convolution on the patch grid. The output is a
+blocky blur (error 0.0122 against the input). Content only: the query keeps 28 % and averages
+about 10 patches in effect, chosen by similarity wherever they are; each patch becomes an
+average of patches that look like it, so the output looks like a patchwork of a few typical
+textures (light background, darker cytoplasm, the dark edge). Non-local means on the noisy crop
+(noisy input: error 0.0103): at $T = 1$ the query keeps 51 % and averages about 4 similar patches,
+and the error falls to 0.0074: the noise is reduced and the structures stay. At $T = 0.2$
+every patch keeps itself (100 %): no change (0.0102). At $T = 5$ the query keeps only 4 % and
+averages about 56 of the 64 patches: everything is washed into the average, and the error
+rises to 0.0231, worse than the noisy input.
+
+**R7.** $T = 3.0$, the factor by which the logits were too large. Overconfident network:
+accuracy 83.5 %, mean confidence 94.4 %, ECE 11.0 %. With $T = 3.0$: the same accuracy 83.5 %
+(dividing by $T$ never changes the sign of a logit, so never the predicted class), mean
+confidence 84.2 %, ECE 2.3 %. On the shifted data, with the same $T$: accuracy 70.3 %, mean
+confidence 79.4 %, ECE 10.0 %: overconfident again. As in the demo (calibration questions R3 and
+R4), temperature fixes calibration only on data like the validation data.
+:::
+
 ## Where this leads
 
 The [last unit of the day](../diffusion/lec.qmd) uses everything here in reverse: networks that **generate** images (diffusion models), and what a generative prior does to a restored image. Calibration and domain shift return there as the question of which details in a restored image can be trusted.

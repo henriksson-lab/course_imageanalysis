@@ -163,6 +163,105 @@ A $32 \times 32$ synthetic cell (**truth**, which in practice you never have) is
 **G7.** The samples fill the hole with 0, 1 or 2 nucleoli (16, 11 and 5 of 32); the truth has 1. The mean shows a smooth nucleus (0), the best PSNR (31.9 dB). The classical filling interpolates smoothly from the edge of the hole and leaves a dim patch (area 89 instead of 150). Whatever is shown inside the hole is the prior's guess.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `diffusion/src/exercise.rs`.
+As in the demo, the data are points (of 1 or 2 numbers) from round Gaussian blobs, all equally
+likely, with centres $\boldsymbol\mu_k$ and spread $s$; for such data the best denoiser is known
+exactly, so no network needs to be trained.
+
+**C1.** `cosine_alpha_bar(tau)`: the cosine schedule of the lecture's math slide; and
+`forward(x0, alpha_bar, eps)`: $\mathbf x = \sqrt{\bar\alpha}\,\mathbf x_0 + \sqrt{1 - \bar\alpha}\,\boldsymbol\varepsilon$.
+The checks are the signal levels of the lecture's figure and your answer to B1 (a).
+
+**C2.** `best_x0(x, alpha_bar, centres, spread)`: the best denoiser, the average of all clean
+points compatible with $\mathbf x$. With $a = \sqrt{\bar\alpha}$ and $v = a^2 s^2 + 1 - \bar\alpha$:
+
+```
+for every blob k:
+    r_k = exp( −|x − a·μ_k|² / (2v) )             # how well blob k explains x
+    guess_k = μ_k + (a s² / v) · (x − a·μ_k)       # best guess if x came from blob k
+x̂0 = Σ_k r_k · guess_k / Σ_k r_k
+```
+
+(Subtract the largest exponent before `exp`, as in a softmax.) The checks are B2 (the $\tanh$),
+B1 (b), and a single blob (B10).
+
+**C3.** `sample_ddim(x, alpha_bars, centres, spread)`: deterministic sampling from pure noise,
+through the rising signal levels $\bar\alpha_0 < \bar\alpha_1 < \dots < \bar\alpha_n = 1$:
+
+```
+for every step from level ab to the next level ab':
+    x̂0 = best_x0(x, ab)
+    ε̂ = (x − √ab · x̂0) / √(1 − ab)               # the noise in x
+    x = √ab' · x̂0 + √(1 − ab') · ε̂                # same noise direction, less of it
+```
+
+The check is B3: one step puts every sample at the mean, 100 steps put them in the blobs.
+
+**C4.** `sample_ddpm(...)`: stochastic sampling. Each step draws the next point at random from
+the Gaussian of the lecture's math slide "one sampling step" (its mean mixes $\hat{\mathbf x}_0$
+and $\mathbf x$). The check: 100 steps put the samples in the two blobs, about half in each.
+
+**C5.** `posterior(mu, s, sigma, y)`: the posterior mean and variance for one value with a
+Gaussian prior (the lecture's math slide "mean against sample"). The checks are B9, also by
+simulation: a posterior sample has twice the error of the posterior mean.
+
+Then `cargo run -p diffusion` and open the pictures in `out/diffusion/`. The program runs the
+forward process on the micrograph (`forward-tau….png`), samples 500 points from two blobs
+and from a ring of 8 blobs with 1, 2, 5 and 100 deterministic steps and 100 stochastic steps
+(`two-….png`, `ring-….png`: training data grey, samples blue), samples with the perfect
+denoiser of only 20 training points (`memorise.png`), and restores 100,000 values with a
+Gaussian prior.
+
+**C6.** Look at the forward pictures and the printed signal and noise. Up to which $\tau$ can you
+still see the nucleus?
+
+**C7.** Read the fraction of samples "off the data" (further than $3s$ from every blob centre)
+for every number of steps, and look at `two-ddim2.png`, `ring-ddim2.png` and `ring-ddim5.png`.
+Where do the samples land with few steps, and why? Why is the fraction not exactly 0 even with
+100 steps?
+
+**C8.** How many of the 500 samples of the perfect 20-point denoiser lie within 0.05 of a training
+point? What does that mean for a claim that a generated image is "new"?
+
+**C9.** Compare the three printed errors: the measurement, the posterior mean, a posterior sample.
+Compare them with B9.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `diffusion/src/solution.rs` in the download.
+
+**C6.** Signal and noise: $\tau = 0.2$: 0.95 and 0.32; 0.4: 0.80 and 0.59; 0.6: 0.58 and 0.81;
+1: 0.00 and 1.00. The nucleus is clear at 0.2, still visible at 0.4 and, faintly, at 0.6 (as in
+the lecture's figure); at $\tau = 1$ only noise is left.
+
+**C7.**
+
+| steps | two blobs, off the data | ring of 8, off the data |
+|---|---|---|
+| 1 | 100 % | 100 % |
+| 2 | 55.6 % | 90.0 % |
+| 5 | 3.0 % | 20.4 % |
+| 100 | 0.8 % | 1.6 % |
+| 100, stochastic | 0.2 % | 0.2 % |
+
+One step returns the average of all the data: every sample lands at the mean, between the blobs
+(B3). With 2 steps, the two-blob samples lie on the line between the blobs, and the ring samples
+fill the inside of the ring: each step can only move to an average of the blobs the point might
+still come from. With 5 steps the ring samples lie on the ring but also between its blobs; with
+100 they sit in the blobs. Even perfect samples are sometimes further than $3s$ from their
+centre: for a round 2D Gaussian that happens with probability $e^{-4.5} \approx 1.1\,\%$.
+
+**C8.** All 500 lie within 0.05 of a training point: the perfect denoiser of a finite set only
+knows those 20 points, and sampling reproduces them. A generated image can be a copy of a
+training image; "new" has to be checked, for example against the nearest training images.
+
+**C9.** Measurement 0.251 (the noise variance 0.25), posterior mean 0.200, posterior sample
+0.401: as in B9, the mean has error $v = 0.2$ and a sample $2v = 0.4$, worse even than the raw
+measurement, although every sample "looks like" a value from the prior.
+:::
+
 ## Where this leads
 
 This is the course's introduction to diffusion models. The day on **diffusion models** goes deeper: [Noise levels, denoisers and the score](../score-matching/lec.qmd), [Samplers, steps, and judging the samples](../diffusion-sampling/lec.qmd), [Conditioning, guidance and latent diffusion](../guidance/lec.qmd) and [Diffusion priors for inverse problems](../diffusion-inverse/lec.qmd). The rules for what may be measured on a restored image extend those of [Denoising and what you may measure](../denoise/lec.qmd) on the deconvolution day. The next day, [networks for cells and objects](../stardist/lec.qmd), works out the instance routes and the detectors of this day with real networks.

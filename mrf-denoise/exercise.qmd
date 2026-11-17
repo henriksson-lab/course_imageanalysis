@@ -134,6 +134,95 @@ A $128 \times 128$ binary image (test shapes: a disc, a square, a 1-pixel and a 
 **E7.** Thresholding: 4378 wrong (at $\sigma_n = 0.8$ about a quarter of the pixels fall on the wrong side of 0.5); ICM: 793; mean field: 256; exact MAP: 260. With $\lambda = 0.5$ the exact MAP has 739 wrong, with $\lambda = 2$ 365: the best $\lambda$ is somewhere in between. Note the "truth" here is itself a thresholded micrograph.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `mrf-denoise/src/exercise.rs`.
+Labels are 0 (background) and 1 (object). Every pixel has two data costs $D_p(0)$ and $D_p(1)$;
+`flip_noise_costs` (given) makes them for flip noise. `local_energy` (given) is the energy of
+one pixel with a label, given its neighbours: $D_p(\ell) + \lambda \cdot (\text{number of
+neighbours with a label} \ne \ell)$. The three pixels of B2 are a $3 \times 1$ image.
+
+**C1.** `energy(labels, costs, λ)`: the posterior energy $\sum_p D_p(L_p) + \lambda \cdot
+(\text{number of disagreeing neighbour pairs})$, each pair counted once (pair every pixel with
+its right neighbour and the one below). The check is the table of B2(a).
+
+**C2.** `icm(start, costs, λ, order)`: iterated conditional modes, visiting the pixels in the
+given order. Returns the result and the number of sweeps:
+
+```
+repeat:
+    changed = false
+    for every pixel p, in the given order:
+        if local_energy(p, other label) < local_energy(p, current label):
+            L_p = other label
+            changed = true
+until changed is false
+```
+
+The checks are B3(a) and B3(b): order 1, 2, 3 ends in $000$, order 2, 1, 3 in $111$.
+
+**C3.** `gibbs_sweep(labels, costs, λ, T, rng)`: one sweep of the Gibbs sampler at temperature
+$T$, as in the [sampling unit](../mcmc/exercise.qmd), now with labels:
+
+```
+for every pixel p, row by row:
+    Δ = local_energy(p, 1) − local_energy(p, 0)
+    L_p = 1 if random() < 1 / (1 + e^(Δ/T)), else 0
+```
+
+**C4.** `marginals(start, costs, λ, burn_in, sweeps, rng)`: the marginals $p(L_p = 1 \mid
+\mathbf y)$: run `burn_in` sweeps at $T = 1$, then count, for each pixel, in how many of the next
+`sweeps` sweeps it is 1, and divide by `sweeps`. The check is B4: 0.747, 0.643 and 0.747.
+
+**C5.** `mean_field(costs, λ, sweeps)`: every pixel holds a number $q_p \approx p(L_p = 1)$:
+
+```
+q_p = 1 / (1 + e^(D_p(1) − D_p(0)))          for every pixel (each pixel alone)
+repeat sweeps times, row by row, in place:
+    Δ = D_p(1) − D_p(0) + λ · Σ over neighbours q of (1 − 2 q_q)
+    q_p = 1 / (1 + e^Δ)
+```
+
+This is the spin formula of B9 with $q = (1 + m)/2$. The checks are B9: after one sweep
+$q = (0.546, 0.500, 0.800)$, and the fixed point $q = (0.952, 0.903, 0.952)$.
+
+Then `cargo run -p mrf-denoise` and open the pictures in `out/mrf-denoise/`. The program adds
+flip noise ($\varepsilon = 0.2$) to the test image of the lecture and runs ICM, annealing (Gibbs
+sweeps while $T$ falls from 4 to 0.05, then ICM), the MPM and mean field for $\lambda = 0.8$, 1.2
+and 1.6. The error pictures show false object pixels red, missed ones blue.
+
+**C6.** At $\lambda = 0.8$: compare ICM, the quench (10 sweeps) and slow cooling (600 sweeps), by
+energy and by wrong pixels. Where are ICM's extra errors (`errors-icm.png` against
+`errors-anneal-0.8.png`)?
+
+**C7.** At $\lambda = 1.2$: compare the MPM with slow cooling (the best approximation of the MAP
+here). Which has fewer wrong pixels, which the lower energy? Where is `marginal.png` grey?
+
+**C8.** At $\lambda = 1.6$: which method has the lowest energy, and which the fewest wrong pixels?
+Compare `errors-anneal-1.6.png` with `errors-mean-field.png`. Which lecture slide is this?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `mrf-denoise/src/solution.rs` in the download.
+
+**C6.** ICM stops after 7 sweeps at energy 4961.5 with 403 wrong pixels; the quench reaches 4952.1
+(347 wrong) and slow cooling 4918.9 (234 wrong). ICM's extra errors are small clumps of false
+object pixels scattered over the background (red), and a few holes (blue) in the disc and the
+square: a clump of noise pixels supports itself, and no single change lowers the energy. Both
+lose the 1-pixel line at this $\lambda$ (B5(b): above 0.69 it is cheaper to remove).
+
+**C7.** The MPM has 183 wrong pixels, slow cooling 204, but the MPM's energy is higher (5167.2
+against 5136.2). No contradiction: the MPM aims at few expected wrong pixels, not at low energy.
+`marginal.png` is grey (uncertain) along the edges of every shape and on the 3-pixel line; the
+1-pixel line is hardly darker than the background.
+
+**C8.** Slow cooling has the lowest energy (5324.5) but 246 wrong pixels; mean field has a higher
+energy (5346.3) and only 162 wrong. Annealing removes the lower half of the 3-pixel line (blue
+in `errors-anneal-1.6.png`); mean field keeps it. A lower energy is not a more correct image
+when the prior is too strong: the slide "Lessons from the comparison" (Greig, Porteous and
+Seheult). Your numbers can differ a little if your sweeps use the random numbers in another order.
+:::
+
 ## Where this leads
 
 The binary prior counts disagreeing neighbours. For **grey values**, the natural prior penalises differences between neighbours: squared differences (a Gaussian MRF, solved by one linear system) or absolute differences (total variation, which keeps edges). That is the [next unit](../gmrf/lec.qmd). For more than two labels (several tissues) the same model is the **Potts model**; its exact MAP is no longer a single cut.

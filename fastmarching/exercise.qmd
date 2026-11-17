@@ -134,6 +134,97 @@ Left: the arrival time $T$ by fast marching; right: Dijkstra on the **4**- or **
 **E6.** The meeting lines form a **Voronoi diagram** of the seeds (with $P = 1$): every pixel belongs to the seed whose front reaches it first, i.e. the nearest seed. With an image cost, the regions follow the image (fronts are slowed by edges), much like watershed basins grown from markers; watershed, however, uses the highest point along the way instead of the accumulated travel time.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `fastmarching/src/exercise.rs`.
+
+As in the [live-wire unit](../livewire/exercise.qmd#code), a priority queue of pixels,
+`MinQueue`, is ready in the download.
+
+**C1.** `upwind_update(a, b, p)`: the arrival time at a pixel from the smaller known neighbour
+along $x$ ($a$) and along $y$ ($b$), $\infty$ if none is known:
+
+```
+if |a − b| < p:  T = ( a + b + sqrt(2p² − (a − b)²) ) / 2
+else:            T = min(a, b) + p                       # Dijkstra's update
+```
+
+The checks are B1 (a)–(d) and B3.
+
+**C2.** `fast_marching(cost, seeds)`: Dijkstra's order with the update of C1. The seeds start at
+$T = 0$, with no special treatment of their neighbourhood:
+
+```
+T = ∞ everywhere;  T = 0 at the seeds, which go into the queue
+while the queue is not empty:
+    take the pixel u with the smallest T;  skip it if it is already final
+    u is final
+    for every 4-neighbour v of u that is not final:
+        a = the smaller final T of v's left and right neighbours   (∞ if none)
+        b = the smaller final T of v's upper and lower neighbours  (∞ if none)
+        t = upwind_update(a, b, P(v))
+        if t < T(v):  T(v) = t;  put v in the queue with t
+```
+
+The checks are the quadrant of B2 (a), $T(1, 1) = 1.707$, …, $T(3, 3) = 4.755$, and B5 (two
+seeds).
+
+**C3.** `dijkstra_time(cost, seeds, eight)`: Dijkstra with the same cost, for comparison: a step
+into pixel $v$ costs $\ell \cdot P(v)$, with $\ell = 1$ or $\sqrt2$; the seeds start at 0. The
+check is the table of B2 (b).
+
+**C4.** `descend(t, target, step)`: the minimal path from a target back to a seed:
+
+```
+x = the target
+repeat until T is 0 at the nearest pixel (a seed):
+    g = the gradient of T at the nearest pixel (central differences)
+    x = x − step · g / |g|
+```
+
+The check is B9: with $P = 1$ the path runs straight to the seed.
+
+Then `cargo run -p fastmarching` and open the pictures in `out/fastmarching/`.
+`fronts-fm-d4-d8.png` shows the arrival time from one seed in the middle of a flat
+$201 \times 201$ image, with fronts every 10 units: fast marching, Dijkstra with 4 and with 8
+neighbours. The program prints the three times at about 95 to 100 px from the seed, in three
+directions. `edge-cost-fronts.png` uses the cost $P = 1 + (|\nabla I|/k)^2$ of a smoothed
+synthetic fluorescence image ($k = 0.03$), with the seed inside a nucleus and the minimal path
+(orange) from a target outside.
+
+**C5.** Predict the error of each method at 0°, 22.5° and 45° (B8, and the lecture), then
+compare with the printed numbers.
+
+**C6.** In `edge-cost-fronts.png`, where do the fronts crowd together? Compare the printed $T$ at
+the target with the time for $P = 1$.
+
+**C7.** *(math)* Fast marching is 1.0 % too far at 22.5° and 1.4 % at 45°, although B7 says the
+update is exact for every straight front. Where does this error come from? (B2 helps.)
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `fastmarching/src/solution.rs` in the download.
+
+**C5.** Fast marching gives circles, Dijkstra 4 diamonds, Dijkstra 8 octagons. Along the axis
+(0°, 95 px) all three are exact. At 22.5° (Euclidean 99.5): fast marching 100.5 (+1.0 %),
+Dijkstra 4 130.0 (+30.6 %), Dijkstra 8 107.7 (+8.2 %, the worst angle of B8). At 45°
+(Euclidean 99.0): fast marching 100.4 (+1.4 %), Dijkstra 4 140.0 (+41.4 %, the factor
+$\sqrt2$), Dijkstra 8 99.0 (exact on the diagonal).
+
+**C6.** The fronts crowd together along the boundary of the nucleus with the seed and around the
+other nuclei: crossing an edge costs much more time than crossing the flat background. At the
+target $T = 198.6$, against 139.4 with $P = 1$: about 60 time units are spent getting out of the
+nucleus. The minimal path (149.5 px) leaves the nucleus downwards, where it touches its
+neighbour and the edge is weakest, passes along the neighbour's left side and then runs almost
+straight to the target.
+
+**C7.** The update is exact for a straight front, but next to a point seed the front is a small
+circle, nothing like straight: B2 shows $T(1, 1) = 1.707$ instead of 1.414. This error, made in
+the first few pixels, is carried outward with the front and grows only slowly after that: about
+1.4 px at 100 px. That is why implementations set the pixels within a few pixels of a point seed
+to their exact distance first (the demo: within 3 px).
+:::
+
 ## Where this leads
 
 This completes the day's arc: a table with a fixed order (minimal paths, closed polar boundaries), an order found on the fly (Dijkstra, live-wire), and continuous fronts (fast marching). Two optional topics use the same table: **seam carving** (content-aware resizing: a minimal path through an energy image) and **dynamic time warping** (aligning two signals with the →, ↓, ↘ table). Scanline [stereo](../stereo/lec.qmd) (day 49) matches two image rows with the same table, and semi-global matching runs it along several directions.

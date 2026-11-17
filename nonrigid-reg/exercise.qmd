@@ -162,6 +162,100 @@ Fixed image: a 128² crop of the micrograph (0 to 1). Moving image: the fixed on
 **R5.** With a 8 px grid and λ = 0 the registration matches the blob perfectly by deforming it: the Jacobian at the blob is about 3.3 (the "deformation" explains the growth). With λ = 100 it is about 1.9 and the residual difference shows the growth, partly; with a 32 px grid and λ = 0, about 1.5. None of them is "right" in an absolute sense: the deformation model cannot tell growth from motion. The honest result keeps the deformation smooth enough for the question and reports the Jacobian; a blob with a large Jacobian is a candidate for real growth, to be checked independently.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `nonrigid-reg/src/exercise.rs`.
+
+**C1.** `bspline3(t)`: the cubic B-spline of the Background table. The checks are the values of B8
+and the partition of unity.
+
+**C2.** `ffd_displacement(cx, cy, spacing, x, y)`: the displacement of a free-form deformation.
+The coefficients are two small images, one value per control point; control point $(k, l)$ sits
+at pixel $((k - 1)\Delta, (l - 1)\Delta)$, so that one ring of control points lies outside the
+image. The checks are B1 and B7.
+
+```
+k0 = ⌊x / Δ⌋,  l0 = ⌊y / Δ⌋
+d = (0, 0)
+for l = l0 .. l0 + 3,  k = k0 .. k0 + 3:            # the 4 × 4 control points nearby
+    w = β(x/Δ − k + 1) · β(y/Δ − l + 1)
+    d = d + w · (cx[k, l], cy[k, l])
+```
+
+**C3.** `jacobian_determinant(dx, dy)`: at every pixel, by central differences,
+$(1 + \partial_x d_x)(1 + \partial_y d_y) - \partial_y d_x\,\partial_x d_y$. The check is B3.
+
+**C4.** `entropy(p)` in bits, and `mutual_information(a, b, bins)` of two images with values in
+[0, 1]. The checks are B5 and B4.
+
+```
+joint = bins × bins zeros
+for every pixel:  joint[bin of a, bin of b] += 1          # bin = min(⌊v · bins⌋, bins − 1)
+p = joint / number of pixels;  pa = row sums of p;  pb = column sums of p
+MI = H(pa) + H(pb) − H(p),   with H(q) = −Σ q log2 q over the non-empty bins
+```
+
+**C5.** `register_ssd(fixed, moving, spacing, iterations, step)`: gradient descent on the SSD
+(B11), from zero coefficients.
+
+```
+∇M = gradient of the moving image (once)
+repeat N times:
+    G = zeros, one pair per control point
+    for every pixel x:
+        d = ffd_displacement(c, x);   r = M(x + d) − F(x)
+        for each of its 4 × 4 control points (k, l), weight w = β β as in C2:
+            G[k, l] += 2 · r · ∇M(x + d) · w
+    c = c − step · G
+```
+
+The check: a smooth pattern moved by $(1.5, -1)$ must be registered to a displacement of
+$(1.5, -1)$.
+
+Then `cargo run -p nonrigid-reg` and open the pictures in `out/nonrigid-reg/`. First the program
+compares SSD and mutual information (16 bins) on a 96 × 96 crop of the micrograph and a noisy copy,
+with the same and with inverted contrast, for shifts along $x$ from −30 to 30. Then it deforms a
+128 × 128 crop with a smooth random free-form deformation (control points every 32 px), so the true
+displacement is known, and registers it with your `register_ssd` (control points every 16 px, 200
+iterations), once with the same contrast and once with the moving image inverted. The checkerboards
+alternate the fixed image and the registered moving image in squares of 16 px; the Jacobian
+pictures run from black (smallest) to white (largest).
+
+**C6.** SSD and MI against the shift: which shift does each pick, with the same and with inverted
+contrast? Compare the MI at shift 0 in the two cases.
+
+**C7.** The registration with the same contrast: the error against the true displacement before
+and after, and the range of the Jacobian determinant. Compare `checker-before.png` with
+`checker-after-same.png`.
+
+**C8.** The registration of the inverted image with SSD: what happens to the error and to the
+Jacobian? Look at `checker-after-inverted.png` (the registered image is inverted back for the
+picture). Which measure should the registration have used, and what would it need that this code
+does not have?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `nonrigid-reg/src/solution.rs` in the download.
+
+**C6.** Same contrast: SSD and MI both pick shift 0 (SSD 0.0009, MI 2.16 bits; at a shift of 6 the
+MI is only 0.12 bits). Inverted: MI still picks 0, with the same 2.16 bits, because inverting only
+relabels the bins (B10). SSD is 0.40 at shift 0 and picks −30, the end of the tested
+range: it wants the images to look alike, which an inverted copy never does.
+
+**C7.** The true displacement has a mean of 1.96 px (at most 3.64 px). After registration the mean
+error is 0.07 px. The Jacobian determinant lies between 0.85 and 1.12: mild compression and
+stretching, no folding. In `checker-before.png` the membranes jump at the square borders; in
+`checker-after-same.png` they run straight across.
+
+**C8.** The error grows from 1.96 to 10.48 px; the Jacobian runs from −0.54 to 5.30, and 1566
+pixels fold. SSD rewards moving bright pixels of the inverted image onto bright pixels of the fixed
+image, which no smooth deformation can do consistently, and `checker-after-inverted.png` is crumpled and smeared. The registration should have
+maximised mutual information, which is as high for the inverted pair as for the original (C6). For
+gradient descent it needs the derivative of MI with respect to the coefficients, which needs a
+histogram that changes smoothly with the displacement (each value spread over two neighbouring
+bins, slide "The math: mutual information").
+:::
+
 ## Where this leads
 
 The [tracking day](../track-linking/lec.qmd) (day 26) follows **objects** (cells, nuclei) rather than pixels: detection, linking over time, divisions and lineages, with optical flow as one source of motion predictions. The splines day (day 6) treats B-splines, the building block of the free-form deformation, in depth: [B-splines](../bsplines/lec.qmd) and [splines on images](../spline-images/lec.qmd).

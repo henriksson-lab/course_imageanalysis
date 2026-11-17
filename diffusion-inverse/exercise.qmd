@@ -155,6 +155,81 @@ $32 \times 32$ synthetic cells, two channels: an **input** like a transmitted-li
 **V5.** For the next nine cells the mean shows 0 to 2 spots (a haze with a few bumps above the threshold), never the true count (2 to 4). A sample shows 2 to 5 spots, sometimes as many as the truth, but at the wrong places: the count of a sample is a draw from the training cells, not a measurement of this cell.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `diffusion-inverse/src/exercise.rs`.
+As in the 1D demo, the prior is a finite set of training signals, so the posterior can be computed
+exactly. A diffusion sampler would only approximate it. The measurement keeps the first cosines of
+a signal (an ideal low-pass), and is given.
+
+**C1.** `split_measured(x, keep)`: the part of a signal that the low-pass sees, and the null-space
+part:
+
+```
+seen = Σ over k < keep of ⟨x, c_k⟩ · c_k        # c_k: cosine number k, of length 1
+unseen = x − seen
+```
+
+The checks: seen + unseen = x, the measurement of the unseen part is 0 (B8), and keeping every
+cosine leaves nothing unseen.
+
+**C2.** `posterior_weights(y, measured, prior, sigma_n)`: how well each training signal explains
+the measurement, times its prior weight:
+
+```
+for every training signal j:   log w_j = log prior_j − |y − A x_j|² / (2 σ_n²)
+subtract the largest log w_j, take exp, and scale the weights to sum 1
+```
+
+The check is B1 (a): every training image explains $y = 0.5$ equally well, so the weights stay
+0.4, 0.4 and 0.2.
+
+**C3.** `posterior_mean(weights, signals)`: $\sum_j w_j\,\mathbf x_j$. The check is B1 (b).
+
+**C4.** `posterior_sample(weights, rng)`: draw $j$ with probability $w_j$. Take a uniform number $u$,
+then the first $j$ at which the running sum of the weights passes $u$. The check is B1 (c): 80 % of
+the samples show a resolved pair.
+
+**C5.** `band_coverage(truth, samples)`: the fraction of positions at which the truth lies between
+the 5th and the 95th percentile of the samples.
+
+Then `cargo run -p diffusion-inverse` and open the pictures in `out/diffusion-inverse/`. Signals
+have 64 samples. The prior is 20 000 training signals: one spot (height 1 to 2, of varying width) or
+two narrow spots 2 to 12 apart. The truth is two spots 4 apart, measured with noise ($\sigma_n = 0.1$)
+through 24 and through 6 cosines. The program prints the number of spots in the posterior mean and
+in 32 samples, the residuals (1 = the size of the noise), and how many training signals share the
+weight. It also prints the largest disagreement between samples in the seen and in the unseen
+part. Then it uses a wrong prior, with all spots twice as wide, and measures the coverage of the
+90 % band on 100 test signals with both priors. Black in the plots is the truth.
+
+**C6.** Compare 24 and 6 cosines: the spot counts, the weights, and where the samples disagree
+(`samples-keep*.png`, `unseen-keep*.png`, and the printed disagreement). Relate to R1 and R2.
+
+**C7.** The prior with wider spots: what do its samples show, and does the residual check notice?
+What does the coverage say? Relate to B3, B6 and R4–R6.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `diffusion-inverse/src/solution.rs` in the download.
+
+**C6.** 24 cosines: the mean and all 32 samples show two spots, and only about 3 training signals
+share the weight. The measurement pins the signal down almost completely: the spread of the samples
+(their sd at one position) is at most 0.07 in the seen part and 0.08 in the unseen part. 6 cosines: about 284 training signals share
+the weight. The mean still shows two (lower, wider) spots, but 4 samples show one spot and 28 show
+two, at varying distances. The largest spread is 0.027 in the seen part and 0.39 in the unseen part.
+The samples agree on what the low-pass measures and differ only in the null space, at the spots
+(`unseen-keep6.png`), as in R2. All are consistent with the data: residual 0.38 for the mean and
+0.71 for the median sample, both below 1. Whether there are one or two spots is decided by the
+prior, not by the measurement.
+
+**C7.** With spots twice as wide, all 32 samples show a single wide spot, and their median residual
+is 0.89. The check passes: a wide spot and two close narrow spots have the same low frequencies
+(B6, R4). Coverage on 100 test signals: 91.9 % of the positions lie inside the 90 % band with the
+matched prior, as promised, but only 16.3 % with the wrong prior. Its residual, 1.46 on average, is
+only somewhat above 1. The bands of the wrong prior are confidently wrong (B3, R6), and only a test
+on signals with known truth reveals it.
+:::
+
 ## Where this leads
 
 This day ends here. Diffusion models reappear wherever images are restored or generated: the five rules of [the introduction](../diffusion/lec.qmd) and the checks of this unit (consistency, disagreement, coverage, validated readouts) apply to all of them. The deconvolution day's [regularisation](../regularise/lec.qmd) is the classical baseline to compare against.

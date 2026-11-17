@@ -117,6 +117,78 @@ The point set: inliers on a line (or a circle) with noise of 0.8 px, plus unifor
 **R8.** With $\varepsilon = 0.5$ (smaller than the noise of 0.8) most true inliers fall outside the band: the best model has only 10 inliers (9 true), and the refit $\theta = 64.4°$, $\rho = 58.2$ rests on few points. The counts are small and noisy, so the choice of the best model is close to chance. $\varepsilon$ should be 2 to 3 times the noise.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `ransac/src/exercise.rs`.
+A line is in normal form $x\cos\theta + y\sin\theta = \rho$ with $\theta$ in $[0°, 180°)$, as in
+the line unit (in the code $\theta$ is in radians and $y$ points down).
+
+**C1.** `line_through(p, q)` and `distance(line, p)`: the normal is perpendicular to
+$\mathbf q - \mathbf p$, scaled to length 1, and $\rho = \mathbf n \cdot \mathbf p$; the distance
+is $|x\cos\theta + y\sin\theta - \rho|$. The checks are B1 (a) and (b).
+
+**C2.** `iterations_needed(w, s, p)`: $N = \log(1 - p)/\log(1 - w^s)$, rounded up. The check
+is B2.
+
+**C3.** `fit_line_tls(points)`: the refit by total least squares (B6):
+
+```
+(x̄, ȳ) = the centroid of the points
+sxx, sxy, syy = sums of (x − x̄)², (x − x̄)(y − ȳ), (y − ȳ)²
+α = ½ atan2(2 sxy, sxx − syy)              # direction of largest spread
+normal = (−sin α, cos α);   the line passes through (x̄, ȳ)
+```
+
+The check is B6: the five inliers of B1 give a normal at 136.1°.
+
+**C4.** `ransac_line(points, eps, iterations, rng)`: the loop of the lecture, with two different
+random points per sample, and the refit with C3 on the inliers of the best sample. The checks:
+B1 (c), and a line with 50 % outliers.
+
+**C5.** `fit_circle(points)`: the algebraic fit of B7, a linear least-squares problem in
+$(a, b, c)$ (the library's `least_squares` solves it). It also gives the circle through a
+minimal sample of three points. The checks are B7 and three points of a known circle.
+
+Then `cargo run -p ransac`. It fits a line ($\theta = 63°$, $\rho = 58$, 30 points with noise
+0.8 and 30 outliers in a $100 \times 100$ square) by least squares on all points and by RANSAC
+with 17 samples; repeats RANSAC on 1 000 new data sets for three settings and counts how often it
+finds the line; and fits a circle (centre $(52, 48)$, $r = 28$, 30 points and 30 outliers) both
+ways. `out/ransac/line.png` and `circle.png` show the points (green = inliers of RANSAC), RANSAC
+(blue) and least squares (orange, dashed).
+
+**C6.** Compare least squares and RANSAC for the line and for the circle. Which parameter of the
+circle does least squares get most wrong, and why?
+
+**C7.** Compare the measured success rates with the predicted chance of at least one all-inlier
+sample. Why is the measured rate a little lower when $w = 0.2$ and $N = 113$?
+
+**C8.** *(math)* RANSAC's cost is $N$ times the number of points (one distance per point and
+sample). With $w = 0.2$, how does $N$ change for a line ($s = 2$) and for a homography ($s = 4$)?
+Use the approximation $N \approx 4.6/w^s$ of B5.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `ransac/src/solution.rs` in the download.
+
+**C6.** Line: least squares on all points (perpendicular distances) gives $\theta = 65.0°$,
+$\rho = 60.2$, pulled towards the outliers; RANSAC with 17 samples gives $\theta = 63.3°$,
+$\rho = 58.0$ with 33 inliers, all 30 line points among them (and 3 outliers that happen to lie
+within 2 px). Circle: least squares gives centre $(50.2, 44.0)$ and $r = 32.5$; RANSAC with 35
+samples gives $(52.2, 48.2)$, $r = 28.2$, with 30 inliers. The radius is worst: the outliers lie
+all around, inside and outside, so they shift the centre only a little, but on average they lie
+farther from the centre than the circle does, which inflates the radius (as in demo question R7).
+
+**C7.** $w = 0.5$, 17 samples: 98.3 % found, predicted 99.2 %. $w = 0.2$, 17 samples: 49.1 %
+against 50.0 %: a coin toss. $w = 0.2$, 113 samples: 97.5 % against 99.0 %. The formula counts
+the chance of an all-inlier sample, but not every all-inlier sample gives a good line: two inliers
+close together, with noise of 0.8 px, give a badly tilted line with few inliers, and then a chance
+alignment of outliers can win (demo question R4). With more outliers this matters more.
+
+**C8.** Line: $4.6/0.2^2 = 115$ (exactly 113). Homography: $4.6/0.2^4 = 2\,875$ samples (2 876 with the exact formula). With
+$s = 4$ every halving of $w$ multiplies $N$ by 16; for small inlier fractions RANSAC becomes
+expensive, and voting, or a better guess of which points match, is needed.
+:::
+
 ## Where this leads
 
 RANSAC returns the best model and its inliers; with matched feature points between two images the same loop estimates the transform that aligns them: the [keypoints day](../feature-alignment/lec.qmd) (day 24), and for two camera views [geometry from multiple images](../two-view/lec.qmd) (day 49). The other days of Part IV take a different route to finding objects: [**integral images**](../integral-image/lec.qmd) make box filters so cheap that a detector can test millions of windows.

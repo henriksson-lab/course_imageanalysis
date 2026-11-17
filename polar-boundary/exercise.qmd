@@ -160,6 +160,98 @@ Left: the image with the centre (drag it, or click to move it), every few rays (
 **E7.** At the top, right and bottom the boundary follows the thin dark envelope of the nucleus. On the left it runs outside the envelope, along the parallel dark cell membrane a few pixels further out: on those rays the membrane is an equally good (or better) dark line, and $\delta = 2$ lets the path reach it. A tighter annulus ($r_{\max}$) or a larger $\alpha$ helps here; a different centre changes which line each ray sees first.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `polar-boundary/src/exercise.rs`.
+
+A polar image or cost table has one **column per angle** and one **row per radius**, as in the
+demo. Radii count from 0 in the code: radius 1 of B1 is row 0.
+
+**C1.** `bilinear(img, x, y)`: the grey value between pixel centres (the edge pixel copied
+outside the image):
+
+```
+x0 = floor(x),  fx = x − x0;   y0 = floor(y),  fy = y − y0
+top    = (1 − fx) · I(x0, y0)     + fx · I(x0 + 1, y0)
+bottom = (1 − fx) · I(x0, y0 + 1) + fx · I(x0 + 1, y0 + 1)
+value  = (1 − fy) · top + fy · bottom
+```
+
+The check is B2 (b): 129.90.
+
+**C2.** `unwrap(img, cx, cy, angles, radii)`: $P(k, r) = I(c_x + r\cos\theta_k,\ c_y + r\sin\theta_k)$
+with $\theta_k = 2\pi k / K$, read with C1. The check is B2 (a): the sample at $r = 10$,
+$\theta = 90°$ reads the pixel straight **below** the centre.
+
+**C3.** `radial_cost(polar, polarity)`: the radial derivative of every column by central
+differences, $\big(P(k, r+1) - P(k, r-1)\big)/2$ (one-sided at the first and last radius), with
+the sign of the polarity: $+\partial P/\partial r$ for bright → dark, $-\partial P/\partial r$
+for dark → bright, $-|\partial P/\partial r|$ for either. The check is the ray of B3.
+
+**C4.** `polar_table(cost, delta, alpha, start)`: the DP table over the angles. With a fixed
+start radius $s$ only that radius is allowed at angle 0:
+
+```
+M(0, r) = C(0, r)        if no start is fixed, or if r = s;   ∞ otherwise
+for k = 1 .. K − 1:
+    for every radius r:
+        best = ∞
+        for d = −δ .. δ  (with r + d inside the table):
+            if M(k − 1, r + d) + α·|d| < best:  best = that;  pointer(k, r) = d
+        M(k, r) = C(k, r) + best
+```
+
+The checks are your table of B1 (a), and the last column $(4, 10, 11, 19)$ for the start
+radius 1 of B1 (c).
+
+**C5.** The two kinds of path, backtracked as in the [DP unit](../dp-paths/exercise.qmd#code):
+
+- `open_path`: the smallest entry of the last column, then follow the pointers back;
+- `closed_path` (exact):
+
+```
+for every start radius s:
+    fill the table with start s
+    for every end radius r with |r − s| ≤ δ:
+        total = M(K − 1, r) + α·|r − s|          # the closing step
+        keep the path with the smallest total
+```
+
+The checks: B1 (a) open path $(3, 2, 1, 1)$, cost 2; B1 (c) closed path $(1, 2, 1, 1)$, cost 4;
+and B7, where the open path $(4, 4, 3, 2)$ does not close and the best closed path costs 7.
+
+Then `cargo run -p polar-boundary` and open the pictures in `out/polar-boundary/`. The program
+finds the boundary of the largest nucleus of a synthetic fluorescence image ($512 \times 512$),
+which touches a neighbour. It uses 120 angles, radii 0 to 89, the bright → dark cost of the
+smoothed image, and prints the cost, the gap at 0°, the radii and the overlap (Dice) with the
+true nucleus. `contour.png` shows the open (blue) and the closed (orange) path for
+$\delta = 1$, $\alpha = 0.02$, `polar-paths.png` the same in the unwrapped image, and
+`contour-no-smoothness.png` the closed path for $\delta = 8$, $\alpha = 0$.
+
+**C6.** Predict, then check: with $\delta = 8$ and no penalty, will the boundary stay on the
+nucleus? Is its cost higher or lower than with $\delta = 1$? What does that say about the energy?
+
+**C7.** Compare the printed times of the open and the exact closed path. How many tables does
+the exact closure fill here? Does the open path close anyway?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `polar-boundary/src/solution.rs` in the download.
+
+**C6.** With $\delta = 1$, $\alpha = 0.02$ the boundary follows the nucleus (radius 28 to 32,
+Dice 0.983, cost −11.26). With $\delta = 8$, $\alpha = 0$ it leaves the nucleus where the
+neighbour touches it and runs around the neighbour's outer edge (radius up to 78, Dice 0.752).
+Its cost is **lower**, −12.43: the neighbour's outer edge is a strong bright → dark edge, while
+the contact between the two nuclei is no bright → dark edge at all. The optimiser finds the best
+path for the energy; it is the energy (no smoothness) that is wrong. Only the smoothness limit
+keeps the path on the nucleus, as in demo question E3.
+
+**C7.** The exact closure fills one table per start radius: 90 tables instead of one, and the
+printed time is accordingly tens of times longer (still a fraction of a second). Here the open
+path happens to close (gap 0) and costs the same as the exact closed path (−11.26). It need not be
+so: B1 and demo question E4 show open paths that do not close.
+:::
+
 ## Where this leads
 
 Polar DP needs an order: angle after angle. A boundary between two points that may wander in any direction, in any image, has no such order. The [next unit](../livewire/lec.qmd) drops the fixed order and lets the algorithm discover it: **Dijkstra's algorithm** and **live-wire** segmentation.

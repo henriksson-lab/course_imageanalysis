@@ -143,6 +143,95 @@ The demo of the [last unit](../maxmargin/exercise.qmd), with a **kernel function
 **K5.** $\gamma = 0.01$: almost every entry is close to 1 (every point is "similar" to every other): the matrix carries little information, the boundary is nearly linear. $\gamma = 100$: the matrix is almost the identity (each point is similar only to itself): every point is its own island, as in K3. In between, the matrix has structure: each point is similar to its neighbours, which mostly belong to its own class.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `kernel-trick/src/exercise.rs`.
+A point is a list of features; the labels are $+1$ and $-1$.
+
+**C1.** `quadratic_map(x)`: the lifted point $\varphi(\mathbf x) = (x_1^2,\ \sqrt2\,x_1x_2,\ x_2^2)$. The checks are
+the lecture's "two routes" ($\varphi(\mathbf x)\cdot\varphi(\mathbf z) = 25$) and B1(a).
+
+**C2.** `kernel(k, x, z)`: the linear, polynomial $(\mathbf x\cdot\mathbf z + c)^p$ and RBF
+$e^{-\gamma\|\mathbf x - \mathbf z\|^2}$ kernel functions. The checks are B1 and B4(a).
+
+**C3.** `decision(points, labels, alpha, b, k, x)`: the decision value of a kernel SVM, a signed sum
+of similarities to the support vectors. The checks are your values of B3 and the lecture's "two bumps".
+
+```
+f = b
+for every training point i with α_i > 0:          # the support vectors
+    f = f + α_i · y_i · k(x_i, x)
+```
+
+**C4.** `train_smo(points, labels, k, c, tol, max_steps)`: find the $\alpha_i$ (slide "The math: how it
+is solved"). The dual keeps $\sum_i \alpha_i y_i = 0$, so SMO changes two $\alpha$s at a time, the
+pair that most violates the optimality conditions:
+
+```
+K[i][j] = k(x_i, x_j) for all pairs;   α = 0;   g = 0      # g_t = Σ_l α_l y_l K[l][t]
+repeat:
+    F_t = g_t − y_t for every point t
+    i = argmin F_t over the points whose α_t may move with y_t
+        (y_t = +1 and α_t < C, or y_t = −1 and α_t > 0)
+    j = argmax F_t over the points whose α_t may move against y_t
+        (y_t = −1 and α_t < C, or y_t = +1 and α_t > 0)
+    if F_j − F_i < 2 · tol: stop, with b = −(F_i + F_j)/2
+    η = K[i][i] + K[j][j] − 2 K[i][j]
+    α_j ← α_j + y_j (F_i − F_j)/η, clipped so that α_i and α_j stay in [0, C]
+    α_i ← α_i + y_i y_j (old α_j − new α_j)                   # keeps Σ α y
+    update every g_t with the two changes
+```
+
+The checks: B7 ($\alpha = 0.4$, $b = -1$), the previous unit's example ($\alpha = (0.25, 0.25, 0.5, 0)$ as in
+its B9), and XOR (B2), which the degree-2 polynomial kernel function separates and the linear one
+does not.
+
+Then `cargo run -p kernel-trick` and open the pictures in `out/kernel-trick/`: the street in grey,
+the boundary in black, the support vectors ringed.
+
+**C5.** The ring around a blob (`ring-*.png`) and XOR (`xor-*.png`). For each kernel function, how many
+training points are wrong, and how many are support vectors? What does the linear SVM do with the ring?
+
+**C6.** Two noisy half-moons, for $\gamma = 0.1, 2, 100$ and $C = 0.1, 1000$ (`moons-*.png`). The program
+also classifies 2000 new points from the same recipe. Which setting is best on the new points?
+Which settings have 0 training errors, and are they good? Describe the pictures for $\gamma = 100$.
+
+**C7.** Count the cost of predicting one pixel with 300 support vectors and 40 features with the
+RBF kernel function, and compare with the explicit map of B5.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `kernel-trick/src/solution.rs` in the download.
+
+**C5.** Ring: linear 20 of 60 wrong with 47 support vectors (it gives up the 20 inner points:
+every point is called blue); degree 2: 0 wrong, 6 support vectors, a closed curve; RBF
+($\gamma = 0.5$): 0 wrong, 15 support vectors. XOR: linear 30 of 60 wrong with 57 support vectors;
+degree 2: 0 wrong with only 5 support vectors.
+
+**C6.**
+
+| $\gamma$ | $C$ | support vectors | training errors | new points wrong |
+|---|---|---|---|---|
+| 0.1 | 0.1 | 78 | 10 | 17.2 % |
+| 0.1 | 1000 | 13 | 2 | 13.6 % |
+| 2 | 0.1 | 73 | 4 | 10.8 % |
+| 2 | 1000 | 17 | 0 | 10.1 % |
+| 100 | 0.1 | 80 | 0 | 32.8 % |
+| 100 | 1000 | 78 | 0 | 19.1 % |
+
+The best on new points is $\gamma = 2$, $C = 1000$ (10.1 %): its boundary is a smooth S between the
+moons. $\gamma = 100$ also has 0 training errors, but is the worst on new points: the bumps
+reach only $1/\sqrt{100} = 0.1$, nearly every point is a support vector, and the red region is a
+tight outline around the red points, with a separate island around one isolated red point
+(large $C$); away from the points $f$ falls back to $b$. With $C = 0.1$ the whole picture lies
+inside the street, and the boundary is a tight outline around the blue points instead. Zero training errors say nothing about new points. At $\gamma = 0.1$ the
+boundary is almost a straight line: underfitting.
+
+**C7.** One RBF evaluation needs 40 subtractions, 40 squares and an exponential: about
+$300 \times 80 = 24\,000$ operations per pixel. The explicit degree-2 map of B5 has 861 coordinates per
+pixel, but the RBF kernel function's map has infinitely many: only the kernel route is possible.
+:::
+
 ## Where this leads
 
 The [next unit](../pixel-classify/lec.qmd) takes the SVM back to images: pixel classification with a feature stack, where **standardising** the features, choosing $(C, \gamma)$ by **cross-validation by stroke**, and handling **more than two classes** are what makes it work.

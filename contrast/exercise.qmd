@@ -233,6 +233,97 @@ A synthetic control and treated image (12 bit, the same six nuclei; the treated 
 **E15.** For segmentation only the masks matter. Window, auto-window, gamma, match and CLAHE all give the same Otsu nucleus area here (5024 pixels, CLAHE within a few pixels), because the nuclei are well separated from the background. Equalising each image fails even for segmentation: the background, half of all pixels, is spread over half of the output levels, its noise reaches the nuclei's range, and Otsu takes 18 746 pixels. Segment on CLAHE, measure raw: the masks from the CLAHE display are good, and the raw values inside them give 1.50.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `contrast/src/exercise.rs`.
+Images here hold whole numbers 0 … L − 1, and every curve is a lookup table.
+
+**C1.** `apply_lut(img, lut)`, `gamma_lut(levels_in, levels_out, gamma)` and
+`log_lut(levels_in, levels_out)`:
+
+```
+gamma:  lut[v] = round( (L_out − 1) · (v / (L_in − 1))^γ )
+log:    c = (L_out − 1) / ln(L_in);   lut[v] = round( c · ln(1 + v) )
+apply:  out(x, y) = lut[ I(x, y) ]
+```
+
+The checks are B2 (on 101 levels, 0.00 … 1.00) and B3.
+
+**C2.** `histogram(img, levels)` and `equalise_lut(hist)`:
+
+```
+c = 0
+for k = 0 … L − 1:
+    c = c + hist[k]                      # pixels with value ≤ k
+    lut[k] = round( (L − 1) · c / N )
+```
+
+The checks are B5 and B7: equalising twice changes nothing, and a gamma first gives the same
+order of the pixels.
+
+**C3.** `match_lut(hist, target)`: for each input level $k$, the smallest target level $j$ whose
+cumulative fraction $G_j$ reaches $F_k$. The check is B6.
+
+**C4.** `clip_histogram(hist, beta)`: CLAHE's clipping, repeated until no bin is above the limit.
+
+```
+limit = β · N / L
+repeat:
+    excess = sum over bins of max(h − limit, 0)
+    stop if excess is (almost) 0
+    every bin:  h = min(h, limit) + excess / L
+```
+
+The check is B9(c): 2.33, 6, 5.33, 2.33.
+
+**C5.** `clahe(img, levels, tiles, beta)`: one curve per tile, from its clipped histogram, then
+each pixel blends the curves of its four nearest tile centres:
+
+```
+for each tile:  curve[v] = (L − 1) / N_tile · (sum of the clipped counts up to v)
+for every pixel (x, y) with value v:
+    the four nearest tile centres, and bilinear weights w1 … w4 from the position
+    out(x, y) = round( w1·curve1[v] + w2·curve2[v] + w3·curve3[v] + w4·curve4[v] )
+```
+
+The checks: with 1 tile and no clipping CLAHE is global equalisation; with β = 1 it changes
+(almost) nothing.
+
+Then `cargo run -p contrast` and open the pictures in `out/contrast/`. The fluorescence image
+is a synthetic 12-bit image with nuclei on a background of about 160, with noise.
+
+**C6.** How many of the 256 levels does the equalised micrograph (`cell-equalised.png`) use?
+Why not all of them?
+
+**C7.** Compare `fluo-linear.png`, `fluo-log.png`, `fluo-equalised.png`, `fluo-clahe-beta3.png`
+and `fluo-clahe-noclip.png`, and the printed noise SD in a box of pure background. Which
+transforms make the background noise explode, and why? Compare with B8 and demo question E10.
+
+**C8.** The program stretches the dim range ×4 twice: from an 8-bit copy of the image (values
+6 … 70) and from the 12-bit data. How many display levels does each use? Which rule of the
+lecture is this?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `contrast/src/solution.rs` in the download.
+
+**C6.** 195 of 256, as on the slide "Why only approximately flat". All pixels with the same value
+get the same new value: levels with many pixels cannot be split, and rounding makes neighbouring
+levels merge, so some output levels stay empty.
+
+**C7.** The background noise has an SD of 0.8 display levels with the linear window, 2.6 after
+the log curve (steep at low values), 2.5 with CLAHE at β = 3 (the gain is at most about 3),
+but 69.2 after global equalisation and 73.0 with CLAHE without clipping. The background is most
+of the image and lies in a narrow peak of the histogram, so the equalisation curve is nearly a
+step there: a slope of about 80 (0.8 → 69), applied to the noise as well (B8). The clip limit
+caps the slope. The equalised picture shows the nuclei flat white in a grey snowstorm; CLAHE
+without clipping does the same in every tile.
+
+**C8.** From 8 bits only 65 display levels are used (the 65 values 6 … 70, every 4th level): a
+comb. From 12 bits, 249. A curve can merge levels but never split them: do contrast work on the
+12- or 16-bit data and convert to 8 bits last.
+:::
+
 ## Where this leads
 
 - **Thresholding day**: a threshold is the steepest point operation; a percentile threshold is a fixed threshold on the equalised image ([histograms and thresholds](../histogram/lec.qmd)); background correction (divide or subtract) is what makes an image **measurably** even ([local thresholds](../local-threshold/lec.qmd)).

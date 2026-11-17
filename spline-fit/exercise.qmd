@@ -175,6 +175,97 @@ A synthetic object on a 64 × 64 grid; grey: its boundary staircase; green dashe
 **E7.** The curvature jumps between about −1.6 and +2.8: the spline follows every step of the staircase. It measures the pixel grid, not the object; some smoothing (over a few pixels) is needed before curvature means anything.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `spline-fit/src/exercise.rs`.
+
+**C1.** `solve_tridiagonal(lower, diag, upper, rhs)`: Gaussian elimination for a system with only three
+diagonals (the Thomas algorithm):
+
+```
+for i = 1 … n−1:                       # forward: remove the entry left of the diagonal
+    f = lower[i] / diag[i−1]
+    diag[i] = diag[i] − f · upper[i−1]
+    rhs[i]  = rhs[i]  − f · rhs[i−1]
+x[n−1] = rhs[n−1] / diag[n−1]          # backward
+for i = n−2 down to 0:
+    x[i] = (rhs[i] − upper[i] · x[i+1]) / diag[i]
+```
+
+**C2.** `natural_spline(ys)`: the second derivatives $M_i$ of the natural spline through samples at
+$x = 0, 1, 2, \dots$: solve $M_{i-1} + 4M_i + M_{i+1} = 6(y_{i-1} - 2y_i + y_{i+1})$ for the interior
+$M_i$ with C1, and set $M = 0$ at both ends. Then `natural_eval(ys, ms, x)`: on $[i, i+1]$ with
+$a = i + 1 - x$, $b = 1 - a$,
+$s = a\,y_i + b\,y_{i+1} + \tfrac16\big[(a^3 - a)M_i + (b^3 - b)M_{i+1}\big]$. The check is B2 and B7:
+$M_1 = -3$ and $s(0.5) = 0.6875$.
+
+**C3.** `penalty_matrix(n, closed)`: the matrix $D^\top D$, where each row of $D$ is a second difference
+$(1, -2, 1)$; with `closed` the rows wrap around the ends. Then `smooth(ys, λ, closed)`: solve
+$(I + \lambda D^\top D)\mathbf f = \mathbf y$. The check is B1: $(0.857, 1.286, 0.857)$ for λ = 1, and the
+sum 3 for every λ.
+
+**C4.** `loo_cv(ys, λ)`: leave-one-out cross-validation with one fit, and the effective number of
+parameters:
+
+```
+f = smooth(y, λ)
+for every point i:
+    H_ii = entry i of smooth(e_i, λ)            # e_i: 1 at i, 0 elsewhere
+LOO = mean over i of ((y_i − f_i) / (1 − H_ii))²
+df  = sum over i of H_ii
+```
+
+The check compares your LOO with refitting $n$ times without each point, and checks
+$\operatorname{tr}H \approx n$ for a tiny λ and $\approx 2$ for a huge one (B6).
+
+**C5.** Outlines:
+
+- `edge_count(mask)`: the number of pixel edges between object and background (B4: 80 for a disc of
+  radius 10, 24 for radius 3);
+- `closed_fit(points, λ)`: control points $\mathbf c_j$ of a closed cubic B-spline near the boundary points
+  $\mathbf p_i$: solve $(B^\top B + \lambda D^\top D)\,\mathbf c = B^\top\mathbf p$ for $x$ and for $y$, where row $i$
+  of $B$ is $\tfrac16, \tfrac46, \tfrac16$ at $i - 1, i, i + 1$ (the curve at knot $i$);
+- `closed_length(ctrl, steps)`: the length of the polyline through `steps` curve points per span.
+
+Then `cargo run -p spline-fit` and open the pictures in `out/spline-fit/`.
+
+**C6.** The program smooths 30 noisy samples (noise 0.25) of a sine with a kink at $x = 6$ and prints
+LOO, $\operatorname{tr}H$ and the RMS distance to the true curve for λ from $10^{-4}$ to $10^6$. Where is
+the LOO minimum, and how close is that fit to the truth compared with the interpolating spline?
+What does the fit become for the largest λ? Look at `smoothing.png` (orange: interpolation, blue:
+LOO minimum, purple: λ = $10^6$).
+
+**C7.** The program prints the perimeter of digital discs of radius 10 and 3: the edge count and the
+closed spline's length for λ = 0, 0.1, 1, 10, 100. Which λ gives the right length for the large disc,
+and does the same λ work for the small one? Look at `outline.png` (orange: λ = 0, blue: λ = 1).
+
+**C8.** Count the cost: how many multiplications and divisions does C1 need for $n$ unknowns, and how
+many does general Gaussian elimination need (about $n^3/3$)? Compare for $n = 1000$.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `spline-fit/src/solution.rs` in the download.
+
+**C6.** The minimum is at λ ≈ 1.8 (LOO 0.044, $\operatorname{tr}H = 10.8$), with an RMS distance to
+the truth of 0.062. The interpolating spline is at 0.160, more than twice as far. Below the minimum
+the LOO rises slowly to 0.079 ($\operatorname{tr}H \to 30$). Above it, it rises quickly, to 0.28 at
+λ = 100 and 0.92 at $10^6$, where $\operatorname{tr}H = 2.00$ and the fit is the least-squares
+straight line (purple in the picture, RMS 0.87). In `smoothing.png` the orange curve wiggles through
+every sample, and the blue one follows the dashed truth, including the kink. (The λ of this discrete
+smoother is not on the same scale as the demo's.)
+
+**C7.** Radius 10: 80 edges; spline 68.3 (λ = 0, it follows the staircase), 64.0, 63.3, 63.0 and 62.7
+(λ = 100) against the true 62.8. Radius 3: 24 edges; spline 20.7, 20.1, 20.0, 19.2 and 13.6 against
+18.8. λ = 100, best for the large disc, shrinks the small one by 28 %; λ = 10 is a compromise (63.0
+and 19.2). As in the demo: λ must be chosen relative to the size of the object. In `outline.png` the
+orange curve (λ = 0) wiggles through every midpoint of the staircase; the blue one (λ = 1) lies close
+to the true circle.
+
+**C8.** Forward: one division and two multiplications per row, $3(n - 1)$; backward: one
+multiplication and one division per row, about $2n$. In all about $5n$: 5000 for $n = 1000$, against
+$n^3/3 \approx 3.3 \cdot 10^8$ for general elimination.
+:::
+
 ## Where this leads
 
 The [next unit](../spline-images/lec.qmd) applies the same spline machinery to **images**: the interpolation system of this unit along every row and column (cubic B-spline interpolation), and a tensor-product spline of displacements to deform an image smoothly (free-form deformation). Smoothing splines with few control points also become contours that move ([spline snakes](../snakes/lec.qmd)).

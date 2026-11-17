@@ -167,6 +167,86 @@ A closed box (white floor, ceiling and back wall, a red and a green wall, a squa
 **E8.** The denoised 16-spp image has a much lower RMSE and a higher PSNR than the noisy one, often comparable to or better than a several times longer render. The joint bilateral keeps the edges between walls, floor and balls sharpest (the guides change there); the Gaussian blurs everything, including the edges; the bilateral and non-local means keep strong edges but also keep some noise blotches. All of them blur the soft shadow edges and smear the caustic: these have no edge in the guides, and the noise there looks like detail. At 1024 spp without denoising the image is clean and unbiased; the denoised 16-spp image is smoother but differs in exactly those places: lower variance, some bias.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `pathtrace/src/exercise.rs`.
+The closed box of the lecture, the nearest hit and the camera are ready to use in
+`pathtrace/src/scene.rs`.
+
+**C1.** `mc_estimate(f, p, xs)`: the Monte Carlo estimate $\frac1N\sum_k f(x_k)/p(x_k)$ for samples
+drawn from the density $p$. The checks are B1 (a) and (b).
+
+**C2.** `cosine_direction(n, u1, u2)`: a random direction with density $\cos\theta/\pi$ around the
+normal, from two uniform numbers:
+
+```
+r = √u1;   φ = 2π u2
+(x, y) = (r cos φ, r sin φ)              # uniform on the unit disc
+z = √(1 − u1)                            # lifted straight up onto the hemisphere
+(t, b) = two unit vectors across n
+return x t + y b + z n
+```
+
+The check: unit length, never below the surface, and a mean $\cos\theta$ of $2/3$ (B8 (c)).
+
+**C3.** `direct_light(x, n, albedo, y, lamp_normal, emission, area)`: one lamp sample,
+$\frac{\rho}{\pi} L_e \frac{\cos\theta_x\cos\theta_\ell}{\lVert\mathbf x - \mathbf y\rVert^2} A$
+(0 if either cosine is negative). The check is B10 (b).
+
+**C4.** `radiance(ray, scene, rng, max_bounces, light_sampling)`: one path.
+
+```
+colour = 0;   throughput = 1
+for bounce = 0, 1, …, max_bounces:
+    hit = nearest hit;   if none: stop
+    if bounce = 0 or not light_sampling: colour += throughput · emission of the hit
+    if bounce = max_bounces: stop
+    if light_sampling: pick a point y on the lamp; if visible: colour += throughput · direct_light(...)
+    throughput = throughput · albedo                 # BRDF · cos / pdf for cosine sampling
+    ray = from the hit point, along cosine_direction(n, random, random)
+```
+
+The checks: inside a ball that emits 1 and reflects half, every path carries exactly
+$1 + 0.5 + 0.25 + \dots$; and one pixel of the box gives the same mean with and without lamp
+sampling (with less noise with it).
+
+**C5.** `render(scene, eye, width, height, settings)`: for every pixel, the mean of `spp` paths,
+each through a random point of the pixel.
+
+Then `cargo run -p pathtrace` and open the pictures in `out/pathtrace/`.
+
+**C6.** Look at `spp1.png`, `spp16.png` and `spp64.png`, and read the RMS errors against the
+1024-sample reference. By what factor does the error fall per 4 times the samples? What did you
+expect?
+
+**C7.** Compare `direct-only.png` (one bounce) with `spp64.png` (up to four). Name three
+differences and explain them.
+
+**C8.** The tiny lamp (0.1 × 0.1, the same power): compare `tiny-cosine-only.png` with
+`tiny-lamp-sampled.png`, both with 32 samples per pixel, and read their RMS errors and the number
+of pixels brighter than 2. Which pixels are the few bright ones that remain with lamp sampling?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `pathtrace/src/solution.rs` in the download.
+
+**C6.** The RMS error is 0.067, 0.040, 0.021 and 0.011 for 1, 4, 16 and 64 samples per pixel:
+it falls by 1.7, then 1.9 and 1.9 per 4 times the samples, close to the factor 2 of
+$\sigma/\sqrt N$. The first step falls short because the error is measured after clipping to
+$[0, 1]$, which caps the large errors of a single sample, and because the reference has some
+noise of its own. The pictures show the same: speckle at 1 sample, a fine grain at 16, nearly
+smooth at 64.
+
+**C7.** With one bounce the ceiling is black (the lamp faces down and cannot light it directly),
+the shadows under the balls are much darker, and the white walls next to the red and green walls
+stay white: no colour bleeding. All three need light that bounces off another surface first.
+
+**C8.** Lamp sampling: a smooth image, RMS 0.009. Cosine sampling only: a nearly black image
+covered in bright dots, RMS 0.22, with 357 pixels brighter than 2: fireflies, the rare paths that
+hit the tiny lamp by chance and carry its full radiance. The 4 bright pixels left with lamp
+sampling are at the edge of the lamp itself, pixels partly covered by it.
+:::
+
 ## Where this leads
 
 The same Monte Carlo estimate, with light that scatters inside a medium instead of at surfaces, simulates photons in tissue; with absorption and emission only, it becomes the volume rendering of the 3D graphics day. Denoising a render is the deconvolution day's problem with extra guides, and learned denoisers come with the modern deep learning day. The refraction of [unit 2](../whitted/lec.qmd) leads on into lenses and microscopes, where diffraction takes over from rays ([Image formation](../psf/lec.qmd)).

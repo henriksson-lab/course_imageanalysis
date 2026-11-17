@@ -172,6 +172,77 @@ Three panels: the **edge points** (Canny from the [edges day](../canny/lec.qmd),
 **E8.** 6 peaks, 7 segments (one filament is split by a gap): the six filaments. Without gradient voting: 22 peaks and 14 segments; the clutter blobs and noise create chance alignments, and the two sides of each filament (about 2.5 px apart) can also give separate peaks.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `hough-lines/src/exercise.rs`.
+The accumulator is an image: column $j$ is the angle $\theta_j = j \cdot 180°/n_\theta$, row $k$ the
+distance $\rho_k = -\rho_\text{max} + k\,\Delta\rho$. The points are relative to the image centre;
+in the code $y$ points down, so $\theta$ turns clockwise on the screen (the by-hand numbers do not
+change).
+
+**C1.** `vote` and `accumulate(points, n_theta, d_rho, rho_max)`: the voting loop of the lecture's
+pseudocode slide. Votes whose $\rho$ falls outside the rows are dropped. The checks are B1 (the
+whole $4 \times 5$ table) and B2 (a).
+
+**C2.** `accumulate_gradient(points, edges, n_theta, d_rho, rho_max, window)`: each point votes only
+in the columns $j_0 - w, \dots, j_0 + w$ around the column $j_0$ of its gradient direction (taken
+modulo 180°); a column beyond either end wraps around to the other end. The check counts the votes
+of B4 (c).
+
+**C3.** `peaks(acc, threshold, window)`: non-maximum suppression in the accumulator:
+
+```
+for every bin (j, k) with H(j, k) ≥ threshold:
+    peak = yes
+    for every other bin (j', k') in the window of ±window bins:
+        if j' is outside 0 … n_θ − 1:              # across the 0°/180° seam
+            j' = j' wrapped around;  k' = n_ρ − 1 − k'   # the same line has −ρ there
+        if H(j', k') > H(j, k), or equal and (j', k') comes first: peak = no
+```
+
+The checks are B3 (two parallel lines 3 px apart) and a nearly vertical line whose votes cross
+the seam (B8).
+
+**C4.** `segments(points, theta, rho, tol, gap, min_len)`: the four steps of the slide "From lines
+to segments"; the position along the line is $t = -x\sin\theta + y\cos\theta$. The check is a
+dashed line with dashes of 10 px and gaps of 10 px.
+
+Then `cargo run -p hough-lines`. The program makes a $192 \times 192$ scene with a triangle, a
+quadrilateral, a thin bar and 30 round clutter blobs, finds edge points (a simplified Canny), votes
+with all 180 angles and with gradient voting (±5°), and draws the peaks above 30 votes (NMS ±4) in
+`out/hough-lines/lines-*.png` and the segments in `segments.png`.
+
+**C5.** How many edge points and how many votes for each kind of voting? Explain the ratio.
+
+**C6.** Compare `lines-full.png` with `lines-gradient.png` and the printed peaks. How many of the
+peaks are sides of the shapes (the scene has nine straight sides)? Where do the others come from,
+and why does gradient voting avoid them? Which sides does gradient voting miss?
+
+**C7.** Without NMS, how many bins are above the threshold? What would the picture look like?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `hough-lines/src/solution.rs` in the download.
+
+**C5.** 1 730 edge points. Full voting casts $1730 \times 180 = 311\,400$ votes, gradient voting
+$1730 \times 11 = 19\,030$ (±5 columns around the gradient, 11 per point): 16 times fewer.
+
+**C6.** Full voting: 19 peaks. Eight of them are sides: the two edges of the bar (133°, 125 and
+124 votes), the three sides of the triangle (28°, 169°, 79°), and three sides of the
+quadrilateral; its fourth side, at about 6°, falls below 30 votes. The other 11 peaks (30 to 38
+votes) are mostly chance alignments of the edge points of the blobs: each blob's ring of points votes
+for all directions, and with 30 blobs some lines collect 30 votes by accident. Gradient voting:
+7 peaks, all of them sides; a blob point only votes for lines perpendicular to its own gradient,
+so blob points rarely agree. It misses the two short sides of the quadrilateral (about 9° and 6°)
+and the true peaks are lower (111 against 121 for the triangle's long side): the gradient
+directions scatter by a few degrees around the true normal (corners, the pixel grid), and some
+votes fall outside the ±5° window.
+
+**C7.** Without NMS 184 bins are above 30 votes with full voting, and 57 with gradient voting:
+each strong line comes as a cluster of neighbouring bins, which would be drawn as bundles of almost
+identical lines.
+:::
+
 ## Where this leads
 
 A circle has three parameters instead of two; the same voting idea gives the [**circle Hough transform**](../hough-circles/lec.qmd) in the next unit, where the gradient direction saves even more work. For any shape without a formula, the [**generalised Hough transform**](../ght/lec.qmd) stores the shape as a table. And when voting needs too many bins, [**RANSAC**](../ransac/lec.qmd) guesses and checks instead.

@@ -113,6 +113,100 @@ A $128 \times 128$ synthetic image with 14 cells: round and oval cells, three to
 **E6.** On the distance route, cells disappear only from about 0.9 (at 0.6 all 14 are still found; at 0.9, 12 objects): the two dim cells' distances fall below the mask threshold 0.1, and they count as **FN** (missed). On the flows route the threshold of P(cell) is 0.5, so the dim cells are already lost at 0.6 (12 objects, F1 0.92). A network that has seen few dim cells makes exactly this error, and it is invisible in a picture of the bright cells.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `instances/src/exercise.rs`.
+Labelling the connected pieces of a mask (the [labelling day](../label-connectivity/lec.qmd)) is
+already there, as `label_components`.
+
+**C1.** `boundary_route(classes)`: from a three-class map to objects:
+
+```
+labels = connected pieces of the interior pixels (4 neighbours)
+repeat until nothing changes:
+    for every boundary pixel without a label:
+        if a 4-neighbour has a label (before this pass): take that label
+```
+
+The checks are your answers to B1 (a) and (b).
+
+**C2.** `distance_route(dist, mask_threshold, h)`: watershed on a predicted distance map with
+h-maxima markers, done in one pass by flooding from the top:
+
+```
+for every pixel with dist > mask_threshold, from the highest value down:
+    look at the objects among its labelled 4-neighbours
+    none:         start a new object; its peak = dist(pixel)
+    one:          join it
+    two or more:  join the one with the highest peak;
+                  every other one whose peak is less than h above dist(pixel)
+                  is merged into it (its peak was not a real marker)
+```
+
+The checks are your answers to B2 (b) and (c), with the profiles as images one pixel high.
+
+**C3.** `match_objects(truth, pred)`: match predicted to true objects at IoU $> 0.5$ and count TP,
+FP and FN (the [evaluation day](../object-eval/lec.qmd)'s matching):
+
+```
+one pass over the pixels: area of every true object, of every predicted object,
+                          and the overlap of every pair (true t, predicted p)
+for every overlapping pair:  IoU = overlap / (area t + area p − overlap)
+TP = number of pairs with IoU > 0.5;  FP = predicted objects − TP;  FN = true objects − TP
+```
+
+**C4.** `panoptic_quality(ious, fp, fn)`: SQ, RQ and PQ from the IoUs of the matches. The check
+is B4.
+
+Then `cargo run -p instances` and open the pictures in `out/instances/`. The program makes a
+synthetic image of 20 nuclei (`input.png`, `truth.png`) and runs three routes. The "network
+outputs" are simulated from the true labels: a perfect three-class map; the same map with the
+boundary **missed wherever two nuclei touch**; and the exact distance map plus smooth random
+errors (sd 0.15, `distance.png`), split with several $h$. It prints the objects, TP, FP, FN, SQ,
+RQ and PQ of each, and saves the labels.
+
+**C5.** Compare the semantic route with the boundary route with missed contacts. Which nuclei
+are merged in `semantic.png` and `boundary-contacts.png`? Why does the boundary route have no
+false positives, but the semantic route has two?
+
+**C6.** Read the results of the distance route for $h$ = 0.05, 0.1, 0.2, 0.4 and 0.8, and look at
+`distance-h0.05.png`. What goes wrong with a small $h$, and what with a large one? Compare
+with B2 (c) and E4.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `instances/src/solution.rs` in the download.
+
+**C5.** Semantic mask: 13 objects for 20 nuclei, TP 11, FP 2, FN 9, PQ 0.51. Boundary class
+with missed contacts: 14 objects, TP 14, FP 0, FN 6, PQ 0.73 (with the perfect boundary map:
+all 20, PQ 0.99). In both, the groups of touching nuclei come out as single objects: the two
+pairs at the top, the group of three in the upper middle, the group of three on the left and
+the pair on the right. A merged blob still counts as a match (TP) if one of its nuclei covers
+more than half of it; its other nuclei are missed (FN). In the semantic mask two blobs, the
+group on the left and the pair on the right, have no such nucleus (best IoU 0.43 and 0.40):
+they are false positives, and all their nuclei are missed. The semantic threshold also makes
+every blob a little larger or smaller than its cells, which lowers the IoUs; the boundary route
+grows every blob exactly over its cells, so here each of its merged blobs still matches one
+nucleus.
+
+**C6.**
+
+| $h$ | objects | TP | FP | FN | PQ |
+|---|---|---|---|---|---|
+| 0.05 | 29 | 20 | 9 | 0 | 0.69 |
+| 0.1 | 22 | 20 | 2 | 0 | 0.82 |
+| 0.2 | 20 | 20 | 0 | 0 | 0.87 |
+| 0.4 | 20 | 20 | 0 | 0 | 0.87 |
+| 0.8 | 15 | 14 | 1 | 6 | 0.66 |
+
+With $h = 0.05$ the small bumps that the errors put on each distance map become markers:
+`distance-h0.05.png` shows nuclei cut into two or three pieces (splits, the false positives).
+From $h = 0.2$ all 20 are found. At $h = 0.8$ even the real necks between touching nuclei are
+too shallow, and touching nuclei merge again. As in B2 (c), $h$ must be larger than the ripples
+on a cell and smaller than the necks between cells; here 0.2 to 0.4 works. SQ stays at about
+0.87 even then, because the noisy map moves the outlines.
+:::
+
 ## Where this leads
 
 Two routes above (star-convex polygons, and detection) depend on **non-maximum suppression** of overlapping candidates; the [next unit, **detection**](../detection/lec.qmd), teaches boxes, IoU and NMS. Star-convex polygons and flow fields come back on the next day with real networks ([StarDist](../stardist/lec.qmd), [Cellpose](../cellpose/lec.qmd)). The predicted distance map and flow field are learned versions of the classical maps of the [watershed](../ws-distance/lec.qmd) and [labelling](../label-connectivity/lec.qmd) days; the errors they make are counted with the [evaluation day](../object-eval/lec.qmd)'s matching.

@@ -145,6 +145,89 @@ A calculator for generic devices with order-of-magnitude numbers (no real produc
 **R7.** GPU 1.78 ms (upload 0.67, launches 0.10, kernels 0.34, download 0.67) against 17.0 ms on the CPU; crossover $n \approx 167$. Without keeping the data, every step uploads and downloads: 13.9 ms, crossover $n \approx 362$; the GPU still wins at 2048², but by 1.2 times instead of 10.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gpu-memory/src/exercise.rs`.
+There is no GPU code here: the functions model the memory system with the rules of a real one and
+count the bytes it would move. (The tasks are numbered **P1, P2, ...**, since this page already
+uses C and R for the demo questions.)
+
+**P1.** `warp_traffic(addresses)`: the cost of one warp's read, every lane reading one 4-byte float
+at a byte address:
+
+```
+lines   = the distinct values of address / 128
+sectors = the distinct values of address / 32
+bytes moved = 32 · (number of sectors);   bytes used = 4 · (number of distinct addresses)
+efficiency  = bytes used / bytes moved
+```
+
+The checks are B3 (a)–(c). (Pixel $(x, y)$ of a $W$ pixels wide float image is at byte
+$4(yW + x)$.)
+
+**P2.** `tile_reads(out_w, out_h, tile, k)`: how often each input pixel is read from global memory
+when a $k\times k$ filter works in tiles of `tile` × `tile` outputs, every tile loading its input
+window (the tile plus the halo) once:
+
+```
+reads = zeros, the size of the output plus k − 1 in each direction
+for every tile (tx, ty) of the output, w × h outputs (smaller at the edges):
+    for every pixel of the window tx … tx + w + k − 2,  ty … ty + h + k − 2:
+        reads(x, y) = reads(x, y) + 1
+```
+
+With `tile` = 1 this is the filter without tiles. The checks are B4 and the lecture's heat map
+(1.27 reads per output for 16 × 16 tiles and a 3 × 3 filter).
+
+**P3.** `roofline_time(work, bytes, peak, bandwidth)`: $t = \max(W/\pi, Q/\beta)$, and whether the
+kernel is memory-bound ($W/Q < \pi/\beta$). The checks are B2 (a), (d) and an 11 × 11 filter.
+
+**P4.** `pipeline_separate` and `pipeline_fused`: scale, subtract a background, clip to $[0, 1]$,
+threshold, as four passes and as one. Read and write every pixel through `load` and `store`, which
+count 4 bytes each:
+
+```
+separate:  for each step: for every pixel: store(next image, step(load(previous image)))
+fused:     for every pixel: v = load(input); v = threshold(clip(subtract(scale(v))));  store(out, v)
+```
+
+The check is B6: 32 against 8 bytes per pixel, and the same result.
+
+Then `cargo run -p gpu-memory` and open the picture in `out/gpu-memory/`.
+
+**P5.** Read the table of strided reads (stride 1, 2, 4, 8, 16, 1024 floats). From which stride on
+does the efficiency stop falling, and why?
+
+**P6.** Read the reads per output for a 3 × 3 and a 31 × 31 filter with different tile sizes, and
+look at `reads-3x3-tile16.png` (black: read once, white: read 4 times). Where are the pixels that are
+read more than once? Why do small tiles hurt the 31 × 31 filter so much more?
+
+**P7.** The program runs the four-step pipeline on a 4096 × 4096 image on **this computer's CPU**,
+separate and fused, and prints the times. Compare the ratio of the times with the ratio of the
+bytes. What does that say about the CPU?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gpu-memory/src/solution.rs` in the download.
+
+**P5.** Stride 1: 1 line, 4 sectors, 100 %; stride 2: 50 %; 4: 25 %; from stride 8 on, 12.5 %
+whatever the stride (8, 16 or 1024): each lane then has a sector of its own, and a sector (32
+bytes, 8 floats) is the least memory can deliver. Larger strides touch more lines (8, 16, 32) but
+move the same 1024 bytes.
+
+**P6.** 3 × 3: 9 reads per output without tiles, 2.25 with 4 × 4 tiles, 1.56 with 8 × 8, 1.27 with
+16 × 16, 1.13 with 32 × 32. 31 × 31: 961 without tiles, 22.6, 8.3 and 3.75 with tiles of 8, 16 and
+32. In the picture the pixels read twice are the seams between tiles, two pixels wide (the halo
+of the tiles on both sides), and the crossings of the seams are read four times. The halo of a
+31 × 31 filter is 15 pixels on each side, larger than an 8 × 8 tile itself, so a small tile loads
+mostly halo: $(8 + 30)^2 / 64 = 22.6$ inputs per output.
+
+**P7.** On our computer, in two runs: four passes 720–820 ms, fused 190–265 ms, 3 to 4 times faster
+for 4 times fewer bytes and the same arithmetic. So the CPU, too, spends most of the time of this
+pipeline moving the image to and from memory, not computing. Your times will differ; the ratio
+should be similar.
+:::
+
 ## Where this leads
 
 The roofline tells how fast a map or a stencil can run. The next unit, [data-parallel patterns](../gpu-patterns/lec.qmd), looks at operations where outputs depend on many inputs (reductions, prefix sums, histograms) and shows how they are made parallel.

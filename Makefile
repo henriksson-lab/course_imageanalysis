@@ -105,6 +105,7 @@ code-test:
 	cd code && cargo clippy --workspace --all-targets -- -D warnings -A clippy::needless_range_loop
 
 code-zip:
+	python3 tools/code_units.py
 	python3 tools/code_zip.py
 
 # Remove the rendered site, the built demos and Quarto's cache.

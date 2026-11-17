@@ -145,6 +145,91 @@ A simulation: every row is one parallel step, the red arrows are the additions d
 **P5.** Dark: 58 of 64 pixels in bin 0: 58 cycles with global atomics; privatised: the busiest private bin has 8 updates, plus 8 merge cycles: 16. Uniform: global 11, privatised 4 + 8 = 12: no gain, the merge costs more than the contention it removes. Bimodal: global 20 (bin 1), privatised 6 + 8 = 14. Privatisation pays when one bin is much busier than $n/b$, and with real images (millions of pixels, hundreds of blocks) the merge is small compared with the counting.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `gpu-patterns/src/exercise.rs`.
+Every parallel step is written as a loop that reads only the previous row of values, so that all
+its iterations could run at the same time on a GPU.
+
+**C1.** `reduce_tree(values)`: the tree reduction; return the row after every step.
+
+```
+row = values
+while row has more than one value:
+    next = [row[0] + row[1], row[2] + row[3], …]     # an odd last value is carried over
+    output next;   row = next
+```
+
+The checks are B1, and B8 (b)'s point: $10^8$ followed by fifteen ones in float32 gives $10^8$
+with a loop and $10^8 + 8$ with the tree.
+
+**C2.** `scan_hillis_steele(x)`: the inclusive scan; also count the additions.
+
+```
+for offset = 1, 2, 4, … while offset < n:
+    previous = copy of x
+    for i = offset … n − 1:  x[i] = previous[i] + previous[i − offset]
+```
+
+The check is B2 (a): the running totals and 17 additions.
+
+**C3.** `scan_blelloch(x)`: the exclusive scan, for $n$ a power of two; count the additions.
+
+```
+for step = 1, 2, 4, … < n:                       # up-sweep
+    for i = 2·step − 1, 4·step − 1, … < n:   x[i] = x[i] + x[i − step]
+x[n − 1] = 0
+for step = n/2, n/4, …, 1:                       # down-sweep
+    for i = 2·step − 1, 4·step − 1, … < n:
+        left = x[i − step];   x[i − step] = x[i];   x[i] = x[i] + left
+```
+
+The check is B2 (b): the exclusive scan and 14 additions.
+
+**C4.** `compact(values, keep)`: stream compaction. Compute the exclusive scan of the 0/1 flags;
+then every kept value $i$ writes itself to output position scan$[i]$. The check is B3.
+
+**C5.** `atomic_histogram(values, bins, block)`: the histogram, and its cost in cycles. With one
+global histogram the cost is the count of the busiest bin (its atomic updates wait in one queue).
+With a private histogram per block of `block` threads it is the busiest private bin of any block
+(the blocks run in parallel) plus one cycle per block to add the block histograms. The check is
+B5.
+
+Then `cargo run -p gpu-patterns` and open the picture in `out/gpu-patterns/`.
+
+**C6.** The program sums the $4096 \times 4096$ pixels of the micrograph (tiled 256 times) in float32,
+with a loop and with your tree. Compare both with the exact sum. Why is the tree so much better?
+How many parallel steps does it need?
+
+**C7.** It then builds the integral image of the micrograph from a Hillis–Steele scan of every row
+and a Blelloch scan of every column (`integral.png`). Check the bottom-right value against the
+exact sum, and the number of additions against B7 (a)'s formulas for $n = 256$.
+
+**C8.** Finally it makes the histogram of the micrograph, and of a dark version of it (every pixel
+divided by 8), with one thread per pixel and blocks of 256 threads. Compare the cycles with global
+atomics and with private block histograms for both. Why does the dark image gain so much more?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `gpu-patterns/src/solution.rs` in the download.
+
+**C6.** Exact sum 11 077 394.3. The float32 loop gives 11 552 686, 4.3 % too much: once the running
+sum is in the millions, floats are 1 apart and more, and every added pixel value (below 1) is
+rounded, here mostly upwards. The tree gives 11 077 394, a relative error of $2\cdot10^{-8}$: it only
+ever adds partial sums of similar size (pairwise summation). It needs 24 steps
+($\log_2 2^{24}$) against 16 777 215 for the loop.
+
+**C7.** The bottom-right value is 43 271.07, the exact sum of all pixels (43 271.07 in float64).
+Additions: 256 row scans of $256\cdot8 - 255 = 1793$ (Hillis–Steele, $n\log_2 n - (n-1)$) and 256
+column scans of $2\cdot255 = 510$ (Blelloch, $2(n-1)$): $256\cdot(1793 + 510) = 589\,568$, as printed.
+
+**C8.** The micrograph: the busiest bin (240) has 556 pixels: 556 cycles with global atomics, 275
+with private histograms. The dark image: the busiest bin (30) has 4128 pixels, 4128 cycles with
+global atomics, and only 321 with private histograms, 13 times fewer. The more the values pile up
+in one bin, the longer that bin's queue; private histograms split the queue over the 256 blocks,
+and then pay one fixed cost of 256 cycles to add the block histograms.
+:::
+
 ## Where this leads
 
 Map, stencil, reduction, scan and histogram cover the operations that suit a GPU. The last unit, [what GPUs are good and bad at](../gpu-fit/lec.qmd), looks at the methods of the course that do **not** fit these patterns, such as watershed flooding, union–find labelling and dynamic programming, and at precision on GPUs.

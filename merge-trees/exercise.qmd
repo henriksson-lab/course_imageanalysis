@@ -105,6 +105,112 @@ Initial regions (leaves) are watershed basins of the gradient, FH regions or SLI
 **M6.** The nuclear envelope and the large dark structures of the cytoplasm are the brightest (most lasting) boundaries; small texture boundaries are dark. With SLIC leaves the UCM also contains the regular superpixel boundaries, most of which disappear early (dark), and the big boundaries are smoother.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `merge-trees/src/exercise.rs`.
+The leaves (initial regions) are numbered $0 \dots n-1$, and the passes between them are edges
+`(a, b, h)`. A merge tree is a list of merges `(a, b, level)` of tree nodes: the leaves are nodes
+$0 \dots n-1$, and merge number $k$ in the list creates node $n + k$. The five basins a–e of B1
+are leaves 0–4.
+
+**C1.** `altitude_tree(n, edges)`: Kruskal on the passes, recording every join as a merge:
+
+```
+node[r] = r for every leaf (the tree node of each component, kept at its root)
+for each pass (a, b, h), lowest first:
+    A = find(a),  B = find(b)
+    if A ≠ B:
+        add the merge (node[A], node[B], h)
+        join B into A;  node[A] = the new node (n + number of merges − 1)
+```
+
+The check is B1(a): b|c at 4, a joins at 5, d|e at 6, all at 7.
+
+**C2.** `attribute_tree(n, edges, minimum, area, attribute)`: flood by altitude as in C1, but give
+each join the attribute of the smaller region, then sort:
+
+```
+for each pass (a, b, h), lowest first, with A = find(a) ≠ B = find(b):
+    value = min(attr(A), attr(B))      # dynamics h − min, area |C|, volume |C|·(h − min)
+    remember (a, b, value)
+    join A and B: the new minimum is the smaller one, the new area the sum
+return altitude_tree(n, the remembered edges)      # C1 sorts them by value
+```
+
+The checks are B1(b), (c) and (d).
+
+**C3.** `cut_first(n, merges, k)`: apply the first $k$ merges and label the leaves by region
+(union–find again; each tree node needs one of its leaves). `cut` (apply all merges up to a
+level) and `cut_regions` (stop at a number of regions) are given and use it. The checks are
+B1 and B2(b, c).
+
+**C4.** `ucm(n, merges, edges)`: for every edge between two leaves, the level at which they first
+share a region. Replay the merges with union–find **without** shortcuts and remember when each
+link was made:
+
+```
+for each merge (A, B, level), in order:
+    ra = root of A's leaf,  rb = root of B's leaf     # walk up, no path halving
+    hang the smaller tree under the larger;  link_level[lower root] = level
+u(a, b) = the largest link level on the way up from a and from b
+          to their first common ancestor
+```
+
+(It works because the levels never decrease: the last link on the way is the one that
+joined the two.) The checks are B2(a) and $u(a, e) = 7$ in the altitude tree.
+
+**C5.** `rag_merge(means, areas, pairs)`: greedy merging by difference of means on a region
+adjacency graph, with a priority queue and lazy updates:
+
+```
+queue every adjacent pair (a, b) with |mean a − mean b|
+while the queue is not empty:
+    take the pair with the smallest difference
+    skip it if a or b has changed since it was queued
+    merge b into a: area-weighted mean, areas added, b's neighbours become a's
+    queue a with each of its neighbours (new differences)
+```
+
+The check is B3: the differences 1, 1, 1, 1.5, 5, 12, 19.4, 26.9 and the three regions before the
+last two merges.
+
+Then `cargo run -p merge-trees` and open the pictures in `out/merge-trees/`. The program makes
+leaves from a synthetic image of 18 nuclei: the 150 deepest watershed basins of its gradient.
+It builds all five hierarchies on them, cuts each at 20 regions (mean grey levels, yellow
+boundaries), counts the nuclei matched with overlap (IoU) ≥ 0.5, and searches for the best
+number of regions between 5 and 60. It also draws the UCM of the dynamics hierarchy.
+
+**C6.** Read the counts. Which hierarchy matches most nuclei at 20 regions, and at its best cut?
+Does the best number of regions agree between the hierarchies?
+
+**C7.** Look at `ucm-dynamics.png`. Which boundaries are bright, which dark? What would you see
+if you thresholded it at a high value?
+
+**C8.** *(math)* The program cuts every hierarchy at a number of regions. Why can the greedy
+mean-difference merging not simply be cut at a level, as the altitude tree can?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `merge-trees/src/solution.rs` in the download.
+
+**C6.** At 20 regions: altitude 12 of 18, dynamics 12, area 11, volume 12, mean difference 13. The
+best cuts: altitude 12 (at 14 regions), dynamics 13 (25), area 12 (14), volume 13 (18), mean
+difference 14 (37). No hierarchy and no single cut finds all 18, and the best number of regions
+differs from one hierarchy to the next. Some true nuclei overlap and are partly hidden by a
+neighbour, which no partition of these leaves can match well.
+
+**C7.** The outlines of the nuclei are bright: those boundaries survive to the top of the
+hierarchy. The boundaries inside the nuclei (between basins of their texture) are dark: they
+vanish early. A high threshold keeps only the bright outlines, one closed contour around each
+nucleus (or pair of touching nuclei): the coarse levels of the hierarchy.
+
+**C8.** After a merge the mean of the new region changes, and so do its differences to all its
+neighbours. A later merge can therefore have a **smaller** difference than an earlier one: the
+levels need not increase. "All merges with level $\le t$" would then pick merges out of order,
+and the result would not be a cut of the tree. The altitude tree (and the attribute trees, which
+are sorted) have levels that never decrease.
+:::
+
 ## Where this leads
 
 The quality of a hierarchy depends on its leaves. [Superpixels](../superpixels/lec.qmd) are leaves designed for this: compact, about equal in size, and respecting the boundaries.

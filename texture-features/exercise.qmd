@@ -142,6 +142,91 @@ The demo computes the GLCM of a $64 \times 64$ texture patch. The patch is shown
 **G7.** The number of pairs halves (7936 → 3968 for $d = 2$ at 0°); the contrast stays 12.65. $(i - j)^2 = (j - i)^2$, so adding the transpose adds the same contrast as the original and the normalisation divides it out again. Features that are not symmetric in $i$ and $j$ (for example the row mean of an asymmetric texture) could change.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `texture-features/src/exercise.rs`.
+
+**C1.** `quantise(img, levels, lo, hi)`: cut the range `lo` to `hi` into `levels` equal parts and
+give each pixel the number of its part, 0 to $L - 1$ (values outside the range go to the first or
+last level).
+
+**C2.** `glcm(q, levels, dx, dy, mask)`: the symmetric co-occurrence counts for the offset
+$(d_x, d_y)$, with $y$ pointing down (so 90° is $(0, -d)$):
+
+```
+P = L × L matrix of zeros
+for every pixel x:
+    y = x + offset
+    if x and y are both inside the image (and inside the mask, if there is one):
+        i = q(x);   j = q(y)
+        P[i][j] = P[i][j] + 1
+        P[j][i] = P[j][i] + 1
+```
+
+The checks are your matrices of B1(a) (0°), B2(a) (90°) and B3 (45°, only 18 counts).
+
+**C3.** `haralick(counts)`: divide by the sum to get $p(i, j)$, then
+
+```
+contrast    = Σ (i − j)² p(i, j)
+homogeneity = Σ p(i, j) / (1 + (i − j)²)
+ASM         = Σ p(i, j)²
+entropy     = − Σ p(i, j) log2 p(i, j)          # only cells with p > 0
+μ = Σ i p(i, j);   σ² = Σ (i − μ)² p(i, j)
+correlation = Σ (i − μ)(j − μ) p(i, j) / σ²
+```
+
+The checks are B1(b)–(d), B2(b), B3 and the checkerboard and halves of B4.
+
+**C4.** `lbp(img, x, y)`: the 8 neighbours clockwise from the top-left, bit 1 if the neighbour is
+at least the centre, read as a binary number; `rotation_invariant(code)`: the smallest of the 8
+circular rotations of the bits. The check is B6: 185 and 55.
+
+Then `cargo run -p texture-features` and open the pictures in `out/texture-features/`. The program
+measures the pair of the lecture (smoothed noise, and the same pixels shuffled), the correlation
+against the distance $d$, stripes with period 8, and maps of contrast and entropy computed in a
+$17 \times 17$ window around every pixel of the micrograph (`cell-contrast.png`,
+`cell-entropy.png`).
+
+**C5.** Read the features of the same-histogram pair. Which of them differ most? Then read the
+correlation against $d$ for the smoothed noise and for white noise: at about which $d$ has the
+smoothed noise forgotten its neighbour? Check the stripes against your answer to B5.
+
+**C6.** Compare `cell-entropy.png` with `cell.png`. Where is the entropy high, and where is it low?
+The program also prints the mean and spread of both maps over the whole image and inside the
+nucleus. What do they say about the nucleus?
+
+**C7.** The texture maps fill one $17 \times 17$ window and one $8 \times 8$ matrix per pixel. How
+many pixel pairs does the program count for the whole $256 \times 256$ image? How would you avoid
+starting every window from zero?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `texture-features/src/solution.rs` in the download.
+
+**C5.** Contrast 0.49 against 10.46, homogeneity 0.79 against 0.30, correlation 0.95 against 0.00;
+ASM and entropy differ less (0.058 and 0.016; 4.39 and 5.99 bits). The numbers are close to the
+lecture's (0.51 and 10.59), with a different random patch. The correlation of the smoothed noise
+falls from 0.96 at $d = 1$ through 0.69 at $d = 4$ and 0.20 at $d = 8$ to about 0 at $d = 12$:
+beyond about 10 pixels a pixel says nothing about its partner, roughly the size of the grains.
+White noise stays within 0.04 of 0 at every $d$. The stripes have contrast 0.0 at $d = 8$ and
+$d = 16$ and the largest contrast, 29.0, at $d = 4$ and $d = 12$; at 90° the contrast is 0, as in
+B5.
+
+**C6.** The entropy is highest along the edges of the cell and the nuclear envelope, where a window
+holds both dark and bright pixels and many different pairs, and lowest in the pale patches between
+the debris outside the cell, where most pairs fall into the top grey levels. The nucleus is a
+smooth, even region of the map: its entropy is $3.24 \pm 0.18$ against $3.50 \pm 0.80$ over the
+whole image, and its contrast $0.90 \pm 0.08$ against $0.97 \pm 0.30$. Its fine granular texture is
+the same everywhere, so a texture feature of the nucleus hardly depends on where it is measured.
+
+**C7.** Each window has $17 \cdot 16 = 272$ horizontal pairs, so the program counts
+$65\,536 \cdot 272 \approx 1.8 \cdot 10^7$ pairs (each added twice to the symmetric matrix).
+Moving the window one pixel to the right changes only two of its columns: subtract the pairs of
+the column that leaves and add those of the column that enters, about $2 \cdot 17$ pairs instead
+of 272. The same idea as the running sums of [integral images](../integral-image/lec.qmd).
+:::
+
 ## Where this leads
 
 Texture features compare a pixel with a **shifted copy of the same image**. The [colocalisation day](../coloc/lec.qmd) replaces the shifted copy with a **second channel**: the same 2D histogram, now a colocalisation scatter plot. The [next unit](../relations/lec.qmd) measures relations between whole **objects**: neighbours, parents and children.

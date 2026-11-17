@@ -111,6 +111,113 @@ The demo builds a graph on points (affinity $w = e^{-d^2/2\sigma^2}$ between eve
 **E6.** No: at threshold 0 the image is split diagonally (434 | 590), into the lower left and the upper right. The best Ncut along the sweep (242 pixels, Ncut 0.021) separates the bright white area in the upper right from the rest. Normalized cuts find the **dominant** grouping of the whole image, here bright versus dark, not necessarily the object you are interested in. To get the nucleus you need more information: seeds (graph cuts), a model, or further splits.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `ncut/src/exercise.rs`.
+A graph is its symmetric matrix of affinities `w[p][q]`.
+
+**C1.** `affinities(points, sigma)`: $w_{pq} = e^{-d_{pq}^2/2\sigma^2}$ between all points, 0 on
+the diagonal.
+
+**C2.** `laplacian(w)` and `quadratic_form(l, x)`: the degrees $d_p = \sum_q w_{pq}$,
+$L = D - W$, and $\mathbf x^\top L\mathbf x$. The checks are your answers to B1 and B2.
+
+**C3.** `ncut(w, in_a)`: the cut and the normalized cut of a split:
+
+```
+cut = vol(A) = vol(B) = 0
+for every pair (p, q):
+    if p is in A:  vol(A) = vol(A) + w_pq;  if q is not in A: cut = cut + w_pq
+    else:          vol(B) = vol(B) + w_pq
+Ncut = cut / vol(A) + cut / vol(B)
+```
+
+The checks are your answers to B3(b) and B4.
+
+**C4.** `fiedler(w, iterations)`: the eigenvector of $L\mathbf x = \mu D\mathbf x$ for the
+second-smallest μ, by **power iteration** (as in the [PCA unit](../pca/exercise.qmd#code)). Power
+iteration finds the eigenvector of the **largest** eigenvalue, so it works on
+$M = I + D^{-1/2}WD^{-1/2}$, whose eigenvalues are $2 - \mu$; its largest eigenvalue, 2, belongs
+to the trivial vector $\mathbf s = D^{1/2}\mathbf 1$, which is removed in every step:
+
+```
+s = (√d_1, ..., √d_n), scaled to length 1
+y = any vector, minus its part along s, scaled to length 1
+repeat:
+    z_p = y_p + Σ_q w_pq · y_q / √(d_p d_q)          # z = M y
+    z = z − (z · s) s                                  # remove the trivial part
+    λ = z · y                                          # eigenvalue of M
+    y = z, scaled to length 1
+μ₂ = 2 − λ;   x_p = y_p / √d_p
+```
+
+The checks are B3(a) (μ = ½, x ∝ (1, ½, −½, −1)) and B4 (μ₂ ≈ 0.031, signs splitting the
+triangles).
+
+**C5.** `sweep(w, x)`: the best split along the sorted vector:
+
+```
+sort the nodes by x
+A = {}
+for k = 1, ..., n − 1:
+    add the k-th node to A
+    keep A if its Ncut is the smallest so far
+```
+
+The check is B4 (the triangles, Ncut 0.0325).
+
+Then `cargo run -p ncut` and open the pictures in `out/ncut/`. The program runs the normalized
+Fiedler vector on point clouds (two blobs at σ = 0.08 and 0.15, blobs + outlier, three blobs, two
+rings at σ = 0.05 and 0.12) and on a $16 \times 16$ image with a bright disk and a grey square
+(pixels within 2 of each other joined, grey-level scale σ = 30 and 60). For each it prints μ₂,
+the split at 0 with its cut and Ncut, the best split of the sweep, and the cheapest single node
+to cut off. The pictures colour the points by the vector (blue negative, orange positive) and
+show the vector of the image (0 = grey).
+
+**C6.** Two blobs at σ = 0.08 and at σ = 0.15: compare the cut of the blob split with the cut of
+the cheapest single node. Which would the minimum cut choose, and which does Ncut choose? And
+with the outlier?
+
+**C7.** Two rings at σ = 0.05 and 0.12, and the image at σ = 30 and 60: what does each split
+separate? What does σ decide?
+
+**C8.** Count the cost. The program does 3000 steps of power iteration for the image. Change this
+number in `src/main.rs` to 100, 300 and 1000: when is the disk found by the sign of the vector,
+and by the sweep? *(math)* Power iteration on $M$ shrinks the error by about
+$(2 - \mu_3)/(2 - \mu_2)$ per step. Why is it slow for this image, and what does that mean for
+large images?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `ncut/src/solution.rs` in the download.
+
+**C6.** σ = 0.08: the blob split (25 | 25) cuts 0.151, Ncut $9.6 \cdot 10^{-4}$; the cheapest single
+node costs 6.13 (Ncut 1.01): here the minimum cut and Ncut agree. σ = 0.15: the blob split now
+cuts 26.7 (Ncut 0.105), but a single node can be cut off for 16.6 (Ncut 1.02): the minimum cut
+would isolate that node, while Ncut still splits the blobs (as in E1). With the outlier, cutting
+it off costs only $1.6 \cdot 10^{-5}$, the minimum cut by far, but its Ncut is 1.00; the Fiedler
+vector splits the blobs (26 | 25, the outlier joining one of them, Ncut $9.6 \cdot 10^{-4}$), as in
+B4 and E2. Three blobs: 40 | 20, the two blobs closest together stay together (E3).
+
+**C7.** Rings at σ = 0.05: 20 | 44, exactly the two rings (μ₂ = $2.8 \cdot 10^{-4}$). At
+σ = 0.12 the affinities reach across the gap: the split at 0 cuts both rings in half (33 | 31,
+Ncut 0.386), and the best sweep split (19 | 45, Ncut 0.316) is not the rings either. Image at
+σ = 30: 38 | 218, the disk against the rest (Ncut $2.7 \cdot 10^{-4}$; the vector is dark on the
+disk and nearly grey elsewhere). At σ = 60 grey-level differences matter little and the split is
+geometric, roughly in half along a diagonal (134 | 122). σ sets the scale of what counts as close
+or similar.
+
+**C8.** At σ = 30, after 100 steps the vector is still far from the Fiedler vector (μ₂ estimated
+as 0.011; split 130 | 126 at 0, 132 | 124 in the sweep); after 300 steps the sweep finds the disk
+(38 | 218) but the sign does not yet (119 | 137); after 1000 steps both find it
+(μ₂ = $2.7 \cdot 10^{-4}$). So slow convergence means that $(2 - \mu_3)/(2 - \mu_2)$ is close to
+1: μ₃ is small as well, because the image can be split cheaply in more than one way (the disk,
+the square, the background). Each step costs $n^2$ multiplications (3000 steps take about 0.8 s for 256
+pixels). For a large image $n^2$ is huge and the small eigenvalues lie even closer together; real
+implementations use the sparsity of $W$ (only neighbours are joined) and faster eigensolvers
+(Lanczos), as the slide "From eigenvector to segmentation" says.
+:::
+
 ## Where this leads
 
 Spectral partitioning is the basis of **spectral clustering**, used far beyond images, and of several **superpixel** methods that over-segment an image into many small coherent regions as a first step ([superpixels](../superpixels/lec.qmd)). Graph cuts and normalized cuts both treat the image as a graph; other segmentation methods follow image **gradients** ([watershed](../ws-flooding/lec.qmd)) or evolve a **contour** ([level sets](../implicit/lec.qmd)).

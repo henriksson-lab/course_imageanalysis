@@ -171,6 +171,100 @@ The scene of the previous unit, now traced recursively: shadow rays to the light
 **E7.** Pixel (32, 30) sees the glass floor at a grazing angle: $R = 0.43$, so the floor reflects the triangle strongly; the refracted 57 % reaches the lower floor, which is in shadow (the glass floor blocks its shadow rays). Without Fresnel all light is refracted: the floor shows only the dark lower floor, no reflections, and the image needs fewer rays (1.94 instead of 2.45 per pixel).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `whitted/src/exercise.rs`.
+The scene and the nearest hit of the last unit are ready to use in `whitted/src/scene.rs`.
+
+**C1.** `reflect(d, n)`: the mirror direction $\mathbf r = \mathbf d - 2(\mathbf d\cdot\mathbf n)\mathbf n$.
+The check is B1.
+
+**C2.** `refract(d, n, eta)`: Snell's law in vector form, with $\mathbf n$ facing the incoming ray
+and $\eta = n_1/n_2$:
+
+```
+c1 = −d · n                          # cos θ1
+k  = 1 − η² (1 − c1²)                # cos² θ2
+if k < 0: total internal reflection (no refracted ray)
+return η d + (η c1 − √k) n
+```
+
+The checks are B10 (d), B2 (c) and the critical angle of B3 (a).
+
+**C3.** `schlick(cos1, n1, n2)`: the reflected fraction by Schlick's formula,
+$R_0 + (1 - R_0)(1 - \cos)^5$ with $R_0 = \left(\frac{n_1 - n_2}{n_1 + n_2}\right)^2$, where $\cos$ is
+taken on the side of the less dense medium:
+
+```
+R0 = ((n1 − n2) / (n1 + n2))²
+c  = cos1
+if n1 > n2:                              # leaving the denser medium
+    s2 = (n1 / n2) · √(1 − cos1²)        # sin θ2
+    if s2 > 1: return 1                  # total internal reflection
+    c = √(1 − s2²)
+return R0 + (1 − R0)(1 − c)⁵
+```
+
+The checks are B4 (a), (e) and B5.
+
+**C4.** `in_shadow(p, n, light, scene, eps)`: send the shadow ray from $\mathbf p + \varepsilon\mathbf n$
+towards the light; the point is in shadow if anything is hit before the light. The check is B8 (c):
+a small ball whose top is 0.12 above the floor shadows the point under it with
+$\varepsilon = 10^{-4}$, but not with $\varepsilon = 0.2$.
+
+**C5.** `trace(ray, scene, depth, max_depth, eps, rays)`: Whitted's recursion (count every ray,
+shadow rays included, in `rays`):
+
+```
+trace(ray, depth):
+    hit = nearest hit;  if none: return the sky
+    p = hit point;  n = normal, facing the ray
+    matte:  colour · (ambient + (n · l if the shadow ray reaches the light, else 0))
+    mirror: if depth = max_depth: black
+            else reflectance · trace(ray from p + ε n along reflect(d, n), depth + 1)
+    glass:  if depth = max_depth: black
+            (n1, n2) = (1, index) if entering, else (index, 1)
+            R = schlick(−d · n, n1, n2)
+            colour = R · trace(reflected ray from p + ε n, depth + 1)
+            if refract(d, n, n1/n2) gives t:
+                colour += (1 − R) · trace(ray from p − ε n along t, depth + 1)
+```
+
+The checks: a lit matte floor, a mirror at depth 1 and at depth 0, and a glass ball alone in the
+sky, which must show the sky ($R + (1 - R) = 1$ at every split).
+
+Then `cargo run -p whitted` and open the pictures in `out/whitted/`.
+
+**C6.** Compare `depth0.png`, `depth1.png` and `whitted.png` (maximum depth 0, 1 and 5). What do the
+mirror ball and the glass ball show at each depth, and why? How many rays per pixel does each need
+(printed)? What does the shadow of the glass ball look like?
+
+**C7.** Compare `acne.png` ($\varepsilon = 0$) with `whitted.png` ($\varepsilon = 10^{-4}$), and read the
+numbers of matte pixels in shadow. Then read the shadow pixels of the small low ball for
+$\varepsilon = 10^{-4}$, $0.1$ and $0.2$ (and look at the `leak-eps*.png` pictures). Explain both effects.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `whitted/src/solution.rs` in the download.
+
+**C6.** Depth 0 is plain ray casting: the mirror and the glass ball are black, since all their colour
+comes from the rays they send on (1.40 rays per pixel: the primary rays plus the shadow rays of the
+matte pixels). At depth 1 the mirror ball shows the scene, but the glass ball in its reflection is
+black, and the glass ball itself is nearly black: its refracted ray reaches the back of the ball
+and stops there; only the faint 4 % reflection of the front shows (1.65 rays per pixel). At depth 5
+the glass ball shows the scene behind it upside down, the floor at the top, like a lens (2.46 rays
+per pixel). At every depth the shadow of the glass ball is as black as that of the
+red ball: the shadow rays hit the glass and count as blocked.
+
+**C7.** With $\varepsilon = 0$ all the balls are covered in dark speckles: 3348 of the 31 093 matte
+pixels are in shadow, against 2914 with $\varepsilon = 10^{-4}$, the real shadows. Where the rounded
+hit point lies a little inside the ball, the shadow ray (or the reflected ray of the mirror and the
+glass) hits the same surface again at a tiny $t$. (The floor at $y = -1$ happens to round
+outwards here and shows almost no acne.) The small ball casts a shadow of 13 floor pixels with
+$\varepsilon = 10^{-4}$, 6 with $\varepsilon = 0.1$ and none with $\varepsilon = 0.2$: the shadow
+rays start above the ball's top (0.12) and pass over it, so light leaks under it.
+:::
+
 ## Where this leads
 
 Whitted's ray tracer follows a few special directions. Real light arrives from every direction: [Path tracing](../pathtrace/lec.qmd) turns the sum over all directions into an integral and estimates it with random rays. And everything is still slow: [Tracing fast](../bvh/lec.qmd) shows how to test only a few objects per ray.

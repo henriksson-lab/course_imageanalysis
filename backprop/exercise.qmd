@@ -198,6 +198,86 @@ The point classifier of the [previous unit](../neuralnet/exercise.qmd), now with
 **E6.** $\eta = 1.5$: the loss jumps up and down during the first steps (0.79, 0.65, 0.55, 0.45, 0.41, 0.44, 0.38, 0.39, 0.47, 0.56, …) and then gets stuck near 0.38; 14 of the 16 hidden units are dead (off for every training point; their thumbnails are blank). $\eta = 5$: after a few huge jumps (up to 6.4) again 14 of the 16 units are dead, the network outputs probability one half everywhere, and the loss sits at 0.693 $= \ln 2$ for ever: almost no gradient reaches the hidden weights any more.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `backprop/src/exercise.rs`.
+
+The network is the one of the line-scan demo of the previous unit: one input $x$, $H$ hidden
+ReLU units and one output, $\hat y = \sum_k w_{2,k}\,\text{ReLU}(w_{1,k}x + b_{1,k}) + b_2$, with
+the loss $(\hat y - y)^2$. A `Net` holds its weights; the same type holds their gradients.
+
+**C1.** `cross_entropy(p, true_class)`: $-\ln p_\text{true class}$. The check is B1.
+
+**C2.** `forward(net, x)`: compute and keep $z_k$, $h_k$ of every hidden unit and the output
+$\hat y$. The check is B3(a).
+
+**C3.** `backward(net, x, y)`: the gradient of the loss with respect to every weight, from the
+loss back to the input:
+
+```
+forward pass: keep z[k], h[k], y_hat
+d_y = 2 · (y_hat − y)
+gradient of b2 = d_y
+for every hidden unit k:
+    gradient of w2[k] = d_y · h[k]
+    d_h = d_y · w2[k]
+    d_z = d_h if z[k] > 0, else 0          # the ReLU passes or blocks
+    gradient of w1[k] = d_z · x
+    gradient of b1[k] = d_z
+```
+
+The checks are B3(b) and B3(d) (the dead ReLU: only $b_2$ gets a gradient).
+
+**C4.** `train_step(net, xs, ys, eta)`: one step of gradient descent on the mean loss over all
+examples: average the gradients of `backward`, then subtract `eta` times them from the weights.
+It returns the loss before the step. The check is B3(c): with $\eta = 0.1$ the loss goes from
+0.25 **up** to 0.5625, with $\eta = 0.05$ down to 0.021.
+
+**C5.** `numerical_gradient(net, x, y, eps)`: the same gradient by finite differences, one
+weight at a time: $\big(\mathcal L(w + \varepsilon) - \mathcal L(w - \varepsilon)\big)/2\varepsilon$.
+The check compares it with `backward`, as the **check** button of the demo does.
+
+Then `cargo run -p backprop` and open the pictures in `out/backprop/`. The program fits the
+network to a noisy line scan across two nuclei (100 pixels, noise of standard deviation 0.03)
+with 20,000 steps of plain gradient descent: 1, 3 and 12 hidden units with $\eta = 0.05$, and
+12 units with $\eta = 0.5$. It prints the loss and where each hinge bends ($w_1x + b_1 = 0$);
+"dead" marks a unit that is off over the whole scan.
+
+**C6.** Compare the three fits with $\eta = 0.05$ (`fit-1-units-eta0.05.png` and so on) with
+the loss of a flat line at the mean and with the noise variance $0.03^2 = 0.0009$. Where did
+the hinges go?
+
+**C7.** The run with 12 units and $\eta = 0.5$: what happens to the loss and to the hinges?
+What does the fit look like, and why can training not recover?
+
+**C8.** Count the cost. `numerical_gradient` needs two forward passes per weight. How many
+forward passes is that for one example with 12 hidden units, and for a network with a million
+weights? What does backpropagation need?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `backprop/src/solution.rs` in the download.
+
+**C6.** The flat line at the mean has the loss 0.0830. One hidden unit: 0.0566, a single bend
+at 0.28: flat over the bright nucleus, then one straight slope down across the rest. Three
+units: 0.0344; the fit climbs the left edge of the bright nucleus and then runs down in one
+straight slope through both nuclei, because two of the three hinges ended at the same place
+(0.13 and 0.14) and the third at 0.84. Twelve units: 0.0015, close to the noise variance 0.0009;
+the hinges have spread over the scan (0.05 to 0.90) and the fit follows both plateaus and all
+four edges. (The demo uses a cleverer step rule, so its losses differ.)
+
+**C7.** After 100 steps the loss is 0.0830, exactly the loss of the flat line, and it never
+changes again; all 12 units are dead. The first large steps threw every hinge off the scan, so
+every unit is off at every pixel. Then $\partial\mathcal L/\partial z = 0$ for every unit
+(the ReLU blocks, as in B3(d)), the first-layer weights get no gradient and never move, and
+only $b_2$ is still trained: it settles at the mean. The fit is a flat line.
+
+**C8.** 12 hidden units have $3 \cdot 12 + 1 = 37$ weights: 74 forward passes per example. A
+million weights: two million forward passes, for one example and one step. Backpropagation
+needs one forward and one backward pass, about the cost of two or three forward passes,
+whatever the number of weights. Finite differences are only good for checking.
+:::
+
 ## Where this leads
 
 Everything so far works for any input vector. For images, the [next unit](../cnn/lec.qmd) replaces the dense first layer by a **convolutional** layer: a bank of small kernels, learned with exactly this backpropagation, shared across the image. Data augmentation, the image-specific cure for overfitting, comes with it. The [evaluation day](../leakage/lec.qmd) (day 37) returns to the question of what makes a test set honest.

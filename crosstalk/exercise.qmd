@@ -159,6 +159,78 @@ A synthetic cell (seeded): dye 1 in the nucleus, dye 2 in the membrane, a few sm
 **E5.** Even with the exact $S$, both populations smear out along a diagonal (slopes about $-0.6$) and the background noise in dye 2 grows from 4.6 (measured channel) to 31 after compensation. The medians are still right (nucleus 7.9 against a background of 10), but individual pixels are not: $S_2^{-1}$ multiplies the noise by about 5, as in B5.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `crosstalk/src/exercise.rs`.
+
+**C1.** `channel_value(spectrum, filter, dl)` and `mixing_matrix(dyes, filters, dl)`: a channel
+adds up spectrum × filter; one dye gives one column:
+
+```
+for every channel c and dye k:
+    M[c][k] = Σ_bins spectrum_k[i] · filter_c[i] · Δλ
+```
+
+The check is B1(a) and (c).
+
+**C2.** `slope_through_origin(xs, ys)`: $\sum xy / \sum x^2$. The check is B6(a).
+
+**C3.** `inverse2(m)` and `compensate(ch1, ch2, s)`: the $2 \times 2$ inverse by its formula, and
+compensation of every pixel:
+
+```
+S⁻¹ = 1/(ad − bc) · ( d  −b ; −c  a )        # once
+for every pixel:
+    (a1, a2) = S⁻¹ · (ch1, ch2)
+```
+
+The checks are B3, B4, B5 and B7(b).
+
+**C4.** `pearson(a, b, mask)`: Pearson's correlation of two images over a mask (subtract the means,
+then $\sum d_a d_b / \sqrt{\sum d_a^2 \sum d_b^2}$).
+
+Then `cargo run -p crosstalk` and open the pictures in `out/crosstalk/`. The program makes a
+synthetic cell with dye 1 in the nucleus, dye 2 in the membrane and a few vesicles with both, and
+records two channels with the true spillover $s_{21} = 0.25$, $s_{12} = 0.05$, an offset of 10 and
+photon noise (`channel1.png`, `channel2.png`). It estimates the spillovers from the nucleus and the
+membrane pixels (single-stained structures) after subtracting the offset, compensates
+(`dye2-compensated.png`), and tries the guesses $s_{21} = 0.15, 0.25, 0.35$ (`dye2-over.png` for
+0.35). Last, it records the cell with two similar dyes, $S = \begin{pmatrix} 1 & 0.9 \\ 0.9 & 1 \end{pmatrix}$,
+and compensates exactly (`similar-dye2.png`).
+
+**C5.** Which spillovers does the program estimate, and what does it get for $s_{21}$ without
+subtracting the offset? Why is that larger?
+
+**C6.** Read the nucleus's median in the dye-2 image and its slope for the three guesses. Compare
+with B7. What does the nucleus look like in `dye2-over.png`? Compare Pearson's $r$ before and after
+compensation, and explain the sign after (demo question E4).
+
+**C7.** How much does the background noise grow with the similar dyes? Compare with B5.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `crosstalk/src/solution.rs` in the download.
+
+**C5.** $s_{21} = 0.249$ and $s_{12} = 0.050$, close to the true 0.25 and 0.05. Without subtracting
+the offset, $s_{21} = 0.271$. The offset adds 10 counts to both channels of every pixel: a fake
+component with a flat spectrum. For the dim nucleus pixels it lifts the ratio
+channel 2 / channel 1 most, and the line through the origin tilts up.
+
+**C6.** Guess 0.15: median 30.2, slope $+0.100$ (under-compensated, the ghost remains). Guess 0.25:
+median 0.0, slope $-0.001$ (flat, at the background level of $-0.3$). Guess 0.35: median $-30.3$,
+slope $-0.103$ (over-compensated). The slopes are $s_{21} - g$, as in B7(c). In `dye2-over.png`
+the nucleus is a dark hole, darker than the background: negative dye, which no stain can give.
+Pearson's $r$ inside the cell is 0.13 measured and $-0.19$ compensated. Compensation subtracts
+$0.25 \times$ channel 1 from channel 2, and with it channel 1's noise. Where both dyes are absent
+(most of the cytoplasm) the noise of the two compensated images is then negatively correlated.
+The bleed-through's positive correlation is gone; a small negative one from the noise remains.
+
+**C7.** The background noise has a standard deviation of 3.2 counts in channel 2 and 22.4 after
+compensation, 7 times more. $S_2^{-1}$ has entries of about 5, and adds the noise of both channels
+with weights $5.26$ and $-4.74$: $\sqrt{5.26^2 + 4.74^2} \approx 7$. This is B5: a small
+determinant, a large inverse. In `similar-dye2.png` the whole image is grainy, the nucleus most.
+:::
+
 ## Where this leads
 
 With two dyes and two channels, compensation is a $2 \times 2$ inverse. A spectral detector records many more channels than dyes, and the noise never fits all equations exactly: the next unit, [least-squares unmixing](../lsunmix/lec.qmd), takes the mixture closest to the measured spectrum, uses the residual to find missing components, and measures how much similar dyes amplify noise with the condition number. Compensation returns as the second correction in [what the microscope does to colocalisation](../coloc-confounds/lec.qmd) (day 44), and with cross-excitation added in [sensitised emission](../sensitised-emission/lec.qmd) on the FRET day (day 45).

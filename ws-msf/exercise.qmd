@@ -45,7 +45,7 @@ $$\begin{bmatrix} 1 & 3 & 9 & 4 \\ 2 & 5 & 8 & 6 \\ 3 & 7 & 2 & 7 \\ 4 & 9 & 6 &
 
 **B3.** (a) The 2's neighbours are 8 (above), 7 (left), 7 (right) and 6 (below). From B the path 0 → 6 → 2 has edges of altitude 6 and 6: highest 6. Every path from A has to enter through the 8 or one of the 7s: highest at least 7. So it joins B. (b) Prim (FIFO) gives
 $$\begin{matrix} A & A & A & B \\ A & A & A & B \\ A & A & B & B \\ A & A & B & B \end{matrix}$$
-The minimax distances agree: e.g. the 4 in the top-right corner reaches B over 6, 7, 6, 0 (highest 7) but A only across the 8 or the 9 (highest at least 8). (c) The cut edges have altitudes 7, 8, 8, 9, 9.
+The minimax distances agree, except where there is a tie, which the order of the queue decides. The 4 in the top-right corner reaches B through the cells 6, 7, 0 (highest edge 7), but it also reaches A at 7, through row 3: 4, 6, 7, 2, 7, 3, 2, 1 (edges 6, 7, 7, 7, 7, 3, 2). A tie at 7, which Prim's first-in-first-out order gives to B. The 9 in the bottom row is a tie too: every edge out of it has altitude 9. (c) The cut edges have altitudes 7, 8, 8, 9, 9.
 
 **B4.**
 
@@ -135,6 +135,100 @@ The same seeds and contrast weights $w = \exp(-\Delta I^2/2\sigma^2)$ segmented 
 **C4.** Yes: 1899 (walker), 1908 (cut) and 1911 (watershed) object pixels; the weak boundary at the waist (20 grey levels) is still the cheapest place for all three, and the seeds are well placed. Moving the background seed close to the waist mainly changes the walker (seed position); the cut and the watershed stay at the waist, where the image has its weakest link.
 
 **C5.** The watershed is the fastest (a few tens of ms in the browser), the graph cut next; the walker is solved iteratively over several frames (hundreds of CG iterations). The order matches the timing slide.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `ws-msf/src/exercise.rs`.
+A graph is a number of nodes and a list of edges `(a, b, d)`; markers are a list with 0 for a
+free node and the marker's label (1, 2, …) otherwise. Given: `incident_edges` (the edges of
+every node) and `EdgeQueue`, a priority queue that pops the cheapest edge, first in, first out
+among equal weights.
+
+**C1.** `altitude_edges(f)`: the pixel graph of a landscape $f$, every pixel with an edge to the
+right and one down, at the altitude of the pass $d_{pq} = \max(f_p, f_q)$.
+
+**C2.** `prim_from_markers(n, edges, markers)`: Meyer's flooding as Prim's algorithm from all
+markers at once. Returns the labels and the cut edges:
+
+```
+queue every edge from a marker to a free node        (marker nodes in index order)
+while the queue is not empty:
+    (a, b) = the cheapest edge (first in among equals)
+    if both ends have labels:
+        if the labels differ: it is a cut edge (watershed)
+    else:
+        give the free end the label of the other end
+        queue its edges to nodes that are still free
+```
+
+The checks are B1, B3 with its cut altitudes 7, 8, 8, 9, 9 (P1), a third marker (P2) and the
+plateau of P4.
+
+**C3.** `kruskal_from_markers(n, edges, markers)`: the same forest by Kruskal with a virtual
+root. Each component carries the label of the marker in it (or none):
+
+```
+for each edge (a, b, d), sorted by d (equal weights in list order):
+    A = find(a),  B = find(b)
+    if A ≠ B and not both carry a label:
+        join them; the new component carries the label of either
+```
+
+Two components that both carry a label are never joined: through the virtual root, the edge
+would close a cycle. The check compares with C2 on B1 and B3.
+
+**C4.** `minimax_distance(n, edges, source)`: the lowest possible highest edge on a path from
+`source` to every node: Dijkstra's algorithm (from the [live-wire unit](../livewire/lec.qmd))
+with $\max$ in place of $+$:
+
+```
+dist = ∞ everywhere, dist[source] = 0;  queue (0, source)
+while the queue is not empty:
+    take the node p with the smallest dist (skip it if already done); mark p done
+    for every edge (p, q, d):
+        if max(dist[p], d) < dist[q]:  dist[q] = max(dist[p], d);  queue (dist[q], q)
+```
+
+The checks are B1(c) (5 to A, 6 to B), and on B3, that every pixel went to a marker it reaches
+over the lowest highest pass.
+
+Then `cargo run -p ws-msf` and open the pictures in `out/ws-msf/`. The program floods a
+synthetic image of 18 nuclei from one marker per nucleus (a $3 \times 3$ square at its centre)
+and one on the image border, first on the gradient landscape, then with $|\Delta I|$ of the image
+itself as edge weights.
+
+**C5.** Compare `watershed.png` with `truth.png`. How many nuclei are matched (overlap ≥ 0.5),
+and where are the differences? How long did Prim take for 65 536 pixels?
+
+**C6.** Prim and Kruskal (C3) disagree at a few hundred pixels, although both build a minimum
+spanning forest. Why can two minimum spanning forests differ?
+
+**C7.** Look at `watershed-diff.png` (weights $|\Delta I|$ instead of altitudes). What went wrong,
+and why? Compare with demo question P3.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `ws-msf/src/solution.rs` in the download.
+
+**C5.** 15 of 18 nuclei are matched. Every nucleus that has its own marker is outlined along the
+crest of its gradient ring, and touching nuclei are split between their markers. The
+differences are where nuclei overlap in the truth: a nucleus partly hidden under a neighbour is
+only a sliver there, and the split between the two follows the gradient instead. Prim took
+about 50 ms in our run (including building the 130 560 edges).
+
+**C6.** Prim agreed with Kruskal at 64 998 of 65 536 pixels. A landscape has many edges of equal
+altitude (here between neighbouring pixels on a flat part of the gradient), and among equal
+weights there are several minimum spanning forests. Prim breaks ties by queue order (first in,
+first out), Kruskal by the order of the sorted edge list: different tie rules, different but
+equally cheap forests.
+
+**C7.** On $|\Delta I|$ only 13 of 18 nuclei are matched. Inside a nucleus and in the background
+the differences between neighbours are small (noise), and so are the steps across a blurred
+nucleus border: the highest step on a path out of a nucleus is not much higher than one inside.
+Some floods leak out into the background through a low step and grow ragged blobs there (the
+nucleus on the left). As in P3, differences measure change, not height: the watershed needs a
+landscape whose ridges are the boundaries.
 :::
 
 ## Where this leads

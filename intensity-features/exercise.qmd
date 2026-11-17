@@ -156,6 +156,91 @@ The demo measures one synthetic cell. All six patterns have the **same mask** (6
 **E9.** None: the gradient spreads the controls (64 to 133 on plate A), so their MAD and the robust scale grow, and the treated wells reach only $z$ = 0.4 to 1.4. Robust z corrects an offset and a gain, not a trend across the plate. With the row/column correction all four treated wells come back ($z$ 6.8–9.8 on plate A) and no other well passes. With gradient 0 robust z alone was enough.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `intensity-features/src/exercise.rs`.
+
+**C1.** `quantile(values, p)`, `mad(values)` and `robust_z(x, controls)`: quantiles by sorting,
+as in the Background table, then the MAD and the robust z-score built on them:
+
+```
+sort the values: v[0] ≤ v[1] ≤ … ≤ v[n−1]
+h  = (n − 1) · p
+lo = floor(h);   hi = min(lo + 1, n − 1)
+quantile = v[lo] + (h − lo) · (v[hi] − v[lo])
+
+MAD      = median of |v − median(v)|
+robust z = (x − median(controls)) / (1.4826 · MAD(controls))
+```
+
+The checks are your answers to B1(b), B1(c) and B7(b).
+
+**C2.** `object_stats(img, labels, label)`: collect the values of the pixels with that label, then
+the integrated intensity, mean, standard deviation (divide by $n$), minimum, maximum, median,
+quartiles and MAD. The checks use B1, B3 (offset and gain) and B4 (mask one pixel too large).
+
+**C3.** `edge_band(labels, label)`: the object pixels with a 4-neighbour outside the object:
+
+```
+for every pixel p with the label:
+    if one of its 4 neighbours is outside the image or has another label:
+        band(p) = true
+```
+
+The check is B2: the outer ring of 16 pixels, edge mean 2.44.
+
+**C4.** `mass_displacement(img, labels, label)`: both centroids from one pass over the pixels:
+
+```
+m00 = m10 = m01 = M00 = M10 = M01 = 0
+for every pixel (x, y) of the object, with value I:
+    m00 += 1;   m10 += x;     m01 += y
+    M00 += I;   M10 += I·x;   M01 += I·y
+geometric = (m10 / m00, m01 / m00);   weighted = (M10 / M00, M01 / M00)
+mass displacement = distance between them
+```
+
+The check is B5.
+
+**C5.** Radial rings: `ring_of(dc, de, k)` gives the ring of one pixel, $\min(k, \lfloor k\rho\rfloor + 1)$
+with $\rho = d_c/(d_c + d_e)$; `radial_distribution(values, rings, k)` adds up the intensity and
+the pixel count of every ring and returns FracAtD and MeanFrac. The checks are B6(a) and B6(b).
+
+Then `cargo run -p intensity-features` and open the pictures in `out/intensity-features/`. The
+program builds six cells like those of the lecture: one elliptic mask of 6521 pixels, values
+blurred a little and scaled so that every cell has mean 0.4. It prints one row of features per
+cell. `cells.png` shows the cells with the edge band (cyan), the geometric centroid (white +) and
+the intensity-weighted centroid (red +); `rings.png` shows the 4 rings in four tints.
+
+**C6.** Which columns of the table separate the uniform cell from the gradient? Which separate the
+bright rim from the nuclear cell? Is there a pair of cells that MeanFrac cannot tell apart?
+
+**C7.** The last three lines measure the uniform cell again: with an offset of 0.1 added to the
+whole image, and then with the mask also grown by 2 pixels. Which numbers move, and by how much?
+Compare with your answers to B3 and B4.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `intensity-features/src/solution.rs` in the download.
+
+**C6.** All six cells have the same integrated intensity (2608) and mean (0.400). Uniform and
+gradient have the same MeanFrac in every ring (1.02, 1.02, 1.02, 0.98) and the same edge / mean
+(0.68): a linear ramp adds as much on one side of each ring as it takes away on the other. They
+differ in the standard deviation (0.028 against 0.180), the maximum (0.41 against 0.75) and the
+mass displacement (0 against 11.5 pixels; in `cells.png` the red cross has moved towards the
+bright side). Bright rim and nuclear are told apart by edge / mean (2.08 against 0.21) and by
+MeanFrac (0.26 in the inner rings and 1.94 at the edge, against 3.11, 3.02, 0.43, 0.30); their mass
+displacement is 0 for both. The off-centre spot has the largest displacement, 12.8 pixels.
+
+**C7.** With the offset, the integrated intensity grows by $0.1 \cdot 6521 = 652$ (2608.5 →
+3260.4), the mean and the median by 0.1 (0.400 → 0.500, 0.407 → 0.507), and the standard deviation
+stays 0.028, as in B3. Growing the mask by 2 pixels adds blurred edge and background pixels: the
+mean drops to 0.476 and the standard deviation triples to 0.089, while the median stays 0.507. In
+this large object the median is the robust one; in the small block of B4 the extra pixels were the
+majority and the median dropped too. (The MAD is 0 here: more than half of the pixels of the
+uniform cell have exactly the same value.)
+:::
+
 ## Where this leads
 
 The intensity statistics treat the pixels of an object as a bag of values: they ignore how the values are arranged. The [next unit](../texture-features/lec.qmd), **texture**, looks at **pairs** of pixels: the co-occurrence matrix and the features computed from it. Later on, the feature table is the input of the [random forests day](../forest-objects/lec.qmd) (classifying objects) and of the [evaluation day](../replicates/lec.qmd) (turning measurements into claims). Per-object intensities in several channels are what the [unmixing](../crosstalk/lec.qmd), [colocalisation](../coloc/lec.qmd) and [FRET](../sensitised-emission/lec.qmd) days correct and compare.

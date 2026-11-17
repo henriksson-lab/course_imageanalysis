@@ -137,6 +137,87 @@ The left image shows the result: the inside ($\phi < 0$) tinted, the contour in 
 **E8.** With $\lambda_1/\lambda_2 = 2$ the inside (the objects, $c_1 = 0.68$) shrinks from 3563 to 3399 pixels; with 0.5 it grows to 3677. A heavier weight on the inside data makes a pixel need to be closer to $c_1$ to join (B8). (From a grid start, unequal weights can tip the whole image to one side before the means separate; that is why we change them only after convergence here.)
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `chanvese/src/exercise.rs`.
+The eight pixels of the exercises are an image one pixel high; $\phi < 0$ is inside.
+
+**C1.** `region_means(img, phi)`: $c_1$, the mean grey level where $\phi < 0$, and $c_2$, the
+mean where $\phi \ge 0$. The check is B1(a, b).
+
+**C2.** `energy(img, inside, lambda)`: the energy of a labelling, with the means of its two
+regions and the boundary counted as the number of pairs of neighbouring pixels with different
+labels:
+
+```
+c1, c2 = mean inside, mean outside
+E = 0
+for every pixel p:
+    E += (I(p) − c1)²  if p is inside, else (I(p) − c2)²
+    for the right and the lower neighbour q of p:
+        if exactly one of p, q is inside:  E += λ
+```
+
+The checks are the table of B1 and the two energies of B3(a).
+
+**C3.** `chan_vese_step(img, phi, c1, c2, params)`: one step for fixed means:
+
+```
+for every pixel:
+    κ = curvature of the level line of φ (as in the previous units)
+    δ = ε / (π (ε² + φ²))                                 # soft spike, largest near φ = 0
+    new φ = φ + Δt · δ · (λκ + ν + (I − c1)² − (I − c2)²)
+```
+
+The curvature is taken between neighbours (see the comment in the code), so that a single pixel
+that sticks out is smoothed too. The check is B2: a pixel of grey level 4 moves inside, one of
+grey level 2 moves out.
+
+**C4.** `chan_vese(img, phi0, params, iterations)`: repeat C1 then C3. The check is B4: from a
+start with only pixel 5 inside and $\lambda = 0$, it ends with pixels 4–7 inside and the means
+6.5 and 1.25: the threshold at $(c_1 + c_2)/2$.
+
+Then `cargo run -p chanvese` and open the pictures in `out/chanvese/`. The test image has objects
+at 0.7 on a background of 0.3 (a ring, a square, a disk with a blurred edge, a small disk, a bar 3
+pixels wide). The start is a grid of small blobs, $\phi = \sin(\pi x/8)\sin(\pi y/8)$; $\Delta t = 1$,
+$\varepsilon = 1$, 300 iterations. The program calls the brighter of the two regions the object
+(the energy does not care which is inside). Blue: the object; yellow: its boundary.
+`noise.png`: noise 0.3, the threshold at $(c_1 + c_2)/2$ (left) and Chan–Vese with $\lambda = 0.2$
+(right). `lambda.png`: noise 0.15, $\lambda = 0$, 0.1 and 1.
+
+**C5.** Compare the wrong pixels and the energies of thresholding and Chan–Vese in `noise.png`.
+Which has the lower energy, and why does thresholding not find it although it uses the same means?
+
+**C6.** In `lambda.png`, what happens to the bar, the small disk and the ring's hole as $\lambda$
+grows? With $\lambda = 0$, how many pixels still differ from the threshold at $(c_1 + c_2)/2$, and
+what should that number do with more iterations? *(math)* Should the ring's hole be filled for
+$\lambda = 1$? Compare the length of its boundary with the data cost of filling it (radius about
+10, contrast 0.4).
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `chanvese/src/solution.rs` in the download.
+
+**C5.** Chan–Vese: $c_1 = 0.69$, $c_2 = 0.30$, 318 wrong pixels, one clean outline per object (the
+thin bar is broken into a few pieces). Thresholding at 0.50: 4394 wrong pixels, speckle everywhere.
+The energy with $\lambda = 0.2$ is 1599 for Chan–Vese and 3262 for the threshold. The threshold
+minimises the data terms alone, pixel by pixel; every isolated noise pixel then costs four
+boundary edges, $4\lambda = 0.8$, more than the data it saves. Only the length term, which
+couples each pixel with its neighbours, removes them.
+
+**C6.** $\lambda = 0$: speckle around single noise pixels, 3345 wrong pixels; only 337 pixels still
+differ from the threshold at $(c_1 + c_2)/2$, and the number keeps falling (160 after 1200
+iterations): with $\lambda = 0$ Chan–Vese is thresholding with the isodata means. $\lambda = 0.1$:
+one clean outline per object, the thin bar and the small disk included, 103 wrong pixels.
+$\lambda = 1$: the bar and the small disk are gone, the square's corners are rounded and the
+ring's hole is filled, 850 wrong pixels (after 300 iterations a thin tongue from the start still
+joins the ring to the left edge; it is gone after 1200 iterations, 832 wrong). Filling the hole
+removes a boundary of length about $2\pi \cdot 10 = 63$, which costs $63\lambda$, and adds the data
+cost of about $\pi \cdot 10^2 \cdot 0.4^2 = 50$ (each hole pixel is 0.4 from $c_1$ instead of 0
+from $c_2$). For $\lambda = 1$ filling is cheaper ($50 < 63$); for $\lambda = 0.1$ it is not
+($50 > 6.3$).
+:::
+
 ## Where this leads
 
 Chan–Vese fits **two constants**. Real images need more: several phases (more level set functions), colour (a mean vector per region), shading (smoothly varying grey levels), and knowledge of the expected **shape** (shape priors from the snakes day's [shape models](../shape-models/lec.qmd)). The same energy on a pixel graph can be minimised globally with graph cuts ([graph cuts day](../graphcut-seg/lec.qmd)). The next day of this chain of days, **[dynamic programming](../dp-paths/lec.qmd)**, finds optimal curves in another way: as minimal paths, exactly and globally, for curves that can be ordered. In 3D the zero level of $\phi$ is a surface, drawn and measured with [marching cubes](../marchingcubes/lec.qmd) (day 47).

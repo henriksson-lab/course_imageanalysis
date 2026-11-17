@@ -124,6 +124,87 @@ The deconvolution day's lab in its inverse-only mode. A 128 × 128 test object (
 **E6.** The observed image does not change at all (the readout: the largest change of the observed image is about $2 \cdot 10^{-16}$, rounding). The truth now contains the grating, but the restoration cannot: its RMSE grows from 0.0138 to 0.0376. The grating's frequency is beyond the cut-off ($H = 0$), so it is invisible, and the inverse filter (like any method) has no data about it.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `illposed/src/exercise.rs`.
+
+**C1.** `circular_blur(f, kernel)`: blur a periodic row, where the right end continues at the
+left: $g_i = \sum_j k_j\, f_{i + j - r}$, positions taken modulo $n$. The checks are B2: the
+three objects with the same image, and the invisible wave $(1, -1, 1, -1)$.
+
+**C2.** `transfer(kernel, n)`: the gain $H(k)$ of a symmetric kernel for each wave
+$k = 0, \dots, n - 1$ on a periodic row of $n$ pixels, the eigenvalues of the circulant matrix:
+
+```
+for k = 0 .. n − 1:
+    H(k) = sum over j of kernel[j] · cos(2π k (j − r) / n)      # r = the middle of the kernel
+```
+
+The checks: $(1, 0.5, 0, 0.5)$ for $(1, 2, 1)/4$, B7 for $(0.2, 0.6, 0.2)$, and blurring each
+wave multiplies it by its $H(k)$.
+
+**C3.** `condition_number(kernel, n)`: $\max_k |H(k)| / \min_k |H(k)|$, infinite when some
+$H(k)$ is 0. The check is B7(c).
+
+**C4.** `otf2(psf, w, h)`: the OTF of a PSF for a periodic $w \times h$ image. Put the PSF into an
+image of zeros with its **centre on pixel (0, 0)**, wrapping around the edges (the pixel to the
+left of the centre goes to the right edge), then take the 2D Fourier transform. The checks: $H$ is
+1 at frequency 0 and real for a symmetric PSF, and a point blurred with it comes out as the PSF,
+not shifted.
+
+**C5.** `inverse_filter(g, otf)`: the inverse filter of the slide "Divide by H":
+
+```
+G = Fourier transform of g
+for every frequency:
+    if |H| = 0:  F̂ = 0            # nothing to divide by
+    else:        F̂ = G / H
+f̂ = real part of the inverse Fourier transform of F̂
+```
+
+The checks: without noise it restores the object exactly, and an object with an invisible
+checkerboard added gives the same image and the same restoration.
+
+Then `cargo run -p illposed` and open the pictures in `out/illposed/`. The program blurs the
+micrograph with Gaussian PSFs of $\sigma$ = 0.5 and 1 pixel, adds noise of standard deviation
+0 to 0.01 (grey values, 1 = white), and restores with your inverse filter. It prints the largest
+gain $1/|H|$ and the RMSE of the observed and the restored image against the object. The pictures
+are for $\sigma$ = 1 pixel.
+
+**C6.** For $\sigma$ = 1 pixel, look at the rows with noise 0.0001 and 0.001. Predict the RMSE of
+the restoration with noise 0.01 before you look at that row. Why is the prediction so simple?
+Why does the blur with $\sigma$ = 0.5 pixel never get into trouble?
+
+**C7.** Open `restored-noise-0.001.png` and `error-noise-0.001.png`. What does the error look like,
+and which frequencies does it consist of?
+
+**C8.** The last part adds a checkerboard of ±0.1 to the micrograph and blurs both with the kernel
+$(1, 2, 1)/4$ along $x$ and $y$. Compare `object-with-checkerboard.png` with
+`image-with-checkerboard.png`, and read the printed difference between the two images.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `illposed/src/solution.rs` in the download.
+
+**C6.** RMSE 0.0550 with noise 0.0001 and 0.5498 with 0.001: ten times the noise, ten times the
+error. So 0.01 gives about 5.5 (printed: 5.4981), 80 times worse than the observed image (0.0708).
+The inverse filter is linear: the restored image is the object plus the noise multiplied by the
+gains $1/H$, so the error is proportional to the noise. Without noise the restoration is exact
+(RMSE 0.0000), although the largest gain is 5013. With $\sigma$ = 0.5 pixel the largest gain is
+only 3: the noise is at most tripled, and the restoration beats the observed image at every noise
+level (0.0181 against 0.0295 at 0.01).
+
+**C7.** The restored image is buried under coarse grain that is clipped to black and white; the
+nucleus can just be guessed. The error image is a fine, even checkerboard-like pattern all over
+the image: the highest frequencies, where $H$ is smallest and the gain largest (up to 5013), as
+in E2 of the demo.
+
+**C8.** The object with the checkerboard is covered with a fine grid of dots; its image looks
+exactly like the blurred micrograph without it. The two images differ by at most $3.6 \cdot 10^{-7}$,
+rounding error: the checkerboard is the 2D version of the wave $(1, -1, 1, -1)$ of B2, with
+$H = 0$. Nothing in the data shows it, so no restoration can bring it back.
+:::
+
 ## Where this leads
 
 Today's diagnosis: the forward model alone does not determine the object. The **[deconvolution day](../deconv/lec.qmd)** shows how to add what we know about the object and the noise, how to choose how much to add ([regularisation](../regularise/lec.qmd)), and what may be measured in a restored image afterwards ([denoising and measurement](../denoise/lec.qmd)). Tomography meets the same diagnosis with line integrals instead of a PSF ([reconstruction](../algebraic-recon/lec.qmd)).

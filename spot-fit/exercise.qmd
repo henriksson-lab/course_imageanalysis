@@ -122,6 +122,92 @@ A 13 × 13 pixel patch with one simulated spot (pixel-integrated Gaussian of wid
 **E8.** Least squares 16.9 nm, maximum likelihood 15.2 nm (bound 10.0, Thompson 12.6 nm). The ratio 1.11 is below 4/3 here because with background the two formulas get closer (Mortensen's background term is the same for both); at low background and high $N$ the ratio approaches 4/3 (E5: 4.3/3.3 = 1.30).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `spot-fit/src/exercise.rs`.
+A 1D example of the by-hand part is a patch one pixel high.
+
+**C1.** `centroid(patch, background)`: $\hat x = \sum_k x_k (I_k - b)/\sum_k (I_k - b)$, and the same
+for $y$. The checks are B1 (a), (d) and B9.
+
+**C2.** The three-point rules: `parabola_vertex(cm, c0, cp)`, `log_parabola_vertex` (the same on
+the logarithms) and `three_point(patch, background, log)`, which applies them in 2D:
+
+```
+(bx, by) = the brightest pixel
+subtract the background from it and from its four neighbours
+x̂ = bx + vertex(I(bx−1, by), I(bx, by), I(bx+1, by))
+ŷ = by + vertex(I(bx, by−1), I(bx, by), I(bx, by+1))
+with vertex(a, b, c) = (a − c) / (2 (a − 2b + c))      # on ln a, ln b, ln c for the log-parabola
+```
+
+The checks are B1 (b)–(d), and a noise-free 2D spot at $(6.3, 5.8)$ that the log-parabola finds
+exactly.
+
+**C3.** `fit_amplitude_background(patch, x0, y0, s)`: with the position known, the best $A$ and
+$B$ of the model $B + A\,g$ from the $2 \times 2$ normal equations of the math slide. The check is
+B7 (a).
+
+**C4.** `position_step(patch, x0, y0, s, a, b)`: one Gauss–Newton step for the position, per axis:
+
+```
+for every pixel p:
+    g = exp(−((p_x − x0)² + (p_y − y0)²) / 2s²)
+    r = I(p) − (b + a·g)
+    Jx = a·g·(p_x − x0) / s²        Jy = a·g·(p_y − y0) / s²
+Δx0 = Σ Jx·r / Σ Jx²                Δy0 = Σ Jy·r / Σ Jy²
+```
+
+The check is B7 (b).
+
+**C5.** `fit_spot(patch, start, s, iterations)`: alternate C3 and C4. The checks: the B7 data end at
+0.300, and a noise-free 2D spot is fitted exactly.
+
+Then `cargo run -p spot-fit`. It prints the bias of each method on a noise-free spot (width 1 px,
+1 000 photons, background 20 per pixel) as the true centre moves across a pixel, and the RMS error
+over 500 seeded Poisson repeats for several photon counts $N$ and backgrounds $b$ (pixel and $s$
+both 100 nm). `out/spot-fit/` has a one-spot patch and a two-spot patch (3 px apart), each fitted
+with **one** spot, and their residuals (data − model, 0 = grey).
+
+**C6.** Read the bias table. Which methods are biased, in which direction, and how does the bias
+change with the offset δ? Compare with the bias tab of the demo.
+
+**C7.** Read the precision table. Which method comes closest to the bound $s/\sqrt N$? By what
+factor is the fit above it at $N$ = 100 and 1 000, and how does that compare with the lecture's
+16/9 for the variance? What does a background of 20 photons do at $N$ = 300?
+
+**C8.** Compare `one-residual.png` with `two-residual.png` and the printed residual sums of
+squares. What does the residual of the two-spot patch tell you?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `spot-fit/src/solution.rs` in the download.
+
+**C6.** The centroid (7 × 7 window, background not subtracted) is pulled towards the pixel
+centre, in proportion to the offset: −0.050, −0.099, −0.149, −0.199 px at δ = 0.1 … 0.4, as the
+centroid-bias formula predicts (the background's share of the light). The parabola is pulled the
+same way but less, and not in proportion: −0.022, −0.040, −0.048, −0.038 px, the S-shaped
+pixel-locking curve, zero at 0 and 0.5. The log-parabola (background subtracted) and the fit have
+no bias (0.000). The demo's −0.150 px for the centroid and −0.044 px for the parabola at 0.3 are
+almost the same; it integrates the spot over each pixel, the program samples it at the pixel
+centre.
+
+**C7.** The fit: 13.8 nm at $N$ = 100 and 4.3 nm at $N$ = 1 000 against bounds of 10.0 and 3.2,
+about 1.35 times the bound, close to $\sqrt{16/9} = 1.33$ for least squares. The log-parabola uses
+only five pixels and is far worse at low $N$ (27.5 nm at $N$ = 100), where a few counts make the
+logarithms noisy. The centroid in a 5 × 5 window with the background subtracted exactly does well
+without background (11.9 and 4.0 nm), but at $N$ = 10 000 it stays at 2.2 nm against 1.3 for the
+fit: the small window cuts off the tails of the spot, a bias that no number of photons removes.
+With $b$ = 20 at $N$ = 300 the fit gives 11.0 nm against a bound of 5.8 without background, almost
+twice: background photons carry no position information but add noise (the demo: 11.3 nm).
+
+**C8.** The one-spot residual looks like noise, a little larger in the middle, where the counts and
+therefore the Poisson noise are largest (sum of squares 1 889). The two-spot residual has a bright
+lobe on each side and a dark centre (sum of squares 13 196, seven times larger): the single model
+sits between the two spots, too much light in the middle and too little at both sides. That
+pattern is the signal to fit two spots ([next unit](../spot-crowd/lec.qmd)).
+:::
+
 ## Where this leads
 
 The fit assumed one spot per patch. The [next unit](../spot-crowd/lec.qmd) asks what happens when two spots overlap, when a fit with two spots is worth its extra parameters, and how to score a whole detector against ground truth: detection and localisation separately.

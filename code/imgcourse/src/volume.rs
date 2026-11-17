@@ -49,7 +49,7 @@ impl<T: Copy> Volume<T> {
         (0..d).flat_map(move |z| (0..h).flat_map(move |y| (0..w).map(move |x| (x, y, z))))
     }
 
-    pub fn map<U: Copy>(&self, f: impl Fn(T) -> U) -> Volume<U> {
+    pub fn map<U: Copy>(&self, mut f: impl FnMut(T) -> U) -> Volume<U> {
         Volume { width: self.width, height: self.height, depth: self.depth, data: self.data.iter().map(|&v| f(v)).collect() }
     }
 

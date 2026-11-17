@@ -108,6 +108,88 @@ A $256 \times 256$ image: a synthetic **colour scene**, a **grey scene** with te
 **S6.** At $K = 60$ ($S = 32$): recall 0.855, accuracy 0.957; the line has no superpixel of its own, and other boundaries (the faint step, the spots) are missed too. At $K = 400$ ($S = 12.8$): recall 0.938, accuracy 0.984.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `superpixels/src/exercise.rs`.
+The code works on grey images with grey levels scaled to 0–100 (like lightness), so that $m$
+means the same as for colour. Superpixels are a label image with labels $1, 2, \dots$
+
+**C1.** `slic_distance2(dv, dx, dy, m, S)`: $D^2 = d_v^2 + (m\,d_s/S)^2$ with $d_s^2 = dx^2 + dy^2$.
+The check is B1: 54 and 406.25 for $m = 10$, 804 and 500 for $m = 40$.
+
+**C2.** `slic_init(img, K)`: the grid start. Returns the centres (position and grey value) and $S$:
+
+```
+S = sqrt(N / K)
+for y = S/2, 3S/2, … (inside the image):
+    for x = S/2, 3S/2, …:
+        move (x, y) to the pixel of lowest gradient in its 3 × 3 neighbourhood,
+            gradient = (I(x+1, y) − I(x−1, y))² + (I(x, y+1) − I(x, y−1))²
+        add a centre there, with v = I(x, y)
+```
+
+**C3.** `slic_step(img, centres, labels, S, m)`: one k-means iteration with windows; returns the
+number of distances computed:
+
+```
+D = ∞ for every pixel
+for each centre k at (x, y, v):
+    for each pixel p in [x − S, x + S) × [y − S, y + S), inside the image:
+        d = slic_distance2(I_p − v, p_x − x, p_y − y, m, S)
+        if d < D(p):  D(p) = d,  label(p) = k + 1
+move each centre to the mean (x, y, v) of the pixels labelled with it
+```
+
+The checks: the superpixels of an image with one vertical edge do not cross the edge, and B2:
+one step on $256 \times 256$ with $K = 256$ computes a little under $4N$ distances (the windows
+at the border are cut off). `slic` (given) puts C2 and C3 together.
+
+**C4.** `enforce_connectivity(labels)`: every label keeps its largest 4-connected piece; every
+other piece (an orphan) takes the label of the pixel to the left of its first pixel (in scan
+order; above it in the first column). `pieces` (given) finds the pieces and their sizes.
+
+**C5.** `achievable_accuracy(sp, truth)` and `undersegmentation_error(sp, truth)`: the two
+measures of the Background table. `overlaps` (given) counts the pixels of every pair (superpixel,
+true region). The checks are B3(a), B3(b) and B3(d).
+
+**C6.** `boundary_recall(sp, truth, tol)`: the fraction of the true boundary edges (neighbour
+pairs with different true labels) that have a superpixel boundary edge of the same direction
+within `tol` pixels. The checks are B3(c) and B3(d) with `tol = 0`, and the quadrants of B3 with
+`tol = 2` (12 of 16: the right side of the object is 3 pixels from a quadrant boundary).
+
+Then `cargo run -p superpixels` and open the pictures in `out/superpixels/`. The program runs SLIC
+($K = 256$, 10 iterations) on the micrograph with $m = 5$, 20 and 80, and measures the superpixels
+of a synthetic nuclei image against its true labels for $K$ from 25 to 800 ($m = 20$, recall within
+2 pixels).
+
+**C7.** Compare `cell-m5.png`, `cell-m20.png` and `cell-m80.png`. How many pieces did each have
+before the connectivity clean-up (`cell-m5-no-cleanup.png`), and why so many for small $m$? How
+long did SLIC take?
+
+**C8.** Read the table for the nuclei. How do recall, error and accuracy change with $K$? Why is
+$K = 25$ so much worse? Look at `nuclei-k50.png` and `nuclei-k400.png`.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `superpixels/src/solution.rs` in the download.
+
+**C7.** $m = 5$: ragged superpixels that follow the texture; 10 974 pieces before the clean-up
+(the picture without clean-up is covered in boundaries). $m = 20$: compact superpixels, many
+following the nuclear envelope; 3323 pieces before. $m = 80$: nearly a grid of squares that
+ignores most edges; 286 pieces. With a small $m$, position hardly counts, so the speckled grey
+levels of the micrograph scatter each label over many fragments. After the clean-up all three
+have 256 superpixels (here every label keeps its largest piece). SLIC took about 40 ms for 10
+iterations in our run, the same for every $m$: the work depends on $N$, not on $m$ or $K$.
+
+**C8.** From $K = 25$ to 800: recall 0.740, 0.936, 0.971, 0.960, 0.975, 0.992; error 0.119, 0.043,
+0.017, 0.014, 0.014, 0.010; accuracy 0.940, 0.979, 0.992, 0.993, 0.993, 0.995. More superpixels
+lose fewer boundaries, but not strictly (the recall dips at $K = 200$). At $K = 25$, $S \approx 51$
+pixels, larger than the nuclei: superpixels straddle nuclei and background, and small nuclei get
+no superpixel of their own. At $K = 50$ most nuclei are already outlined by superpixel
+boundaries; at $K = 400$ every nucleus is cut into several superpixels, and the background is a
+regular grid whose boundaries mean nothing.
+:::
+
 ## Where this leads
 
 Superpixels are the leaves of [hierarchies](../merge-trees/lec.qmd) and the nodes of fast [graph cuts](../graphcut-seg/lec.qmd) and [random walkers](../random-walker/lec.qmd); with features per superpixel they feed [pixel classification](../pixelclass/lec.qmd). In 3D the same ideas give supervoxels.

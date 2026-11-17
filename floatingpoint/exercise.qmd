@@ -116,6 +116,84 @@ The demo adds up to $2^{22}$ (about 4 million, a 2048 × 2048 image) simulated 1
 **E8.** $4096$ values of about 1000 sum to about $4 \times 10^6 < 2^{24}$: every partial sum is an integer that float32 represents exactly, so no addition rounds.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `floatingpoint/src/exercise.rs`.
+Rust has 32-bit floats but no 16-bit ones, so you build float16 yourself.
+
+**C1.** `decode_f16(bits)`: the value of a float16 bit pattern.
+
+```
+s = top bit;  E = next 5 bits;  F = last 10 bits
+E = 0:       value = ± 2^(−14) · F/1024              (zero and subnormals)
+E = 31:      value = ± infinity if F = 0, else NaN
+otherwise:   value = ± 2^(E − 15) · (1 + F/1024)
+```
+
+The check is B1.
+
+**C2.** `round_to_f16(x)`: the nearest float16 to any number.
+
+```
+k = the whole number with 2^k ≤ |x| < 2^(k+1)
+gap = 2^(max(k, −14) − 10)
+r = round(|x| / gap) · gap        # a tie goes to the even neighbour
+if r > 65 504: r = infinity
+give r the sign of x
+```
+
+The checks are B2, B3, and that every one of the 63 488 finite float16 values rounds to itself.
+
+**C3.** Three sums, each with a rounding function `fl` applied after every operation (the identity
+for float32, whose additions round by themselves; `round_to_f16` for float16):
+
+```
+naive:     s = 0;  for each x:  s = fl(s + x)
+pairwise:  sum(list) = fl( sum(first half) + sum(second half) );  one number: itself
+Kahan:     s = 0, c = 0;  for each x:  y = fl(x − c);  t = fl(s + y);  c = fl(fl(t − s) − y);  s = t
+```
+
+The checks are B4 (the float16 count stops at 2048), B9 (Kahan reaches 2052) and a sum of
+$2^{20}$ pixel values in float32.
+
+**C4.** `variance_one_pass(xs)` ($\overline{x^2} - \bar x^2$) and `variance_two_pass(xs, sum)`
+(the mean first, then the mean of the squared deviations), in float32. The check is B5.
+
+Then `cargo run -p floatingpoint`: it prints its results and draws `out/floatingpoint/nan-spreads.png`.
+
+**C5.** Read the gaps of float16 near 1, 1000, 3000 and 65 000, and the largest error when 16-bit
+values are stored as float16. Compare with the slide "Floats are spaced unevenly" and with B3.
+
+**C6.** The program adds up $2^{22}$ simulated 16-bit pixels (mean 1000, SD 50). Compare the five
+means. For how many pixels is the naive float32 sum exact, and why there? What does the float16
+naive sum report, and why? Then compare the four variances.
+
+**C7.** How many pixels are NaN after 0, 1, 2 and 3 blurs (`nan-spreads.png`), and what is the
+mean of the last image? Compare with B6.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `floatingpoint/src/solution.rs` in the download.
+
+**C5.** The gaps are 0.000 98 near 1, 0.5 near 1000, 2 near 3000 and 32 near 65 000 (the program
+starts from 64 992, the nearest float16 to 65 000), as on the slide. Stored as float16, 16-bit
+values are exact up to 2048; the largest error is 1 up to 4096, 8 up to 32 768 and 16 up to
+65 504, and 65 535 becomes infinity.
+
+**C6.** The exact mean is 999.9934. Naive float32: 1010.0106, a relative error of $1.0 \cdot 10^{-2}$.
+Pairwise and Kahan: 999.9933, $2.0 \cdot 10^{-8}$. Float16 pairwise (values divided by 65 535):
+999.9847, $8.6 \cdot 10^{-6}$, fine for a half float. Float16 naive: 1.0000, because the running sum
+of the normalised values (about 0.015 each) sticks at 64, and $64 \cdot 65\,535 / 2^{22} \approx 1$
+(B8). The naive float32 sum is exact for the first 16 772 pixels: there the sum first passes
+$2^{24} = 16\,777\,216$, above which float32 cannot hold every integer. Variances: exact 2498.48;
+one pass −15 075 (a negative variance: cancellation); two passes with naive sums 2592.59 (the
+deviations are taken from the drifted mean, 1010 instead of 1000, which adds about $10^2$); two
+passes with pairwise sums 2498.48, correct. Both remedies are needed, as in demo question E7.
+
+**C7.** 1, 9, 25 and 49 NaN pixels: a 3 × 3, 5 × 5 and 7 × 7 square, as B6 predicts. The mean
+of the whole last image is NaN: one bad pixel spoils every sum it enters.
+:::
+
 ## Where this leads
 
 Every later method computes in floating point: filters, Fourier transforms, optimisation, neural networks (which often train in bfloat16 or half precision, with sums accumulated in float32 for exactly the reasons above). How a graphics card stores half floats and normalised integers is in [GPU formats](../gpuformats/lec.qmd); summing many numbers in parallel, in [the GPU day](../gpu-patterns/lec.qmd). When a result looks impossible (a negative variance, a NaN that spreads, a mean that depends on the image size), check the number format first.

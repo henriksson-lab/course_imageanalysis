@@ -157,6 +157,77 @@ One phantom, reconstructed by FBP with the Hann filter. Sliders: number of **ang
 **E10.** 180 views with $10^3$ photons each: RMSE 0.075; 30 views with $6 \times 10^3$ each: 0.083; 15 views with $1.2 \times 10^4$: 0.128. With FBP, spreading the photons over many views wins: noise falls with the total number of photons either way, but streaks from too few views do not go away with more photons per view.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `fbp/src/exercise.rs`. The
+projector and the back-projection of the two previous units are given.
+
+**C1.** `ram_lak(k)` and `ramp_kernel(K)`: the Ram–Lak kernel, $h[0] = \tfrac14$,
+$h[k] = -1/(\pi k)^2$ for odd $k$, 0 for even $k \ne 0$, and the list of its $2K + 1$ weights for
+$k = -K, \dots, K$. The checks are B2(a) and (b).
+
+**C2.** `filter(p, h)`: filter a projection with a kernel of $2K + 1$ weights:
+
+```
+for every bin i:
+    out[i] = sum over j = −K .. K of h[j] · p[i + j]       # p = 0 outside: zero padding
+```
+
+The checks are B1(a) and (b).
+
+**C3.** `fbp(sino, angles, n, h)`: filtered back-projection:
+
+```
+for every angle θ:  q_θ = filter(p_θ, h)
+back-project the q_θ                                        # times π / number of angles
+```
+
+The check: a disc of value 1 comes back as about 1 inside and 0 outside, without a glow.
+
+**C4.** `hann_kernel(K)`: a tapered ramp, the Ram–Lak kernel smoothed with
+$(\tfrac14, \tfrac12, \tfrac14)$: $h_\text{Hann}[k] = \tfrac14 h[k-1] + \tfrac12 h[k] + \tfrac14 h[k+1]$.
+In frequency, smoothing with these weights multiplies by $\cos^2(\pi f)$: the Hann taper with
+cutoff $\tfrac12$. The checks: $h_\text{Hann}[0] = \tfrac18 - \tfrac{1}{2\pi^2}$, and the kernel
+still sums to 0.
+
+Then `cargo run -p fbp` and open the pictures in `out/fbp/`. The program reconstructs a point
+from 16 angles (`point16-plain.png`, `point16-ramp.png`), the Shepp–Logan phantom from 200
+angles with plain back-projection, the ramp and Hann, the same with noise added to every line
+integral (`noisy-*.png`), from only 18 angles, and a disc from a ±60° tilt series
+(`disc-wedge.png`). It prints the RMS error against the phantom and the noise (standard
+deviation) in a flat patch.
+
+**C5.** Compare ramp and Hann, without and with noise: which has the smaller noise, which the
+smaller RMS error? Where in `noisy-hann.png` do you see what Hann costs?
+
+**C6.** Where do the streaks in `18-angles.png` start? How wide and how tall does the disc of
+diameter 61 come out of the ±60° tilt series, and why? (B3, B5.)
+
+**C7.** Count the cost of C2 with the full kernel ($K = n$) for 128 bins and 200 angles, and
+compare with the back-projection of a $128 \times 128$ image from 200 angles.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `fbp/src/solution.rs` in the download.
+
+**C5.** Without noise: ramp RMSE 0.059, noise in the flat patch 0.009; Hann RMSE 0.088, noise
+0.002. With noise: ramp RMSE 0.073, noise 0.042; Hann RMSE 0.090, noise 0.017, 2.5 times less.
+The ramp has the smaller error, Hann the smaller noise: Hann blurs the edges, most visibly the
+thin bright skull and the small structures, which cost RMS error, while it smooths the grain in
+the flat regions.
+
+**C6.** The streaks start at the skull, the strongest edge, and run straight out across the
+image and beyond the head (RMSE 0.139 against 0.088 with 200 angles): with 18 angles the smears
+of neighbouring angles no longer cancel. The disc comes out 60 pixels wide and 74 tall: stretched
+along the beam (vertical at 0° tilt), because the frequencies in the 60° wedge around the
+vertical axis were never measured, and its top and bottom edges blur.
+
+**C7.** Filtering: $200 \cdot 128 \cdot 257 = 6.6 \cdot 10^6$ multiplications. Back-projection:
+$128^2 \cdot 200 = 3.3 \cdot 10^6$ interpolated reads. The filter costs about as much as the
+back-projection itself. With a 1D FFT of each zero-padded projection (256 values) it costs a
+few thousand operations per projection instead of 33 000: that is why the lecture filters by FFT.
+:::
+
 ## Where this leads
 
 FBP needs many angles and enough photons, and it cannot use anything we know about the object. The next unit, [reconstruction as a linear system](../algebraic-recon/lec.qmd), writes reconstruction as a linear system $A\mathbf x = \mathbf b$, solves it iteratively (ART, SIRT), and adds **priors** (non-negativity, total variation), which is how low-dose CT and electron tomography cope with few views and missing wedges.

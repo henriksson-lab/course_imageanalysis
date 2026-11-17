@@ -147,6 +147,95 @@ The shape is a polygon rasterised at 256 × 256: drag the white handles to chang
 **E7.** One loop: the axis must separate the hole from the outside, and every method keeps it (thinning removes only simple pixels; the maximal discs on both sides of the hole are distinct). If the inner polygon touches the outer one, the ring is cut: the hole merges with the background, and the axis becomes a curved line with two ends.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `skel-medialaxis/src/exercise.rs`.
+The code indexes pixels as `img[(x, y)]` = (column, row), while this page writes (row, column).
+Erosion and dilation by the 3 × 3 cross or square are given.
+
+**C1.** `distance_transform(mask, metric)`, city-block or chessboard, in two raster passes:
+
+```
+DT = 0 on the background, a large number on the object
+forwards (row by row from the top left), for every object pixel p:
+    DT(p) = min(DT(p), DT(q) + 1)   for the neighbours q already visited
+            (city-block: left, above; chessboard: also above-left, above-right)
+backwards (from the bottom right): the same with the mirrored neighbours
+```
+
+Outside the image counts as background. The check is the distance transform of B1.
+
+**C2.** `medial_axis(dt, metric)`: the maximal-disc centres, the object pixels $p$ with no
+neighbour $q$ (one step away) where $\mathrm{DT}(q) \ge \mathrm{DT}(p) + 1$. The checks are B1(b)
+(13 pixels, city-block) and B1(d) (5 pixels, chessboard).
+
+**C3.** `reconstruct(axis, dt, metric)`: the union of the discs:
+
+```
+for every axis pixel p:
+    r = DT(p) − 1
+    mark every pixel q with dist(p, q) ≤ r
+```
+
+The checks are B1 (the rectangle comes back, both metrics) and B3 (the 5 × 6 rectangle).
+
+**C4.** `lantuejoul(mask, cross)`: the sets $S_r$:
+
+```
+E = mask;  r = 0
+while E is not empty:
+    S_r = E minus dilate(erode(E))       # E minus its opening
+    E = erode(E);  r = r + 1
+```
+
+The checks are B2(a) and (b), and B7: with the cross, $S_r$ are exactly the maximal-disc centres
+with $\mathrm{DT} = r + 1$.
+
+**C5.** `reconstruct_lantuejoul(skeleton, cross)`: the union of $S_r$ dilated $r$ times. Instead of
+dilating each $S_r$ on its own, go from the largest $r$ down: "dilate once, add the next $S_r$".
+The check is B2(c).
+
+Then `cargo run -p skel-medialaxis` and open the pictures in `out/skel-medialaxis/` (grey: the
+distance transform, red: the skeleton). For a rectangle of 176 × 72 pixels, a star, an ellipse and
+the same ellipse with a bump of radius 3 on its lower edge, the program prints the size of the
+axis for both metrics and for Lantuéjoul's formula (with the square), the number of separate
+pieces, and the number of pixels the reconstruction gets wrong.
+
+**C6.** Compare `rectangle-city-block.png` and `rectangle-chessboard.png`, and the pixel counts.
+Explain the difference with B1(d). How long is the middle segment? Compare with B8.
+
+**C7.** Every reconstruction is exact. Yet how many pieces does the axis of the star and of the
+ellipse have? What would that mean for measuring the length of a shape with it?
+
+**C8.** Compare `ellipse-city-block.png` with `ellipse-bump-city-block.png` near the bump. What did
+the bump (13 pixels added to a shape of 15 701) change, in the axis and in the distance transform?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `skel-medialaxis/src/solution.rs` in the download.
+
+**C6.** City-block: 352 pixels, a midline with four diagonals to the corners (an X at each end).
+Chessboard: 212 pixels, only the midline: a square disc fits a square corner, so the corner
+pixels lie inside one large disc, as in B1(d). The rectangle has an even height, so the midline is
+two rows thick: $212 = 2 \cdot 106$ pixels, from $x = 75$ to $x = 180$, about 105 long. The
+continuous medial axis of B8 has a middle segment of $a - b = 176 - 72 = 104$. Lantuéjoul with the
+square gives exactly the chessboard axis (212 pixels).
+
+**C7.** The star's axis falls into 35 pieces (city-block) or 121 (chessboard), the ellipse's into
+61 or 79, although every one rebuilds its shape without a single wrong pixel. Along a curved or
+slanted boundary, the maximal discs sit at scattered pixels and do not form a line. The discrete
+medial axis is a good shape code, but a poor curve: to measure length or count branches, thin
+first (connected), and read the radius from the distance transform along the thinned line.
+
+**C8.** The axis grows from 145 to 148 pixels and from 61 to 62 pieces: a new piece of 3 pixels
+sits on the bump itself, the centres of the small discs that fill it. In the distance transform a
+faint crease (a ridge) now runs from the bump up to the middle of the ellipse: there, fronts from
+the bump and from the rest of the lower edge meet. In the continuous medial axis the crease is a
+whole new branch, and a thinned skeleton turns it into one (slide "Sensitivity to the boundary");
+on the grid, with city-block discs, only its end on the bump survives as maximal discs. Either way,
+0.1 % of the area changes the skeleton.
+:::
+
 ## Where this leads
 
 The skeleton is a set of pixels. The [next unit](../skel-graph/lec.qmd) turns it into a **graph** (end points, junctions, branches with lengths), corrects the length for the pixel grid, and **prunes** the spurs that boundary noise creates. The distance transform on the skeleton becomes the **radius** of each branch, the key measurement for vessels.

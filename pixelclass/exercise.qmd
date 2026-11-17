@@ -147,6 +147,94 @@ The test image: background (illumination rising to the right), smooth **nuclei**
 **E9.** With nucleus and background only: the nucleus is found, but so is much of the cytoplasm and other dark material (it is neither the light background nor anything else the forest knows). With the cytoplasm strokes, the cytoplasm around the nucleus and the cell processes become cytoplasm; the nucleus is mostly nucleus, with its lower part and its envelope partly called cytoplasm. Paint nucleus in the lower part of the nucleus and cytoplasm or background where the result is uncertain (the uncertainty view).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `pixelclass/src/exercise.rs`.
+
+A random forest is ready in the download (the forest of the [forest unit](../forest/exercise.qmd#code),
+with class weights), and so is Gaussian smoothing, `gaussian(img, σ)`. The code writes a pixel as
+$(x, y)$ = (column, row): the centre of the patch in B1 is `(2, 2)`.
+
+**C1.** `pixel_features(img, x, y)`: the three features of B1, with the edge pixel copied
+outside the image:
+
+```
+b = the mean of the 3 × 3 neighbourhood
+g = sqrt(gx² + gy²),   gx = (I(x+1, y) − I(x−1, y)) / 2,   gy = (I(x, y+1) − I(x, y−1)) / 2
+l = I(x+1, y) + I(x−1, y) + I(x, y+1) + I(x, y−1) − 4 · I(x, y)
+```
+
+The checks are B1 (a) and (c).
+
+**C2.** `feature_stack(img, sigmas)`: three channels per scale:
+
+```
+for every σ:
+    L = the image smoothed with a Gaussian of scale σ
+    channel: L                                   # intensity
+    channel: g of C1, computed on L, at every pixel     # edges
+    channel: σ² · l of C1, computed on L          # blobs (Laplacian of Gaussian)
+```
+
+The checks: on a flat image the edge and blob channels are 0; at a bright spot the blob channel
+is negative.
+
+**C3.** `class_weights(counts)`: $w_k = n / (K\, n_k)$; `weighted_shares(counts, weights)`: the
+class shares of a leaf when every pixel of class $k$ counts $w_k$ times. The check is B2: weights
+0.525 and 10.5, and the leaf with 8 B and 2 N says $P(\text{N}) = 0.83$ instead of 0.2.
+
+**C4.** `confusion(truth, predicted, n_classes)`: $m[t][p]$ = the number of pixels of true class
+$t$ predicted as $p$; `dice(m, k)` $= 2\,TP / (2\,TP + FP + FN)$ for class $k$, with $TP = m[k][k]$,
+$FP$ the rest of column $k$ and $FN$ the rest of row $k$. The check is B3.
+
+Then `cargo run -p pixelclass` and open the pictures in `out/pixelclass/`. The test image
+(`input.png`, $256 \times 256$) has a background that gets brighter to the right, smooth nuclei,
+and granular cells about as bright as the nuclei; `truth.png` shows the classes (green = nucleus,
+magenta = granular cell). The program "paints" strokes on the **left half** only
+(`strokes.png`): through three nuclei, three granular cells and the background. It trains a
+forest (50 trees) on the painted pixels with the stack at σ = 0.7, 1.6, 3.5 and 8 (12 channels),
+classifies every pixel, and scores the result against the truth on the left half and on the
+held-out right half. It repeats this with balanced class weights, with the intensity channels
+only, and with the small scales only. For each run it writes the segmentation, the nucleus
+probability and the uncertainty ($1 - \max_k P$).
+
+**C5.** Compare the OOB accuracy with the accuracy and the Dice coefficients on the right half.
+Which number would you report, and why is the OOB number so high?
+
+**C6.** What do the edge and blob channels add? Compare the full stack with the intensity
+channels only, for the granular cells. Then compare with the small scales only: which does better
+on the right half, and why could that be?
+
+**C7.** Look at `full-stack-uncertainty.png` and `full-stack-segmentation.png`. Where is the
+forest uncertain, and where would you paint next?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `pixelclass/src/solution.rs` in the download.
+
+**C5.** Painted: 1119 background, 144 nucleus and 138 granular-cell pixels. The OOB accuracy is
+99.4 %, but on the held-out right half only 94.1 % of the pixels are right, with Dice 0.75 for
+the nuclei and 0.58 for the granular cells (left half: 97.7 %, 0.77, 0.82). Report the held-out
+numbers. The OOB votes are cast on painted pixels, whose neighbours (near copies) were in the
+trees' samples, and which sit in the middle of objects and of the background, where painting was
+easy (Trap 1).
+
+**C6.** With the intensity channels only (4 channels) the right half drops to 90.3 %, Dice 0.47
+(nuclei) and 0.29 (granular): smoothed brightness cannot tell a speckled cell from a smooth
+nucleus of the same brightness, while the gradient at small σ can (as in demo question E2). The
+small scales only (σ ≤ 1.6, 6 channels) do slightly **better** than the full stack on the right
+half (95.1 %, Dice 0.77 and 0.63). The large-scale intensity channels see mostly the
+illumination, which on the right half is brighter than anything that was painted: the forest has
+learned "bright surroundings" from the left half, and that does not carry over. (Balancing the
+classes changes little here: 94.2 %, Dice 0.74 and 0.62.)
+
+**C7.** The uncertainty is high on the rims of all objects, where the classes meet (the forest
+often calls the rim of a nucleus "granular": the edge gives a strong gradient, as the speckle
+does), and on the brightest background at the right edge of the image, which looks like nothing
+painted; there the segmentation has scattered granular-cell pixels. Paint background on the
+right, and a nucleus and a granular cell on the right half, then retrain.
+:::
+
 ## Where this leads
 
 The forest on a hand-made stack is the strong baseline from a few strokes. The [**SVM** day](../pixel-classify/lec.qmd) plugs a support-vector machine into the same demo, where feature standardisation and by-stroke cross-validation become essential. The [**neural-networks** day](../unet/lec.qmd) replaces the hand-made stack by filters that a network learns itself (U-Net), at the price of many more labels. The [**evaluation** day](../object-eval/lec.qmd) measures segmentations object by object and makes the "split by image" rule precise ([leakage](../leakage/lec.qmd)). The [**Gaussian mixtures** day](../kmeans/lec.qmd) models each class instead of drawing a boundary, and can do without labels.

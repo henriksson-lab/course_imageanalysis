@@ -85,17 +85,17 @@ impl<T: Copy> Image<T> {
     }
 
     /// A new image with `f` applied to every pixel value.
-    pub fn map<U: Copy>(&self, f: impl Fn(T) -> U) -> Image<U> {
+    pub fn map<U: Copy>(&self, mut f: impl FnMut(T) -> U) -> Image<U> {
         Image { width: self.width, height: self.height, data: self.data.iter().map(|&v| f(v)).collect() }
     }
 
     /// A new image with `f(x, y, value)` at every pixel.
-    pub fn map_xy<U: Copy>(&self, f: impl Fn(usize, usize, T) -> U) -> Image<U> {
+    pub fn map_xy<U: Copy>(&self, mut f: impl FnMut(usize, usize, T) -> U) -> Image<U> {
         Image::from_fn(self.width, self.height, |x, y| f(x, y, self[(x, y)]))
     }
 
     /// Combine two images of the same size pixel by pixel: `a.zip_map(&b, |p, q| p - q)`.
-    pub fn zip_map<U: Copy, V: Copy>(&self, other: &Image<U>, f: impl Fn(T, U) -> V) -> Image<V> {
+    pub fn zip_map<U: Copy, V: Copy>(&self, other: &Image<U>, mut f: impl FnMut(T, U) -> V) -> Image<V> {
         assert_eq!((self.width, self.height), (other.width, other.height), "zip_map: images of different sizes");
         let data = self.data.iter().zip(&other.data).map(|(&a, &b)| f(a, b)).collect();
         Image { width: self.width, height: self.height, data }
@@ -130,12 +130,13 @@ impl Image<f32> {
         self.data.iter().copied().fold(f32::NEG_INFINITY, f32::max)
     }
 
+    /// The sum of all pixels (added up in f64, so that large images stay accurate).
     pub fn sum(&self) -> f32 {
-        self.data.iter().sum()
+        self.data.iter().map(|&v| v as f64).sum::<f64>() as f32
     }
 
     pub fn mean(&self) -> f32 {
-        self.sum() / self.data.len() as f32
+        (self.data.iter().map(|&v| v as f64).sum::<f64>() / self.data.len() as f64) as f32
     }
 }
 

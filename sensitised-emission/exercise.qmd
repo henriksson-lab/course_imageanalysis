@@ -126,6 +126,83 @@ A seeded field of eleven cells: donor only (cells 1 and 7), acceptor only (2, 8)
 **E6.** Shift: the fusion cells get a red rim on one side and a blue rim on the other ($I_{DA}$ is displaced by one pixel); the class values change only a little (fusion 0.29) because the rims cancel when summed over a cell, but pixel values (and anything thresholded on them) are wrong. Forgot the background: the controls' slopes are pulled up by the offset ($d = 0.635$, $a = 0.411$), and then every class is wrong (donor only −0.058, no FRET −0.190, fusion 0.08). An offset is a component that is the same in all three images; it is not proportional to any dye, so a slope through the origin cannot describe it.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `sensitised-emission/src/exercise.rs`.
+The images are photon counts with the background already subtracted.
+
+**C1.** `slope_through_origin(x, y, mask)` $= \sum xy / \sum x^2$ over the mask: $d$ from a
+donor-only sample ($x = I_{DD}$, $y = I_{DA}$), $a$ from an acceptor-only sample ($x = I_{AA}$).
+The check is B1.
+
+**C2.** `corrected_fret(idd, ida, iaa, d, a)` and `fc_noise(idd, ida, iaa, d, a)`: at every pixel
+$F_c = I_{DA} - d\,I_{DD} - a\,I_{AA}$, and its photon noise
+$\sqrt{I_{DA} + d^2 I_{DD} + a^2 I_{AA}}$. The checks are B2(a), B3 and B4(a, b).
+
+**C3.** `e_app(fc, idd, g)`: $E_\text{app} = F_c/(F_c + G\,I_{DD})$ at every pixel (0 where the
+denominator is not positive). The checks are B2(b) and B3.
+
+**C4.** `per_cell(fc, idd, iaa, labels, g)`: the values of every cell from **sums** over its pixels:
+
+```
+for every pixel with label l > 0:
+    sum_Fc[l] += F_c;  sum_DD[l] += I_DD;  sum_AA[l] += I_AA;  area[l] += 1
+for every label l:
+    E_app        = sum_Fc / (sum_Fc + G · sum_DD)
+    per acceptor = sum_Fc / sum_AA
+    symmetric    = sum_Fc / sqrt(sum_DD · sum_AA)
+```
+
+The check is two cells with the pixel of B2, the second with twice the acceptor (B5).
+
+Then `cargo run -p sensitised-emission` and open the pictures in `out/sensitised-emission/`. The
+program simulates the three images of fields of cells with photon noise (true $d = 0.5$,
+$a = 0.1$, $G = 2$, about 300 photons per pixel). It measures $d$ and $a$ on a donor-only and an
+acceptor-only field, then prints a table per cell of a field with five kinds of cells (donor only,
+acceptor only, no FRET, a fusion with $E = 0.3$, binding with half the donors paired at
+$E = 0.4$): the mean $F_c$ per pixel, the true $fE$, $E_\text{app}$ and the two indices. It
+repeats the table with $d = 0.4$, and with three times as much acceptor in the FRET cells.
+Pictures: the labels, the FRET channel, $F_c$ (0 = grey) and $E_\text{app}$ (black 0, white 0.4).
+
+**C5.** Compare the coefficients from the controls with the truth, and $E_\text{app}$ of each
+kind with the true $fE$. Why does the table show no $E_\text{app}$ for the acceptor-only cells,
+and what does `e-app.png` show there?
+
+**C6.** With $d = 0.4$: which cells now show FRET, how much, and does it depend on the cell?
+
+**C7.** With three times the acceptor: which numbers of the fusion and binding cells change, and
+by what factor? Compare with B5.
+
+**C8.** The program prints the mean and sd of the pixel values of $E_\text{app}$ in one fusion
+cell. How precise is one pixel, and how precise is the cell value?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `sensitised-emission/src/solution.rs` in the download.
+
+**C5.** $d = 0.498$ and $a = 0.100$ (true 0.5 and 0.1). $E_\text{app}$: fusion 0.298, 0.309,
+0.301 (true 0.30); binding 0.203, 0.201, 0.195 (true 0.20); no FRET 0.002 to 0.003; donor only
+−0.001 to 0.003. An acceptor-only cell has no donor: $F_c$ and $I_{DD}$ are both noise around 0, so
+their ratio means nothing. In `e-app.png` those cells are speckled with white pixels (noise divided
+by noise), while the no-FRET and donor-only cells are black and the FRET cells grey to white.
+
+**C6.** All cells with donor get a false $F_c = 0.098\,I_{DD}$: the donor-only cells 25 to 30
+photons per pixel, $E_\text{app}$ 0.046 to 0.049; the no-FRET cells 0.049; the fusion cells 0.322
+to 0.331 instead of 0.30, the binding cells 0.226 to 0.233 instead of 0.20. In photons per pixel the
+false signal is largest in the cells with the most donor; as $E_\text{app}$ it is about the same in
+every cell, because $E_\text{app}$ also divides by the donor.
+
+**C7.** $E_\text{app}$ does not change (fusion 0.297, 0.309, 0.301). $F_c/I_{AA}$ drops to a third
+(0.383 → 0.127 in cell 4), $F_c/\sqrt{I_{DD}I_{AA}}$ by about $\sqrt3$ (0.570 → 0.328, a factor of
+1.74). Even with one acceptor level, the indices differ between the three fusion cells (0.31 to
+0.53 per acceptor), because each cell has its own donor:acceptor ratio. As B5.
+
+**C8.** One pixel: $0.298 \pm 0.037$ (sd over the 61 pixels of cell 4), about 12 % of the value,
+as B4 predicts for a pixel with a few hundred photons. The cell value (ratio of sums) is 0.298; its
+noise is about $0.037/\sqrt{61} \approx 0.005$, which matches the spread of the three fusion cells
+around 0.30.
+:::
+
 ## Where this leads
 
 Sensitised emission needs two coefficients, a calibration factor $G$ and three images per time point, but works in living cells over time. The [next unit](../acceptor-bleach/lec.qmd) measures $E$ from the **donor alone**, before and after destroying the acceptor: no coefficients, one end point. Spectral detectors replace $d$ and $a$ by least-squares unmixing of the whole emission spectrum ([lsunmix](../lsunmix/lec.qmd)).

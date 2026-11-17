@@ -173,6 +173,96 @@ A 256 × 256 synthetic image (discs of radii 2–20 px, Gaussian spots, a touchi
 **E10.** Dark granules, vesicles and dark spots in the fibrous background: 144 detections at threshold 50 (no truth for this image). The granule near (106, 68) responds best at σ = 3.65 (radius 5.2). The nucleus itself, about 45 pixels in radius, would need σ ≈ 32, outside the range.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `scale-space/src/exercise.rs`.
+The Gaussian blur of the [edges unit](../canny/exercise.qmd#code) is given, ready to use.
+
+**C1.** `normalised_log(img, sigma)`: the normalised LoG, with bright blobs positive, and
+`zero_crossings(row)`:
+
+```
+L = I blurred with a Gaussian of width σ
+for every pixel (x, y):
+    Lxx = L(x−1, y) − 2 L(x, y) + L(x+1, y)
+    Lyy = L(x, y−1) − 2 L(x, y) + L(x, y+1)
+    out(x, y) = −σ² · (Lxx + Lyy)
+
+zero crossing between i and i+1 (values a and b of opposite sign) at  i + a / (a − b)
+```
+
+The checks are B1 (the box of half-width 3: σ = 3 wins), a disc of radius 6 (best σ near
+$6/\sqrt2 = 4.24$) and B6 (the edge at 2.5).
+
+**C2.** `detect_blobs(stack, sigmas, threshold)`: maxima in $(x, y, \sigma)$.
+
+```
+for every scale k and every pixel (x, y) not on the edge of the image:
+    v = stack[k](x, y)
+    a blob if v > threshold and v > every neighbour stack[k + dk](x + dx, y + dy)
+        for dk, dx, dy in −1, 0, 1 (not all 0; only scales that exist)
+```
+
+The check finds two discs of radius 4 and 10 at the right scale ($\sqrt2\,\sigma$ within 25 % of
+the radius).
+
+**C3.** `dog(img, sigma, k)`: the image blurred at $k\sigma$ minus the image blurred at σ. The
+check is B3: −5.12 at the centre of the bump.
+
+**C4.** The pyramids: `downsample` (blur with σ = 1, keep every second pixel), `upsample` (back to
+twice the size by bilinear interpolation), and
+
+```
+laplacian_pyramid:  g = I
+                    repeat levels − 1 times:  g2 = downsample(g);  store g − upsample(g2);  g = g2
+                    store g
+reconstruct:        g = last level
+                    for the other levels l, from the second last to the first:  g = l + upsample(g)
+```
+
+The checks are B4 (64 × 64 gives sides 64, 32, …, 1 and 5461 pixels in all) and an exact
+reconstruction.
+
+Then `cargo run -p scale-space` and open the pictures in `out/scale-space/`. The test image has
+discs of radii 3 to 16, a touching pair of radius 10 and an elongated blob (26 × 5), on a
+background that brightens to the right; the program detects blobs over 16 scales, σ = 1 … 16,
+and draws them as circles of radius $\sqrt2\,\sigma$ in `blobs-detected.png`.
+
+**C5.** How many detections are there, and how many of the 9 discs are hit? Compare the printed
+radii $\sqrt2\,\sigma$ with the true radii. What is detected at the touching pair and at the
+elongated blob, and why?
+
+**C6.** The program also detects with the **raw** LoG (the normalised one divided by σ² again).
+How many detections, at which σ, and how many discs are hit? Then compare the printed DoG
+($k = 1.2$, σ = 4) with $-(k - 1)$ times the normalised LoG at the centre of the disc of radius 8.
+
+**C7.** Look at `gaussian-pyramid.png` and `laplacian-pyramid.png`. How many pixels do the five
+Gaussian levels hold, compared with the image? What is the largest error of the reconstruction,
+and why is it not exactly 0?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `scale-space/src/solution.rs` in the download.
+
+**C5.** 13 detections; all 9 discs are hit. The radii come out as 2.96, 5.16, 7.46, 13.00, 15.63,
+6.20, 4.29, 8.98 and 8.98 for true radii 3, 5, 8, 12, 16, 6, 4, 10 and 10: within one scale step
+(20 %) of the truth. The touching pair gets its two circles (σ = 6.35) plus one large circle around
+both (σ = 11.06, at (63, 205)): at a coarser scale the pair is one blob. The elongated blob gets a
+row of three small circles (σ = 2.09 to 2.52) along its length: the LoG fits its width (5), not
+its length.
+
+**C6.** The raw LoG with threshold 0.12 gives 88 detections, all at the smallest scale σ = 1, and
+only 2 of the 9 discs are hit; the rest are noise. Blurring flattens the image, so raw second
+derivatives shrink as σ grows and the smallest scale always wins. The DoG is −0.0574 and
+$-(k - 1)$ times the normalised LoG is −0.0549: within 5 %, as the lecture's $(k - 1)^2$ error term
+predicts.
+
+**C7.** 87 296 pixels for the 65 536 of the image: 1.33 times, the 4/3 of B4. The largest
+reconstruction error is $1.5 \cdot 10^{-8}$: the telescoping sum is exact in real numbers, and what
+is left is the rounding of 32-bit floating-point numbers (as in demo question E9). The detail levels
+are mostly mid-grey (near 0), with the fine texture at the top level and coarser structure below.
+:::
+
 ## Where this leads
 
 The LoG is the **trace** of the Hessian: it adds the curvatures in two directions and cannot tell a blob from a line. The [next unit](../hessian/lec.qmd) uses both curvatures separately: blobs, ridges and saddles, and vesselness. Later, LoG/DoG at the spot size is the first step of [point detection](../spot-filters/lec.qmd), and DoG extrema over scales are the interest points of [keypoints](../keypoints/lec.qmd).

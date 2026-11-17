@@ -155,6 +155,86 @@ The image (click to set a reference colour), a 2D histogram of two chromatic coo
 **S6.** RGB, $k = 4$: clusters sized 5797, 968, 4119, 5500; the best matches the apple with Dice 0.422: the dark half of the apple joins the dark (shadowed) pixels, the lit half joins other bright saturated pixels. Lab: best cluster Dice 0.765: better, since $a^*$ separates red, but $L^*$ still splits by shadow. Otsu on $a^*$: threshold 21.2, Dice 0.943: one well-chosen number beats clustering in three.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `colour-perceptual/src/exercise.rs`.
+Colours have R, G, B in $[0, 1]$ (codes divided by 255).
+
+**C1.** `rgb_to_hsv(c)`: hue in degrees, saturation and value:
+
+```
+M = max(R, G, B),  m = min(R, G, B),  d = M − m
+V = M;  S = d / M (0 if M = 0)
+if d = 0:      H = 0                          # a grey: hue undefined
+else if M = R: H = 60° · ((G − B)/d mod 6)
+else if M = G: H = 60° · ((B − R)/d + 2)
+else:          H = 60° · ((R − G)/d + 4)
+```
+
+The checks are B1, B3(a) and B4.
+
+**C2.** `circular_mean(hues)`: the angle of the mean unit vector, and its length:
+
+```
+sx = Σ cos H_i,  sy = Σ sin H_i
+mean = atan2(sy, sx), turned into [0°, 360°)
+R = sqrt(sx² + sy²) / n
+```
+
+The checks are B2(a) and (b).
+
+**C3.** `srgb_to_lab(c)` and `delta_e(lab1, lab2)`: decode, multiply by the sRGB matrix to get
+XYZ, then the formulas of the slide "The math: from XYZ to Lab" with the D65 white; ΔE is the
+Euclidean distance. The checks are B5 (the 18 % grey, the yellow and the dark green pairs).
+
+**C4.** `hue_mask(img, h_lo, h_hi, s_min, v_min)`: a hue wedge with floors:
+
+```
+for every pixel:
+    H, S, V = hsv(pixel)
+    if h_lo ≤ h_hi: in_hue = h_lo ≤ H ≤ h_hi
+    else:           in_hue = H ≥ h_lo or H ≤ h_hi       # wraps through 0°, B2(c)
+    mask = in_hue and S ≥ s_min and V ≥ v_min
+```
+
+**C5.** `kmeans(points, centres, iterations)`: isodata in 3D, the loop of the slide "Clusters:
+isodata in 3D" (assign every point to the nearest centre, move every centre to the mean of its
+points). The check is B9.
+
+Then `cargo run -p colour-perceptual` and open the pictures in `out/colour-perceptual/`. The
+program makes a synthetic scene (`scene.png`) whose red apple is half in shadow. It segments the
+apple with the RGB threshold $R' \ge 120$, $G', B' \le 90$ (`rgb-threshold.png`) and with the hue
+wedge 340°–20°, $S \ge 0.4$, $V \ge 0.1$ (`hue-wedge.png`). It also runs the wedge without floors
+on a noisier copy (`hue-no-floor.png`), and k-means with 4 clusters from the same starting pixels in
+RGB and in Lab (`kmeans-rgb.png`, `kmeans-lab.png`, each pixel in its cluster's mean colour). It
+prints the Dice coefficient against the true apple for each.
+
+**C6.** Compare the Dice of the RGB threshold and of the hue wedge. Which part of the apple does
+the threshold miss, and why does the wedge not miss it (B3)? What happens without the floors?
+
+**C7.** Which clusters does k-means find in RGB, and in Lab? Why is the apple a cluster of its own
+only in Lab?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `colour-perceptual/src/solution.rs` in the download.
+
+**C6.** The RGB threshold reaches Dice 0.767: it keeps only the lit upper-left half of the apple.
+The shadow lowers $R'$ below 120. The hue wedge reaches 1.000: a shadow scales R, G and B together,
+which keeps hue and saturation (B3), so the shaded half is found too. Without floors, on the
+noisier image, the Dice drops to 0.458: 12 434 pixels outside the apple are selected, mostly
+scattered single pixels of the dark, low-saturation table and shadow, where a little noise sends
+the hue anywhere (B4).
+
+**C7.** In RGB the four clusters are the lit table, the shaded table, the blue cup, and one cluster
+that holds the apple *and* the yellow fruit (painted orange). Its Dice for the apple is only 0.780.
+RGB distance mixes brightness with colour: the brightness difference between lit and shaded table
+is larger than the colour difference between the red and the yellow fruit. In Lab the clusters are
+the table (lit and shaded together), the apple (Dice 1.000), the cup, and the yellow fruit with the
+leaf. $a^*$ separates red from yellow and green, and the compressed lightness weighs the shadow
+less. (With other starting pixels k-means can end differently: it finds a local optimum.)
+:::
+
 ## Where this leads
 
 Colour is now a set of coordinates in which a class can be a simple region. The next unit, [colour for display](../colour-display/lec.qmd), turns the question around: how to **display** data with colour (colour maps, channel merges, colour-blind viewers) and how PCA of the colour cloud brings out faint colour differences. A colour model per class becomes the data term of a **graph cut** ([day 27](../graphcut-seg/lec.qmd)), which adds smoothness to the pixel-wise decisions.

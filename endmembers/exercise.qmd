@@ -150,6 +150,90 @@ The same cell recorded with 16 channels and Poisson noise, now treating the spec
 **M6.** The three known spectra are kept exactly (0°); the fourth is about 28° from the true autofluorescence. It follows the broad shape but has **dips** where the known dyes peak: the true broad spectrum minus a bit of each known spectrum is still non-negative, and the abundances of the known dyes absorb the difference. Both explain the data, so the data cannot decide: knowing some spectra reduces the non-uniqueness but does not remove it for a broad spectrum.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `endmembers/src/exercise.rs`.
+(C1, C2, ... on this page are the questions of the cloud demo, so the code tasks are R1, R2, ...)
+Spectra are the columns of $M$; in the pixel matrix $Y$ each pixel is a column.
+
+**R1.** `nnls(m, y)`: non-negative least squares for a few components, by trying every guess of
+which components are not zero:
+
+```
+best = all zero
+for every subset of the components:
+    a = least squares with only those columns, the others 0
+    if all of a ≥ 0 and ‖y − M a‖ is smaller than best's:  best = a
+```
+
+With $K$ components that is $2^K$ small problems: fine for 3 or 4 (the active-set method of the
+lecture visits only a few of them). The checks are B1(c) and B7.
+
+**R2.** `fractions(p, e)`: the barycentric coordinates of a point in a triangle (solve
+$a_1(\mathbf e_1 - \mathbf e_0) + a_2(\mathbf e_2 - \mathbf e_0) = \mathbf p - \mathbf e_0$, then
+$a_0 = 1 - a_1 - a_2$). The check is B2.
+
+**R3.** `singular_values(y)`: the square roots of the eigenvalues of $YY^\top$ (no centring). The
+checks: a small matrix with known values, and pixels made of two spectra give two values above 0.
+
+**R4.** `find_vertices(pixels, k)`: vertex finding:
+
+```
+directions = empty
+repeat k times:
+    for every pixel: rest = pixel minus its parts along the directions
+    pick the pixel with the longest rest
+    add rest / length(rest) to the directions
+```
+
+The check: among mixtures of three spectra, it picks the three pure pixels.
+
+**R5.** `update_h(y, w, h)` and `update_w(y, w, h)`: one multiplicative NMF update each,
+$H \leftarrow H \odot (W^\top Y) \oslash (W^\top W H)$ and $W \leftarrow W \odot (YH^\top) \oslash (WHH^\top)$.
+The checks are B8, and that alternating the two never raises the error.
+
+Then `cargo run -p endmembers` and open the pictures in `out/endmembers/`. The program records a
+synthetic cell (nucleus, mitochondria, membrane, a dim diffuse autofluorescence) in 16 channels with
+photon noise and prints the singular values of all its pixels. Then, with the first three
+components only, it normalises the bright pixels to sum 1, removes the noise outside the
+three-dimensional signal space, and runs vertex finding, with pure pixels and without (every pixel
+30 % mixed). `vertices.png` shows the pixels in the triangle of the true spectra (open circles) and
+the found corners (orange). Without pure pixels it also runs NMF (400 iterations) from two seeds.
+Last, it unmixes a dim (40-photon) version with least squares and with NNLS
+(`mito-ls-vs-nnls.png`: the mitochondria maps, 0 = grey).
+
+**R6.** How many components do the singular values show? Is the fourth one clearly above the floor?
+
+**R7.** How far (in degrees) are the vertex-finding spectra from the true ones, with and without
+pure pixels? Where are the found corners in `vertices.png` in each case?
+
+**R8.** Compare the relative errors of NMF from the two seeds and of the true spectra, and the
+angles. What do you conclude? What share of the least-squares abundances is negative at 40 photons,
+and what does the NNLS map look like where there are no mitochondria?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `endmembers/src/solution.rs` in the download.
+
+**R6.** Divided by the largest: 1.000, 0.815, 0.548, 0.080, then 0.064, 0.059, 0.057. Three values
+stand out, then the fourth (the dim autofluorescence) at 0.080, only a little above a flat floor
+of about 0.06. Four components, but the fourth is easy to miss (B4).
+
+**R7.** With pure pixels: 2.1°, 3.7° and 2.4°. The cloud sits mostly at the three corners
+(the structures do not touch, so there are few mixtures), and the found corners lie on the true
+ones, slightly outside because of the noise that remains. Without pure pixels: 20.8°, 19.3° and
+19.5°. The cloud is three clusters well inside the triangle, and the found corners are their most
+extreme pixels, mixtures themselves: vertex finding undershoots (B6).
+
+**R8.** The true spectra (with NNLS abundances) give a relative error of 0.01831; NMF gives 0.01828
+from both seeds. All three fit the data equally well, yet the NMF spectra are 13° to 18° from the
+true ones and differ between the seeds: without pure pixels the factorisation is not unique, and
+the fit cannot tell which answer is right (B9). At 40 photons least squares makes 26.8 % of the
+abundances negative. NNLS makes none: outside the mitochondria its map is 0 or a small positive
+value, the clipped noise (the positive bias of the slide "Sum to one, and the price of
+constraints").
+:::
+
 ## Where this leads
 
 The same geometry works for brightfield stains: in optical density the pixels of an H&E slide fill a flat wedge spanned by two stain vectors, and Macenko's method finds them as the two extreme directions. The next unit, [stain separation](../stain-unmixing/lec.qmd), does exactly that. The simplex returns on the FLIM day: on the [phasor plot](../phasor/lec.qmd) (day 46) mixtures of lifetimes lie in a triangle, and the fractions are barycentric coordinates.

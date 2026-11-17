@@ -171,6 +171,93 @@ The second copy of the demo starts on the micrograph (preset **nucleus**).
 **G7.** All bright nuclei, not only the one under the stroke: the data term compares each pixel's grey level with the object and background models, and every nucleus has the grey levels of the object model. Seeds fix single pixels, the model applies everywhere; to get one nucleus, paint background seeds on the others. Touching nuclei are separated only where the boundary between them is cheap: a darker gap gives small weights $w_{pq}$ at small $\sigma$, so the cut can pass through it. A larger $\lambda$ makes every boundary more expensive, merges touching nuclei and removes small ones (the shrinking bias of G2).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `graphcut-seg/src/exercise.rs`.
+The maximum flow itself is provided in the download: the same idea as in the
+[maximum flow unit](../maxflow/exercise.qmd#code), but with a list of edges per node, so that it is
+fast on graphs with one node per pixel.
+
+**C1.** `contrast_weight(ip, iq, sigma)`: $w_{pq} = \exp\!\big(-(I_p - I_q)^2/2\sigma^2\big)$, and
+1 for σ = ∞. The check is B2(a).
+
+**C2.** `build_graph(img, d0, d1, lambda, sigma, nb)`: the graph of an image:
+
+```
+one node per pixel, plus s (object) and t (background)
+for every pixel p:
+    edge s → p with capacity D_p(0)
+    edge p → t with capacity D_p(1)
+    for every neighbour q to the right and below
+            (8 neighbours: also the two lower diagonals):
+        c = λ · (neighbourhood weight) · w_pq      # 1; or ½ and 1/(2√2) for 8 neighbours
+        edges p → q and q → p, each with capacity c
+```
+
+**C3.** `graph_cut(img, d0, d1, lambda, sigma, nb)`: the segmentation by a minimum cut:
+
+```
+build the graph;  flow = maximum flow from s to t
+L_p = 1 for the pixels still reachable from s, 0 for the others
+```
+
+The checks are your answers to B1 (101, cost 3; 111, cost 4), B2(b) (1.541), B3 (1100, cost 6),
+B4 (a seed is $D_p(0) = \infty$: 1110, cost 9) and B5 (the line goes above λ = 1.5, the band
+above 9), and B6(b): with 8 neighbours a horizontal and a 45° boundary both cost 1.207 per unit
+length.
+
+**C4.** `seed_model(img, seeds, label)` and `seeded_costs(img, seeds)`: the intensity model from
+seeds (1 = object, 2 = background):
+
+```
+μ1, s1 = mean and standard deviation of the object seeds;  μ0, s0 of the background seeds
+D_p(ℓ) = (I_p − μℓ)² / 2sℓ² + log(sℓ / smaller of s0 and s1)     # never negative
+object seed: D_p(0) = ∞;   background seed: D_p(1) = ∞
+```
+
+Then `cargo run -p graphcut-seg` and open the pictures in `out/graphcut-seg/`. The program
+segments three images of $128 \times 128$ pixels: the noisy disk with a thin arm (grey levels 80
+and 170, noise 50, the model known) for several λ; the same disk with noise 90 at λ = 4 with 4 and
+with 8 neighbours; and synthetic fluorescent nuclei with extra noise, from one short object stroke
+in one nucleus and five short background strokes, comparing λ and σ. It prints the wrong pixels
+of each result.
+
+**C5.** Disk: which λ gives the fewest wrong pixels? Look at `disk-cut-lambda*.png`: what is left of
+the arm at λ = 1.5, and at λ = 4? Explain with B5.
+
+**C6.** Compare `blocky-4.png` with `blocky-8.png`. Describe the two shapes and explain them with
+B6.
+
+**C7.** Nuclei: look at `nuclei-threshold.png` and `nuclei-cut.png`. How many nuclei are found from
+one object stroke, and why? Which λ is best, and why do contrast weights with σ = 0.1 make the
+result worse here?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `graphcut-seg/src/solution.rs` in the download.
+
+**C5.** Thresholding: 3024 wrong pixels. Graph cut: 680 at λ = 0.5 (specks left), **112** at
+λ = 1.5, 226 at λ = 4, 239 at λ = 10. At λ = 1.5 the specks are gone and the outer half of the arm
+is kept, but its inner part, next to the disk, is lost; at λ = 4 only a stub at the disk is left.
+The arm is 3 pixels wide: its data gain per unit length is about 3 times the gain of one pixel,
+while its two long sides cost 2λ (B5(c)). The disk has a large area for its boundary and is not
+affected. Each cut takes a few hundredths of a second.
+
+**C6.** With 4 neighbours the disk comes out as a rounded square with flat horizontal and vertical
+sides (326 wrong pixels); with 8 neighbours it is closer to round, an octagon (275). With 4
+neighbours a diagonal boundary costs 41 % more per unit length than an axis-aligned one, so the
+cut replaces the diagonal parts of the circle by horizontal and vertical ones; with 8 neighbours
+both cost 1.207 (B6).
+
+**C7.** All 14 nuclei are touched (at λ = 5, 13 of 14): the data term compares every pixel with the
+object model, and every nucleus has the grey levels of the object seeds. Thresholding with the
+seed model gives 531 wrong pixels, with many specks in the background; the graph cut 391
+(λ = 1), **336** (λ = 2) and 398 (λ = 5, where small parts are lost). With contrast weights,
+σ = 0.4 gives 367 and σ = 0.1 gives 488: the noise (standard deviation 0.15) makes neighbouring
+pixels differ by more than 0.1 everywhere, so with σ = 0.1 boundaries are cheap everywhere,
+including around noise specks (as in G3). Touching nuclei (bottom left) come out as one object.
+:::
+
 ## Where this leads
 
 Graph cuts need seeds or a given intensity model, and they find the exact best labelling of a restricted energy. The [next unit](../ncut/lec.qmd) drops the seeds: **normalized cuts** look for a balanced split of the whole graph, using an eigenvector of the graph Laplacian. The same seeds also drive the [random walker](../random-walker/lec.qmd) and the [watershed as a spanning forest](../ws-msf/lec.qmd) (graph-based segmentation day).

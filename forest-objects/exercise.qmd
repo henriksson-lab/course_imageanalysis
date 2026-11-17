@@ -115,6 +115,90 @@ Each split replaces the weighted impurity $\tfrac{n_t}{n}I_t$ of a node by the w
 **E5.** $m = 1$: area 15 %, perimeter 12 %, diameter 15 % (the feature is a coin toss at every split, so the three share almost equally). $m = 8$: area 12 %, perimeter 6 %, diameter 0 %. With every feature a candidate at every split, area and diameter always offer exactly the same best split; the tie goes to the feature listed first (area), so diameter is never used. The split of credit between duplicates depends on details like this; it says nothing about the features themselves.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `forest-objects/src/exercise.rs`.
+
+A random forest is ready in the download (the forest of the [forest unit](../forest/exercise.qmd#code)):
+`Forest::train`, `forest.predict(x)` and `forest.oob_error(points, labels)`. Every node of its
+trees keeps the class counts of the training points that reached it: `node.counts()`.
+
+**C1.** `gini(counts)`: $1 - \sum_k p_k^2$, as in the [decision-trees unit](../dtree/exercise.qmd#code).
+The check is B1 (a).
+
+**C2.** `impurity_importance(trees, n_features)`: the mean decrease in impurity of every feature:
+
+```
+importance(j) = 0 for every feature j
+for every tree:
+    n = the number of points at its root
+    for every split node t (feature j, children L and R):
+        ΔG = G(t) − (n_L / n_t) G(L) − (n_R / n_t) G(R)
+        importance(j) = importance(j) + (n_t / n) · ΔG
+divide every importance by the number of trees
+```
+
+The checks are B1 (c), texture 0.286 and area 0.064, and B6: in one tree the importances add up
+to the root impurity minus the weighted leaf impurities.
+
+**C3.** `permutation_importance(forest, points, labels, columns, repeats, rng)`: how much the
+OOB error rises when one column, or a group of columns, is shuffled among the objects:
+
+```
+base = OOB error
+repeat r times:
+    π = a random permutation of the objects 1 .. n
+    copy the table; in the chosen columns, row i gets the values of row π(i)
+    rise = rise + (OOB error of the copy − base)
+return rise / r
+```
+
+All chosen columns use the **same** permutation, so a group stays consistent. The check uses a
+small table whose feature 0 decides the class and feature 2 is an exact copy of it (B3): shuffling
+the copy and the original together raises the error a lot, each alone much less.
+
+**C4.** `correlation(a, b)`: the correlation of two columns,
+$r = \sum (a_i - \bar a)(b_i - \bar b) \big/ \sqrt{\sum (a_i - \bar a)^2 \sum (b_i - \bar b)^2}$.
+The check: area and equivalent diameter (B3) correlate above 0.99.
+
+Then `cargo run -p forest-objects`. The program makes a table of 400 synthetic cells, 200
+interphase and 200 mitotic, with the eight features of the demo: area, perimeter and equivalent
+diameter (three measures of size), intensity, texture, solidity, a noise feature and a yes/no
+coin. It trains forests of 100 trees ($m = 3$) on four sets of columns and prints the OOB error
+and both importances of every feature (impurity as a share of the total, permutation as the rise
+of the OOB error in percentage points).
+
+**C5.** All eight features: which feature decides? What do the three size features get under
+each measure?
+
+**C6.** Without texture: compare the three size features one by one with the size block shuffled
+together. Is size important?
+
+**C7.** Area with an exact copy of itself, and without: predict what the copy does to both
+importances of area, then check.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `forest-objects/src/solution.rs` in the download.
+
+**C5.** OOB error 11.2 %. Texture decides: 44 % of the impurity importance and +22.2 points by
+permutation. The size features share 42 % of the impurity importance (area 19 %, perimeter 10 %,
+diameter 13 %; they correlate at 0.98 and 0.99), but each has a permutation importance of at
+most +1.6 points: shuffle one, and the other two still carry the size. The noise feature gets
+4 % by impurity, the coin 0 %; both are about 0 by permutation.
+
+**C6.** OOB error 21.8 %, almost twice as high. Impurity: area 32 %, perimeter 17 %, diameter
+19 %. Permutation: +9.2, +1.6 and +3.6 points, but **+21.7** for the block shuffled together.
+Size is the most important information left; each single size feature looks much less important
+than it is, because the others stand in for it.
+
+**C7.** With the copy: area 38 % and copy 22 % by impurity (60 % together, against 56 % for area
+alone): the credit is split, not exactly in half because on a tie the feature listed first (area)
+wins. By permutation: +17.5 and +4.7 points, against +26.7 for area alone: each copy hides part
+of the other's importance. The OOB error hardly changes (21.0 % and 20.0 %): the forest is as
+good, only the credit moved.
+:::
+
 ## Where this leads
 
 The [last unit of the day](../pixelclass/lec.qmd) applies the forest to **every pixel** of an image, with features computed by filters at several scales, and trains it from a few painted strokes. Feature importance returns there as "which filters does the forest use?", and the OOB error meets a new trap: neighbouring pixels are not independent.

@@ -146,6 +146,89 @@ Pair mode: two views (known transform), 89 matches after the ratio test and the 
 **E8.** Match noise 1.5 px: chain 1 → 2 → 4 → 3: tile errors 0, 0.76, 2.21, 1.56 px; global: 0, 0.54, 1.00, 0.50 px. Tile 3, at the end of the chain, profits most. Noise 0: chain 0.04, 0.11, 0.13 px, global 0.04, 0.10, 0.06 px (both tiny). Noise 3: chain 1.60, 4.42, 3.24 px, global 1.05, 1.42, 0.86 px. Blends: without blending the seams and the exposure steps of the tiles (gains 1, 1.22, 0.85, 1.12) are visible; feathering hides them in soft transitions; multi-band gives similar smooth transitions with less blurring of detail in the overlaps.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `feature-alignment/src/exercise.rs`.
+
+**C1.** `fit_translation(pairs)`: the least-squares translation, the mean of the differences
+$\mathbf q_i - \mathbf p_i$. The check is A2(a).
+
+**C2.** `similarity_from_two(p1, q1, p2, q2)`: the similarity that maps two points exactly. Write
+each point as a complex number $x + iy$; a similarity is then $z \mapsto az + b$. The check is A2(b).
+
+```
+a = (q2 − q1) / (p2 − p1)          # complex division: turn and scale
+b = q1 − a · p1
+matrix = [ Re a  −Im a  Re b ]
+         [ Im a   Re a  Im b ]
+```
+
+**C3.** `fit_affine(pairs)`: the least-squares affine transform (exact for three pairs). The two
+rows of the matrix are two separate problems with the same 3 × 3 normal equations (B7):
+
+```
+BᵀB = 3 × 3 zeros;  r1 = r2 = 3 zeros
+for every pair ((x, y), (x', y')):
+    b = (x, y, 1)
+    BᵀB += b bᵀ;   r1 += x' · b;   r2 += y' · b
+row 1 = solve(BᵀB, r1);   row 2 = solve(BᵀB, r2)      # no solution if the points lie on a line
+```
+
+**C4.** `inliers(m, pairs, eps)`: the pairs that the transform maps to within ε px (the check is
+A4); and `ransac_iterations(w, s, p)` $= \lceil \log(1 - p)/\log(1 - w^s) \rceil$ (the checks are
+the table of A3 and the lecture).
+
+**C5.** `ransac_affine(pairs, eps, iterations, rng)`:
+
+```
+repeat N times:
+    pick 3 different pairs at random
+    m = the affine transform through them (C3)
+    count its inliers (C4); remember m if it has the most so far
+refit by least squares on the inliers of the best m; count its inliers again
+```
+
+Then `cargo run -p feature-alignment` and open the pictures in `out/feature-alignment/`. View 2 is
+the micrograph under a known affine transform (turned by about 10°, zoomed by 1.1, a little shear,
+shifted). The program makes 100 pairs: 40 correct (with 0.5 px of noise) and 60 wrong, and fits
+the transform with least squares on all pairs and with RANSAC (ε = 2 px). The true error is the mean
+distance between where the fitted and the true transform put the pixels. The checkerboards show
+view 1 and view 2 read back through each fit in alternate squares of 32 px.
+
+**C6.** Compare the two checkerboards and the true errors of least squares on all pairs and of
+RANSAC. Which pairs did RANSAC keep?
+
+**C7.** The program runs RANSAC 200 times with different random samples, for N = 5, 10, 20 and
+the N of the formula, and counts how often it succeeds (true error below 1 px). Compare with the
+prediction $1 - (1 - w^3)^N$. Why can the true success rate be lower than the formula?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `feature-alignment/src/solution.rs` in the download.
+
+**C6.** Least squares on all 100 pairs: true error 73 px; `checker-least-squares.png` is a patchwork
+in which nothing continues from one square to the next. RANSAC with N = 70 (the formula for
+$w = 0.4$, $s = 3$, $p = 0.99$): 40 inliers, none of them a wrong pair, and a true error of 0.14 px,
+the same as least squares on the 40 correct pairs alone. In `checker-ransac.png` the membranes and
+granules run straight across the square borders. (The black squares are where view 2 has no
+pixels.)
+
+**C7.**
+
+| N | success in 200 runs | predicted |
+|---|---|---|
+| 5 | 22 % | 28 % |
+| 10 | 38 % | 48 % |
+| 20 | 62 % | 73 % |
+| 70 | 94 % | 99 % |
+
+Always a little lower. The formula counts a run as a success as soon as one sample consists of
+three correct pairs. But three correct pairs that lie close together (or nearly on a line) fix
+the transform badly: with 0.5 px of noise their exact fit can be several pixels off far away from
+them, so it finds few inliers and may lose against a luckier wrong sample. The formula is a lower
+bound on N, not a guarantee; in practice one takes more iterations.
+:::
+
 ## Where this leads
 
 - **Geometry from images**: matches between views of a 3D scene obey [epipolar geometry](../two-view/lec.qmd); many views: [structure from motion](../sfm/lec.qmd).

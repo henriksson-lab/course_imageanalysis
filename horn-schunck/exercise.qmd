@@ -114,6 +114,85 @@ The same kind of frame pairs as the Lucas–Kanade demo: the micrograph moved by
 **E6.** Without the pyramid: 0.92 px after 300 sweeps; with it: 0.08 px. A 4 px motion is too large for the linearised data term at full resolution (as for Lucas–Kanade); on the coarse levels it is 1 to 2 px, and each finer level only adds a small correction.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `horn-schunck/src/exercise.rs`.
+
+**C1.** `hs_update(ix, iy, it, ubar, vbar, lambda)`: one pixel's update from its neighbour
+average. The checks are B1 and B2.
+
+```
+r = (Ix·ū + Iy·v̄ + It) / (4λ + Ix² + Iy²)
+u = ū − Ix·r;   v = v̄ − Iy·r
+```
+
+**C2.** `neighbour_average(f, x, y)`: the mean of the four neighbours (left, right, up, down),
+with the edge pixel copied outside the image.
+
+**C3.** `hs_sweep(ix, iy, it, u, v, lambda)`: one sweep over all pixels, and
+`horn_schunck(ix, iy, it, lambda, sweeps)`: start from zero flow and sweep `sweeps` times.
+
+```
+u = v = 0 everywhere
+repeat N times:
+    for every pixel:
+        ū, v̄ = neighbour averages of the previous sweep's u, v
+        u_new, v_new = hs_update(Ix, Iy, It, ū, v̄, λ)
+    u, v = u_new, v_new
+```
+
+The checks: one sweep from zero is B1 again; a smooth pattern moved by $(0.5, -0.3)$; and a flat
+square inside a moving texture, whose flow is still 0 after 5 sweeps and filled in after 2000.
+
+**C4.** `endpoint_error(est, truth)` and `angular_error(est, truth)` (in degrees, the angle
+between $(u, v, 1)$ and $(u_{gt}, v_{gt}, 1)$). The check is B4.
+
+**C5.** `warp_residual(f1, f2, u, v)`: frame 2 read at $(x + u, y + v)$ (bilinear), minus frame 1.
+
+Then `cargo run -p horn-schunck` and open the pictures in `out/horn-schunck/`. The program moves
+a scene with a textured ring around a flat disc (`ring-frame1.png`) by 1.5 px to the right, runs
+Horn–Schunck with λ = 0.001 and reports, after 10 to 2000 sweeps, the flow at the centre and the
+mean endpoint error, overall and in the flat disc. After 100 sweeps it also computes the warping
+residual. Then it moves the middle of the micrograph by $(0.8, 0.6)$ with noise and tries five values
+of λ (300 sweeps each). Grey values here are in [0, 1], not 0 to 255, so the same balance
+between data and smoothness needs a λ $255^2 \approx 65\,000$ times smaller than in the demo.
+
+**C6.** How does the flow at the centre of the flat disc change with the number of sweeps? Compare
+`ring-flow-100.png` with `ring-flow-1000.png`. Why does it take so long?
+
+**C7.** After 100 sweeps: compare the endpoint error in the flat disc with its warping residual
+(and with the residual overall). Look at `ring-residual-100.png`. What can the residual tell you
+here, and what not?
+
+**C8.** The micrograph: which λ gives the smallest mean endpoint error? Compare
+`cell-flow-lambda-small.png`, `cell-flow-lambda-medium.png` and `cell-flow-lambda-large.png`
+(λ = 0.00001, 0.01 and 0.1).
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `horn-schunck/src/solution.rs` in the download.
+
+**C6.** The flow $u$ at the centre (truth 1.5): 0.00 after 10 sweeps, 0.03 after 100, 0.36 after
+300, 0.84 after 1000, 0.88 after 2000. The mean endpoint error in the disc falls from 1.50 to 0.51,
+overall from 1.32 to 0.62. In `ring-flow-100.png` the ring is red (moving right) and the disc and
+the background are still white; in `ring-flow-1000.png` the red has spread into the disc and out
+into the background. Filling-in is a diffusion: information moves about a pixel per sweep, but the
+average of the neighbours only slowly builds up the value, so a disc of radius 22 px needs
+hundreds to thousands of sweeps (B3).
+
+**C7.** After 100 sweeps the disc's flow is nearly 0 instead of 1.5 (endpoint error 1.34 px), yet
+its mean absolute residual, 0.0052, is no larger than the image average, 0.0054: a flat region
+moved anywhere still looks flat. `ring-residual-100.png` is plain noise almost everywhere, with
+only faint traces along the ring's edges. The residual finds errors only where a wrong flow meets
+texture; it cannot show errors in flat regions (B6).
+
+**C8.** Mean endpoint error: 1.13 px at λ = 0.00001, 0.72 at 0.0001, 0.34 at 0.001, 0.17 at 0.01,
+0.55 at 0.1: the best is near λ = 0.01. With λ too small every pixel follows its own noisy
+constraint and the colours speckle; at 0.01 the field is an even pink (right and down) with soft
+blotches; at 0.1 it is very smooth but still pale in places after 300 sweeps, because smoothness
+dominates and the field moves slowly away from its zero start (as in E2).
+:::
+
 ## Where this leads
 
 Optical flow assumes small motion between similar frames. The next unit, [**non-rigid registration**](../nonrigid-reg/lec.qmd), aligns images that may differ a lot, in shape and even in contrast: a smooth deformation found by optimisation, and **mutual information** as a measure of "aligned".

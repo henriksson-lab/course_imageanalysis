@@ -154,6 +154,97 @@ The 2D SVM demo in cross-validation mode: the filled points are the training set
 **C4.** Best cell: $C = 1$, $\gamma = 0.01$, CV error 11%; test error 12.0%. The two blobs overlap and the best boundary is a straight line; a small $\gamma$ (length scale 10, wider than the data) gives an almost linear boundary, while a large $\gamma$ only fits the noise in the overlap (at $\gamma = 100$ the CV error is about 50%).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `pixel-classify/src/exercise.rs`.
+A pixel is a list of features; classes are numbered $0, 1, 2, \dots$
+
+**C1.** `fit_standardise(points)` and `standardise(x, mean, sd)`: the mean $\mu_j$ and standard
+deviation $s_j$ of every feature over the training pixels (divide by $n$), and the z-scores
+$z_j = (x_j - \mu_j)/s_j$ of one pixel. The check is B1(b).
+
+**C2.** `class_weights(classes, k)`: the balancing weight $n/(k\,n_c)$ of every class. The check is B4(a).
+
+**C3.** `train_linear_svm(points, labels, weights, c, steps)`: the linear SVM of the
+[maximum-margin unit](../maxmargin/exercise.qmd#code), with a weight per pixel: a violation by pixel $i$
+costs $C \cdot \text{weight}_i$.
+
+```
+w = 0;  b = 0
+for t = 1, 2, ..., steps:
+    g_w = w;  g_b = 0
+    for every training pixel i with y_i · f(x_i) < 1:
+        g_w = g_w − C · weight_i · y_i · x_i
+        g_b = g_b − C · weight_i · y_i
+    move (w, b) a distance 1/√t against (g_w, g_b)
+    remember (w, b) if ½‖w‖² + C Σ_i weight_i · max(0, 1 − y_i f(x_i)) is the smallest so far
+```
+
+The checks: the street of the lecture example of the maximum-margin unit, and balanced
+weights moving the threshold of an imbalanced 1D example into the large class.
+
+**C4.** `train_one_vs_rest(points, classes, k, c, steps, balanced)` and `predict_one_vs_rest(models, x)`:
+one SVM per class (that class $+1$, all others $-1$), and the class with the largest $f$. The check
+of the prediction is B2.
+
+**C5.** `cross_validate(points, classes, folds, n_folds, fit_predict)`: the error of $k$-fold
+cross-validation, for any classifier `fit_predict` (which also does its own standardisation, as
+in B5):
+
+```
+wrong = 0
+for f = 0, 1, ..., n_folds − 1:
+    train = the pixels with folds[i] ≠ f;   held out = the pixels with folds[i] = f
+    predictions = fit_predict(train, classes of train, held out)
+    wrong = wrong + number of held-out pixels predicted wrongly
+return wrong / number of pixels
+```
+
+A check makes 20 strokes of nearly identical pixels with a **random** class each, so that there
+is nothing to learn, and expects nearest-neighbour cross-validation to look perfect with folds by
+pixel and to be near chance with folds by stroke (B3(c)).
+
+Then `cargo run -p pixel-classify` and open the pictures in `out/pixel-classify/`. The program
+paints 22 short strokes on a synthetic fluorescence image (`strokes.png`: 16 on the background,
+4 in nuclei, 2 on the edges of nuclei), computes four features per pixel (grey value and
+$5 \times 5$ local mean in camera counts 0 to 4095, local standard deviation and gradient on a
+scale 0 to 1), trains one-vs-rest linear SVMs and classifies every pixel (`truth.png` is the
+answer; one colour per class).
+
+**C6.** Compare `raw-features.png` with `standardised.png`, and the printed standard deviations of
+the four features. What goes wrong without standardisation?
+
+**C7.** Compare `standardised.png` with `standardised-balanced.png`: which class gains from the
+balancing weights, and what does it cost?
+
+**C8.** Read the printed cross-validation errors, by pixel and by stroke. Which is larger, and for
+which classifier is the difference largest? Which $C$ would you choose?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `pixel-classify/src/solution.rs` in the download.
+
+**C6.** The standard deviations of the painted pixels are about 937 and 876 for grey value and
+local mean, and 0.036 and 0.235 for local standard deviation and gradient. On the raw features
+only 82.1 % of the pixels are correct, and the classifier finds 98 % of the background, but 0 %
+of the nuclei and 0 % of the edges: the picture is background with some speckle. In raw units the
+weights on the two large features must be tiny, and the street and the steps of the descent are
+measured in units where the small features hardly count. Standardised, 97.5 % are correct
+(100 %, 97 %, 82 % of background, nucleus and edge).
+
+**C7.** The edges: with balancing weights 88 % of the edge pixels are found instead of 82 %, and
+98.2 % of all pixels are correct instead of 97.5 %. The price: slightly fewer nucleus pixels
+are found (94 % instead of 97 %), because the edge class now claims more of the boundary
+between the two. Only 17 edge pixels were painted, against 141 background pixels.
+
+**C8.** By stroke, the errors are larger for every classifier: linear SVM 4.5 % against 3.4 % at
+$C = 0.01$ and $0.1$, 6.2 % against 4.0 % at $C = 1$; nearest neighbour 4.0 % against 2.3 %. The
+difference is largest, relative to the error, for nearest neighbour, which can memorise the
+neighbouring pixels of the same stroke. By stroke, $C = 0.01$ or $0.1$ (4.5 %) is best. With so
+few strokes per class these numbers are rough: one stroke more or less in a fold changes them by
+a percent or more.
+:::
+
 ## Where this leads
 
 The day's other half of "more learning" is the [**Gaussian mixtures** day](../kmeans/lec.qmd): generative models of each class, fitted even without labels. For pixels with many labels, the [**neural networks** day](../cnn/lec.qmd) learns the features themselves instead of using a hand-made stack. Detection of objects with a sliding window and a linear SVM on gradient-direction histograms is a classic application of this unit (not covered here).

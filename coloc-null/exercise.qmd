@@ -132,6 +132,90 @@ The demo uses the two-cell scene of the [last unit](../coloc/lec.qmd)'s demo. Le
 **E7.** Weak: the trace reaches 0 at $t_A = 99.1$, $t_B = 48.0$ after 57 steps; M1 = 0.30, M2 = 0.11, 143 of 5978 pixels (2 %) above both. Shared background (whole image): the trace stays near 0.28 and the search runs to $t_A = 15.7$, $t_B = 19.4$; M1 = 0.92, M2 = 0.97, 12294 of 16384 pixels (75 %) above both. The second looks like excellent colocalisation from M1 and M2 alone: it is the dangerous one. The first at least looks weak.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `coloc-null/src/exercise.rs`.
+Pearson's $r$ over a mask is given (it is C1 of the [last unit](../coloc/exercise.qmd#code)).
+
+**C1.** `shift_curve(a, b, mask, max_shift)`: $r$ of A against B shifted sideways, for every shift:
+
+```
+for dx = −max_shift … max_shift:
+    B_shifted(x, y) = B(x + dx, y)        # outside the image: nearest edge pixel
+    curve[dx] = r(A, B_shifted) over the mask
+```
+
+The check makes B a copy of A moved 2 pixels to the right: the curve must peak at +2 with $r = 1$.
+
+**C2.** `subpixel_peak(r_minus, r0, r_plus)`: the vertex of the parabola through the three
+values around the peak, $(r_- - r_+)/\big(2(r_- - 2r_0 + r_+)\big)$. The check is B10 (+0.17 px
+for the curve of B3).
+
+**C3.** `block_shuffle(b, mask, block, rng)`: cut B into squares, shuffle the squares inside the
+region:
+
+```
+corners = top-left corners of the block × block squares whose centre is in the mask
+order = 0, 1, …, n−1;  shuffle it:
+    for i = n−1 down to 1: swap order[i] with order[random number in 0 … i]
+for k = 0 … n−1:
+    copy the square at corners[order[k]] of B to the square at corners[k] of the result
+```
+
+The checks: the result has exactly the pixel values of B, squares outside the cells stay, and
+every square of the result is a whole square of B.
+
+**C4.** `permutation_p(r_obs, null)`: $(1 + \#\{r^* \ge r_\text{obs}\})/(N + 1)$. The check is B1.
+
+**C5.** `pdm(a, b, mask)` and `icq(a, b, mask)`: the image $(A - \bar A)(B - \bar B)$ inside the
+mask, and the share of its positive pixels minus 0.5. The checks are the PDM values and the ICQ of B2.
+
+Then `cargo run -p coloc-null` and open the pictures in `out/coloc-null/`. It uses the
+synthetic two-cell images of the last unit's program (structure radius 1.3–2.5 px, blur σ = 1 px
+unless stated). It prints three shift curves, block randomisations of an image with
+**independent** structures (blur σ = 2 px) for blocks of 1 to 16 px, and the ICQ of a
+colocalised and an independent image next to the ICQ of 200 block-shuffled copies. Pictures: the
+independent image and two shuffled versions (`shuffled-1px.png`, `shuffled-8px.png`), and the PDM
+images (white positive, black negative).
+
+**C6.** Read the three shift curves. What are the half width of the colocalised peak, the peak
+position of the shifted image, and what survives at ±10 px in the third? Compare with E1–E3.
+
+**C7.** For the independent image, how does the sd of the null distribution change with the block
+size, and which block sizes call the image "significant" at the 5 % level? Which answer is right,
+and how can you tell from the pictures? What does the test say about the image with 40 % bleed-through?
+
+**C8.** Compare each observed ICQ with the ICQ of the shuffled copies. Why is the shuffled ICQ
+not 0, and which of the two images shows more than chance?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `coloc-null/src/solution.rs` in the download.
+
+**C6.** Colocalised (inside the cells): $r(0) = 0.932$, a narrow peak with half width 2.9 px,
+falling to 0.03 at ±10 px. Shifted by 2.4 px: $r(0) = 0.584$, but the peak is at **2.37 px** with
+$r = 0.922$: the structures still overlap, only the registration is off (E2). Independent
+structures with a diffuse signal in both cells, over the whole image: $r(0) = 0.656$ and still
+0.47–0.49 at ±10 px: a broad hump from the cells being bright in both channels, no peak from
+structures (E3).
+
+**C7.** The observed $r$ is 0.052. The null sd grows with the block size: 0.011 (1 px), 0.020
+(2 px), 0.038 (4 px), 0.047 (8 px), 0.054 (16 px). With 1- and 2-px blocks none of the 200
+shuffles reaches 0.052, $p = 0.005$: "significant". With 4 px $p = 0.075$, with 8 and 16 px
+$p = 0.18$ and 0.19. The structures are independent by construction, so the large blocks are
+right. In `shuffled-1px.png` the magenta channel has become fine-grained noise without any
+structures: that is not "the same image without the link"; with 8-px blocks the blurred spots
+survive, cut into squares. With 40 % bleed-through $r = 0.457$ and $p = 0.005$: the overlap in
+the images is real, although the structures are independent (the slide "What the test does not
+protect against").
+
+**C8.** Colocalised: ICQ = 0.430 against 0.199 ± 0.011 for the shuffles: far more than chance.
+Independent: ICQ = 0.176 against 0.192 ± 0.011: not more than chance, rather a little less. The
+shuffled ICQ is about 0.2, not 0, because most pixels in the cells are background, below both
+means, and so have a positive PDM. In `pdm-independent.png` the spots have dark (negative) rims
+and only a few white (positive) ones where two spots happen to overlap.
+:::
+
 ## Where this leads
 
 The tests of this unit say whether the overlap **in the images** is more than chance. The next unit, [objects instead of pixels](../coloc-objects/lec.qmd), asks which structures overlap and how far apart they are, with its own chance level. Unit 4, [what the microscope does](../coloc-confounds/lec.qmd), removes the overlap that the optics add (bleed-through, background, chromatic shift). A p-value per image is not a comparison between treatments: for that, coefficients per cell and per experiment go through the statistics of [the evaluation day](../replicates/lec.qmd).

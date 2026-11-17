@@ -130,6 +130,81 @@ A tiny U-Net (8, 16 and 32 channels, 29,617 weights) was trained on 4000 synthet
 **U8.** The Dice-trained network gives almost only probabilities near 0 or 1: 16 uncertain pixels against 285 for the cross-entropy network. Its Dice hardly depends on the threshold (0.904–0.906 from 0.1 to 0.9); the cross-entropy network peaks at 0.5 (0.909) and drops to 0.851 at 0.1 and 0.856 at 0.9. The Dice-trained network's cross-entropy is high (0.491 against 0.108): where it is wrong it is confidently wrong. Its probabilities are not calibrated: "0.99" does not mean "right 99 % of the time".
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `unet/src/exercise.rs`.
+
+**C1.** `pixel_cross_entropy(p, g)`: the mean per-pixel cross-entropy of a probability map
+against the true mask. The checks are B1(a) and B1(c).
+
+**C2.** `soft_dice(p, g)`: $2\sum_i p_ig_i/(\sum_i p_i + \sum_i g_i)$. For a map of only 0 and 1 it
+is the Dice of a mask. The checks are B1(b) and B1(c).
+
+**C3.** `soft_dice_gradient(p, g)`: $\partial D/\partial p_j$ for every pixel, with
+$I = \sum_i p_ig_i$ and $S = \sum_i p_i + \sum_i g_i$: $(2g_jS - 2I)/S^2$. The check is B7, and a
+finite difference.
+
+**C4.** `upsample_nearest(img, factor)`: every pixel becomes a `factor × factor` block. The check
+is B2(a).
+
+**C5.** `transposed_conv(img, kernel, s)`: every input pixel stamps a copy of the kernel, scaled
+by its value, into the output, $s$ pixels apart:
+
+```
+out = zeros of size ((w − 1)·s + kw) × ((h − 1)·s + kh)
+for every input pixel (x, y):
+    for every kernel position (u, v):
+        out(s·x + u, s·y + v) = out(s·x + u, s·y + v) + I(x, y) · k(u, v)
+```
+
+The checks are B2(c) and B2(d).
+
+Then `cargo run -p unet` and open the pictures in `out/unet/`. There is no training: the
+program builds a tiny encoder–decoder by hand and scores it with your losses. The input is a
+synthetic fluorescence image with 30 nuclei and an illumination gradient (brighter to the
+right). The **encoder** averages $4 \times 4$ blocks ($64 \times 64$ maps) and estimates the
+background there as the darkest value within 4 coarse pixels (context much larger than a
+nucleus). The **decoder** brings the background back to full size with a transposed convolution
+(a $7 \times 7$ tent kernel, stride 4: linear interpolation). The output is a probability: a
+sigmoid of the pixel's brightness above its background. **With a skip connection** the
+brightness comes from the full-size input; **without**, only from the coarse $64 \times 64$ map,
+upsampled by nearest neighbour. The baseline is **one global threshold**.
+
+**C6.** Compare `p-skip.png`, `p-no-skip.png` and `p-global-threshold.png` with `truth.png`, and
+the printed scores. Explain what goes wrong in each of the two worse ones.
+
+**C7.** The last line scores $p = 0.01$ everywhere. Compare its numbers with B1(c). Why is its
+cross-entropy much larger here than there?
+
+**C8.** `dice-gradient.png` shows $\partial D/\partial p$ for the skip output (0 is mid-grey).
+Where does a step on the Dice loss push the probabilities up, and where down? Does it matter how
+confident a pixel already is?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `unet/src/solution.rs` in the download.
+
+**C6.** 20.4 % of the pixels are nucleus. With the skip connection: cross-entropy 0.040, soft
+Dice 0.963, Dice of the mask 0.968; the outlines match the truth. Without it: 0.149, 0.920,
+0.922; the nuclei are found in the right places (the context is the same), but every outline is
+made of $4 \times 4$ blocks, because the detail was lost in the encoder. One global threshold:
+0.427, 0.720, 0.724: on the left it finds the nuclei, but the right third of the image, where
+the background is brighter, is a field of noise "nuclei". A pixel must be compared with its own
+surroundings, which is what the context from the coarse level provides. Context from below,
+detail from the side: the U-Net in miniature.
+
+**C7.** Cross-entropy 0.949, soft Dice 0.019, Dice of the mask 0. In B1(c) the cross-entropy was
+0.240, below the 0.693 of a coin toss, because only 5 % of the pixels were nucleus. Here 20 % are,
+and each of them costs $-\ln 0.01 = 4.6$: the cross-entropy depends on the share of object
+pixels, the Dice numbers show that nothing was found in both cases.
+
+**C8.** Up (bright) at every nucleus pixel, down (dark) at every background pixel, with one value
+for all nucleus pixels and one for all background pixels: $(2S - 2I)/S^2$ and $-2I/S^2$. How
+confident a pixel already is does not matter, unlike for the cross-entropy, whose gradient
+vanishes for pixels that are already right. This is why a network trained with the Dice loss
+pushes its probabilities to 0 and 1 (demo question U8).
+:::
+
 ## Where this leads
 
 The [evaluation day](../object-eval/lec.qmd) (day 37) asks how to measure segmentations honestly: object-level matching, test sets from new sources, and the statistics of comparing methods. [Modern deep learning](../instances/lec.qmd) (day 39) splits touching nuclei with networks, uses pretrained models that need fewer annotations, and generates images; the [VAE day](../autoencoder/lec.qmd) (day 38) shows networks that learn to **make** images rather than label them. Learned image restoration (denoising, deconvolution with networks) is discussed on the deconvolution day ([denoising](../denoise/lec.qmd)) and with [diffusion models](../diffusion/lec.qmd).

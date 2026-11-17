@@ -157,6 +157,95 @@ A 2D object (five textured faces) seen by 2–5 cameras of 120 pixels each; came
 **E7.** 5 non-zeros per row (3 for the camera, 2 for the point); $J$ is 169 × 110. $J^\top J$: the camera block (30 × 30, top left) is block-diagonal with 3 × 3 blocks, the point block (80 × 80, bottom right) is block-diagonal with 2 × 2 blocks, and the off-diagonal blocks show which camera sees which point: the arrowhead.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `sfm/src/exercise.rs`.
+Everything happens in flatland, as in the demos: points $(x, y)$, and 1D cameras with a position
+and a heading $\theta$ (160 pixels, $f = 130$ px, centre at pixel 80).
+
+**C1.** `gauss_newton_depth(x_obs, X, z0, steps)`: Gauss–Newton in one unknown,
+$r(Z) = x_\text{obs} - X/Z$, $r'(Z) = X/Z^2$, $Z \leftarrow Z - r/r'$. The check is B2:
+$3 \to 3.75 \to 3.984$.
+
+**C2.** `project(cam, p)` and `residuals(cams, points, obs)`: the pixel of a point, and the
+residual (observed minus predicted pixel) of every observation:
+
+```
+(dx, dy) = p − camera position
+depth = dx cos θ + dy sin θ
+side  = dx sin θ − dy cos θ
+u = f · side / depth + 80
+```
+
+The checks: a point 5 ahead and 1 to the right lands at pixel 106, and moving camera and point
+together changes nothing.
+
+**C3.** `huber(r, delta)`: the Huber cost ($r^2$ up to $\delta$, $2\delta|r| - \delta^2$ beyond)
+and the weight for reweighted least squares (1 up to $\delta$, $\delta/|r|$ beyond). The check is
+B6: the wrong match of 25 px costs 49 and pulls with 2.
+
+**C4.** `damped_step(J, r, w, mu)`: one step of Levenberg–Marquardt:
+
+```
+A = Jᵀ W J,   b = −Jᵀ W r          # W = the weights on the diagonal
+multiply the diagonal of A by (1 + μ)
+solve A δ = b
+```
+
+The checks: with $\mu = 0$ the step solves the linear least-squares problem; with a large $\mu$ it
+is a short step downhill; a weight 0 removes an observation.
+
+**C5.** `bundle_adjust(cams, points, obs, iterations, levenberg, delta)`:
+
+```
+μ = 0.001 (Levenberg–Marquardt) or 0 (Gauss–Newton)
+repeat:
+    r = residuals;  w = Huber weights of r (or all 1);  J = Jacobian (given)
+    δ = damped_step(J, r, w, μ)
+    try the parameters + δ (all but the first 4, which fix the gauge)
+    if Gauss–Newton, or the cost went down:  accept, μ = μ / 10
+    else:                                    reject, μ = μ · 10
+```
+
+The check: from a perturbed start with exact observations, the error must never increase and
+must fall to zero, with every point back in place.
+
+Then `cargo run -p sfm` and open the pictures in `out/sfm/`. The scene: 10 cameras on a circle
+around a wavy outline of 40 points, 162 observations with 0.2 px noise, 106 unknowns. The program
+starts from the truth plus a small and a large perturbation and runs Gauss–Newton and
+Levenberg–Marquardt, printing the RMS error after each step. `ba-start.png` and `ba-lm.png` show
+the large perturbation before and after Levenberg–Marquardt (grey: true points, orange: the
+estimate, blue: true and estimated cameras). Finally three observations are moved by 20–28 px,
+and bundle adjustment runs with squared loss and with Huber ($\delta = 1$ px).
+
+**C6.** Compare Gauss–Newton and Levenberg–Marquardt from the two starts. Why does the error end
+below the noise level of 0.2 px?
+
+**C7.** Compare the squared and the Huber loss with the three wrong observations: the RMS of the
+correct observations, the residuals of the wrong ones, and the largest error of a point. Explain
+with B6.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `sfm/src/solution.rs` in the download.
+
+**C6.** From the small perturbation both converge at once: 4.03 px → 0.13 (Gauss–Newton) or 0.12
+(Levenberg–Marquardt) → 0.10 px. From the large one (58.7 px) Gauss–Newton jumps about wildly
+(17, 48, 60, 20, 26, 265, …, 823 px) and never settles: its full steps trust the linearisation far
+outside where it holds. Levenberg–Marquardt rejects the steps that make things worse, damps,
+and creeps downhill (13.6, 9.3, 4.5, 2.7, 2.3) until it is close enough for full steps; then it
+drops to 0.14 and 0.10 px. In `ba-lm.png` the orange points sit on the grey ones again. The final
+0.10 px is below the noise because the 106 unknowns absorb part of the noise of the 162
+observations: only $162 - 106 = 56$ degrees of freedom are left for the residuals.
+
+**C7.** Squared loss: the correct observations end at an RMS of 1.61 px, eight times the noise,
+while the wrong ones look harmless (3.9, −6.5 and 10.4 px): the solution bends cameras and points
+to hide them, and a point ends 0.55 off. Huber: the correct observations fit to 0.22 px, the wrong
+ones keep almost their full error (17.7, −22.6, 26.5 px), and no point is more than 0.13 off.
+Beyond $\delta$ a residual pulls with at most $2\delta$ (B6), so three wrong observations cannot
+outvote the 159 correct ones.
+:::
+
 ## Where this leads
 
 Known cameras plus dense matching give depth maps and meshes. A newer route skips explicit surfaces: fit a **radiance field** (density and colour everywhere, rendered by the emission–absorption compositing of [volume rendering](../volrender/lec.qmd)) or a cloud of **3D Gaussian splats** (blobs composited front-to-back) to all the photographs, and render the scene from new viewpoints. They start from exactly the camera poses (and sparse points) that structure from motion delivers.

@@ -161,6 +161,90 @@ The cell (or the test card) distorted five ways, each tuned to the same MSE: a b
 **S4.** Noise is now by far the worst (SSIM 0.613): the card is mostly flat, and noise is clearly visible there. Blur (0.975) and the brightness shift (0.991) are barely affected: the card has few fine details to blur. JPEG 0.947. Which distortion is "worst" depends on the image content, not only on the error energy.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `jpeg/src/exercise.rs`. The
+8 × 8 DCT of the previous unit is given (`dct8`, `idct8`).
+
+**C1.** `scale_table(quality)`: the quantisation table for a quality factor, from the standard
+luminance table $Q$:
+
+```
+s = 5000 / quality   if quality < 50,   else 200 − 2 · quality
+for every entry:  Q'[v][u] = floor((Q[v][u] · s + 50) / 100), at least 1, at most 255
+```
+
+The check is B3.
+
+**C2.** `quantise(c, table)` and `dequantise(q, table)`: $q = \operatorname{round}(c/Q)$ and back,
+$qQ$, for every coefficient with its own step. The check is B1.
+
+**C3.** `zigzag(q)`: the 64 quantised values in zigzag order:
+
+```
+for s in 0 .. 14:                             # the anti-diagonal row + column = s
+    rows = max(0, s − 7) .. min(s, 7)
+    if s is even: run through the rows from large to small
+    for every row in that order: output q[row][s − row]
+```
+
+The checks are B2(a), and that every position comes exactly once.
+
+**C4.** `size_of(v)` (the number of bits of $|v|$) and `ac_symbols(zz)`: the (run, size) symbols
+of the 63 values after the DC:
+
+```
+run = 0
+for every value v after the DC, in zigzag order:
+    if v = 0: run = run + 1
+    else:
+        while run > 15: output ZRL (a run of 16 zeros); run = run − 16
+        output (run, size(v), v); run = 0
+if run > 0: output EOB
+```
+
+The check is B2(b).
+
+**C5.** `psnr(a, b, peak)`: $10 \log_{10}(\text{peak}^2/\text{MSE})$. The check is B5.
+
+Then `cargo run -p jpeg` and open the pictures in `out/jpeg/`. The program codes the micrograph
+with your functions at qualities 10 to 90: level shift, DCT, quantise, zigzag, DC differences and
+AC symbols. It estimates the bits as the entropy of the symbols plus the bits of the values:
+about what a Huffman code made for exactly these symbols needs. The decoded images are
+`q*.png`, their errors `q*-error.png` (× 2, mid grey = 0). At the end it recompresses the image
+10 times at quality 75, with the same 8 × 8 grid and with the grid moved by 4 pixels each time.
+
+**C6.** Compare the PSNR and the bits per pixel with J1 and the slide "Rate and distortion".
+Which numbers agree, and why are your bit counts a little lower than the demo's?
+
+**C7.** How many non-zero values does a block keep on average at quality 10, and at 90? Where
+do the zeros come from? (J3.)
+
+**C8.** Generation loss: compare the two recompression runs and explain the difference (J7).
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `jpeg/src/solution.rs` in the download.
+
+**C6.** Quality 10, 25, 50, 75, 90: PSNR 22.6, 24.8, 26.7, 29.8, 36.5 dB, the same as the demo;
+0.51, 1.04, 1.68, 2.60, 4.06 bits per pixel (ratio 15.8 down to 2.0). The demo needs 0.61, 1.75
+and 4.23 bits per pixel at 10, 50 and 90. The quantised values are the same, so the error is the
+same. The bits differ: the demo uses JPEG's standard Huffman tables, made once for typical
+photographs, and counts a file header. The program's estimate is the entropy of the symbols of
+this very image, the lower bound for a code made for it.
+
+**C7.** 7.1 non-zero values per block at quality 10, 20.4 at 50 and 45.4 at 90 (of 64). The
+zeros come from quantisation: a coefficient smaller than half its step rounds to 0, and the
+steps are large at high frequencies, which come late in the zigzag. So the zeros gather at the
+end, where one EOB replaces them all.
+
+**C8.** With the same grid the PSNR stays at 29.8 dB for all ten generations: the decoded
+image is already almost on the quantisation grid of the same blocks, so quantising it again
+changes almost nothing. With the grid moved by 4 pixels each time: 29.8 dB after one
+generation, 27.4 after two, 27.1 after five and 26.4 after ten. Every save sees new blocks whose
+coefficients are not yet quantised, and loses again.
+:::
+
 ## Where this leads
 
 PSNR and SSIM measure what a viewer would notice. A scientist needs something else: are the **numbers** still right? The next unit, [compression and measurements](../compress-science/lec.qmd), runs a spot-counting and intensity measurement on compressed fluorescence images, and shows that a JPEG that looks perfect can still shift the intensities of dim spots by several percent. It also introduces JPEG 2000 (wavelets instead of blocks) and the formats that keep data intact.

@@ -203,6 +203,100 @@ The whole phantom rendered on the graphics card, one ray per pixel. Modes: MIP, 
 **V8.** The outer surface of the skull ($c = 135$ lies between brain 100 and bone 170; from outside, the first crossing is the soft tissue → bone boundary). At $c = 60$ the skin (air 0 → soft tissue 70); at $c = 200$ only the vessels (230) are above it, but the bone is not, so the vessels appear (seen through the skull). Isosurface rays stop at their first hit: 59.0 samples per ray on average instead of 84.2 (30 % saved).
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `volrender/src/exercise.rs`.
+The code tasks are numbered R1, R2, ... (C1, C2, ... are the demo questions above).
+
+**R1.** `trilinear(vol, x, y, z)`: the value between voxels, from the 8 voxels around the point
+(voxel $(i, j, k)$ sits at the voxel coordinates $(i, j, k)$; outside the volume counts as 0):
+
+```
+x0, y0, z0 = floor(x), floor(y), floor(z)
+tx, ty, tz = x − x0, y − y0, z − z0
+value = 0
+for dx, dy, dz in {0, 1}:
+    weight = (dx ? tx : 1 − tx) · (dy ? ty : 1 − ty) · (dz ? tz : 1 − tz)
+    value = value + weight · V(x0 + dx, y0 + dy, z0 + dz)
+```
+
+The check: a volume whose values grow linearly with the position is reproduced exactly between
+the voxels.
+
+**R2.** `sample_ray(vol, spacing, start, dir, step, n)`: $n$ samples at the world points
+$\mathbf s + k\,\Delta s\,\mathbf d$ (in millimetres), each divided by the voxel spacing to get
+voxel coordinates, then sampled with `trilinear`.
+
+**R3.** `front_to_back(samples, eps)` and `back_to_front(samples)`: compositing.
+
+```
+front to back:                         back to front:
+C = 0, T = 1                           C = 0
+for each sample (c, α), eye first:     for each sample (c, α), far end first:
+    if T < eps: stop                       C = α c + (1 − α) C
+    C = C + T α c
+    T = T (1 − α)
+```
+
+The checks are B1 (b), (c) and (d): the same final colour both ways, and the early stop after
+sample 4.
+
+**R4.** `opacity_correct(alpha0, ratio)`: $1 - (1 - \alpha_0)^{\Delta s/\Delta s_0}$. The checks are
+B2 and B3: with the correction a slab has opacity 0.950 whatever the step.
+
+**R5.** `iso_crossing(values, c)`: the first $i$ with $v_i < c \le v_{i+1}$, refined to
+$i + (c - v_i)/(v_{i+1} - v_i)$. The check is B6.
+
+Then `cargo run -p volrender` and open the pictures in `out/volrender/`. The program builds a
+synthetic head of $64\times64\times40$ voxels of $1\times1\times1.6$ mm (skin, skull, brain,
+ventricles, an air cavity and a thin vessel tree) and casts one ray per pixel, orthographically:
+
+- `mip-front.png`, `mip-side.png`, `average-front.png`: projections;
+- `dvr-*.png`: volume rendering, turned by 30°, with a transfer function that makes the vessels
+  red and nearly opaque, the skull fairly opaque and the brain faint; with steps of 0.5, 3, 1 and
+  0.25 mm, and at 0.25 mm once without opacity correction. It prints the mean opacity $1 - T$ of
+  the rays;
+- `samples-per-ray.png`: how many samples each ray takes with early termination at
+  $\varepsilon = 0.05$ (white = all 200);
+- `iso-60.png`, `iso-135.png`, `iso-200.png`: isosurfaces by ray casting, lit with the gradient.
+
+**R6.** Compare `mip-front.png`, `mip-side.png` and `average-front.png`. Which structures does each
+show? Can you tell from the MIPs which branch of the vessel tree is in front?
+
+**R7.** Compare `dvr-step0.5.png` with `dvr-step3.png`, and read the printed mean opacities. Which
+artefact does the large step give? What happens at 0.25 mm without opacity correction, and why
+(B2)?
+
+**R8.** Look at `samples-per-ray.png` and the printed numbers. Which rays stop early, and which
+take all their samples? Why is the saving over the whole image modest?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `volrender/src/solution.rs` in the download.
+
+**R6.** The MIPs show the vessel tree (value 230), the brightest thing on its rays, inside a grey
+disc (the head's brightest tissue on the other rays). From the front the tree is a Y; from the side
+the two branches lie on top of each other and cross. A MIP keeps no depth: one view cannot
+tell which branch is nearer; comparing the two views (or rotating) can. The average is like an
+X-ray: soft, with the darker ventricles and the air cavity showing as holes, and the vessels
+barely visible.
+
+**R7.** At a step of 3 mm the skull is covered in concentric rings (wood grain): all rays sample
+at the same depths, and the thin shell is caught at different phases from pixel to pixel. At
+0.5 mm the surface is even. With opacity correction the mean opacity hardly depends on the step
+(0.540 at 0.5 mm, 0.542 at 1 mm, 0.539 at 0.25 mm; 0.548 at 3 mm, where thin layers are sampled
+badly). Without correction at 0.25 mm it rises to 0.573: four samples per millimetre each get
+the opacity meant for a whole millimetre, so the image is too opaque.
+
+**R8.** Rays that graze the skull (the dark rim) stop first, after a long path through bone (the
+earliest after 78 samples), and rays that hit a vessel stop soon after it. A ray through the
+middle of the head crosses the near skull and the faint brain and stops only at the far side of
+the skull (149 samples at pixel (80, 64)). Rays outside the head take all 200 samples. Over the image the
+average falls from 200 to 158.8 samples per ray (8704 of 16 384 rays stop early): about a fifth
+saved, because the empty rays around the head and the rays through the faint brain never
+become opaque. Skipping empty space needs another trick.
+:::
+
 ## Where this leads
 
 The **marching-cubes day** extracts the same isosurfaces as meshes, to measure them. Compositing along rays is also how **3D Gaussian splatting** and neural radiance fields render scenes reconstructed from photographs (the day on geometry from images). And the projections of this unit, MIP and the average, are the daily tools for looking at microscopy stacks and CT data.

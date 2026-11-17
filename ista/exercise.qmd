@@ -159,6 +159,108 @@ The same problem in 2D (256 × 256): denoise, deblur or inpaint the micrograph, 
 **E12.** The thin strokes vanish almost completely; the thick parts of the letters leave faint, smooth blobs. A thick stroke is a hole wider than the fine-scale atoms, so as in E11 only the coarse atoms can fill it.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `ista/src/exercise.rs`.
+Vectors are lists of numbers and a matrix is a list of rows; `mat_vec` ($A\mathbf x$),
+`mat_t_vec` ($A^\top\mathbf r$) and `objective` are given.
+
+**C1.** `soft_threshold(v, t)` (every entry soft-thresholded at $t$) and
+`ista_step(a, y, x, λ, τ)`, one ISTA iteration:
+
+```
+r = y − A x                  # residual: data minus prediction
+z = x + τ · Aᵀ r             # gradient (Landweber) step
+x_new = soft(z, τ λ)         # soft threshold of every entry
+```
+
+The check is B1 (a): $\mathbf x_1 = (0.8, 0.6)$, $\mathbf x_2 = (0.96, 0.58)$.
+
+**C2.** `ista(a, y, λ, τ, iterations)`: start at $\mathbf x = 0$ and repeat `ista_step`. The checks
+are B1 (b) and (d): the iterates reach (1.6, 0) with an exact zero and the objective 0.9, and
+on a blurred signal the objective never increases.
+
+**C3.** `largest_gain(a, iterations)`: L, the largest eigenvalue of $A^\top A$, by the power
+method:
+
+```
+v = any vector of length 1
+repeat:
+    w = Aᵀ (A v)
+    L = length of w
+    v = w / L
+```
+
+The checks are B3: L = 2.25 for the matrix of B1, L = 1 for a normalised blur.
+
+**C4.** `fista(a, y, λ, τ, iterations)`: ISTA steps from an extrapolated point:
+
+```
+x = 0,  z = 0,  t = 1
+repeat:
+    x_new = ista_step(z)
+    t_new = (1 + sqrt(1 + 4 t²)) / 2
+    z = x_new + (t − 1)/t_new · (x_new − x)
+    x = x_new,  t = t_new
+```
+
+The checks: the same minimum (1.6, 0) for B1, and on a blurred signal a much smaller gap to the
+minimum than ISTA after 100 iterations.
+
+**C5.** `omp(a, y, max_atoms, tolerance)`: orthogonal matching pursuit:
+
+```
+S = no columns,  r = y,  x = 0
+while S has fewer than max_atoms columns and ‖r‖² > tolerance:
+    j = the column with the largest |a_jᵀ r| / ‖a_j‖
+    add j to S
+    x_S = least-squares fit of y with the columns in S     # the others stay 0
+    r = y − A x
+```
+
+The checks are B2, (2, 0) after one atom, and B4 (c): the masked DCT atoms, atom 0 first with
+$a = 1.82$, then $a = 2$, $b = 1$.
+
+Then `cargo run -p ista` and open the pictures in `out/ista/`. The program deblurs a signal of
+128 samples with five spikes (at 20, 52, 70, 76 and 105; blur σ = 2, noise 0.01) with λ = 0.01.
+In the pictures the truth is black, the data grey and the result blue dots.
+
+**C6.** How many iterations do ISTA and FISTA need to get within $10^{-6}$ of the minimum of the
+objective? Look at `ista-20.png` and `fista-1000.png`, and at the printed numbers of nonzeros
+after 1, 10, 100 and 1000 ISTA iterations. Describe how the estimate develops.
+
+**C7.** Which positions does OMP pick (`omp.png`)? Its relative error is much larger than that of
+FISTA, although the picture looks almost right. Why?
+
+**C8.** Count the cost. One ISTA iteration with a dense $n \times n$ matrix costs about $2n^2$
+multiplications. How many is that for a 256 × 256 image ($n = 65\,536$), and how much memory
+would the matrix take (8 bytes per number)? How does a blur avoid this?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `ista/src/solution.rs` in the download.
+
+**C6.** ISTA needs about 3100 iterations, FISTA about 150: twenty times fewer, at the same cost
+per iteration (the lecture's signal: 993 and 121). After 20 ISTA iterations every spike is still
+a cluster of small coefficients spread over the width of the blur; the counts fall from 54
+nonzeros after 1 iteration to 30, 16 and 10 after 10, 100 and 1000 (relative error 0.91, 0.83,
+0.67, 0.22). After 1000 FISTA iterations (error 0.12) all five spikes sit at the right positions,
+including the close pair at 70 and 76, each a little too low (shrinkage bias), with a few tiny
+extra coefficients next to them.
+
+**C7.** OMP picks 20, 52, 71, 77 and 105: the close pair at 70 and 76 is found one sample off
+each time. Under the blur, neighbouring atoms are almost the same, and the overlap of the two
+bumps plus the noise make the atom one sample over fit slightly better. OMP refits the values but
+never replaces an atom it has chosen. A spike
+one sample off counts as a missed spike plus a false one, hence the relative error of 0.85
+against 0.12 for FISTA.
+
+**C8.** $2 \cdot 65\,536^2 \approx 8.6 \cdot 10^9$ multiplications per iteration, and
+$65\,536^2 \cdot 8$ bytes = 34 GB for the matrix. A blur is never stored as a matrix: it is a
+small kernel (a convolution, or a multiplication in the Fourier domain), which costs about
+(kernel size) × $n$ or $n\log n$ per iteration.
+:::
+
 ## Where this leads
 
 ISTA fills in what the data do not determine with the sparsest continuation. The next unit turns this around: if a sparse prior can fill missing data, we can **decide to measure less**, and design the measurements so that the missing part can be filled reliably: **compressed sensing** ([next unit](../compressed-sensing/lec.qmd)).

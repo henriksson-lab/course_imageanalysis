@@ -137,6 +137,101 @@ A 1D profile (256 samples) is blurred with a Gaussian (σ = 3 samples) and noise
 **E6.** Discrepancy λ = 0.0189 (error 0.0552), corner λ = 0.0056 (error 0.0635), best λ = 0.0178 (error 0.0553). Here the discrepancy principle is almost exactly right and the corner too far to the left: the rules have no guarantee, and checking with a known-truth test is the honest way.
 :::
 
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `regularise/src/exercise.rs`.
+Everything is 1D, as in the demo: a profile of $n$ samples, the blur an $n \times n$ matrix $A$.
+The penalty matrix $D$ (the identity, or one row $(1, -2, 1)$ per second difference) is given.
+
+**C1.** `blur_matrix(n, sigma)`: row $i$ holds the Gaussian weights $e^{-(i - j)^2/2\sigma^2}$ for
+$|i - j| \le \lceil 3\sigma\rceil$, divided by their sum.
+
+**C2.** `tikhonov(a, y, lambda, penalty)`: the minimiser of $\|A\mathbf x - \mathbf y\|^2 + \lambda\|D\mathbf x\|^2$,
+from the normal equations (the slide "The math: filter factors"):
+
+```
+M = AᵀA + λ DᵀD
+b = Aᵀy
+solve M x = b
+```
+
+The checks: the two-pixel blur of the deconvolution unit (B3 there: $(1.04, 0.33)$ for
+$\lambda = 0.1$), and the roughness penalty returns a ramp unchanged for every $\lambda$.
+
+**C3.** `tikhonov_factor(s, lambda)` and `landweber_factor(s, k)`: the filter factors
+$s^2/(s^2 + \lambda)$ and $1 - (1 - s^2)^k$. The checks are your tables of B1 and B2.
+
+**C4.** `landweber(a, y, k, omega)`: $k$ steps from zero.
+
+```
+x = 0
+repeat k times:
+    r = y − A x            # what the estimate does not explain yet
+    x = x + ω · Aᵀ r       # blur the difference back, add it
+```
+
+The check: on a diagonal blur with gains 1, 0.5 and 0.1, each component after $k$ steps is its
+filter factor.
+
+**C5.** `rms_residual(a, x, y)` $= \sqrt{\|A\mathbf x - \mathbf y\|^2/m}$, and
+`discrepancy_lambda(a, y, sigma, penalty)`: the $\lambda$ whose RMS residual equals $\sigma_n$,
+found by halving an interval of $\log_{10}\lambda$:
+
+```
+lo = −8, hi = 4                       # log10 λ
+repeat 40 times:
+    mid = (lo + hi) / 2
+    if rms residual of tikhonov(10^mid) < σn:  lo = mid    # fits the noise: more λ
+    else:                                      hi = mid
+λ = 10^((lo + hi) / 2)
+```
+
+Then `cargo run -p regularise` and open the pictures in `out/regularise/`. The program makes a
+profile of 128 samples (a step and a ramp), blurs it ($\sigma$ = 2), adds noise
+($\sigma_n$ = 0.02), and restores it with both penalties for $\lambda$ from $10^{-7}$ to 100, and
+with Landweber for $k$ = 1 to 3162. It prints the error against the truth, the RMS residual, the
+L-curve's two norms $\|A\mathbf x - \mathbf y\|$ and $\|D\mathbf x\|$, and the mean. The pictures show
+the truth (black), the data (grey) and an estimate.
+
+**C6.** Compare the column "mean" of the two penalties as $\lambda$ grows. Then open
+`roughness-small-lambda.png`, `roughness-best-lambda.png` and `roughness-large-lambda.png`:
+describe each.
+
+**C7.** For the roughness penalty, which $\lambda$ gives the smallest error, which does the
+discrepancy principle choose, and how much worse is it? Use the columns $\|A\mathbf x - \mathbf y\|$
+and $\|D\mathbf x\|$ to find the corner of the L-curve, as in B4.
+
+**C8.** How does the error of Landweber change with $k$, and how does the residual? Where would
+the discrepancy principle stop? Compare `landweber-32.png` with `landweber-3162.png`.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `regularise/src/solution.rs` in the download.
+
+**C6.** With the energy penalty the mean falls from 0.434 (small $\lambda$) to 0.395 at
+$\lambda$ = 0.1, 0.217 at 1 and 0.004 at 100: everything is pulled towards 0. With the roughness
+penalty it stays at 0.434 for every $\lambda$, because a constant has no roughness. Small
+$\lambda$ ($10^{-6}$): the estimate swings wildly far beyond the plot, error 1.34, while its RMS
+residual (0.0123) is below $\sigma_n$: it explains the noise. Best $\lambda$ (0.1): close to the
+truth with small wiggles, the steps a little rounded, error 0.0561 (the data alone: 0.0647).
+Large $\lambda$ (100): smooth and rounded, the step a hill and the end of the ramp cut off,
+error 0.0893.
+
+**C7.** The smallest error is 0.0561 at $\lambda$ = 0.1. The discrepancy principle picks
+$\lambda$ = 1.11 (RMS residual 0.02), error 0.0616, 10 % worse and on the smooth side, as in the
+demo. The L-curve: from $\lambda = 10^{-3}$ to $10^{-2}$, $\|D\mathbf x\|$ halves (1.08 to 0.52) while
+$\|A\mathbf x - \mathbf y\|$ grows by 5 % (0.168 to 0.175): the vertical branch. From $\lambda$ = 1 to
+10, $\|A\mathbf x - \mathbf y\|$ grows by half (0.224 to 0.334): the horizontal branch. The corner lies
+in between, around $\lambda$ = 0.03 to 0.3, close to the best $\lambda$.
+
+**C8.** The error falls from 0.0739 ($k$ = 1) to 0.0566 at $k$ = 10, then rises: 0.0694 at 100,
+0.1254 at 1000, 0.2154 at 3162. The residual falls all the time, from 0.0362 to 0.0140:
+semi-convergence. The residual first drops below $\sigma_n$ = 0.02 at $k$ = 10 of the values tried,
+right at the smallest error. At $k$ = 32 the estimate is close to the truth with some ripple; at
+$k$ = 3162 it oscillates from sample to sample with a large amplitude: the weak, noisy components
+have been filled in.
+:::
+
 ## Where this leads
 
 The next unit takes the probabilistic reading seriously for photon counts: **[Richardson–Lucy](../richardson-lucy/lec.qmd)** maximises the Poisson likelihood with an iteration that keeps every pixel non-negative, and its number of iterations is the regularisation parameter, exactly like Landweber's here. The same "data + λ · penalty" pattern returns on the graph-cut day (with labels instead of intensities; [segmentation as energy](../seg-energy/lec.qmd)), in tomography ([iterative reconstruction](../algebraic-recon/lec.qmd)), in the days on Markov random fields (total variation; [quadratic smoothing and total variation](../gmrf/lec.qmd)), wavelets ([shrinkage](../shrinkage/lec.qmd)) and sparse representations ([sparsity](../sparsity/lec.qmd)), and with a learned prior in [diffusion models for inverse problems](../diffusion-inverse/lec.qmd).
