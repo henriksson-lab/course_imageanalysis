@@ -242,18 +242,9 @@ Applied:
 ## Future work (queued 2026-11-13, not yet planned)
 
 - **Optional Rust code for every day** (decided 2026-11-16): pseudocode on slides, coding
-  exercises last on the exercise page, our own small library `code/imgcourse`. Day 1 done;
-  the rest by the pattern in `plan/code-plan.md`.
+  exercises last on the exercise page, our own small library `code/imgcourse`. Done for all 51
+  days (2026-11-17); see `plan/code-plan.md`.
 
-- **Fine-tuning strategies for neural network models** (day, placed after "Networks for cells
-  and objects"). Currently only one slide in `attention/` (frozen features vs fine-tuning) and
-  scattered mentions in the networks day. Scope: when to fine-tune vs use as is vs train from
-  scratch; frozen features + a small head (linear probe) vs full fine-tuning vs partial (freeze
-  early layers, layer-wise/discriminative learning rates, warm-up); parameter-efficient methods
-  (adapters, low-rank updates such as LoRA, prompt/decoder-only tuning, e.g. tuning only SAM's
-  mask decoder); how many annotations are needed, augmentation, class imbalance; human-in-the-loop
-  and active learning (annotate the model's mistakes, retrain, repeat); domain shift and
-  normalisation; catastrophic forgetting; evaluating on held-out images/experiments (recall the
-  evaluation day). Demos: fine-tune a small network in the browser (TypeScript or Rust/Wasm —
-  YOLOv11-rs supports training) and watch train/validation curves for frozen vs partial vs full;
-  a learning-curve demo (accuracy vs number of annotated objects); a low-rank update visualiser.
+- **More machine learning** (requested 2026-11-17): training practicalities, GANs and normalising
+  flows, self-supervised and contrastive learning, fine-tuning and transfer learning (absorbs the
+  earlier fine-tuning entry). Four new days; see `plan/ml-additions-plan.md`.

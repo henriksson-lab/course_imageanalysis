@@ -4,6 +4,7 @@
 //! - `descriptors`: Describing a keypoint: gradient histograms and bits
 //! - `feature_matching`: Matching descriptors: nearest, ratio and mutual
 //! - `feature_alignment`: From matches to a transform: RANSAC, stitching and registration
+//! - `icp`: Aligning point sets: iterative closest point
 //!
 //! Run a unit's program with `cargo run -p day24 -- <unit>`, check it with
 //! `cargo test -p day24 <unit>::` (see the course page "Coding exercises: getting started").
@@ -13,3 +14,4 @@ pub mod keypoints;
 pub mod descriptors;
 pub mod feature_matching;
 pub mod feature_alignment;
+pub mod icp;

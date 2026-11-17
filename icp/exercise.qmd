@@ -1,0 +1,183 @@
+---
+title: "Exercise: aligning point sets"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- say when two point sets need ICP rather than feature matching or a single nearest-neighbour pairing,
+- compute the best rigid transform for known pairs by hand (centroids, then $\operatorname{atan2}$),
+- run ICP by hand on a small example and recognise a local minimum,
+- explain why points without a partner bias ICP and what trimming does,
+- estimate how good a start ICP needs, and what it costs per iteration,
+- *(math)* derive the closed form, the SVD solution, the convergence of ICP and the point-to-plane step.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Known pairs | centre both sets; $\theta = \operatorname{atan2}(S_\text{cross}, S_\text{dot})$ with $S_\text{dot} = \sum\mathbf p\cdot\mathbf q$, $S_\text{cross} = \sum(p_xq_y - p_yq_x)$ over the centred points; shift $\bar{\mathbf q} - R\bar{\mathbf p}$ |
+| Similarity | $a = S_\text{dot}/\sum|\mathbf p|^2$, $b = S_\text{cross}/\sum|\mathbf p|^2$; scale $\sqrt{a^2 + b^2}$, angle $\operatorname{atan2}(b, a)$ |
+| ICP | match every moving point to its nearest fixed point, fit the best transform to these pairs, repeat until the pairs no longer change |
+| Convergence | both steps lower the sum of squared distances; ICP always stops, at the nearest local minimum |
+| Trimmed ICP | fit only the closest fraction of the pairs (about the fraction of points seen in both sets) |
+| Point to plane | the distance to the tangent at the matched point: no sliding bias on sampled surfaces, fewer iterations |
+
+With y down (image coordinates), a positive angle turns clockwise on screen.
+
+## By hand
+
+**A1.** Which approach: a single nearest-neighbour pairing, ICP (plain or trimmed), or keypoints with descriptors and RANSAC? (a) Beads in a red and a green channel, about 20 px apart from each other, the channels shifted by about 2 px. (b) Nuclei centroids at two time points; the stage turned by about 5° and moved by 15 px; a tenth of the nuclei are new. (c) Two photographs of a textured tissue section, turned by 60°. (d) Nuclei segmented in a light and an electron micrograph of the same cells; the orientation of the EM section is unknown.
+
+**A2.** Known pairs $\mathbf p_i \to \mathbf q_i$: $(2, 0) \to (11.6, 6.2)$, $(-2, 0) \to (8.4, 3.8)$, $(0, 1) \to (9.4, 5.8)$, $(0, -1) \to (10.6, 4.2)$. (a) The centroids $\bar{\mathbf p}$ and $\bar{\mathbf q}$. (b) $S_\text{dot}$, $S_\text{cross}$ and the angle. (c) The shift. Check one pair. (d) The last point is measured 2 px off: $(12.6, 4.2)$ instead of $(10.6, 4.2)$. Repeat (a) to (c). How much do the centroid and the angle change?
+
+**A3.** ICP on a line (shift only). Fixed $Q = \{3, 7, 11\}$, moving $P = \{0, 4, 8\}$, so the true shift is 3. (a) Start from shift $t = 0$: pair every point of $P$ with its nearest point of $Q$; the best shift for these pairs is the mean of the differences. Repeat until nothing changes. Where does ICP stop, and with what RMS? (b) The same from $t = 2$. (c) What is the largest error of the start for which ICP still finds $t = 3$?
+
+**A4.** Outliers. Fixed $Q = \{0.5, 2.5, 4.5\}$, moving $P = \{0, 2, 4, 30\}$ (the point 30 has no partner). (a) Run ICP (shift only) from $t = 0$ until it stops. (b) Now trimmed ICP: in each iteration keep only the 3 closest pairs. (c) Which is right, and what would happen with keep = 2 of 4 here?
+
+**A5.** How good a start? Spots about 30 px apart, in a set about 130 px in radius. (a) A turn by θ moves the outermost spots by about $130\,\theta$ (θ in radians). For their nearest neighbour to still be their own partner, they must move less than about half the spacing. Up to which angle is the first pairing right for every spot? (b) The demo finds the right alignment from up to 15°. Why can ICP succeed even when the first pairing is partly wrong? (c) Name two ways to get within that range when the sets are turned by 90°.
+
+**A6.** Cost. Two sets of 10 000 points, 30 iterations. (a) How many distances does brute-force nearest-neighbour search compute in total? (b) A k-d tree finds a nearest neighbour in about $\log_2 m$ steps: how many steps per iteration now? (c) One-to-one pairing by the Hungarian algorithm costs about $n^3$ operations: per iteration?
+
+**A7.** Two samplings of a long straight wall (a line of points), offset along the wall by half a sample spacing and across it by 3 px. (a) What does point-to-point ICP do with the offset along the wall, and with the offset across it? (b) And point to plane? (c) What extra information would fix the position along the wall?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**A1.** (a) A single nearest-neighbour pairing: the shift (2 px) is much smaller than half the spacing (10 px), so every nearest neighbour is the right partner; then fit the transform once (it is ICP that stops after one step). (b) ICP, trimmed (keep about 90 %), started from no motion or from the centroids: 5° and 15 px are within its range for spots that are not too dense. (c) Keypoints, descriptors and RANSAC: textured images have distinctive neighbourhoods, and 60° is far outside the range of ICP. (d) A coarse start first (a few manual landmarks, or ICP from several start angles keeping the lowest RMS), then trimmed ICP on the centroids; the EM section covers only part of the light image.
+
+**A2.** (a) $\bar{\mathbf p} = (0, 0)$, $\bar{\mathbf q} = (10, 5)$. (b) Centred $\mathbf q$: $(1.6, 1.2), (-1.6, -1.2), (-0.6, 0.8), (0.6, -0.8)$. $S_\text{dot} = 3.2 + 3.2 + 0.8 + 0.8 = 8$, $S_\text{cross} = 2.4 + 2.4 + 0.6 + 0.6 = 6$, $\theta = \operatorname{atan2}(6, 8) = 36.87°$ ($\cos\theta = 0.8$, $\sin\theta = 0.6$; the scale $\sqrt{8^2 + 6^2}/10 = 1$, so it is rigid). (c) $\mathbf t = \bar{\mathbf q} - R\bar{\mathbf p} = (10, 5)$. Check: $R(2, 0) + \mathbf t = (1.6, 1.2) + (10, 5) = (11.6, 6.2)$. (d) $\bar{\mathbf q} = (10.5, 5)$: the centroid moves by $2/4 = 0.5$ px. Centred $\mathbf q$: $(1.1, 1.2), (-2.1, -1.2), (-1.1, 0.8), (2.1, -0.8)$; $S_\text{dot} = 2.2 + 4.2 + 0.8 + 0.8 = 8$, $S_\text{cross} = 2.4 + 2.4 + 1.1 + 2.1 = 8$: $\theta = 45°$, 8.1° more. Shift $(10.5, 5)$. With four points within 2 px of the centre, a 2 px error changes the angle a lot; points far from the centroid fix the angle much better.
+
+**A3.** (a) $t = 0$: $0 \to 3$, $4 \to 3$, $8 \to 7$; differences 3, −1, −1, mean $t = 1/3$. At $t = 1/3$: $1/3 \to 3$, $4.33 \to 3$ (1.33 against 2.67), $8.33 \to 7$: the same pairs, so $t$ stays $1/3$. ICP stops at $t = 1/3$; the distances are $2.67, 1.33, 1.33$, RMS $\sqrt{(7.11 + 1.78 + 1.78)/3} = 1.89$. A local minimum: the pairs are self-consistent but wrong. (b) $t = 2$: $2 \to 3$, $6 \to 7$, $10 \to 11$: differences 3, 3, 3, $t = 3$, RMS 0: right. (c) Every point must be closer to its own partner than to the neighbour, which lies 4 further on: an error of the start below 2 (half the spacing), so starts in $(1, 5)$. (At exactly $t = 1$ the point 4 lies at 5, equally far from 3 and 7.)
+
+**A4.** (a) $t = 0$: pairs $0 \to 0.5$, $2 \to 2.5$, $4 \to 4.5$, $30 \to 4.5$: differences $0.5, 0.5, 0.5, -25.5$, $t = -6$. At $t = -6$ the points are at $-6, -4, -2, 24$: pairs $\to 0.5, 0.5, 0.5, 4.5$; differences $0.5, -1.5, -3.5, -25.5$, $t = -7.5$. At $-7.5$: the same pairs, so it stops at $t = -7.5$. (b) $t = 0$: distances $0.5, 0.5, 0.5, 25.5$; the 3 closest pairs give $t = 0.5$, and then all distances are 0 except the stray point's: $t = 0.5$. (c) Trimmed ICP, $t = 0.5$ (the true shift); the stray point dragged plain ICP 8 units away. With keep = 2 the first step keeps two of the three good pairs, which also give $t = 0.5$: here still right, but in 2D two pairs fix a transform poorly and leave more wrong minima (demo: keep 40 % fails).
+
+**A5.** (a) $130\,\theta < 15$: $\theta < 0.115$ rad $= 6.6°$. (b) Even when the outer spots pair with a wrong neighbour, the wrong partner usually lies roughly in the direction of the right one, and the spots near the centre (which barely move) pair correctly; the fit therefore turns the set partly towards the truth, and the next pairing is better. (c) Try start angles in steps of about 10° to 15° and keep the result with the lowest RMS; align the principal axes of the two sets first; or click a few landmarks.
+
+**A6.** (a) $10^4 \cdot 10^4 = 10^8$ per iteration, $3 \cdot 10^9$ in 30 iterations. (b) $10^4 \cdot \log_2 10^4 \approx 10^4 \cdot 13.3 \approx 1.3 \cdot 10^5$ per iteration, about 750 times fewer. (c) $10^{12}$ per iteration: far too slow, which is one reason ICP uses the nearest neighbour.
+
+**A7.** (a) Across the wall: corrected (every pair pulls across). Along the wall: the moving points are pulled onto the fixed samples, so the set slides by half a spacing to wherever the nearest samples are: an arbitrary shift along the wall that depends only on the sampling. (b) Point to plane corrects the offset across the wall and ignores the position along it: nothing pulls along the wall, so it stays where it started (the problem is singular in that direction; in practice the step along it is set to 0). (c) Something that varies along the wall: its ends, a corner, or a feature on it. A straight wall alone cannot fix the position along it, whatever the method.
+:::
+
+### Math questions
+
+**B8.** *(math)* For known pairs and a similarity $\begin{pmatrix} a & -b\\ b & a\end{pmatrix}\mathbf p + \mathbf t$, show that the least-squares problem is linear in $(a, b, t_x, t_y)$ and that with centred points $a = S_\text{dot}/\sum|\mathbf p_i|^2$ and $b = S_\text{cross}/\sum|\mathbf p_i|^2$. Why does the rigid fit (with $a^2 + b^2 = 1$) have the same angle?
+
+**B9.** *(math)* Let $C = \sum_i\mathbf q_i'\mathbf p_i'^\top = U\Sigma V^\top$ (centred points, any dimension). Show that $\sum_i\mathbf q_i'^\top R\mathbf p_i' = \operatorname{tr}(R^\top C)$ and that among orthogonal matrices it is largest for $R = UV^\top$. (Hint: write $\operatorname{tr}(R^\top U\Sigma V^\top) = \operatorname{tr}(Z\Sigma)$ with $Z = V^\top R^\top U$ orthogonal.) What do you do if $\det UV^\top = -1$? In 2D, check that $UV^\top$ is the rotation by $\operatorname{atan2}(S_\text{cross}, S_\text{dot})$.
+
+**B10.** *(math)* Show that trimmed ICP (keep the $h$ closest pairs) never increases $E = \sum_{i \in S}|T(\mathbf m_i) - \mathbf f_{j(i)}|^2$ and stops after finitely many iterations. What can you say about the transform it stops at?
+
+**B11.** *(math)* Point to plane in 2D: with $R\mathbf m \approx \mathbf m + \theta(-m_y, m_x)$, write the residual of a pair as a linear function of $(\theta, t_x, t_y)$ and the $3 \times 3$ normal equations. Show that the matrix is singular when all normals are parallel.
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** $\begin{pmatrix} a & -b\\ b & a\end{pmatrix}\mathbf p + \mathbf t = (ax - by + t_x,\ bx + ay + t_y)$: every coordinate is linear in $(a, b, t_x, t_y)$, so least squares is linear. $\partial/\partial\mathbf t = 0$ gives $\mathbf t = \bar{\mathbf q} - M\bar{\mathbf p}$; with centred points $E = \sum (ax - by - u)^2 + (bx + ay - v)^2$. $\partial E/\partial a = 2\sum[x(ax - by - u) + y(bx + ay - v)] = 2[a\sum(x^2 + y^2) - \sum(xu + yv)] = 0$ (the $b$ terms cancel), so $a = S_\text{dot}/\sum|\mathbf p|^2$; likewise $\partial E/\partial b = 2[b\sum(x^2 + y^2) - \sum(xv - yu)] = 0$, $b = S_\text{cross}/\sum|\mathbf p|^2$. The rigid fit maximises $S_\text{dot}\cos\theta + S_\text{cross}\sin\theta$ (quiz Q8), whose maximum is at $\operatorname{atan2}(S_\text{cross}, S_\text{dot}) = \operatorname{atan2}(b, a)$: dividing $a$ and $b$ by the same positive number does not change the angle.
+
+**B9.** $\mathbf q'^\top R\mathbf p' = \operatorname{tr}(\mathbf q'^\top R\mathbf p') = \operatorname{tr}(R\mathbf p'\mathbf q'^\top)$; summed, $\operatorname{tr}(RC^\top) = \operatorname{tr}(R^\top C)$. Then $\operatorname{tr}(R^\top U\Sigma V^\top) = \operatorname{tr}(V^\top R^\top U\Sigma) = \sum_k Z_{kk}\sigma_k$ with $Z$ orthogonal, so $|Z_{kk}| \le 1$ and the sum is at most $\sum\sigma_k$, reached for $Z = I$, i.e. $R = UV^\top$. If $\det UV^\top = -1$ this is a reflection; the best rotation has $Z = \mathrm{diag}(1, \dots, 1, -1)$ (give up the smallest singular value), $R = U\,\mathrm{diag}(1, \dots, 1, -1)\,V^\top$. In 2D, for a rotation $R_\theta$, $\operatorname{tr}(R_\theta^\top C) = \cos\theta\,(C_{11} + C_{22}) + \sin\theta\,(C_{21} - C_{12})$ with $C_{11} + C_{22} = \sum(u x + v y) = S_\text{dot}$ and $C_{21} - C_{12} = \sum(v x - u y) = S_\text{cross}$ (where $\mathbf p' = (x, y)$, $\mathbf q' = (u, v)$); its maximum over $\theta$ is at $\operatorname{atan2}(S_\text{cross}, S_\text{dot})$, which must be the rotation the SVD gives.
+
+**B10.** Match step: for fixed $T$, each $|T(\mathbf m_i) - \mathbf f_k|$ is smallest for the nearest $k$, and among all choices of $h$ terms the $h$ smallest have the smallest sum; the old $(j, S)$ is one of the allowed choices, so $E$ cannot increase. Fit step: for fixed $(j, S)$ the closed form gives the minimum over $T$, at most the old value. There are finitely many pairs $(j, S)$, and with ties broken the same way a pair that repeats gives the same $T$ again; since $E$ never increases, the sequence cannot cycle through different values, so after finitely many steps $(j, S)$ is constant (as in the demo and the code, stop when it repeats). The final $T$ is a **local** minimum: no single re-pairing and no change of $T$ alone lowers $E$, but a different start may give a lower $E$.
+
+**B11.** $r_i = (\mathbf m_i + \theta(-m_{i,y}, m_{i,x}) + \mathbf t - \mathbf f_i)\cdot\mathbf n_i = (\mathbf m_i - \mathbf f_i)\cdot\mathbf n_i + \mathbf a_i^\top\mathbf x$ with $\mathbf x = (\theta, t_x, t_y)$ and $\mathbf a_i = (m_{i,x}n_{i,y} - m_{i,y}n_{i,x},\ n_{i,x},\ n_{i,y})$. Minimising $\sum r_i^2$: $\big(\sum\mathbf a_i\mathbf a_i^\top\big)\mathbf x = -\sum\mathbf a_i\,(\mathbf m_i - \mathbf f_i)\cdot\mathbf n_i$. If all $\mathbf n_i = \mathbf n$, then for $\mathbf x = (0, \mathbf s)$ with $\mathbf s \perp \mathbf n$ (a shift along the wall) every $\mathbf a_i^\top\mathbf x = \mathbf n\cdot\mathbf s = 0$, so $\sum\mathbf a_i\mathbf a_i^\top$ has this vector in its null space: singular.
+:::
+
+## Explore: ICP step by step {#explore}
+
+Blue: the fixed points; orange: the moving points, drawn where the current transform puts them. **1. match** joins every orange point to its nearest blue point (grey; red dashed: left out by trimming); **2. move** fits the best transform of the chosen model to these pairs and moves the set. **run to the end** goes on until the pairs no longer change. Drag the orange square to choose the start, or tick **start: match the centroids**. **unpaired** removes that fraction of the objects on the left of the moving set and adds as many beyond the right edge (partial overlap); **keep** is the trimmed fraction. The left plot shows the RMS distance of the kept pairs and the true error (mean distance from the true positions) per iteration; the right plot the final true error for every rotation between the sets with all other settings as they are (green: below 5 px).
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="icp" data-preset="close"></div>
+<script src="../demos/dist/icp.js"></script>
+```
+
+**E1.** Preset **close start**. Step through with **1. match** and **2. move**. How many pairs are wrong in the first matching (roughly)? Read the RMS after each move and the final true error. Why is the final RMS (1.5 px) larger than the final true error?
+
+**E2.** Look at the right plot. From which rotations between the sets does ICP find the right answer? Compare with your estimate in A5. Move the **rotation** slider to 15° and 20°, and step through both.
+
+**E3.** Preset **turned 40°**. Run to the end. What angle does ICP find, with what RMS and true error? Tick **show the true position**. Is anything in the RMS curve telling you that this is wrong?
+
+**E4.** Preset **far shift: centroids** (the start is shifted 80 px to the right). How many moves are needed? Untick **start: match the centroids**: what happens now?
+
+**E5.** Preset **partial overlap** (30 % unpaired). Read the true error. Where do the red-dashed or long pairs come from? Now lower **keep** in steps of 10 % from 100 % to 40 % and note the final true error each time. Which keep values work, and why does 40 % fail?
+
+**E6.** Still with 30 % unpaired and keep 100 %, tick **start: match the centroids**. Better or worse, and why?
+
+**E7.** Preset **translation only**. What RMS does it reach? Switch to **rigid** and **similarity**: what scale does the similarity find?
+
+**E8.** Preset **outline**. How many moves, what angle, what true error? Step through the last moves and watch where the orange samples end up. Compare the right plot with the spots: why does the outline converge from much further away? Why is its final error about 3.5 px rather than 0.2 px?
+
+**E9.** Back to **close start**; set the **noise** to 3 and to 5 px. Read the final RMS and the true error. Which of the two tells you the quality of the alignment?
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** In the first matching (RMS 18.87 px) many of the outer orange points, perhaps a third, are joined to a neighbour of their partner, but most lines point roughly in the direction of the truth. RMS 18.87 → 15.02 → 5.55 → 1.53 px; converged after 3 moves (the 4th matching is the same as the 3rd); true error 0.16 px. The RMS contains the 1 px noise of every point (in x and y: $\sqrt 2 \cdot 1 \approx 1.4$ px); the transform averages the noise of 40 points, so it is much more precise than any single point.
+
+**E2.** From −10° to 15° (in steps of 5°): about ±15°, not symmetric because of the shift of (12, −8) px. The estimate of A5 (6.6°) is pessimistic, for the reason of A5(b). At 15° ICP needs more moves (5) but still gets there; at 20° it stops in a wrong minimum (true error 38 px).
+
+**E3.** Angle 1.8° instead of 40°, RMS 25.14 px, true error 70.9 px. The true positions are far from the orange points; each orange point sits between blue ones. The RMS curve falls a little and flattens just like a successful run; only its level (25 px, far above the noise) gives a hint, and that hint is weak whenever the points are dense.
+
+**E4.** With the centroids matched: 2 moves, true error 0.16 px. Without: ICP from the 80 px shift stops after 5 moves in a wrong minimum, true error 33.0 px. Matching the centroids removes the shift at no cost (when both sets show the same objects).
+
+**E5.** Keep 100 %: true error 21.9 px. The orange points beyond the right edge of the blue set have no partner; they are paired with blue spots on the right edge and pull the set to the right and turn it. Keep 90 %: 10.7 px; 80 %: 3.8 px; 70 %: 0.18 px; 60 %: 0.49 px; 50 %: 0.60 px; 40 %: 17.1 px. 70 % to 50 % work: they drop all (or almost all) of the 12 unpaired points, and 70 % matches the overlap best. 90 % and 80 % keep some unpaired points. At 40 %, only the 16 closest pairs of the first, poor matching are used: too few, and they come from one part of the set, so the fit stays in a wrong minimum.
+
+**E6.** Worse: true error 87.9 px. The centroids of the two sets are not corresponding points when the sets overlap only partly: the moving set's centroid lies to the right of the shared part. Matching them shifts the start sideways by many spot spacings, outside the range of ICP.
+
+**E7.** Translation only: one move, RMS 18.24 px, true error 20.4 px: a shift cannot follow the 10° turn. Rigid: RMS 1.53 px, true error 0.16 px. Similarity: scale 0.999, true error 0.18 px (one more free number fits a little noise).
+
+**E8.** 19 moves, angle 28.2° instead of 30°, true error 3.48 px. In the last moves the orange samples settle onto blue samples rather than between them: the set slides along the outline (point to point). The outline converges from −30° to 70°: a distinctive shape has one way to fit, and the nearest points on a continuous curve pull the set along the curve towards it, whereas a spot can only be pulled by the spot nearest to it. The 3.5 px error is the sliding bias of the sampling, which point to plane would remove.
+
+**E9.** Noise 3 px: final RMS 4.58 px, true error 0.48 px; noise 5 px: RMS 7.63 px, true error 0.79 px (still converged). The RMS measures the scatter of the points (the noise); the true error of the transform is about the noise divided by $\sqrt n$, since 40 pairs average it. Neither number from ICP alone is the alignment error; the RMS is an upper bound only if the pairing is right.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `day24-keypoints/src/icp/exercise.rs`.
+
+**C1.** `centroid(points)`: the mean position. The check is A2(a).
+
+**C2.** `fit_rigid(p, q)`: the best rigid transform for known pairs `p[i] ↔ q[i]`. The check is A2(b, c).
+
+```
+p̄ = centroid(p);  q̄ = centroid(q)
+S_dot = S_cross = 0
+for every pair (p, q):
+    (x, y) = p − p̄;  (u, v) = q − q̄
+    S_dot += x·u + y·v;   S_cross += x·v − y·u
+angle = atan2(S_cross, S_dot)
+shift = q̄ − (p̄ turned by angle)
+```
+
+**C3.** `nearest(p, set)`: the index of and the distance to the point of `set` nearest to `p`, by trying them all.
+
+**C4.** `icp_step(moving, fixed, current, keep)`: one iteration. The checks are A3 (first iteration) and A4(b).
+
+```
+for every moving point m_i:
+    (j_i, d_i) = nearest(current(m_i), fixed)
+n_keep = round(keep · n), at least 2
+kept = the n_keep pairs with the smallest d_i            # keep = 1: all of them
+new transform = fit_rigid(the kept m_i, their f_j_i)     # the ORIGINAL moving points
+RMS = sqrt(mean of d_i² over the kept pairs)             # before the fit
+```
+
+**C5.** `icp(moving, fixed, start, max_iter, keep)`: repeat C4 from `start` until the pairing (which pairs, which partners) is the same as in the iteration before, at most `max_iter` times. The checks are A3 (from 0 and from 2) and A4.
+
+Then `cargo run -p day24 -- icp` and open the pictures in `out/icp/`. Time point 1 is the course's synthetic nuclei image (30 nuclei); the program takes the centroid of every nucleus. Time point 2 is the same centroids turned by 8° about the image centre and shifted by (6, −4) px, with 0.7 px of motion per nucleus; the 3 leftmost nuclei have left the field and 3 new ones have come in on the right. The program runs ICP from no motion with all pairs and with keep = 90 %, prints the RMS per iteration and the true error (the mean distance from where the true transform puts the nuclei), and draws time point 1 (blue dots) with time point 2 (orange rings) before and after. Finally it repeats trimmed ICP for turns of 0° to 40°.
+
+**C6.** Compare ICP with all pairs and trimmed ICP: iterations, RMS, angle, true error, and the pictures `after-all.png` and `after-trimmed.png`. Where are the three new nuclei paired in the first picture?
+
+**C7.** Up to which turn does trimmed ICP from no motion find the alignment? Compare with the demo (spots about 30 px apart) and with the spacing of the nuclei here.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `day24-keypoints/src/icp/solution.rs` in the download.
+
+**C6.** All pairs: 3 iterations, RMS 17.98, 9.62, 9.01 px; angle −9.41° (the truth is −8°: time point 2 turned back), true error 3.11 px. Trimmed (keep 90 %, i.e. 27 of the 30 points: exactly those seen twice): RMS 13.20, 3.01, 0.90 px; angle −8.20°, true error 0.29 px. In `after-all.png` the rings sit close to, but systematically beside, the dots: the three new nuclei on the right are paired with nuclei on the right edge and pull the set; in `after-trimmed.png` every ring is centred on its dot, and the three new nuclei are left alone. The remaining RMS (0.9 px) is the 0.7 px motion of each nucleus; the transform is better than that because it averages 27 of them.
+
+**C7.** From 0° to 25° the true error stays at 0.24 to 0.30 px (the turn found within 0.2°); at 30° it fails (true error 41.6 px, found −2.0°), and at 40° too (52.1 px). The nuclei here are about 45 px apart, further than the demo's spots (30 px), so ICP tolerates a larger turn (25° against 15°): the range grows with the spacing relative to the size of the set.
+:::
+
+## Where this leads
+
+- **Shapes**: the same closed-form fit aligns landmark shapes and builds shape models: [Procrustes and shape models](../shape-models/lec.qmd).
+- **Tracking**: the pairing of two time points becomes linking over a whole movie, with one-to-one assignment: [tracking](../track-linking/lec.qmd).
+- **Beyond rigid**: when the points move individually, a rigid or affine fit is the first step of [non-rigid registration](../nonrigid-reg/lec.qmd).

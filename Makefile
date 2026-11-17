@@ -40,7 +40,7 @@ TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts \
   demos/test/flim-test.ts demos/test/multiview-test.ts demos/test/raytracing-test.ts \
   demos/test/diffusion-test.ts demos/test/splines-test.ts demos/test/gpus-test.ts \
   demos/test/contrast-test.ts demos/test/spatialstats-test.ts demos/test/graphseg-test.ts \
-  demos/test/keypoints-test.ts demos/test/pdesmooth-test.ts demos/test/sparse-test.ts \
+  demos/test/keypoints-test.ts demos/test/icp-test.ts demos/test/pdesmooth-test.ts demos/test/sparse-test.ts \
   demos/test/ncut-test.ts demos/test/coursegraph-test.ts \
   demos/test/stardist-test.ts demos/test/cellpose-test.ts demos/test/yolo-test.ts \
   demos/test/sam-test.ts demos/test/cellnets-compare-test.ts \

@@ -4,3 +4,4 @@ mod keypoints;
 mod descriptors;
 mod feature_matching;
 mod feature_alignment;
+mod icp;

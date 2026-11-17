@@ -26,6 +26,9 @@ enum Unit {
     /// From matches to a transform: RANSAC, stitching and registration
     #[command(name = "feature-alignment")]
     FeatureAlignment,
+    /// Aligning point sets: iterative closest point
+    #[command(name = "icp")]
+    Icp,
 }
 
 fn main() {
@@ -34,5 +37,6 @@ fn main() {
         Unit::Descriptors => descriptors::run::main(),
         Unit::FeatureMatching => feature_matching::run::main(),
         Unit::FeatureAlignment => feature_alignment::run::main(),
+        Unit::Icp => icp::run::main(),
     }
 }
