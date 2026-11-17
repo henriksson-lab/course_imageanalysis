@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: a U-Net segments nuclei</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9148,6 +9149,43 @@ Solutions
 <p><strong>U6.</strong> Noise 30 (training noise was 3–10): the U-Net drops to Dice 0.943 and its mask breaks into 9 pieces (specks in the background, holes); Otsu drops to 0.729. At noise 15 both are still good (0.978 and 0.951). The network degrades gracefully here, but its errors are of a new kind (scattered specks).</p>
 <p><strong>U7.</strong> At brightness ×0.5 the U-Net misses most of the nuclei: Dice 0.269 (TP 143, FN 776), while Otsu still reaches 0.705. At brightness 1 the same image gives 0.951. Lowering the threshold to 0.1 helps little (0.335): the probabilities themselves are low, the network has never seen nuclei this dim. At brightness ×2: 0.930. A network can be beaten by a simple threshold as soon as the input leaves its training range; it gives no warning. Augmenting the brightness during training, or normalising the images, would help.</p>
 <p><strong>U8.</strong> The Dice-trained network gives almost only probabilities near 0 or 1: 16 uncertain pixels against 285 for the cross-entropy network. Its Dice hardly depends on the threshold (0.904–0.906 from 0.1 to 0.9); the cross-entropy network peaks at 0.5 (0.909) and drops to 0.851 at 0.1 and 0.856 at 0.9. The Dice-trained network’s cross-entropy is high (0.491 against 0.108): where it is wrong it is confidently wrong. Its probabilities are not calibrated: “0.99” does not mean “right 99 % of the time”.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day36-neuralnets/src/unet/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>pixel_cross_entropy(p, g)</code>: the mean per-pixel cross-entropy of a probability map against the true mask. The checks are B1(a) and B1(c).</p>
+<p><strong>C2.</strong> <code>soft_dice(p, g)</code>: <span class="math inline">2\sum_i p_ig_i/(\sum_i p_i + \sum_i g_i)</span>. For a map of only 0 and 1 it is the Dice of a mask. The checks are B1(b) and B1(c).</p>
+<p><strong>C3.</strong> <code>soft_dice_gradient(p, g)</code>: <span class="math inline">\partial D/\partial p_j</span> for every pixel, with <span class="math inline">I = \sum_i p_ig_i</span> and <span class="math inline">S = \sum_i p_i + \sum_i g_i</span>: <span class="math inline">(2g_jS - 2I)/S^2</span>. The check is B7, and a finite difference.</p>
+<p><strong>C4.</strong> <code>upsample_nearest(img, factor)</code>: every pixel becomes a <code>factor × factor</code> block. The check is B2(a).</p>
+<p><strong>C5.</strong> <code>transposed_conv(img, kernel, s)</code>: every input pixel stamps a copy of the kernel, scaled by its value, into the output, <span class="math inline">s</span> pixels apart:</p>
+<pre><code>out = zeros of size ((w − 1)·s + kw) × ((h − 1)·s + kh)
+for every input pixel (x, y):
+    for every kernel position (u, v):
+        out(s·x + u, s·y + v) = out(s·x + u, s·y + v) + I(x, y) · k(u, v)</code></pre>
+<p>The checks are B2(c) and B2(d).</p>
+<p>Then <code>cargo run -p day36 -- unet</code> and open the pictures in <code>out/unet/</code>. There is no training: the program builds a tiny encoder–decoder by hand and scores it with your losses. The input is a synthetic fluorescence image with 30 nuclei and an illumination gradient (brighter to the right). The <strong>encoder</strong> averages <span class="math inline">4 \times 4</span> blocks (<span class="math inline">64 \times 64</span> maps) and estimates the background there as the darkest value within 4 coarse pixels (context much larger than a nucleus). The <strong>decoder</strong> brings the background back to full size with a transposed convolution (a <span class="math inline">7 \times 7</span> tent kernel, stride 4: linear interpolation). The output is a probability: a sigmoid of the pixel’s brightness above its background. <strong>With a skip connection</strong> the brightness comes from the full-size input; <strong>without</strong>, only from the coarse <span class="math inline">64 \times 64</span> map, upsampled by nearest neighbour. The baseline is <strong>one global threshold</strong>.</p>
+<p><strong>C6.</strong> Compare <code>p-skip.png</code>, <code>p-no-skip.png</code> and <code>p-global-threshold.png</code> with <code>truth.png</code>, and the printed scores. Explain what goes wrong in each of the two worse ones.</p>
+<p><strong>C7.</strong> The last line scores <span class="math inline">p = 0.01</span> everywhere. Compare its numbers with B1(c). Why is its cross-entropy much larger here than there?</p>
+<p><strong>C8.</strong> <code>dice-gradient.png</code> shows <span class="math inline">\partial D/\partial p</span> for the skip output (0 is mid-grey). Where does a step on the Dice loss push the probabilities up, and where down? Does it matter how confident a pixel already is?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day36-neuralnets/src/unet/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> 20.4 % of the pixels are nucleus. With the skip connection: cross-entropy 0.040, soft Dice 0.963, Dice of the mask 0.968; the outlines match the truth. Without it: 0.149, 0.920, 0.922; the nuclei are found in the right places (the context is the same), but every outline is made of <span class="math inline">4 \times 4</span> blocks, because the detail was lost in the encoder. One global threshold: 0.427, 0.720, 0.724: on the left it finds the nuclei, but the right third of the image, where the background is brighter, is a field of noise “nuclei”. A pixel must be compared with its own surroundings, which is what the context from the coarse level provides. Context from below, detail from the side: the U-Net in miniature.</p>
+<p><strong>C7.</strong> Cross-entropy 0.949, soft Dice 0.019, Dice of the mask 0. In B1(c) the cross-entropy was 0.240, below the 0.693 of a coin toss, because only 5 % of the pixels were nucleus. Here 20 % are, and each of them costs <span class="math inline">-\ln 0.01 = 4.6</span>: the cross-entropy depends on the share of object pixels, the Dice numbers show that nothing was found in both cases.</p>
+<p><strong>C8.</strong> Up (bright) at every nucleus pixel, down (dark) at every background pixel, with one value for all nucleus pixels and one for all background pixels: <span class="math inline">(2S - 2I)/S^2</span> and <span class="math inline">-2I/S^2</span>. How confident a pixel already is does not matter, unlike for the cross-entropy, whose gradient vanishes for pixels that are already right. This is why a network trained with the Dice loss pushes its probabilities to 0 and 1 (demo question U8).</p>
 </div>
 </div>
 </div>

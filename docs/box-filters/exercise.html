@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: box filters and their cost</a></li>
   <li><a href="#explore-localstats" id="toc-explore-localstats" class="nav-link" data-scroll-target="#explore-localstats">Explore: local statistics and precision</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9225,6 +9226,53 @@ Solutions
 <p><strong>E7.</strong> Largest SD error 22.7, 10 611 negative variances. The errors grow towards the bottom right (largest error per quadrant: 3.7 top-left, 12.1 top-right, 11.9 bottom-left, 22.7 bottom-right), where the table entries are largest (up to <span class="math inline">7.2\cdot10^9</span> for <span class="math inline">I^2</span>, far above <span class="math inline">2^{24}</span>) and each carries a larger rounding error.</p>
 <p><strong>E8.</strong> At <span class="math inline">256 \times 256</span> with the offset (330) subtracted: largest error 1.32, no negative variances. At <span class="math inline">1024 \times 1024</span>: largest error 6.08 and 49 392 negative variances: even the shifted sum of squares (<span class="math inline">2.0\cdot10^9</span>) is far above <span class="math inline">2^{24}</span>, so float32 still rounds. Fixes: float64 (largest error 0 here with the offset) or integer tables.</p>
 <p><strong>E9.</strong> The true sum of all <span class="math inline">I^2</span> is <span class="math inline">1.16\cdot10^{11}</span>; the stored last entry is <span class="math inline">4.26\cdot10^9</span>: it has wrapped many times, and so have most entries. The SD is nevertheless exact (error about <span class="math inline">10^{-11}</span>, from the final floating-point division): each <span class="math inline">7 \times 7</span> window’s sum of squares (at most <span class="math inline">49 \times 455^2 \approx 10^7</span>) is far below <span class="math inline">2^{32}</span>, so the wraps cancel in <span class="math inline">D - B - C + A</span>, exactly as in B5(b).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day22-integral/src/box_filters/exercise.rs</code>. The integral image of the last unit is given (<code>integral</code>, <code>rect_sum</code>), and <code>clip(c, r, n)</code> gives the first and last index of the window of radius <span class="math inline">r</span> around <span class="math inline">c</span>, cut to the image. The code counts pixels from 0, the exercises from 1.</p>
+<p><strong>C1.</strong> <code>box_mean_1d(f, r)</code>: the box mean of width <span class="math inline">2r + 1</span> along a row, with a running sum.</p>
+<pre><code>sum = f(1) + ... + f(1 + r)                  # the window at position 1, clipped
+for i = 1 .. N:
+    if i &gt; 1:
+        sum = sum + f(i + r)                 # enters, if it exists
+        sum = sum − f(i − r − 1)             # leaves, if it was inside
+    out(i) = sum / (number of pixels of the window inside the row)</code></pre>
+<p>The checks are your answers to B1(a) and (b).</p>
+<p><strong>C2.</strong> <code>box_mean(img, r)</code>: the box mean of width <span class="math inline">2r + 1</span> at every pixel from one table: clip the window to the image, four lookups, divide by the number of pixels inside. The check compares it with adding up the pixels.</p>
+<p><strong>C3.</strong> <code>local_mean_sd(img, r)</code>: the local mean and standard deviation from two tables.</p>
+<pre><code>S = table of I,   Q = table of I²
+for every pixel (x, y):
+    window = columns x − r .. x + r, rows y − r .. y + r, clipped to the image
+    n = number of pixels in the window
+    m = (sum of the window from S) / n
+    q = (sum of the window from Q) / n
+    s = sqrt(max(q − m², 0))</code></pre>
+<p>The checks are your answers to B3(a) and (c).</p>
+<p><strong>C4.</strong> <code>normalise(img, r, eps)</code>: <span class="math inline">(I - m)/(s + \varepsilon)</span> at every pixel. The check: <span class="math inline">2I + 0.3</span> is normalised to the same image as <span class="math inline">I</span>.</p>
+<p><strong>C5.</strong> <code>repeated_box(img, r, n)</code>: <span class="math inline">n</span> passes of <code>box_mean</code>. The checks put a single bright point through the passes: two passes of width 3 give the tent <span class="math inline">(1, 2, 3, 2, 1)/9</span> of B2(a), and <span class="math inline">n</span> passes of width 5 have the variance <span class="math inline">2n</span> of B2(b).</p>
+<p>Then <code>cargo run -p day22 -- box-filters</code> and open the pictures in <code>out/box-filters/</code>.</p>
+<p><strong>C6.</strong> Compare <code>box51-zeros.png</code> with <code>box51-clipped.png</code> (a <span class="math inline">51 \times 51</span> box mean, with zeros outside the image and with the window clipped). Then look at <code>points-1box.png</code>, <code>points-2box.png</code> and <code>points-3box.png</code>: three bright points after one, two and three passes of a <span class="math inline">15 \times 15</span> box. Which lecture slides do they illustrate?</p>
+<p><strong>C7.</strong> <code>faded.png</code> shows synthetic nuclei whose contrast fades towards the left. Compare it with <code>normalised-17-eps0.02.png</code> (<span class="math inline">17 \times 17</span> window, <span class="math inline">\varepsilon = 0.02</span>), <code>normalised-3-eps0.02.png</code> (<span class="math inline">3 \times 3</span>) and <code>normalised-17-eps0.png</code> (<span class="math inline">\varepsilon = 0</span>). Explain the differences with B7.</p>
+<p><strong>C8.</strong> The program computes the local standard deviation (<span class="math inline">7 \times 7</span>) of the micrograph in grey levels plus 200, with the two tables in float32 instead of float64, once as it is and once with the mean subtracted first. Read the largest errors and the numbers of negative variances. Where in <code>sd-error-raw.png</code> are the errors largest, and why?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day22-integral/src/box_filters/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> With zeros outside, a dark frame about 25 pixels wide creeps in from every edge: near the border half or more of the window lies outside and counts as black. Clipping the window and dividing by the pixels inside leaves no frame (slide “Why the integral image wins anyway”). One box turns each point into a flat square; two passes give a pyramid, still square-ish; after three passes the blobs look round and bell-shaped (slide “Repeated boxes look Gaussian”).</p>
+<p><strong>C7.</strong> With the <span class="math inline">17 \times 17</span> window all nuclei look about equally strong, the faint ones on the left as well as the bright ones on the right, and the brightness gradient is gone. With <span class="math inline">3 \times 3</span> the window is much smaller than a nucleus: inside a nucleus it sees only the nucleus, so the interiors flatten to grey and only faint rims remain (B7(b)). With <span class="math inline">\varepsilon = 0</span> the flat background is divided by its own noise level and becomes strong noise, as strong as the nuclei (B7(c)).</p>
+<p><strong>C8.</strong> Without the offset: largest error 27.0 grey levels and 566 negative variances; with the mean subtracted: 2.65 grey levels and 90 negative variances. In <code>sd-error-raw.png</code> the errors grow towards the bottom right, where the table entries are largest (the sum of almost the whole image of <span class="math inline">I^2</span>, about <span class="math inline">10^{10}</span>, far above <span class="math inline">2^{24}</span>), so each entry carries the largest rounding error. Even with the offset, float32 is not exact at this size; float64 (as in C3) or integer tables are.</p>
 </div>
 </div>
 </div>

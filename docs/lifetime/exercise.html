@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: photons into a histogram</a></li>
   <li><a href="#explore-flimcell" id="toc-explore-flimcell" class="nav-link" data-scroll-target="#explore-flimcell">Explore: a lifetime image</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9186,6 +9187,50 @@ Solutions
 <p><strong>E9.</strong> In the nucleus (pixel (56, 60): 401 photons, mean arrival 0.96 ns, true 1.00 ns). The intensity is flat across the cell, so intensity alone cannot see it. Quenching shortens τ and lowers the quantum yield by the same factor (B7): the quenched mitochondria emit fewer photons per molecule, so they are dimmer as well as shorter.</p>
 <p><strong>E10.</strong> 1 × 1: 21 photons, 2.48 ns (lucky; the image around it is speckled). 3 × 3: 201 photons, 2.46 ns; 5 × 5: 559 photons, 2.41 ns; 7 × 7: 1 099 photons, 2.47 ns. The lifetime image becomes smooth and the noise drops roughly as <span class="math inline">1/\sqrt{\text{photons}}</span>, but edges between compartments blur, and small structures (a mitochondrion) mix with their surroundings.</p>
 <p><strong>E11.</strong> The pixel at (10, 10) has 9 photons, all background, with a mean arrival of 5.70 ns after subtracting the IRF: a flat histogram’s mean is the middle of the window, so the “lifetime” is meaningless. Masking at a few tens of photons blacks out the background. The two-gate estimate is noisier: it uses only the photons in the two gates and a ratio of two small counts, while the mean arrival uses every photon.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day46-flim/src/lifetime/exercise.rs</code>. Times are in nanoseconds; a histogram is a list of counts in equal time bins over one laser period, and bin <span class="math inline">j</span> is represented by its centre <span class="math inline">t_j</span>.</p>
+<p><strong>C1.</strong> <code>simulate(tau, photons, background, setup, rng)</code>: photon counting, one photon at a time, as in the first demo:</p>
+<pre><code>counts = zeros(number of bins)
+repeat for every photon:
+    if a uniform random number &lt; background:
+        t = uniform random time in [0, T)
+    else:
+        t = IRF delay + IRF width · (normal random number) − τ · ln(uniform random number)
+    t = t modulo T                                   # wrap-around into the next period
+    add 1 to the bin that contains t</code></pre>
+<p>The checks count the photons later than 2, 4 and 6 ns (B1), the fraction in the first 2 ns of a wrapped 8 ns decay (B4, B8), and a histogram of pure background.</p>
+<p><strong>C2.</strong> <code>mean_arrival(counts, period)</code>: <span class="math inline">\sum_j y_j t_j / \sum_j y_j</span>. The checks are B3(a) and (b).</p>
+<p><strong>C3.</strong> <code>two_gates(counts, period, start, width)</code>: <span class="math inline">D_1</span> = the counts of the bins whose centres lie in <span class="math inline">[\text{start}, \text{start} + \Delta t)</span>, <span class="math inline">D_2</span> = those in the next window of the same width, <span class="math inline">\hat\tau = \Delta t/\ln(D_1/D_2)</span>. The checks are B2 (with and without room light) and B10(c).</p>
+<p><strong>C4.</strong> <code>lifetime_image(stack, period, irf_mean, radius, min_photons)</code>: a lifetime image from a stack of histograms, one per pixel (the third index of the stack is the time bin):</p>
+<pre><code>for every pixel (x, y):
+    h = sum of the histograms of the pixels within radius of (x, y)   # binning
+    if the total count of h &lt; min_photons:
+        τ(x, y) = 0                                                    # masked
+    else:
+        τ(x, y) = mean arrival time of h − mean arrival time of the IRF</code></pre>
+<p>Then <code>cargo run -p day46 -- lifetime</code> and open the pictures in <code>out/lifetime/</code>. The program first simulates 100 000 photons for three single decays (IRF at 1 ns, bins of 0.1 ns) and prints both quick estimates. Then it makes a <span class="math inline">128 \times 128</span> FLIM image of synthetic nuclei, 64 bins per pixel: odd-numbered nuclei hold a 2.5 ns dye, the others the same dye quenched to 1.2 ns, and every pixel gets 8 photons of flat background. It shows the lifetime as colour (blue short, green 2.5 ns, orange long) and the intensity as brightness: without a mask, with a mask, and after <span class="math inline">3 \times 3</span> binning.</p>
+<p><strong>C5.</strong> Read the table of the three single decays. Why does the mean arrival time give much too short a lifetime for τ = 8 ns, while the two gates do not? What does 15 % background do to each?</p>
+<p><strong>C6.</strong> Compare <code>lifetime-1x1.png</code>, <code>lifetime-1x1-masked.png</code> and <code>lifetime-3x3-masked.png</code>, and the printed means and spreads inside the nuclei. What colour is the background without a mask, and why? What does binning buy? Why do the 1.2 ns nuclei come out longer than 1.2 ns in every map?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day46-flim/src/lifetime/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> τ = 2.5 ns: mean arrival 2.37 ns, two gates 2.50 ns. τ = 8 ns: mean arrival 4.25 ns, two gates 8.20 ns. With τ = 8 ns, 21 % of each decay is still to come at the next pulse (B4); those late photons wrap round to the start of the window and are counted as early ones, so the mean is far too small. In the window the wrapped decay is still a pure exponential with the same τ, so the ratio of two gates is unchanged (B10c). With 15 % background both estimates are too long (2.79 and 2.74 ns): the flat counts pull the mean towards the middle of the window and make the two gates more alike (B2, B3).</p>
+<p><strong>C6.</strong> Without a mask the background is orange-brown: its pixels hold about 8 photons, nearly all background, and their “lifetime” is the middle of the window minus the IRF (pixel (2, 2): 5.80 ns). Masking below 50 photons makes it black. Inside the 2.5 ns nuclei the estimate is 2.55 ± 0.19 ns per pixel and 2.55 ± 0.08 ns after <span class="math inline">3 \times 3</span> binning: nine times the photons, less than half the spread, at the cost of sharpness at the nuclei’s edges. The 1.2 ns nuclei give 1.44 ns (1.52 binned): the 8 background photons in every pixel pull its mean arrival towards the middle of the window, 6.25 ns, as in B3(b); binning at the edges mixes in dim pixels with even more background. The quick estimates have no way to remove the background; the <a href="../decayfit/lec.html">next unit</a> fits it.</p>
 </div>
 </div>
 </div>

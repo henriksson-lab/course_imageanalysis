@@ -8971,6 +8971,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9093,6 +9094,45 @@ Solutions
 <p><strong>E4.</strong> No bands in either half. Half float stores the centre as 0x1924 = 0.002510071, against the true 0.002509804: a relative error of about <span class="math inline">10^{-4}</span>. Floats keep relative precision, so small values are as precise as large ones (floating-point unit).</p>
 <p><strong>E5.</strong> The integer texture cannot be filtered, so with linear filtering it is “incomplete” and reads as 0 (black). With nearest it shows the 16 texels as sharp squares. The half float texture with nearest shows the same squares; with linear it shows smooth bilinear ramps between texel centres.</p>
 <p><strong>E6.</strong> 8 bit (RGBA), 8 bit sRGB, 10 bit and float32 (one channel) all take 4 bytes per texel: 16 MiB, 21.3 MiB with mipmaps; 5-6-5, half float and 16-bit integer take 2 bytes: 8 MiB. For one grey channel, float32 gives by far the most precision per 4 bytes; RGBA 8 bit stores the grey value three times and an unused alpha.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day48-graphics3d/src/gpuformats/exercise.rs</code>. Bytes are whole numbers 0–255; colours are values in <span class="math inline">[0, 1]</span>.</p>
+<p><strong>C1.</strong> <code>byte_offset(x, y, c, stride, channels, bytes)</code>: where channel <span class="math inline">c</span> of pixel <span class="math inline">(x, y)</span> is in an interleaved image, <span class="math inline">y\,s + x\,C B + c\,B</span>. Then <code>read_rgb8(data, width, height, stride)</code>: read an 8-bit RGB image with padded rows:</p>
+<pre><code>for every pixel (x, y), for c in 0, 1, 2:
+    img(x, y)[c] = data[y · stride + 3x + c] / 255</code></pre>
+<p>The checks are B1 (b), offset 6039, and a <span class="math inline">2\times2</span> image whose rows carry two padding bytes.</p>
+<p><strong>C2.</strong> <code>read_u16(data, i, little_endian)</code>: the 16-bit value number <span class="math inline">i</span>, from the bytes <span class="math inline">2i</span> and <span class="math inline">2i + 1</span>: low byte first (little-endian) or high byte first (big-endian), value <span class="math inline">= \text{high} \cdot 256 + \text{low}</span>. The check is B2.</p>
+<p><strong>C3.</strong> <code>pack565(rgb)</code>, <code>unpack565(word)</code> and <code>pack1010102(rgb, alpha)</code>: packed formats.</p>
+<pre><code>code(v, bits) = round(v · (2^bits − 1))
+5-6-5:       word = code(R, 5) · 2^11 + code(G, 6) · 2^5 + code(B, 5)
+10-10-10-2:  word = code(R, 10) + code(G, 10) · 2^10 + code(B, 10) · 2^20 + alpha · 2^30</code></pre>
+<p>Unpacking takes the bits apart again and divides each code by <span class="math inline">2^\text{bits} - 1</span>. The checks are B3: 0xFC00, green decoding to 0.508, and 0xC00803FF.</p>
+<p><strong>C4.</strong> <code>premultiply(c)</code> and <code>over(src, dst)</code>: <span class="math inline">(\alpha R, \alpha G, \alpha B, \alpha)</span>, and <span class="math inline">\mathbf c_\text{src} + (1 - \alpha_\text{src})\,\mathbf c_\text{dst}</span> in all four channels. The check is B4: averaging straight colours gives <span class="math inline">(0.75, 0.75, 0.5)</span> over white, averaging premultiplied ones gives <span class="math inline">(1, 0.5, 0.5)</span>.</p>
+<p><strong>C5.</strong> <code>half_size(img)</code> and <code>mip_chain(img)</code>: the next mipmap level (the mean of each <span class="math inline">2\times2</span> block), and all levels down to <span class="math inline">1\times1</span>. The check is B7: a <span class="math inline">4\times4</span> texture has <span class="math inline">16 + 4 + 1 = 21</span> texels in its chain, and the last level is the mean.</p>
+<p>Then <code>cargo run -p day48 -- gpuformats</code> and open the pictures in <code>out/gpuformats/</code>. The program stores the micrograph (in false colour, 253 pixels wide: 759 bytes per row, stride 760) and reads it with the right and the wrong stride (<code>stride-760.png</code>, <code>stride-759.png</code>); stores it as 16-bit values 0–4000 and reads them in both byte orders (<code>endian-*.png</code>); stores a grey ramp from 0.30 to 0.45 in 8 bits (top) and in 5-6-5 (bottom), contrast-stretched (<code>ramp-8bit-565.png</code>); magnifies a red disc on a texture whose transparent texels hold green, with straight and with premultiplied alpha, over white (<code>fringe-*.png</code>); and draws the mipmap chain (<code>mipmaps.png</code>), printing its size.</p>
+<p><strong>C6.</strong> Describe <code>stride-759.png</code> and <code>endian-big.png</code>, and explain each from the bytes. What is the largest value read in the wrong byte order?</p>
+<p><strong>C7.</strong> Count the bands in the two halves of <code>ramp-8bit-565.png</code> (or predict them from the codes). Why are the bands of the lower half tinted?</p>
+<p><strong>C8.</strong> Compare the two <code>fringe</code> pictures. Where does the green come from, and why does the premultiplied version not show it?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day48-graphics3d/src/gpuformats/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> With stride 759 each row starts one byte too early per row: the picture is sheared (a third of a pixel per row, so a slanted edge appears where the image wraps around), and the channels are read one byte off per row, so its colours cycle from row to row in thin stripes. Read big-endian, the low byte (which changes fastest) becomes the high byte: the picture is noise, with only faint traces of the cell. The values run up to 64 780 instead of 4000.</p>
+<p><strong>C7.</strong> 8 bits: 39 bands (codes 77 to 115). 5-6-5: 15 bands. Green has 6 bits (codes 19 to 28) and red and blue 5 bits (codes 9 to 14), and they step at different values of the ramp. Between their steps the three channels are unequal: greenish bands where green has already gone up, and purplish ones where red and blue have.</p>
+<p><strong>C8.</strong> With straight alpha the disc has a pale green rim: bilinear filtering averages the opaque red texels with their transparent neighbours, whose (invisible) green colour leaks into the average. With premultiplied alpha the transparent texels are <span class="math inline">(0, 0, 0, 0)</span>: they add no colour, and the edge fades cleanly from red to white. The mipmap chain has 9 levels and 87 381 texels, 1.3333 times the full image (B7).</p>
 </div>
 </div>
 </div>

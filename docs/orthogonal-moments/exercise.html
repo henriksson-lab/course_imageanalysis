@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-basis" id="toc-explore-basis" class="nav-link" data-scroll-target="#explore-basis">Explore: monomials and Legendre in 1D</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: rebuild an image from its moments</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9173,6 +9174,51 @@ Solutions
 <p><strong>E3.</strong> Legendre 0.254, Zernike 0.242, Fourier 0.227. Both overshoot next to the edges (Legendre values from −0.142 to 1.144, Fourier from −0.137 to 1.180). The Legendre ripples run parallel to the image border and get closer together towards it; the Fourier ripples are evenly spaced and continue across the border (the Fourier basis treats the image as periodic). The largest single error is at the square’s corners for both.</p>
 <p><strong>E4.</strong> Point samples 0.349, pixel-integrated 0.099, discrete 0.094. With point samples the error falls to about 0.160 at <span class="math inline">N = 16</span>–20 and then rises (0.218 at 30): the sampled polynomials are less and less orthogonal on the grid as the order grows, and the micrograph is bright up to the image border, where the high-order polynomials are largest. The pixel-integrated and discrete bases keep improving.</p>
 <p><strong>E5.</strong> Legendre: smallest at <span class="math inline">N = 24</span> (0.268), 0.340 at <span class="math inline">N = 40</span>; Zernike: <span class="math inline">N = 18</span> (0.257), 0.421 at 40; Fourier: <span class="math inline">N = 22</span> (0.238), 0.318 at 40. Low orders capture the shape; the noise is spread over all orders, so high orders add more noise than shape. As with a low-pass filter, stopping early is a denoiser.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day18-moments/src/orthogonal_moments/exercise.rs</code>. Pixel <code>i</code> of <code>n</code> has its centre at <span class="math inline">(2i + 1)/n - 1</span> in <span class="math inline">[-1, 1]</span> (the function <code>centre</code> is given).</p>
+<p><strong>C1.</strong> <code>legendre(n, x)</code>: <span class="math inline">P_n(x)</span> by the three-term recurrence, keeping only the last two values:</p>
+<pre><code>prev = 1,  p = x                       # P0 and P1
+for k = 1 .. n−1:
+    next = ((2k + 1) · x · p − k · prev) / (k + 1)
+    prev = p,  p = next</code></pre>
+<p>The checks are <span class="math inline">P_3</span> and <span class="math inline">P_4</span> of B8 at a few points, and <span class="math inline">P_n(\pm 1) = (\pm 1)^n</span>.</p>
+<p><strong>C2.</strong> <code>gram_schmidt(max_degree, xs)</code>: Gram–Schmidt on the monomials sampled at the points <code>xs</code>, with every vector scaled to length 1. The result is a set of polynomials that are <strong>exactly</strong> orthogonal on these points (the discrete orthogonal polynomials of the slide “Pixels: sampled polynomials are not orthogonal”):</p>
+<pre><code>for n = 0 .. max_degree:
+    v = (x_i^n for every point i)
+    for every vector b made so far:
+        v = v − (v · b) · b
+    t[n] = v / length(v)</code></pre>
+<p>The check is B1 on the three points <span class="math inline">-1, 0, 1</span> (the third vector is <span class="math inline">x^2 - \tfrac23</span>, scaled), and orthonormality on 16 pixels up to degree 10.</p>
+<p><strong>C3.</strong> <code>legendre_moments(img, order)</code>: the image on <span class="math inline">[-1, 1]^2</span>, the polynomials sampled at the pixel centres, <span class="math inline">\Delta x = 2/\text{width}</span>, <span class="math inline">\Delta y = 2/\text{height}</span>:</p>
+<pre><code>for every p, q with p + q ≤ N:
+    a[p][q] = (2p+1)(2q+1)/4 · sum over pixels of P_p(x) · P_q(y) · I(x, y) · Δx · Δy</code></pre>
+<p>The checks are B7 (a <span class="math inline">4 \times 4</span> image of ones has <span class="math inline">a_{20} = -5/32</span>, not 0) and B3 (<span class="math inline">|x|</span> sampled 400 times: <span class="math inline">a_0 = 0.5</span>, <span class="math inline">a_1 = 0</span>, <span class="math inline">a_2 = 0.625</span>).</p>
+<p><strong>C4.</strong> <code>reconstruct(a, width, height)</code>: <span class="math inline">\hat I(x, y) = \sum_{p+q \le N} a_{pq} P_p(x) P_q(y)</span> at every pixel centre. The check: a polynomial of degree 2 comes back from its moments up to order 2.</p>
+<p>Then <code>cargo run -p day18 -- orthogonal-moments</code>. It rebuilds a nucleus, a letter F and a piece of the micrograph (<span class="math inline">64 \times 64</span>) from their moments up to order <span class="math inline">N = 2, 8, 20, 40</span>, prints the relative errors, and draws them in <code>out/orthogonal-moments/reconstructions.png</code> (one row per image: the input, then the four orders).</p>
+<p><strong>C5.</strong> Describe the reconstructions as <span class="math inline">N</span> grows. Where do the ripples appear, and how are they spaced?</p>
+<p><strong>C6.</strong> For the micrograph the error at <span class="math inline">N = 40</span> is larger than at <span class="math inline">N = 20</span>. Why? The program also prints the error at <span class="math inline">N = 40</span> with the discrete polynomials of C2. Compare with E4.</p>
+<p><strong>C7.</strong> Count the cost: <span class="math inline">(N+1)(N+2)/2</span> moments, each a sum over all <span class="math inline">64 \times 64</span> pixels. How many multiplications does C3 need at <span class="math inline">N = 40</span>? Why is it worth computing every <span class="math inline">P_p</span> at every column once, before the loops?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day18-moments/src/orthogonal_moments/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> At <span class="math inline">N = 2</span> (6 numbers) every image is a blurry blob: errors 0.559 (nucleus), 0.774 (F), 0.241 (micrograph). At <span class="math inline">N = 8</span> the nucleus is a bright oval band and the F a smeared shape; at <span class="math inline">N = 20</span> both are clearly recognisable (0.216, 0.320), at <span class="math inline">N = 40</span> sharper still (0.176, 0.215). Next to every edge the reconstruction overshoots, and faint ripples run parallel to the image border, closer together near it: the zeros of <span class="math inline">P_n</span> crowd towards <span class="math inline">\pm 1</span>.</p>
+<p><strong>C6.</strong> The micrograph is bright up to the image border. With the polynomials sampled at the pixel centres, the high orders are no longer orthogonal on the <span class="math inline">64 \times 64</span> grid, and the error lands where they are largest: a bright frame of stripes along the border. The error rises from 0.187 (<span class="math inline">N = 20</span>) to 0.357 (<span class="math inline">N = 40</span>). With the discrete orthogonal polynomials it is 0.140 at <span class="math inline">N = 40</span>. The demo shows the same for its crop (0.349 sampled, 0.094 discrete).</p>
+<p><strong>C7.</strong> 861 moments × 4096 pixels ≈ 3.5 million multiply-and-add steps (two multiplications each). If <span class="math inline">P_p(x)</span> and <span class="math inline">P_q(y)</span> were computed by the recurrence inside the loop, each would cost up to 40 more steps: some 100 times more work. With the table, the polynomials cost only <span class="math inline">41 \times 64</span> evaluations per direction.</p>
 </div>
 </div>
 </div>

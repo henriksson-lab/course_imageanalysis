@@ -23,17 +23,18 @@ def main():
     lines, n, missing = [], 0, []
     for part in d['parts']:
         for day in part['days']:
-            units = [u for u in day['units'] if os.path.isfile(os.path.join(ROOT, 'code', u['folder'], 'Cargo.toml'))]
+            folder = f"day{day['number']:02d}-{day['id']}"
+            units = [u for u in day['units']
+                     if os.path.isfile(os.path.join(ROOT, 'code', folder, 'src', u['folder'].replace('-', '_'), 'mod.rs'))]
             if not units:
                 continue
             links = ', '.join(f"[{u['title']}]({u['folder']}/exercise.qmd#code)" for u in units)
-            lines.append(f"- **Day {day['number']}: {day['title']}.** {links}.")
-            for u in units:
-                n += 1
-                if u['folder'] not in members:
-                    missing.append(u['folder'])
+            lines.append(f"- **Day {day['number']}** (`{folder}`): {day['title']}. {links}.")
+            n += len(units)
+            if folder not in members:
+                missing.append(folder)
     if missing:
-        sys.exit('not in the code/ workspace (tools/code_add_member.py): ' + ', '.join(missing))
+        sys.exit('not in the code/ workspace (the members list in code/Cargo.toml): ' + ', '.join(missing))
     text = open(PAGE).read()
     a, b = text.index(BEGIN) + len(BEGIN), text.index(END)
     new = text[:a] + '\n' + '\n'.join(lines) + '\n' + text[b:]

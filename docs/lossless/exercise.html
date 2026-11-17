@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: prediction</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9150,6 +9151,49 @@ Solutions
 <p><strong>P6.</strong> At (121, 190): <span class="math inline">a = 69</span> (the half-covered edge pixel), <span class="math inline">b = 100</span>, <span class="math inline">c = 68</span>, <span class="math inline">x = 102</span>. MED: <span class="math inline">c \le \min(a, b)</span>, so it predicts <span class="math inline">\max(a,b) = 100</span>, residual 2. Average predicts 84, residual 18. Along the rectangle’s vertical edges the mean |residual| is 1.9 for MED against 12.3 for average. Overall the average predictor still wins on this image (3.27 bits against 3.36 for MED): edges are a small part of the image, and in the flat regions, which dominate, averaging two neighbours reduces the noise.</p>
 <p><strong>P7.</strong> The raw mask DEFLATEs to 791 bytes (from 65 536, 83 times smaller): long runs of exactly equal bytes are what LZ77 is made for. Left residuals: 833 B, up residuals: 659 B: both are zero except at the shape outlines, and all three sizes are tiny. For a mask the dictionary coder alone already does the job; prediction adds little.</p>
 <p><strong>P8.</strong> Ideal residual size 59 728 B, DEFLATE 79 341 B (raw 131 072 B, DEFLATE of the raw pixels 82 742 B). DEFLATE codes <strong>bytes</strong>: each 16-bit residual is split into a low byte (noisy) and a high byte (0 or 255 depending on the sign), and the Huffman stage of DEFLATE cannot see that the two belong together. Lossless formats for 16-bit data therefore predict on the values themselves and code the residuals with their own entropy coder, or regroup the bytes before DEFLATE (the “shuffle” filters of chunked array formats, last unit).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day08-compression/src/lossless/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>predict(a, b, c, predictor)</code>: the prediction <span class="math inline">\hat x</span> of the seven predictors in the background table (none, left, up, average, planar, Paeth, MED). For MED:</p>
+<pre><code>if c ≥ max(a, b):      predict min(a, b)
+else if c ≤ min(a, b): predict max(a, b)
+else:                  predict a + b − c</code></pre>
+<p>The checks are your answers to B2 and B3.</p>
+<p><strong>C2.</strong> <code>residuals(img, predictor)</code>: the residual image, with the grey levels as whole numbers:</p>
+<pre><code>for every pixel (x, y), row by row:
+    a, b, c = the left, upper and upper-left neighbours     # 0 outside the image
+    e(x, y) = I(x, y) − predict(a, b, c)</code></pre>
+<p>The check is B1(a).</p>
+<p><strong>C3.</strong> <code>decode(res, predictor)</code>: rebuild the image from its residuals. The neighbours come from the image you are rebuilding, which at each step holds exactly what the encoder saw:</p>
+<pre><code>for every pixel (x, y), row by row:
+    a, b, c = the left, upper and upper-left neighbours in out   # 0 outside
+    out(x, y) = predict(a, b, c) + e(x, y)</code></pre>
+<p>The checks are B1(c), and that <code>decode</code> undoes <code>residuals</code> exactly for every predictor (B7).</p>
+<p><strong>C4.</strong> <code>entropy(values)</code>: the entropy of a list of whole numbers (they can be negative), as in the previous unit. The check is B1(b).</p>
+<p>Then <code>cargo run -p day08 -- lossless</code>. The program prints a table of entropies (bits per pixel) for every predictor: the micrograph, a smooth synthetic image with noise of standard deviation 0 to 20 grey levels, and a flat field of grey level 128 with noise 10. In <code>out/lossless/</code> are the smooth image and the micrograph with their residuals (mid grey = 0, contrast × 4).</p>
+<p><strong>C5.</strong> Which predictor gives the smallest residual entropy for the micrograph, for the smooth image without noise, and for the smooth image with noise 1.5? Explain the difference with P2.</p>
+<p><strong>C6.</strong> Follow the column of the left predictor as the noise grows, and compare with the pixels’ entropy (column “None”). Then compare the flat field with your estimates in B4.</p>
+<p><strong>C7.</strong> Look at <code>cell-residual-left.png</code>. What is left after prediction, and what does that mean for the best lossless compression ratio of the micrograph?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day08-compression/src/lossless/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Micrograph: average is best (6.50 bits per pixel), then MED 6.55 and Paeth 6.62; left 6.82, planar 6.88 (pixels 7.68). Smooth image without noise: MED 1.18, Paeth 1.21 and planar 1.23 beat average (1.48) and left (1.60): on a smooth slope the predictors that follow the slope (<span class="math inline">a + b - c</span> is exact on a plane) win. With noise of 1.5 the order changes: average 3.08 is best and planar 3.65 is worst. Now the residual is mostly noise, and planar adds the noise of three neighbours at full weight, while average halves the noise of two (P2).</p>
+<p><strong>C6.</strong> Left predictor at noise 0, 1.5, 5, 10, 20: 1.60, 3.25, 4.91, 5.90, 6.89 bits; the pixels 6.87, 6.89, 6.96, 7.09, 7.35. The gain shrinks from 5.3 bits to 0.5 bits. The flat field (pixels 5.37, left 5.91, average 5.73) matches B4 (5.37, 5.87, 5.66): on pure noise prediction costs bits.</p>
+<p><strong>C7.</strong> The fine grain of the micrograph is everywhere in the residual, with the outlines of the nucleus and the organelles on top. That grain cannot be predicted. With the best predictor the ideal ratio is <span class="math inline">8 / 6.50 = 1.23</span>, the “1.2 to 2.5 times” of the lecture.</p>
 </div>
 </div>
 </div>

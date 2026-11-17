@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: separate H&amp;E</a></li>
   <li><a href="#explore-dab" id="toc-explore-dab" class="nav-link" data-scroll-target="#explore-dab">Explore: H-DAB, count positive nuclei</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9152,6 +9153,45 @@ Solutions
 <div class="callout-body-container callout-body">
 <p><strong>D1.</strong> Threshold 0.27; 14 positive nuclei found; the slide has 14 DAB-positive nuclei among 30.</p>
 <p><strong>D2.</strong> Ruifrok: threshold 0.29, 14. Wrong DAB vector: 0.39, 14, and the H map gets <span class="math inline">-0.60</span> times the DAB (positive nuclei look hematoxylin-poor). Nearly parallel: 0.62, 14, with a noisier DAB map (<span class="math inline">\kappa = 9.8</span>). The count is robust because the positive nuclei are strongly brown and well separated from the background: crosstalk changes the DAB <strong>values</strong> (and the threshold) but not which nuclei are above it. Weakly positive nuclei, or touching nuclei, would be miscounted first; the H measurements in DAB-positive nuclei are not robust at all.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day43-unmixing/src/stain_unmixing/exercise.rs</code>. Images hold linear intensities in <span class="math inline">[0, 1]</span> (8-bit values divided by 255); a stain matrix has the unit stain vectors (red, green, blue) as its columns.</p>
+<p><strong>C1.</strong> <code>optical_density(img, i0)</code>: <span class="math inline">\mathrm{OD}_c = -\log_{10}(I_c / I_{0,c})</span> in every pixel, with <span class="math inline">I</span> first raised to at least <span class="math inline">1/255</span>. The checks are B1(a), B5 and B6(a).</p>
+<p><strong>C2.</strong> <code>transmit(amounts, s, i0)</code>: Beer–Lambert, <span class="math inline">I_c = I_{0,c}\,10^{-\sum_k s_{ck} C_k}</span>. The check is B2(c): the transmissions of two stains multiply.</p>
+<p><strong>C3.</strong> <code>stain_matrix(s1, s2)</code> and <code>deconvolve(od, s)</code>: colour deconvolution:</p>
+<pre><code>h = s1 / |s1|,  e = s2 / |s2|
+r = h × e, scaled to length 1            # the residual column
+S = [h  e  r];  S⁻¹ once
+for every pixel:  (C_1, C_2, C_res) = S⁻¹ · od</code></pre>
+<p>The checks are B3(a), B1(c) and B6(b).</p>
+<p><strong>C4.</strong> <code>macenko(od, beta, alpha)</code>: the stain vectors from the image, the four steps of the slide “Estimating the stain vectors: Macenko”:</p>
+<pre><code>keep the pixels with |od| &gt; β
+v1, v2 = the two leading eigenvectors of Σ od odᵀ        # flip v1 to point into the cloud
+φ = atan2(od · v2, od · v1) for every kept pixel
+the stains = cos φ · v1 + sin φ · v2 at the α and 100 − α percentiles of φ</code></pre>
+<p>The check: on mixtures of two known stains, the pure ones included, it finds both within 0.1°.</p>
+<p>Then <code>cargo run -p day43 -- stain-unmixing</code> and open the pictures in <code>out/stain-unmixing/</code>. The program renders a synthetic H&amp;E slide by Beer–Lambert with this slide’s own stain vectors, a white level of 242, detector noise and 8-bit rounding (<code>slide.png</code>). It separates it with the published vectors, with the true ones and with Macenko’s estimate (<span class="math inline">\beta = 0.15</span>, <span class="math inline">\alpha = 1</span>): <code>he-*.png</code> show the H map (left) and the E map (right), stain dark on white. For each it prints how much of each true stain ends up in each map, and the mean of the residual map. Last, it analyses the slide with the white level 205.</p>
+<p><strong>C5.</strong> How far are the published vectors from this slide’s stains? How much eosin ends up in the H map with the published vectors, and what does the H map look like? Compare with the true vectors and with Macenko’s estimate (demo questions T1, T2 and T6).</p>
+<p><strong>C6.</strong> With the white level set to 205, what OD does the empty background get, and what does the H map show there? Compare with B6.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day43-unmixing/src/stain_unmixing/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> This slide’s hematoxylin is 3.1° and its eosin 13.9° from the published vectors. With the published vectors the H map is <span class="math inline">0.94\,H + 0.21\,E</span> and the E map <span class="math inline">0.07\,H + 0.81\,E</span>: a fifth of the eosin lands in the H map, which shows a grey haze over the whole tissue, darker where the eosin is strong; only the empty holes are white. The residual map is not zero (mean 0.065): the eosin is not in the plane of the two published vectors. With the true vectors the maps are exactly <span class="math inline">1.00\,H</span> and <span class="math inline">1.00\,E</span> and the residual is 0. The H map is white wherever there are no nuclei. Macenko’s estimate is 2.4° (H) and 1.0° (E) from the truth, and gives <span class="math inline">1.07\,H + 0.04\,E</span> and <span class="math inline">-0.09\,H + 0.97\,E</span>, close to the identity.</p>
+<p><strong>C6.</strong> The background gets OD <span class="math inline">-0.070</span> in every channel (B6(a): <span class="math inline">-0.072</span>; 8-bit rounding of the white level makes the small difference), and the H map in the empty holes averages <span class="math inline">-0.125</span> instead of 0 (B6(b): <span class="math inline">-0.132</span>). It is “less than no stain”, and the whole background of the H map is negative.</p>
 </div>
 </div>
 </div>

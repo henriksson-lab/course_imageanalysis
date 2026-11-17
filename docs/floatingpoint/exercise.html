@@ -8975,6 +8975,7 @@ window.Quarto = {
   <li><a href="#the-bits-of-a-float" id="toc-the-bits-of-a-float" class="nav-link" data-scroll-target="#the-bits-of-a-float">The bits of a float</a></li>
   <li><a href="#explore-sum" id="toc-explore-sum" class="nav-link" data-scroll-target="#explore-sum">Summing many pixels</a></li>
   </ul></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9129,6 +9130,52 @@ Solutions
 </div>
 </div>
 </section>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day03-bitdepth/src/floatingpoint/exercise.rs</code>. Rust has 32-bit floats but no 16-bit ones, so you build float16 yourself.</p>
+<p><strong>C1.</strong> <code>decode_f16(bits)</code>: the value of a float16 bit pattern.</p>
+<pre><code>s = top bit;  E = next 5 bits;  F = last 10 bits
+E = 0:       value = ± 2^(−14) · F/1024              (zero and subnormals)
+E = 31:      value = ± infinity if F = 0, else NaN
+otherwise:   value = ± 2^(E − 15) · (1 + F/1024)</code></pre>
+<p>The check is B1.</p>
+<p><strong>C2.</strong> <code>round_to_f16(x)</code>: the nearest float16 to any number.</p>
+<pre><code>k = the whole number with 2^k ≤ |x| &lt; 2^(k+1)
+gap = 2^(max(k, −14) − 10)
+r = round(|x| / gap) · gap        # a tie goes to the even neighbour
+if r &gt; 65 504: r = infinity
+give r the sign of x</code></pre>
+<p>The checks are B2, B3, and that every one of the 63 488 finite float16 values rounds to itself.</p>
+<p><strong>C3.</strong> Three sums, each with a rounding function <code>fl</code> applied after every operation (the identity for float32, whose additions round by themselves; <code>round_to_f16</code> for float16):</p>
+<pre><code>naive:     s = 0;  for each x:  s = fl(s + x)
+pairwise:  sum(list) = fl( sum(first half) + sum(second half) );  one number: itself
+Kahan:     s = 0, c = 0;  for each x:  y = fl(x − c);  t = fl(s + y);  c = fl(fl(t − s) − y);  s = t</code></pre>
+<p>The checks are B4 (the float16 count stops at 2048), B9 (Kahan reaches 2052) and a sum of <span class="math inline">2^{20}</span> pixel values in float32.</p>
+<p><strong>C4.</strong> <code>variance_one_pass(xs)</code> (<span class="math inline">\overline{x^2} - \bar x^2</span>) and <code>variance_two_pass(xs, sum)</code> (the mean first, then the mean of the squared deviations), in float32. The check is B5.</p>
+<p>Then <code>cargo run -p day03 -- floatingpoint</code>: it prints its results and draws <code>out/floatingpoint/nan-spreads.png</code>.</p>
+<p><strong>C5.</strong> Read the gaps of float16 near 1, 1000, 3000 and 65 000, and the largest error when 16-bit values are stored as float16. Compare with the slide “Floats are spaced unevenly” and with B3.</p>
+<p><strong>C6.</strong> The program adds up <span class="math inline">2^{22}</span> simulated 16-bit pixels (mean 1000, SD 50). Compare the five means. For how many pixels is the naive float32 sum exact, and why there? What does the float16 naive sum report, and why? Then compare the four variances.</p>
+<p><strong>C7.</strong> How many pixels are NaN after 0, 1, 2 and 3 blurs (<code>nan-spreads.png</code>), and what is the mean of the last image? Compare with B6.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day03-bitdepth/src/floatingpoint/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> The gaps are 0.000 98 near 1, 0.5 near 1000, 2 near 3000 and 32 near 65 000 (the program starts from 64 992, the nearest float16 to 65 000), as on the slide. Stored as float16, 16-bit values are exact up to 2048; the largest error is 1 up to 4096, 8 up to 32 768 and 16 up to 65 504, and 65 535 becomes infinity.</p>
+<p><strong>C6.</strong> The exact mean is 999.9934. Naive float32: 1010.0106, a relative error of <span class="math inline">1.0 \cdot 10^{-2}</span>. Pairwise and Kahan: 999.9933, <span class="math inline">2.0 \cdot 10^{-8}</span>. Float16 pairwise (values divided by 65 535): 999.9847, <span class="math inline">8.6 \cdot 10^{-6}</span>, fine for a half float. Float16 naive: 1.0000, because the running sum of the normalised values (about 0.015 each) sticks at 64, and <span class="math inline">64 \cdot 65\,535 / 2^{22} \approx 1</span> (B8). The naive float32 sum is exact for the first 16 772 pixels: there the sum first passes <span class="math inline">2^{24} = 16\,777\,216</span>, above which float32 cannot hold every integer. Variances: exact 2498.48; one pass −15 075 (a negative variance: cancellation); two passes with naive sums 2592.59 (the deviations are taken from the drifted mean, 1010 instead of 1000, which adds about <span class="math inline">10^2</span>); two passes with pairwise sums 2498.48, correct. Both remedies are needed, as in demo question E7.</p>
+<p><strong>C7.</strong> 1, 9, 25 and 49 NaN pixels: a 3 × 3, 5 × 5 and 7 × 7 square, as B6 predicts. The mean of the whole last image is NaN: one bad pixel spoils every sum it enters.</p>
+</div>
+</div>
+</div>
 </section>
 <section id="where-this-leads" class="level2">
 <h2 class="anchored" data-anchor-id="where-this-leads">Where this leads</h2>

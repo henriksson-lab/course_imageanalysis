@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-sample" id="toc-explore-sample" class="nav-link" data-scroll-target="#explore-sample">Explore: sampling the <span class="math inline">3 \times 3</span> lattice</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: a large lattice</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9183,6 +9184,54 @@ Solutions
 <p><strong>E4.</strong> Below <span class="math inline">T_c</span> the points lie on Onsager’s curve (e.g.&nbsp;<span class="math inline">T = 2.0</span>: 0.912 against 0.911; <span class="math inline">T = 2.2</span>: 0.782 against 0.785). Above <span class="math inline">T_c</span> the exact value for an infinite lattice is 0, but the <span class="math inline">64 \times 64</span> lattice gives 0.03–0.13: a finite lattice always has some net magnetisation by chance (about <span class="math inline">1/\sqrt{\text{cluster count}}</span>), largest close to <span class="math inline">T_c</span> where clusters are big (0.36 at <span class="math inline">T = 2.3</span>).</p>
 <p><strong>E5.</strong> At <span class="math inline">T = 2.3</span>, <span class="math inline">m</span> falls from 1 to about 0.5 within 100 sweeps and then lingers there for hundreds of sweeps, although its long-run value is near 0: it reaches <span class="math inline">|m| &lt; 0.1</span> only after 1580 sweeps. At <span class="math inline">T = 3</span> it takes 6 sweeps, at <span class="math inline">T = 2.5</span> 29. Near <span class="math inline">T_c</span> the large clusters must be taken apart pixel by pixel.</p>
 <p><strong>E6.</strong> Quench: domains form and coarsen, but with this seed the lattice ends in two stripes across the whole torus (<span class="math inline">m \approx 0.1</span>, <span class="math inline">E/n \approx -1.966</span>) and stays there. Slow cooling (from 3.5 to 0.5 over 300 sweeps): one domain, <span class="math inline">m = -1</span> (a ground state, apart from rare thermal flips). The stripes are a local minimum: their straight walls can only move by flips that raise the energy by 4 first (accepted with <span class="math inline">e^{-8} = 0.0003</span> at <span class="math inline">T = 0.5</span>), so they effectively never do. With other seeds a quench may also reach one domain, and slow cooling may also end in stripes; slower cooling makes stripes rarer.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day28-ising/src/mcmc/exercise.rs</code>. The lattice is an image of spins <span class="math inline">\pm 1</span> and is <strong>periodic</strong>: the right neighbour of the last column is the first column, and likewise for rows.</p>
+<p><strong>C1.</strong> <code>local_field(s, x, y, J, h)</code>: the neighbours’ vote <span class="math inline">u = J \cdot (\text{sum of the 4
+neighbouring spins}) + h</span>, with wrap-around at the edges. The check is B1.</p>
+<p><strong>C2.</strong> <code>gibbs_sweep(s, J, h, T, rng)</code>: one sweep of the Gibbs sampler, changing <code>s</code> in place:</p>
+<pre><code>for every pixel (x, y), row by row:
+    u = local field at (x, y)
+    p = 1 / (1 + e^(−2u/T))
+    s(x, y) = +1 if random() &lt; p, else −1</code></pre>
+<p><strong>C3.</strong> <code>metropolis_sweep(s, J, h, T, rng)</code>: one sweep of Metropolis; returns the number of accepted flips:</p>
+<pre><code>for every pixel (x, y), row by row:
+    ΔE = 2 · s(x, y) · (local field at (x, y))
+    if ΔE ≤ 0 or random() &lt; e^(−ΔE/T):
+        s(x, y) = −s(x, y)</code></pre>
+<p><strong>C4.</strong> <code>energy_and_magnetisation(s, J, h)</code>: the energy per spin <span class="math inline">E/n</span> (each pair of neighbours once: pair every pixel with its right neighbour and the one below, with wrap-around) and the magnetisation <span class="math inline">m</span>.</p>
+<p>The checks for C2 and C3 run each sampler for 40 000 sweeps on the <span class="math inline">3 \times 3</span> torus at <span class="math inline">T = 3</span>, and compare the fraction of sweeps spent at each energy level with the exact probabilities of the <a href="../ising/exercise.html">Ising unit</a> (E2). A second check is B2(b): a lone <span class="math inline">-1</span> among <span class="math inline">+1</span> neighbours flips back even at <span class="math inline">T = 0.01</span>, and nothing else flips.</p>
+<p><strong>C5.</strong> <code>anneal(s, J, T0, T1, sweeps, rng)</code>: simulated annealing with a geometric schedule; returns the temperatures used:</p>
+<pre><code>r = (T1 / T0)^(1 / (sweeps − 1))
+T = T0
+repeat sweeps times:
+    one Metropolis sweep at temperature T
+    T = T · r</code></pre>
+<p>The check is B6(a): from 4 to 0.5 in 100 steps, <span class="math inline">r = 0.979</span>.</p>
+<p>Then <code>cargo run -p day28 -- mcmc</code> and open the pictures in <code>out/mcmc/</code>. The program draws samples of a <span class="math inline">128 \times 128</span> lattice at three temperatures, scans the temperature on <span class="math inline">64 \times 64</span>, measures critical slowing down, and compares a quench with slow cooling for 8 random starts.</p>
+<p><strong>C6.</strong> Compare <code>sample-cold.png</code>, <code>sample-critical.png</code> and <code>sample-hot.png</code> with the printed <span class="math inline">E/n</span> and <span class="math inline">m</span>. Which picture has clusters of every size? The program also prints how often a pixel changes per sweep with Gibbs and with Metropolis at <span class="math inline">T = 2</span>: which changes more often, and does that agree with B3?</p>
+<p><strong>C7.</strong> Read the T-scan. Where does <span class="math inline">\langle|m|\rangle</span> agree with Onsager’s curve, and where not? The scan starts every temperature from all <span class="math inline">+1</span>: what could go wrong at low <span class="math inline">T</span> if it started from random spins instead? (Look at <code>quench.png</code>.)</p>
+<p><strong>C8.</strong> How many sweeps does it take from all <span class="math inline">+1</span> until <span class="math inline">|m| &lt; 0.1</span> at <span class="math inline">T = 4, 3, 2.5, 2.3</span>? How many of the 8 quenches, and how many of the 8 slow coolings, end in one domain?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day28-ising/src/mcmc/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Cold (<span class="math inline">T = 1.5</span>): one sign has taken over, with scattered single flipped spins (<span class="math inline">E/n = -1.950</span>, <span class="math inline">m = -0.986</span>). Critical (<span class="math inline">T = 2.27</span>): clusters of every size, from single pixels to blobs tens of pixels across (<span class="math inline">E/n = -1.399</span>, close to <span class="math inline">-\sqrt2</span>; <span class="math inline">m = 0.51</span> after 300 sweeps, still wandering). Hot (<span class="math inline">T = 5</span>): fine-grained noise (<span class="math inline">E/n = -0.422</span>, <span class="math inline">m = 0.01</span>). Per sweep, Gibbs changed 10.4 % of the pixels and Metropolis 11.3 %: Metropolis changes more often, as in B3(c), and both sample the same distribution.</p>
+<p><strong>C7.</strong> Below <span class="math inline">T_c</span> the averages lie on Onsager’s curve (0.980 at <span class="math inline">T = 1.6</span>, 0.912 against 0.911 at <span class="math inline">T = 2</span>, 0.778 against 0.785 at <span class="math inline">T = 2.2</span>). Above <span class="math inline">T_c</span> they are small but not 0 (0.12 at <span class="math inline">T = 2.4</span>, 0.04 at <span class="math inline">T = 3.2</span>): a finite lattice always has some net magnetisation by chance, most near <span class="math inline">T_c</span>. From random spins, a cold lattice can freeze into stripes that span the torus (as in <code>quench.png</code>), with <span class="math inline">|m|</span> far below the equilibrium value for hundreds of sweeps: the scan would show dips that have nothing to do with the model.</p>
+<p><strong>C8.</strong> 2, 6, 31 and 3416 sweeps: near <span class="math inline">T_c</span> the large clusters must be taken apart one pixel at a time (critical slowing down). Only 2 of the 8 quenches end in one domain; the other 6 stay in stripes (<span class="math inline">E/n \approx -1.90</span>); all 8 slow coolings end in one domain (<span class="math inline">E/n = -2</span>).</p>
 </div>
 </div>
 </div>

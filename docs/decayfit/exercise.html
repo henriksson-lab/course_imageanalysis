@@ -8974,6 +8974,7 @@ window.Quarto = {
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: fit a decay</a></li>
   <li><a href="#explore-photonbudget" id="toc-explore-photonbudget" class="nav-link" data-scroll-target="#explore-photonbudget">Explore: the photon budget</a></li>
   <li><a href="#explore-flimcell" id="toc-explore-flimcell" class="nav-link" data-scroll-target="#explore-flimcell">Explore: global analysis of an image</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9230,6 +9231,51 @@ Solutions
 <div class="callout-body-container callout-body">
 <p><strong>E11.</strong> 8 041 pixels, 2.3 million photons: τ = 0.60 and 3.50 ns, exactly the truth. The long species’ fraction increases from left to right (and downwards) and is low in the nucleus. With 50 photons in the bright pixels: 289 000 photons in all, τ = 0.59 and 3.45 ns, still close; the fraction map is speckled but shows the same gradient. 3 × 3 binning smooths it (lifetimes 0.59 and 3.45 ns again). Fitting two lifetimes in each pixel separately would be hopeless at 50 photons (E10).</p>
 <p><strong>E12.</strong> τ = 1.29 and 2.61 ns (true 1.3 and 2.6). The map of the 2.61 ns fraction is high almost everywhere and lower along the mitochondria and the membrane, where donors are in the FRET state. In a FRET experiment the two lifetimes (donor alone, donor with acceptor) are the same in every pixel; only the interacting fraction varies, which is exactly the assumption of global analysis.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day46-flim/src/decayfit/exercise.rs</code>. A histogram has <span class="math inline">n</span> equal bins over one laser period <span class="math inline">T</span>; the IRF is a histogram with the same bins that sums to 1.</p>
+<p><strong>C1.</strong> <code>model(tau, photons, background, irf, period)</code>: the expected histogram, by reconvolution:</p>
+<pre><code>for every bin i (from a = i·Δt to b = (i+1)·Δt):
+    d_i = (exp(−a/τ) − exp(−b/τ)) / (1 − exp(−T/τ))     # periodic decay, area 1
+μ = background in every bin
+for every IRF bin k, for every bin i:
+    μ[(i + k) mod n] += photons · irf[k] · d_i           # circular convolution</code></pre>
+<p>The check uses the gate fractions of B4 (τ = 1 and 3 ns), and checks that an IRF in bin 3 shifts the decay by 3 bins.</p>
+<p><strong>C2.</strong> <code>cost(y, mu, kind)</code>: least squares <span class="math inline">\sum (y_j - \mu_j)^2</span>; χ² with data weights <span class="math inline">\sum (y_j - \mu_j)^2 / y_j</span> (weight 1 for an empty bin); the Poisson deviance <span class="math inline">2\sum [y_j \log(y_j/\mu_j) - (y_j - \mu_j)]</span> with <span class="math inline">0 \log 0 = 0</span>.</p>
+<p><strong>C3.</strong> <code>fit(y, irf, period, kind, start_tau)</code>: fit τ, the photons and the background:</p>
+<pre><code>θ = (start τ, 0.9 · total counts, 0.1 · total / n)
+repeat up to 50 times:
+    μ = model(θ);  J = the change of μ with each parameter      # τ: a small finite difference
+    w_j = 1, 1/y_j or 1/μ_j, depending on the cost
+    solve (Jᵀ W J) δ = Jᵀ W (y − μ)                               # 3 equations, 3 unknowns
+    if the background would become negative: keep it at 0 and solve for the other two
+    try θ + δ, θ + δ/2, θ + δ/4, ... until the cost goes down
+    stop if it does not</code></pre>
+<p>The checks: a noise-free histogram is fitted exactly from a start of 1.5 ns with all three costs; 200 noisy histograms of 1 000 photons give an unbiased τ with a spread close to the <span class="math inline">1/\sqrt N</span> limit (B2).</p>
+<p><strong>C4.</strong> <code>mean_lifetimes(alpha, tau)</code>: <span class="math inline">\bar\tau_a</span> and <span class="math inline">\bar\tau_f</span> of a mixture. The checks are B3(b), B3(c) and the lecture’s example.</p>
+<p><strong>C5.</strong> <code>amplitudes(y, shapes)</code>: the least-squares amplitudes of known decay shapes in one pixel (global analysis): a matrix with one row per bin and one column per shape, solved by linear least squares. The check is B4(b).</p>
+<p>Then <code>cargo run -p day46 -- decayfit</code> and open the pictures in <code>out/decayfit/</code>. The program first fits 300 noisy histograms of a 2.5 ns decay (IRF σ = 0.15 ns, 0.2 background counts per bin) with each cost, at 100, 1 000 and 10 000 photons, and prints the mean, the spread and the relative RMS error. Then it makes a <span class="math inline">96 \times 96</span> FLIM image of nuclei holding two species, 0.6 and 3.5 ns, whose photon fraction changes from left to right. It finds the two lifetimes once from the summed decay of all pixels with at least 80 photons (for every pair on a grid the amplitudes are linear, C5; it keeps the pair with the lowest deviance), then the amplitudes of every pixel with C5. <code>fraction-long.png</code> is the photon fraction of the long species per pixel, <code>fraction-true.png</code> the truth.</p>
+<p><strong>C6.</strong> Read the table. Which cost is biased, in which direction, and does the bias shrink with more photons? Which cost has the smallest error? Compare the Poisson fit’s spread with the ideal <span class="math inline">\tau/\sqrt N</span>: what F-value do you get?</p>
+<p><strong>C7.</strong> Compare <code>fraction-long.png</code> with <code>fraction-true.png</code>, and read the global lifetimes and the printed error of the fractions. Why can a pixel with a few hundred photons give a useful fraction here, when a two-lifetime fit of that pixel alone could not (E10)?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day46-flim/src/decayfit/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> χ² with <span class="math inline">1/y</span> is biased short: 2.18 ns at 100 photons, 2.33 at 1 000 and 2.47 at 10 000 (true 2.5). The bias shrinks as the bins fill up, but slowly. Least squares and the Poisson fit are nearly unbiased (2.48 to 2.53 ns). The Poisson fit has the smallest relative RMS error at every photon count: 19.9 %, 4.7 % and 1.4 %, against 24.8 %, 6.5 % and 2.1 % for least squares. Its spread of 0.11 ns at 1 000 photons against the ideal 0.079 ns gives <span class="math inline">F \approx 1.4</span>: higher than the demo’s 1.1 to 1.2, because this fit also estimates the background, which trades off against τ and costs some precision.</p>
+<p><strong>C7.</strong> The global lifetimes come out at 0.60 and 3.50 ns, the truth, from 211 510 photons in 1 032 pixels. The fraction map shows the same left-to-right rise as the truth, speckled: the error per pixel is −0.003 ± 0.089. With the two lifetimes fixed, each pixel is a linear problem with two unknowns, which a few hundred photons can pin down; the hard, nonlinear part (the lifetimes) used the photons of all pixels together. A free two-lifetime fit per pixel would need thousands of photons (E10).</p>
 </div>
 </div>
 </div>

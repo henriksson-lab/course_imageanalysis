@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: merge trees</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9138,6 +9139,64 @@ Solutions
 <p><strong>M4.</strong> Altitude: the dark disc stays, the bright disc has leaked into the background through its weak spot. Mean difference: the bright disc (with the ramp wedge) stays, the dark disc has merged. At 3 regions both hierarchies keep both discs (2 of 2 matched).</p>
 <p><strong>M5.</strong> Yes: splitting a merged pair and merging a fragmented nucleus each add a matched nucleus; a per-branch cut can beat every horizontal cut, because different nuclei need different levels.</p>
 <p><strong>M6.</strong> The nuclear envelope and the large dark structures of the cytoplasm are the brightest (most lasting) boundaries; small texture boundaries are dark. With SLIC leaves the UCM also contains the regular superpixel boundaries, most of which disappear early (dark), and the big boundaries are smoother.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day29-graphseg/src/merge_trees/exercise.rs</code>. The leaves (initial regions) are numbered <span class="math inline">0 \dots n-1</span>, and the passes between them are edges <code>(a, b, h)</code>. A merge tree is a list of merges <code>(a, b, level)</code> of tree nodes: the leaves are nodes <span class="math inline">0 \dots n-1</span>, and merge number <span class="math inline">k</span> in the list creates node <span class="math inline">n + k</span>. The five basins a–e of B1 are leaves 0–4.</p>
+<p><strong>C1.</strong> <code>altitude_tree(n, edges)</code>: Kruskal on the passes, recording every join as a merge:</p>
+<pre><code>node[r] = r for every leaf (the tree node of each component, kept at its root)
+for each pass (a, b, h), lowest first:
+    A = find(a),  B = find(b)
+    if A ≠ B:
+        add the merge (node[A], node[B], h)
+        join B into A;  node[A] = the new node (n + number of merges − 1)</code></pre>
+<p>The check is B1(a): b|c at 4, a joins at 5, d|e at 6, all at 7.</p>
+<p><strong>C2.</strong> <code>attribute_tree(n, edges, minimum, area, attribute)</code>: flood by altitude as in C1, but give each join the attribute of the smaller region, then sort:</p>
+<pre><code>for each pass (a, b, h), lowest first, with A = find(a) ≠ B = find(b):
+    value = min(attr(A), attr(B))      # dynamics h − min, area |C|, volume |C|·(h − min)
+    remember (a, b, value)
+    join A and B: the new minimum is the smaller one, the new area the sum
+return altitude_tree(n, the remembered edges)      # C1 sorts them by value</code></pre>
+<p>The checks are B1(b), (c) and (d).</p>
+<p><strong>C3.</strong> <code>cut_first(n, merges, k)</code>: apply the first <span class="math inline">k</span> merges and label the leaves by region (union–find again; each tree node needs one of its leaves). <code>cut</code> (apply all merges up to a level) and <code>cut_regions</code> (stop at a number of regions) are given and use it. The checks are B1 and B2(b, c).</p>
+<p><strong>C4.</strong> <code>ucm(n, merges, edges)</code>: for every edge between two leaves, the level at which they first share a region. Replay the merges with union–find <strong>without</strong> shortcuts and remember when each link was made:</p>
+<pre><code>for each merge (A, B, level), in order:
+    ra = root of A's leaf,  rb = root of B's leaf     # walk up, no path halving
+    hang the smaller tree under the larger;  link_level[lower root] = level
+u(a, b) = the largest link level on the way up from a and from b
+          to their first common ancestor</code></pre>
+<p>(It works because the levels never decrease: the last link on the way is the one that joined the two.) The checks are B2(a) and <span class="math inline">u(a, e) = 7</span> in the altitude tree.</p>
+<p><strong>C5.</strong> <code>rag_merge(means, areas, pairs)</code>: greedy merging by difference of means on a region adjacency graph, with a priority queue and lazy updates:</p>
+<pre><code>queue every adjacent pair (a, b) with |mean a − mean b|
+while the queue is not empty:
+    take the pair with the smallest difference
+    skip it if a or b has changed since it was queued
+    merge b into a: area-weighted mean, areas added, b's neighbours become a's
+    queue a with each of its neighbours (new differences)</code></pre>
+<p>The check is B3: the differences 1, 1, 1, 1.5, 5, 12, 19.4, 26.9 and the three regions before the last two merges.</p>
+<p>Then <code>cargo run -p day29 -- merge-trees</code> and open the pictures in <code>out/merge-trees/</code>. The program makes leaves from a synthetic image of 18 nuclei: the 150 deepest watershed basins of its gradient. It builds all five hierarchies on them, cuts each at 20 regions (mean grey levels, yellow boundaries), counts the nuclei matched with overlap (IoU) ≥ 0.5, and searches for the best number of regions between 5 and 60. It also draws the UCM of the dynamics hierarchy.</p>
+<p><strong>C6.</strong> Read the counts. Which hierarchy matches most nuclei at 20 regions, and at its best cut? Does the best number of regions agree between the hierarchies?</p>
+<p><strong>C7.</strong> Look at <code>ucm-dynamics.png</code>. Which boundaries are bright, which dark? What would you see if you thresholded it at a high value?</p>
+<p><strong>C8.</strong> <em>(math)</em> The program cuts every hierarchy at a number of regions. Why can the greedy mean-difference merging not simply be cut at a level, as the altitude tree can?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day29-graphseg/src/merge_trees/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> At 20 regions: altitude 12 of 18, dynamics 12, area 11, volume 12, mean difference 13. The best cuts: altitude 12 (at 14 regions), dynamics 13 (25), area 12 (14), volume 13 (18), mean difference 14 (37). No hierarchy and no single cut finds all 18, and the best number of regions differs from one hierarchy to the next. Some true nuclei overlap and are partly hidden by a neighbour, which no partition of these leaves can match well.</p>
+<p><strong>C7.</strong> The outlines of the nuclei are bright: those boundaries survive to the top of the hierarchy. The boundaries inside the nuclei (between basins of their texture) are dark: they vanish early. A high threshold keeps only the bright outlines, one closed contour around each nucleus (or pair of touching nuclei): the coarse levels of the hierarchy.</p>
+<p><strong>C8.</strong> After a merge the mean of the new region changes, and so do its differences to all its neighbours. A later merge can therefore have a <strong>smaller</strong> difference than an earlier one: the levels need not increase. “All merges with level <span class="math inline">\le t</span>” would then pick merges out of order, and the result would not be a cut of the tree. The altitude tree (and the attribute trees, which are sorted) have levels that never decrease.</p>
 </div>
 </div>
 </div>

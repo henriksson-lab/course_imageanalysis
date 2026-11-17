@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: learning a dictionary</a></li>
   <li><a href="#explore-sparserestore" id="toc-explore-sparserestore" class="nav-link" data-scroll-target="#explore-sparserestore">Explore: restoring with dictionaries</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9174,6 +9175,61 @@ Solutions
 <p><strong>E7.</strong> All within a few tenths of a dB of each other on this crop (lecture: DCT 24.4, wavelet 24.3, NL-means 24.0, learned 24.0 dB from 22.1); the error maps show that each method removes the noise and part of the fine texture alike. The texture is the limit, not the method.</p>
 <p><strong>E8.</strong> At low noise the gains over the noisy image are small for every method, and the methods with a strong smoothing tendency (large patches coded with few atoms, TV) start to remove real texture: the error maps show structure, not noise. Use a smaller λ or error target.</p>
 <p><strong>E9.</strong> With 50 % missing pixels the patch method restores more texture than db4 ℓ1 (lecture: 24.1 against 22.4 dB). With scratches and a 16 × 16 hole the scratches vanish with both, but the patch method fills the hole with invented structure (a dark blob in the lecture’s example), while wavelets fill it with a smooth blur: the patch prior continues patterns into a region where nothing was measured.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day11-sparse/src/dictionaries/exercise.rs</code>. A patch is a list of its pixel values, row by row; a dictionary is a list of atoms of length 1; <code>dot</code> and <code>rebuild</code> (the sum of coefficient × atom) are given.</p>
+<p><strong>C1.</strong> <code>omp(dict, y, max_atoms, max_error)</code>: sparse coding by orthogonal matching pursuit:</p>
+<pre><code>S = no atoms,  r = y
+while S has fewer than max_atoms atoms and ‖r‖² &gt; max_error:
+    j = the atom with the largest |d_jᵀ r|
+    add j to S
+    c_S = least-squares fit of y with the atoms in S      # the others stay 0
+    r = y − Σ c_j d_j</code></pre>
+<p>The checks are F1: atom 5 with coefficient 4.243 first, then atom 6 with 1.414 and residual 0.</p>
+<p><strong>C2.</strong> <code>update_atom(residuals, start)</code>: the K-SVD update of one atom, the top eigenvector of <span class="math inline">\sum \mathbf r\mathbf r^\top</span> by the power method of the PCA unit:</p>
+<pre><code>d = start                                 # the old atom
+repeat 50 times:
+    v = Σ over the residuals r of (rᵀ d) · r       # = (Σ r rᵀ) d
+    d = v / ‖v‖
+coefficients: c_i = r_iᵀ d</code></pre>
+<p>The checks are F2: the atom ±(0.884, 0.467), the coefficients 2.24, 4.47, −1.35, and the remaining error 0.19.</p>
+<p><strong>C3.</strong> <code>ksvd(patches, start, k, iterations)</code>: dictionary learning:</p>
+<pre><code>repeat:
+    code every patch with OMP, k atoms each
+    for every atom j:
+        users = the patches whose code uses atom j
+        for each user: r = patch − (its reconstruction) + c_j · d_j
+        d_j, and c_j of every user  =  update_atom(those r)
+    record the mean squared error per pixel</code></pre>
+<p>The check is the lecture’s k-means slide: points along three directions through 0 (on both sides), three atoms, one atom per point: the error must drop to 0.</p>
+<p><strong>C4.</strong> <code>denoise(img, dict, σ, λ)</code>: denoising with overlapping patches:</p>
+<pre><code>for every patch position (all of them, step 1):
+    code the patch with OMP until ‖r‖² ≤ d · (1.15 σ)²       # d = pixels per patch
+    add its reconstruction to `sum` and 1 to `count`, on its pixels
+every pixel: out = (λ · noisy + sum) / (λ + count)</code></pre>
+<p>The checks: a dictionary that codes every patch exactly leaves the image unchanged; with only the constant atom every pixel becomes the average of the patch means that cover it (F4, F8).</p>
+<p>Then <code>cargo run -p day11 -- dictionaries</code> and open the pictures in <code>out/dictionaries/</code>. The program learns 64 atoms of 8 × 8 pixels from 3721 patches of the centre of the micrograph (8 K-SVD iterations, K = 4, starting from the constant atom and 63 random patches), draws the atoms before and after (each stretched from black to white), and denoises a 96 × 96 crop from another region (σ = 20 grey levels, λ = 0.5) with the 64 DCT atoms and with the learned atoms.</p>
+<p><strong>C5.</strong> Read the error per iteration and compare it with the 64 DCT atoms at K = 4. Compare <code>atoms-start.png</code> with <code>atoms-learned.png</code>: what has changed?</p>
+<p><strong>C6.</strong> Read the PSNRs of the noisy and the two denoised crops and compare <code>denoised-dct.png</code> with <code>denoised-learned.png</code>. Does the learned dictionary win here? Compare with F6.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day11-sparse/src/dictionaries/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> The error falls from 479 grey levels² after the first iteration to 440, 429, … and 410 after the eighth: most of the gain in the first few iterations, as in the lecture (508 to 379 in 20 iterations, with 128 atoms there). The 64 DCT atoms with the best 4 per patch give 490, worse than the learned atoms after one iteration. The start atoms are grainy copies of random patches; the learned atoms are smoother: blobs, oriented edges and bars, the patterns that recur in the micrograph.</p>
+<p><strong>C6.</strong> Noisy 22.00 dB, DCT 24.50 dB, learned 24.30 dB: the learned dictionary does not win. Both remove most of the noise and smooth the fine texture alike; the learned result is a little smoother. As in F6, on this textured image all methods land within a few tenths of a dB: the texture is not sparse in either set of atoms, and the atoms were learned on another region.</p>
 </div>
 </div>
 </div>

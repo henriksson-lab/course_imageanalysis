@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-splinezoom" id="toc-explore-splinezoom" class="nav-link" data-scroll-target="#explore-splinezoom">Explore: image interpolation</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: free-form deformation</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9188,6 +9189,48 @@ Solutions
 <p><strong>E4.</strong> 1 everywhere: all displacements equal means <span class="math inline">\mathbf{u}</span> is constant (partition of unity), so <span class="math inline">\nabla\mathbf{u} = 0</span>.</p>
 <p><strong>E5.</strong> The pixel at the control point moves the full displacement (the hat is 1 there, a linear FFD interpolates its control points), and the deformation is spread only over one spacing on each side. The deformed grid bends with kinks along the lines through the neighbouring control points (C⁰). The cubic version is smooth (C²) but moves the pixel at the control point less (4/9 of the displacement) and spreads further (two spacings).</p>
 <p><strong>E6.</strong> The deformed region is about 4 spacings wide (±2h): 256 px at h = 64, 64 px at h = 16. A 20-pixel bulge needs spacing 16 or less (with 32 or 64 the smallest possible deformation is wider than the bulge).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day06-splines/src/spline_images/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>prefilter_1d(f)</code>: the B-spline coefficients of one row, so that <span class="math inline">\tfrac16(c_{k-1} + 4c_k + c_{k+1}) = f_k</span> (mirror outside the row), in two recursive passes with <span class="math inline">z_1 = \sqrt3 - 2</span>:</p>
+<pre><code>c⁺[0] = sum over j = 0 … 14 of z1^j · 6·f[−j]      # f[−j]: read in the mirrored row
+for k = 1 … n−1:          c⁺[k] = 6·f[k] + z1 · c⁺[k−1]        # left to right
+c[n−1] = z1 / (z1 − 1) · c⁺[n−1]                   # the mirror: c[n] = c[n−1]
+for k = n−2 down to 0:    c[k] = z1 · (c[k+1] − c⁺[k])         # right to left</code></pre>
+<p>The checks are B1(b), the impulse’s coefficients <span class="math inline">1.732, -0.464, 0.124</span>, and that <span class="math inline">\tfrac16(c_{k-1} + 4c_k + c_{k+1})</span> gives the row back at every position.</p>
+<p><strong>C2.</strong> <code>prefilter(img)</code>: C1 along every row, then along every column of the result.</p>
+<p><strong>C3.</strong> <code>bspline_value(coef, x, y)</code>: the interpolated value at a position between pixels,</p>
+<pre><code>value = 0
+for l = floor(y) − 1 … floor(y) + 2:
+    for k = floor(x) − 1 … floor(x) + 2:
+        value = value + coef[k, l] · β³(x − k) · β³(y − l)      # outside: mirror</code></pre>
+<p>The checks: after the prefilter it passes through every pixel; on the impulse it gives 1 at the pixel and 0.600 halfway (B1b); without the prefilter <span class="math inline">\tfrac23</span> and <span class="math inline">\tfrac{23}{48}</span> (B1a).</p>
+<p><strong>C4.</strong> <code>cubic_convolution_kernel(s)</code> and <code>cubic_convolution(img, x, y)</code>: the same 4 × 4 sum on the pixels themselves, with the kernel <span class="math inline">1.5|s|^3 - 2.5|s|^2 + 1</span> for <span class="math inline">|s| \le 1</span>, <span class="math inline">-0.5|s|^3 + 2.5|s|^2 - 4|s| + 2</span> for <span class="math inline">1 &lt; |s| &lt; 2</span>. The checks are B1(c) (0.5625) and B2 (<span class="math inline">-6.25</span> and <span class="math inline">106.25</span> next to the step).</p>
+<p><strong>C5.</strong> <code>ffd_displacement(d, h, x, y)</code>: the displacement of a free-form deformation, <span class="math inline">\mathbf u = \sum_{k,l}\mathbf d_{kl}\,\beta^3(x/h - k)\,\beta^3(y/h - l)</span>, the same 4 × 4 sum in units of the control spacing <span class="math inline">h</span>. The check is B3: 4, 1, 0.25 and 0 pixels for a 9-pixel move, 2.875 half a spacing away, and a translation when all control points move together.</p>
+<p>Then <code>cargo run -p day06 -- spline-images</code> and open the pictures in <code>out/spline-images/</code>.</p>
+<p><strong>C6.</strong> The program prints, for each interpolator, the value at the impulse pixel and halfway to the next one, and the range of values near a step from 0 to 100. Which interpolators pass through the samples? Which overshoot, and by how much? Compare <code>zoom.png</code> (nearest, bilinear, B-spline without prefilter, cubic convolution, cubic B-spline, left to right).</p>
+<p><strong>C7.</strong> The micrograph is rotated ten times by 36° with each interpolator (<code>rotate10.png</code>, same order). Rank them by the printed RMS change. Which one blurs although it is a cubic spline, and why?</p>
+<p><strong>C8.</strong> <code>ffd-one.png</code> and <code>ffd-one-jacobian.png</code>: one control point moved 9 pixels to the right (the Jacobian determinant minus 1, grey = 0). Where is the image compressed and where stretched, and what is the smallest determinant? Then <code>ffd-fold.png</code>: two neighbours moved 44 pixels towards and past each other. How many pixels fold?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day06-splines/src/spline_images/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> At the pixel, every interpolator gives 1 except the B-spline without prefilter (0.667): nearest, bilinear, cubic convolution and the prefiltered B-spline interpolate. Halfway: nearest 0 (it rounds 20.5 to the next pixel), bilinear 0.500, unfiltered B-spline 0.479, cubic convolution 0.562, cubic B-spline 0.600. Near the step, nearest, bilinear and the unfiltered B-spline stay within 0 to 100; cubic convolution goes from −7.4 to 107.4 and the cubic B-spline from −10.8 to 110.8. In <code>zoom.png</code> nearest shows blocks, bilinear and especially the unfiltered B-spline are blurred, and the two interpolating cubics are smooth and sharp.</p>
+<p><strong>C7.</strong> Cubic B-spline 11.2, cubic convolution 14.7, bilinear 21.4, B-spline without prefilter 25.0, nearest 27.7 grey levels. The B-spline without prefilter blurs: each rotation applies the <span class="math inline">\tfrac16[1\;4\;1]</span> smoothing again in both directions, and ten rotations add up (third picture). Nearest does not blur but shreds the edges into jagged steps (first picture).</p>
+<p><strong>C8.</strong> The pixel at the control point moves 4.00 pixels, the next control point 1.00, diagonally 0.25 (B3). The image is compressed (determinant below 1, dark) just to the right of the control point and stretched (light) to its left; the smallest determinant is 0.875 (<span class="math inline">= 1 - \tfrac49\cdot\tfrac{9}{32}</span>). With the two neighbours moved by ±44 pixels the smallest determinant is −0.146 and 239 pixels are folded: in <code>ffd-fold.png</code> the checkerboard between the two points is squeezed and overlaps itself.</p>
 </div>
 </div>
 </div>

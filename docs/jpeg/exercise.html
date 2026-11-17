@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: JPEG</a></li>
   <li><a href="#explore-ssim" id="toc-explore-ssim" class="nav-link" data-scroll-target="#explore-ssim">Explore: same MSE, different quality</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9199,6 +9200,54 @@ Solutions
 <p><strong>S2.</strong> Shift and contrast: almost white everywhere (structure kept). Noise: uniformly grey, worst in flat regions where the noise is large compared with the local contrast. Blur and JPEG: darkest in the fine-textured regions, where the small structures are smoothed away; JPEG also in a block pattern.</p>
 <p><strong>S3.</strong> Brightness shift: 0.999 at MSE 25, 0.987 at MSE 400. Blur: 0.981 at MSE 25, 0.629 at MSE 400 (σ = 1.22). The shift never hurts structure; the blur removes ever more of the fine texture.</p>
 <p><strong>S4.</strong> Noise is now by far the worst (SSIM 0.613): the card is mostly flat, and noise is clearly visible there. Blur (0.975) and the brightness shift (0.991) are barely affected: the card has few fine details to blur. JPEG 0.947. Which distortion is “worst” depends on the image content, not only on the error energy.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day08-compression/src/jpeg/exercise.rs</code>. The 8 × 8 DCT of the previous unit is given (<code>dct8</code>, <code>idct8</code>).</p>
+<p><strong>C1.</strong> <code>scale_table(quality)</code>: the quantisation table for a quality factor, from the standard luminance table <span class="math inline">Q</span>:</p>
+<pre><code>s = 5000 / quality   if quality &lt; 50,   else 200 − 2 · quality
+for every entry:  Q'[v][u] = floor((Q[v][u] · s + 50) / 100), at least 1, at most 255</code></pre>
+<p>The check is B3.</p>
+<p><strong>C2.</strong> <code>quantise(c, table)</code> and <code>dequantise(q, table)</code>: <span class="math inline">q = \operatorname{round}(c/Q)</span> and back, <span class="math inline">qQ</span>, for every coefficient with its own step. The check is B1.</p>
+<p><strong>C3.</strong> <code>zigzag(q)</code>: the 64 quantised values in zigzag order:</p>
+<pre><code>for s in 0 .. 14:                             # the anti-diagonal row + column = s
+    rows = max(0, s − 7) .. min(s, 7)
+    if s is even: run through the rows from large to small
+    for every row in that order: output q[row][s − row]</code></pre>
+<p>The checks are B2(a), and that every position comes exactly once.</p>
+<p><strong>C4.</strong> <code>size_of(v)</code> (the number of bits of <span class="math inline">|v|</span>) and <code>ac_symbols(zz)</code>: the (run, size) symbols of the 63 values after the DC:</p>
+<pre><code>run = 0
+for every value v after the DC, in zigzag order:
+    if v = 0: run = run + 1
+    else:
+        while run &gt; 15: output ZRL (a run of 16 zeros); run = run − 16
+        output (run, size(v), v); run = 0
+if run &gt; 0: output EOB</code></pre>
+<p>The check is B2(b).</p>
+<p><strong>C5.</strong> <code>psnr(a, b, peak)</code>: <span class="math inline">10 \log_{10}(\text{peak}^2/\text{MSE})</span>. The check is B5.</p>
+<p>Then <code>cargo run -p day08 -- jpeg</code> and open the pictures in <code>out/jpeg/</code>. The program codes the micrograph with your functions at qualities 10 to 90: level shift, DCT, quantise, zigzag, DC differences and AC symbols. It estimates the bits as the entropy of the symbols plus the bits of the values: about what a Huffman code made for exactly these symbols needs. The decoded images are <code>q*.png</code>, their errors <code>q*-error.png</code> (× 2, mid grey = 0). At the end it recompresses the image 10 times at quality 75, with the same 8 × 8 grid and with the grid moved by 4 pixels each time.</p>
+<p><strong>C6.</strong> Compare the PSNR and the bits per pixel with J1 and the slide “Rate and distortion”. Which numbers agree, and why are your bit counts a little lower than the demo’s?</p>
+<p><strong>C7.</strong> How many non-zero values does a block keep on average at quality 10, and at 90? Where do the zeros come from? (J3.)</p>
+<p><strong>C8.</strong> Generation loss: compare the two recompression runs and explain the difference (J7).</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day08-compression/src/jpeg/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Quality 10, 25, 50, 75, 90: PSNR 22.6, 24.8, 26.7, 29.8, 36.5 dB, the same as the demo; 0.51, 1.04, 1.68, 2.60, 4.06 bits per pixel (ratio 15.8 down to 2.0). The demo needs 0.61, 1.75 and 4.23 bits per pixel at 10, 50 and 90. The quantised values are the same, so the error is the same. The bits differ: the demo uses JPEG’s standard Huffman tables, made once for typical photographs, and counts a file header. The program’s estimate is the entropy of the symbols of this very image, the lower bound for a code made for it.</p>
+<p><strong>C7.</strong> 7.1 non-zero values per block at quality 10, 20.4 at 50 and 45.4 at 90 (of 64). The zeros come from quantisation: a coefficient smaller than half its step rounds to 0, and the steps are large at high frequencies, which come late in the zigzag. So the zeros gather at the end, where one EOB replaces them all.</p>
+<p><strong>C8.</strong> With the same grid the PSNR stays at 29.8 dB for all ten generations: the decoded image is already almost on the quantisation grid of the same blocks, so quantising it again changes almost nothing. With the grid moved by 4 pixels each time: 29.8 dB after one generation, 27.4 after two, 27.1 after five and 26.4 after ten. Every save sees new blocks whose coefficients are not yet quantised, and loses again.</p>
 </div>
 </div>
 </div>

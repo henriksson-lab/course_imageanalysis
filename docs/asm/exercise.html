@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9142,6 +9143,50 @@ Solutions
 <p><strong>A6.</strong> The snake follows the unusual outline closely (0.21 px from the true outline). The ASM outline is good where the shape is typical but misses the deep dent and the elongation (0.98 px from the outline, RMS landmark error 3.32 px): in the <span class="math inline">\mathbf b</span> plot mode 1 sits at the limit <span class="math inline">-3</span> and the others near it. With 5 modes the RMS error is 3.95 px, not better: the extra modes describe the training set’s small variations, not this shape. The model can only produce shapes like its training shapes; unclamping them would also remove its robustness.</p>
 <p><strong>A7.</strong> Three levels: from 10.31 px to 0.44 px. One level: 8.48 px. The fingers are about 7 pixels wide and close together: from a start 8 px and 8° off, many finger landmarks see the edge of the <strong>neighbouring</strong> finger within their search range and lock onto it. On the coarse levels the fingers merge into a blob and the pose is found first; the fine levels then separate the fingers.</p>
 <p><strong>A8.</strong> With clutter blobs (and the 10 px start), the profile model ends at 1.80 px and the strongest edge at 1.99 px: here both work, because the blobs are mostly outside the search range. With one mode only, the clean image gives 1.38 px, even slightly better than 3 modes (1.61): fewer modes means fewer ways to follow wrong suggestions, as long as the object needs no more.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day30-snakes/src/asm/exercise.rs</code>.</p>
+<p><strong>C1.</strong> Two rules for choosing an offset along the normal, from a profile with values at the offsets <span class="math inline">-m, \dots, m</span>:</p>
+<ul>
+<li><code>strongest_edge(profile)</code>: the offset of the largest value;</li>
+<li><code>match_profile(profile, model)</code>: slide the model (<span class="math inline">2k + 1</span> values) over the profile and add the squared differences:</li>
+</ul>
+<pre><code>for every centre c from −(m−k) to m−k:
+    cost[c] = Σ over j from −k to k of (profile[c + j] − model[j])²
+best = the centre with the smallest cost</code></pre>
+<p>The checks are your answers to B1(a) and B1(b).</p>
+<p><strong>C2.</strong> <code>project_clamp(y, model)</code>: <span class="math inline">b_j = \boldsymbol\phi_j\cdot(\mathbf y - \bar{\mathbf x})</span>, each clamped to <span class="math inline">\pm3\sqrt{\lambda_j}</span>, and the model shape <span class="math inline">\bar{\mathbf x} + \sum_j b_j\boldsymbol\phi_j</span>. The checks are B2(b) and B2(c).</p>
+<p><strong>C3.</strong> <code>normals(points)</code>: the outward unit normal at every landmark, perpendicular to the line from the previous to the next landmark, and pointing away from the centroid.</p>
+<p><strong>C4.</strong> <code>suggest(img, points, m, model_profile)</code>: step 2 of the search loop:</p>
+<pre><code>for every landmark p with normal n:
+    for o from −(m+k) to m+k:
+        g[o] = I(p + (o + ½) n) − I(p + (o − ½) n)       # I read between pixels
+    g = g / Σ |g|
+    best = match_profile(g, model_profile)
+    suggestion = p + best · n</code></pre>
+<p><strong>C5.</strong> <code>asm_iteration(img, model, pose, b, m, model_profile)</code>: one iteration of the search loop: the model shape in the image, the suggestions, the pose that fits the model shape onto them (Procrustes, given), the suggestions taken back into the model frame, then <code>project_clamp</code>. The check searches for a disk with a circle model.</p>
+<p>Then <code>cargo run -p day30 -- asm</code> and open <code>out/asm/search.png</code>. The program trains a shape model (40 synthetic nuclei, 32 landmarks, 3 modes) and one mean profile (from 10 clean training images), then searches a new nucleus in two noisy images (noise 0.25 on a contrast of 0.5; the right one with a dark bar across the top), starting from the mean shape 10 pixels right, 4 up, turned by 10° and 5 % too small. Green dashed: the true outline; yellow: the active shape model after 12 iterations; red: 12 rounds of suggestions only, without the shape model.</p>
+<p><strong>C6.</strong> Compare the printed errors: the root mean square distance of each landmark to its true position, and the mean distance of the landmarks to the true outline. Why is the first number so much larger than the second for the active shape model? Which method handles the bar better, and why?</p>
+<p><strong>C7.</strong> The program searches a lightly smoothed copy of the noisy image. Predict what happens to the suggestions without smoothing, and why the shape model suffers less from it than the suggestions alone.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day30-snakes/src/asm/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Noise: the landmarks start 12.58 px (RMS) from their true positions and 5.73 px from the true outline. The active shape model ends 4.47 px from the true positions but only 1.28 px from the outline; the suggestions alone end 13.31 px and 4.23 px away, with spikes and loops. The yellow outline lies on the green one, but its landmarks have slid along it: the start was turned by 10°, and a rotation of a smooth, roundish outline changes little in the image, so nothing pulls each landmark back to its own place. With the bar: 4.81 and 1.52 px for the active shape model, 13.21 and 4.23 px for the suggestions alone. The suggestions near the bar latch onto the bar’s edges; the shape model is fitted to all 32 suggestions at once, so a few wrong ones are outvoted and the outline across the bar is filled in from what nuclei look like.</p>
+<p><strong>C7.</strong> Without smoothing, every derivative sample is a difference of two noisy pixels: the profiles are mostly noise and many suggestions jump to random offsets. Suggestions alone follow every jump. The pose and the three mode parameters are fitted to all suggestions together, and random errors partly cancel, so the shape model still moves in the right direction; but the search needs more iterations and ends less accurately (with this program, without smoothing: 8.8 px RMS instead of 4.5 for the noisy image).</p>
 </div>
 </div>
 </div>

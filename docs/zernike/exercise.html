@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-basis" id="toc-explore-basis" class="nav-link" data-scroll-target="#explore-basis">Explore: the Zernike polynomials</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: the disc and the noise</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9169,6 +9170,49 @@ Solutions
 <p><strong>E1.</strong> Monomials 0.142, Legendre 0.160, Zernike 0.552, Fourier 0.139. The Zernike reconstruction is 0 outside the disc, and the micrograph is bright there: those 21 % of the pixels carry a large error whatever <span class="math inline">N</span> is, so the curve stays near 0.55. Inside the disc alone the Zernike error is 0.158, like the others.</p>
 <p><strong>E2.</strong> <span class="math inline">N = 2</span>: Zernike 0.571, Legendre 0.685; <span class="math inline">N = 8</span>: 0.324 and 0.361; <span class="math inline">N = 20</span>: 0.185 and 0.226. The nucleus is a roundish object in the middle of a dark square: a basis that lives on the disc spends no effort on the empty corners, and its low orders are round blobs, close to the shape.</p>
 <p><strong>E3.</strong> Zernike is best at <span class="math inline">N = 18</span> (0.257); at <span class="math inline">N = 40</span> it is 0.421, worse than Legendre (0.340) and Fourier (0.318). The noise shows as speckle concentrated towards the rim of the disc: the high-order radial polynomials oscillate fastest there and fit the noise of the outer pixels.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day18-moments/src/zernike/exercise.rs</code>. The disc is the one inscribed in a square image (radius = half the side); <code>polar(x, y, size)</code> gives <span class="math inline">\rho</span> and <span class="math inline">\theta</span> of a pixel centre, with <span class="math inline">y</span> up, and <code>factorial</code> is given.</p>
+<p><strong>C1.</strong> <code>radial(n, m, rho)</code>: <span class="math inline">R_{nm}(\rho)</span> by the factorial formula:</p>
+<pre><code>s = 0
+for k = 0 .. (n − |m|)/2:
+    s = s + (−1)^k · (n−k)! / ( k! · ((n+|m|)/2 − k)! · ((n−|m|)/2 − k)! ) · ρ^(n−2k)</code></pre>
+<p>The checks are the small radial polynomials of the background table, <span class="math inline">R_{nm}(1) = 1</span>, and the orthogonality integrals of B1.</p>
+<p><strong>C2.</strong> <code>zernike_moment(img, n, m)</code>: the moment as a sum over the pixels inside the disc, each of area <span class="math inline">\Delta A = (2/\text{size})^2</span>:</p>
+<pre><code>Z = 0
+for every pixel with ρ ≤ 1:
+    Z = Z + I(x, y) · R_nm(ρ) · (cos mθ − i sin mθ) · ΔA
+Z = (n + 1)/π · Z</code></pre>
+<p>The checks: a constant image (<span class="math inline">Z_{00} \approx 1</span>), a <span class="math inline">90°</span> turn (<span class="math inline">Z_{nm}</span> is multiplied by <span class="math inline">e^{-im \cdot 90°}</span>, B2), the two mirrors (B11), and <span class="math inline">Z_{n,-m} = \overline{Z_{nm}}</span> (B9).</p>
+<p><strong>C3.</strong> <code>reconstruct(img, order)</code>: all moments with <span class="math inline">m \ge 0</span> up to order <span class="math inline">N</span>, then at every pixel inside the disc</p>
+<pre><code>Î = sum over n ≤ N, m ≥ 0 of  w · R_nm(ρ) · (Re Z_nm · cos mθ − Im Z_nm · sin mθ)
+                               # w = 1 for m = 0, 2 for m &gt; 0 (Z_n,−m is the conjugate)</code></pre>
+<p>and 0 outside. The check: an image made of <span class="math inline">V_{00}</span>, <span class="math inline">V_{20}</span> and <span class="math inline">V_{22}</span> comes back from the moments up to order 2.</p>
+<p><strong>C4.</strong> <code>radial0_recurrence(n, rho)</code>: <span class="math inline">R_{n0}</span> without the huge alternating terms, from <span class="math inline">R_{n0}(\rho) = P_{n/2}(2\rho^2 - 1)</span> and the Legendre recurrence of the <a href="../orthogonal-moments/exercise.html#code">previous unit</a>. The check compares it with C1 up to <span class="math inline">n = 20</span>.</p>
+<p>Then <code>cargo run -p day18 -- zernike</code>. It turns a letter F (<span class="math inline">64 \times 64</span>, drawn with partial pixels) by <span class="math inline">30°</span>, <span class="math inline">90°</span> and <span class="math inline">180°</span> and mirrors it, and prints the largest change of <span class="math inline">|Z_{nm}|</span> (<span class="math inline">n \le 8</span>) and three phases (<code>out/zernike/rotations.png</code>). It rebuilds the F from its moments up to order 4, 10, 20 and 30 (<code>out/zernike/reconstructions.png</code>), and compares C1 with C4 for large <span class="math inline">n</span>.</p>
+<p><strong>C5.</strong> Check the phases of <span class="math inline">Z_{11}</span>, <span class="math inline">Z_{22}</span> and <span class="math inline">Z_{31}</span> after the turns against <span class="math inline">-m\alpha</span>. Why is the change of the magnitudes 0.00 % for <span class="math inline">90°</span> and <span class="math inline">180°</span> but not for <span class="math inline">30°</span>? Compare the <span class="math inline">180°</span> turn with the mirror image: which numbers tell them apart?</p>
+<p><strong>C6.</strong> How does the reconstruction change with <span class="math inline">N</span>? What happens in the corners?</p>
+<p><strong>C7.</strong> Compare the differences between C1 and C4 with B7. Up to which order would you trust the factorial formula?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day18-moments/src/zernike/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Original: <span class="math inline">Z_{11}</span> at <span class="math inline">-134.4°</span>, <span class="math inline">Z_{22}</span> at <span class="math inline">-152.2°</span>, <span class="math inline">Z_{31}</span> at <span class="math inline">34.7°</span>. Turned <span class="math inline">30°</span>: <span class="math inline">-165.3°</span>, <span class="math inline">148.1°</span> (<span class="math inline">= -211.9°</span>) and <span class="math inline">3.9°</span>, changes of <span class="math inline">-30.9°</span>, <span class="math inline">-59.7°</span> and <span class="math inline">-30.8°</span>, close to <span class="math inline">-30°</span>, <span class="math inline">-60°</span>, <span class="math inline">-30°</span>. Turned <span class="math inline">90°</span>: changes of exactly <span class="math inline">-90°</span>, <span class="math inline">-180°</span>, <span class="math inline">-90°</span>; turned <span class="math inline">180°</span>: <span class="math inline">-180°</span>, <span class="math inline">0°</span> (<span class="math inline">-360°</span>), <span class="math inline">-180°</span>. A turn by <span class="math inline">90°</span> or <span class="math inline">180°</span> maps the pixel grid onto itself, so the turned F has exactly the same pixels: the magnitudes do not change at all. At <span class="math inline">30°</span> the F is drawn anew on the grid; its magnitudes change by at most 1.4 % of <span class="math inline">|Z_{00}|</span> (digitisation). The <span class="math inline">180°</span> turn and the left–right mirror have the same magnitudes, but opposite phases: <span class="math inline">Z_{11}</span> at <span class="math inline">45.6°</span> against <span class="math inline">-45.6°</span>, <span class="math inline">Z_{22}</span> at <span class="math inline">-152.2°</span> against <span class="math inline">152.2°</span>, <span class="math inline">Z_{31}</span> at <span class="math inline">-145.3°</span> against <span class="math inline">145.3°</span>. The phases tell them apart, the magnitudes cannot (B6).</p>
+<p><strong>C6.</strong> At <span class="math inline">N = 4</span> the F is a blurred blob (relative error inside the disc 0.649); at <span class="math inline">N = 10</span> a recognisable, wobbly F (0.390); at <span class="math inline">N = 20</span> and 30 sharper, with ripples (0.269, 0.200). The ripples run in rings around the centre and are strongest towards the rim. The corners outside the disc stay 0: the basis does not reach them.</p>
+<p><strong>C7.</strong> The program prints <span class="math inline">1.1 \times 10^{-13}</span> (<span class="math inline">n = 10</span>), <span class="math inline">5.1 \times 10^{-10}</span> (<span class="math inline">n = 20</span>), <span class="math inline">2.1 \times 10^{-6}</span> (<span class="math inline">n = 30</span>), <span class="math inline">0.020</span> (<span class="math inline">n = 40</span>) and 100 (<span class="math inline">n = 50</span>), the same sizes as in B7. Up to about <span class="math inline">n = 30</span> the formula is fine; from <span class="math inline">n = 40</span> the rounding errors of the huge alternating terms are visible, and at 50 the values are meaningless.</p>
 </div>
 </div>
 </div>

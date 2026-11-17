@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: SLIC</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9140,6 +9141,50 @@ Solutions
 <p><strong>S4.</strong> Grey scene, about 200 superpixels: SLIC (195) recall 0.953, error 0.018, accuracy 0.991; FH (192) 0.982, 0.008, 0.996; watershed (196) 0.982, 0.008, 0.996. FH and the watershed adhere better to the boundaries (texture, faint step, line); SLIC gives regular cells. In the curves, the gap is largest at small <span class="math inline">K</span> (SLIC recall 0.81 at 25 superpixels against about 0.94–0.96).</p>
 <p><strong>S5.</strong> Both give the same object (the red ellipse). The pixel graph has 65 536 nodes and 130 560 edges; the superpixel graph has 400 nodes and about 1100 edges, and its graph cut is several times faster, but SLIC itself costs a few tens of ms: worthwhile when you segment repeatedly (interactive seeds) or run a slower method.</p>
 <p><strong>S6.</strong> At <span class="math inline">K = 60</span> (<span class="math inline">S = 32</span>): recall 0.855, accuracy 0.957; the line has no superpixel of its own, and other boundaries (the faint step, the spots) are missed too. At <span class="math inline">K = 400</span> (<span class="math inline">S = 12.8</span>): recall 0.938, accuracy 0.984.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day29-graphseg/src/superpixels/exercise.rs</code>. The code works on grey images with grey levels scaled to 0–100 (like lightness), so that <span class="math inline">m</span> means the same as for colour. Superpixels are a label image with labels <span class="math inline">1, 2, \dots</span></p>
+<p><strong>C1.</strong> <code>slic_distance2(dv, dx, dy, m, S)</code>: <span class="math inline">D^2 = d_v^2 + (m\,d_s/S)^2</span> with <span class="math inline">d_s^2 = dx^2 + dy^2</span>. The check is B1: 54 and 406.25 for <span class="math inline">m = 10</span>, 804 and 500 for <span class="math inline">m = 40</span>.</p>
+<p><strong>C2.</strong> <code>slic_init(img, K)</code>: the grid start. Returns the centres (position and grey value) and <span class="math inline">S</span>:</p>
+<pre><code>S = sqrt(N / K)
+for y = S/2, 3S/2, … (inside the image):
+    for x = S/2, 3S/2, …:
+        move (x, y) to the pixel of lowest gradient in its 3 × 3 neighbourhood,
+            gradient = (I(x+1, y) − I(x−1, y))² + (I(x, y+1) − I(x, y−1))²
+        add a centre there, with v = I(x, y)</code></pre>
+<p><strong>C3.</strong> <code>slic_step(img, centres, labels, S, m)</code>: one k-means iteration with windows; returns the number of distances computed:</p>
+<pre><code>D = ∞ for every pixel
+for each centre k at (x, y, v):
+    for each pixel p in [x − S, x + S) × [y − S, y + S), inside the image:
+        d = slic_distance2(I_p − v, p_x − x, p_y − y, m, S)
+        if d &lt; D(p):  D(p) = d,  label(p) = k + 1
+move each centre to the mean (x, y, v) of the pixels labelled with it</code></pre>
+<p>The checks: the superpixels of an image with one vertical edge do not cross the edge, and B2: one step on <span class="math inline">256 \times 256</span> with <span class="math inline">K = 256</span> computes a little under <span class="math inline">4N</span> distances (the windows at the border are cut off). <code>slic</code> (given) puts C2 and C3 together.</p>
+<p><strong>C4.</strong> <code>enforce_connectivity(labels)</code>: every label keeps its largest 4-connected piece; every other piece (an orphan) takes the label of the pixel to the left of its first pixel (in scan order; above it in the first column). <code>pieces</code> (given) finds the pieces and their sizes.</p>
+<p><strong>C5.</strong> <code>achievable_accuracy(sp, truth)</code> and <code>undersegmentation_error(sp, truth)</code>: the two measures of the Background table. <code>overlaps</code> (given) counts the pixels of every pair (superpixel, true region). The checks are B3(a), B3(b) and B3(d).</p>
+<p><strong>C6.</strong> <code>boundary_recall(sp, truth, tol)</code>: the fraction of the true boundary edges (neighbour pairs with different true labels) that have a superpixel boundary edge of the same direction within <code>tol</code> pixels. The checks are B3(c) and B3(d) with <code>tol = 0</code>, and the quadrants of B3 with <code>tol = 2</code> (12 of 16: the right side of the object is 3 pixels from a quadrant boundary).</p>
+<p>Then <code>cargo run -p day29 -- superpixels</code> and open the pictures in <code>out/superpixels/</code>. The program runs SLIC (<span class="math inline">K = 256</span>, 10 iterations) on the micrograph with <span class="math inline">m = 5</span>, 20 and 80, and measures the superpixels of a synthetic nuclei image against its true labels for <span class="math inline">K</span> from 25 to 800 (<span class="math inline">m = 20</span>, recall within 2 pixels).</p>
+<p><strong>C7.</strong> Compare <code>cell-m5.png</code>, <code>cell-m20.png</code> and <code>cell-m80.png</code>. How many pieces did each have before the connectivity clean-up (<code>cell-m5-no-cleanup.png</code>), and why so many for small <span class="math inline">m</span>? How long did SLIC take?</p>
+<p><strong>C8.</strong> Read the table for the nuclei. How do recall, error and accuracy change with <span class="math inline">K</span>? Why is <span class="math inline">K = 25</span> so much worse? Look at <code>nuclei-k50.png</code> and <code>nuclei-k400.png</code>.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day29-graphseg/src/superpixels/solution.rs</code> in the download.</p>
+<p><strong>C7.</strong> <span class="math inline">m = 5</span>: ragged superpixels that follow the texture; 10 974 pieces before the clean-up (the picture without clean-up is covered in boundaries). <span class="math inline">m = 20</span>: compact superpixels, many following the nuclear envelope; 3323 pieces before. <span class="math inline">m = 80</span>: nearly a grid of squares that ignores most edges; 286 pieces. With a small <span class="math inline">m</span>, position hardly counts, so the speckled grey levels of the micrograph scatter each label over many fragments. After the clean-up all three have 256 superpixels (here every label keeps its largest piece). SLIC took about 40 ms for 10 iterations in our run, the same for every <span class="math inline">m</span>: the work depends on <span class="math inline">N</span>, not on <span class="math inline">m</span> or <span class="math inline">K</span>.</p>
+<p><strong>C8.</strong> From <span class="math inline">K = 25</span> to 800: recall 0.740, 0.936, 0.971, 0.960, 0.975, 0.992; error 0.119, 0.043, 0.017, 0.014, 0.014, 0.010; accuracy 0.940, 0.979, 0.992, 0.993, 0.993, 0.995. More superpixels lose fewer boundaries, but not strictly (the recall dips at <span class="math inline">K = 200</span>). At <span class="math inline">K = 25</span>, <span class="math inline">S \approx 51</span> pixels, larger than the nuclei: superpixels straddle nuclei and background, and small nuclei get no superpixel of their own. At <span class="math inline">K = 50</span> most nuclei are already outlined by superpixel boundaries; at <span class="math inline">K = 400</span> every nucleus is cut into several superpixels, and the background is a regular grid whose boundaries mean nothing.</p>
 </div>
 </div>
 </div>

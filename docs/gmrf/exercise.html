@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9149,6 +9150,57 @@ Solutions
 <p><strong>E6.</strong> Plateaus: quadratic RMSE 0.227, TV 0.104. The profile is piecewise constant, which is exactly the shape of a TV solution: TV’s prior assumption is right here, so it removes noise without blurring the jumps.</p>
 <p><strong>E7.</strong> Neither looks like a profile with steps: both are rough random walks drifting up and down. The TV draws have no flat plateaus. Their step distribution (Laplace) has a sharper peak at 0 and heavier tails than the normal one: more tiny steps and more big ones. The flat plateaus of TV estimates come from minimising the energy, not from the prior’s typical samples.</p>
 <p><strong>E8.</strong> Diagonal <span class="math inline">1 + 10 = 11</span> at the two ends and <span class="math inline">1 + 20 = 21</span> inside, <span class="math inline">-10</span> next to the diagonal, zeros elsewhere: tridiagonal. Gain 0.505 at 0.05 cycles per sample and <span class="math inline">1/41 = 0.024</span> at 0.5: as in B5.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day28-ising/src/gmrf/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>penalty(d, ρ)</code> for the three penalties (quadratic, TV, Huber with its <span class="math inline">\delta</span>), and <code>energy_1d(x, y, λ, ρ)</code>: <span class="math inline">E = \tfrac12\sum_p (x_p - y_p)^2 + \lambda\sum_p \rho(x_{p+1} - x_p)</span>. The checks are B2 (4.5, 1.5, 0.15 against 3, 3, 3), B1(c) and B3(a).</p>
+<p><strong>C2.</strong> <code>quadratic_1d(y, λ)</code>: solve <span class="math inline">(I + \lambda L)\mathbf x = \mathbf y</span> on a path. The matrix is tridiagonal, so elimination needs one pass down and one pass up:</p>
+<pre><code>row p:  −λ x[p−1] + a[p] x[p] − λ x[p+1] = y[p]       a = 1+λ at the two ends, 1+2λ inside
+down:   c[0] = −λ / a[0],  d[0] = y[0] / a[0]
+        for p = 1 .. n−1:
+            m = a[p] + λ c[p−1]
+            c[p] = −λ / m,  d[p] = (y[p] + λ d[p−1]) / m
+up:     x[n−1] = d[n−1]
+        for p = n−2 down to 0:  x[p] = d[p] − c[p] x[p+1]</code></pre>
+<p>The checks are B1(a, b), B3(c), and that the sum of the values is kept.</p>
+<p><strong>C3.</strong> <code>tv_1d(y, λ, iterations)</code>: total variation in 1D. Each pair of neighbours gets a number <span class="math inline">z_p</span> between <span class="math inline">-\lambda</span> and <span class="math inline">\lambda</span>: the <span class="math inline">\lambda g_p</span> of the math slide, the force that holds the two samples together. Given the <span class="math inline">z</span>’s, the samples are <span class="math inline">x_p = y_p - (z_{p-1} - z_p)</span>:</p>
+<pre><code>z = 0 for every pair
+repeat iterations times:
+    x[p] = y[p] − (z[p−1] − z[p])          for every p (z = 0 beyond the ends)
+    z[p] = z[p] + ¼ · (x[p+1] − x[p])       for every pair, then clip to [−λ, λ]
+x[p] = y[p] − (z[p−1] − z[p])</code></pre>
+<p>Where a pair’s <span class="math inline">z</span> stays strictly inside <span class="math inline">(-\lambda, \lambda)</span>, the two samples end up equal (a plateau); where it sticks at <span class="math inline">\pm\lambda</span>, there is a jump. The checks are B3 and B4.</p>
+<p><strong>C4.</strong> <code>quadratic_2d(y, λ, sweeps)</code>: quadratic smoothing of an image with 4-neighbours, by Gauss–Seidel sweeps (each equation of the system, solved for its own pixel):</p>
+<pre><code>x = y
+repeat sweeps times:
+    for every pixel p, row by row:
+        x[p] = (y[p] + λ · Σ over neighbours q of x[q]) / (1 + λ · number of neighbours)</code></pre>
+<p>The checks: a one-row image gives the result of C2, and the mean stays the same.</p>
+<p><strong>C5.</strong> <code>tv_2d(y, λ, iterations)</code>: C3 for an image, with one <span class="math inline">z</span> for every horizontal pair and one for every vertical pair, and the step <span class="math inline">\tfrac18</span> instead of <span class="math inline">\tfrac14</span>. The checks: B3(a) as a one-row image, and a bright <span class="math inline">4 \times 4</span> square that stays flat and sharp but is lowered by <span class="math inline">\lambda \cdot (\text{perimeter}/\text{area}) = \lambda</span>.</p>
+<p>Then <code>cargo run -p day28 -- gmrf</code> and open the pictures in <code>out/gmrf/</code>. The program smooths a noisy profile like the one of the demo (step, ramp, narrow peak, noise <span class="math inline">\sigma_n = 0.3</span>) and plots data (grey), truth (green) and estimate (orange); then it smooths the micrograph with noise.</p>
+<p><strong>C6.</strong> Read the table for the quadratic prior: which <span class="math inline">\lambda</span> has the smallest error, and what happens to the peak as <span class="math inline">\lambda</span> grows? Compare with TV at <span class="math inline">\lambda = 1</span>. Then compare the peak heights of TV at <span class="math inline">\lambda = 1, 2, 3</span> with the rule <span class="math inline">2\lambda/w</span> of B4(b).</p>
+<p><strong>C7.</strong> Look at <code>quadratic-10.png</code>, <code>tv-1.png</code> and <code>tv-3.png</code>. Describe the step, the ramp and the plateaus in each.</p>
+<p><strong>C8.</strong> Compare <code>quadratic-2d.png</code> and <code>tv-2d.png</code> with <code>noisy.png</code>, and the printed errors. What does each do to the nuclear envelope, and to the flat parts of the cell?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day28-ising/src/gmrf/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> The noisy data have an RMSE of 0.298. For the quadratic prior the error is smallest near <span class="math inline">\lambda = 1.5</span> (0.194); at <span class="math inline">\lambda = 10</span> it is 0.242 and the peak (height 2) is only 0.92 high. Raising <span class="math inline">\lambda</span> removes more noise but blurs more, and no <span class="math inline">\lambda</span> wins both. TV at <span class="math inline">\lambda = 1</span>: 0.129, with the peak at 1.40. TV peak heights 1.40, 0.90, 0.40 for <span class="math inline">\lambda = 1, 2, 3</span>; the rule <span class="math inline">2 - 2\lambda/4</span> predicts 1.5, 1.0, 0.5: the same steps of 0.5, each a little lower (noise, and the background next to the peak rises too).</p>
+<p><strong>C7.</strong> Quadratic (<span class="math inline">\lambda = 10</span>): smooth everywhere; the step is a ramp several samples wide, and the peak a low bump. TV (<span class="math inline">\lambda = 1</span>): the step is one sharp jump, the flat parts are flat, and the ramp is a staircase. TV (<span class="math inline">\lambda = 3</span>): fewer, larger stairs; the plateau after the step and the peak lose contrast, and the error grows to 0.263.</p>
+<p><strong>C8.</strong> RMSE 0.100 (noisy), 0.085 (quadratic, <span class="math inline">\lambda = 2</span>), 0.076 (TV, <span class="math inline">\lambda = 0.08</span>). Quadratic smoothing removes the grain but blurs the thin dark nuclear envelope and all fine detail. TV keeps the envelope and the edges sharp, but turns flat parts into patches of constant grey (a cartoon look, the 2D version of the staircase).</p>
 </div>
 </div>
 </div>

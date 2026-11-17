@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: the real network</a></li>
   <li><a href="#explore-promptmask" id="toc-explore-promptmask" class="nav-link" data-scroll-target="#explore-promptmask">Explore: a toy you can open up</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9215,6 +9216,48 @@ Solutions
 <p>Readouts from <code>tools/figs/sam/promptmask_numbers.ts</code> (times from the browser vary).</p>
 <p><strong>E7.</strong> Edge click: part = a thin ring around both nuclei of the pair (178 px, score 0.23, true IoU 0.24 with the group), object = the clicked nucleus (311 px, score 0.89, true IoU 0.84), group = the touching pair (1086 px, score 0.79, true IoU 0.66). The highest score picks the nucleus, as single-mask mode would in B1. Between the nuclei: object = one of the two (true IoU 0.90), group = the pair (1146 px). With the negative click on the right nucleus the group shrinks to 740 px; the object is unchanged. The ring has stability 0.62 (its border is everywhere: unstable), the nucleus 0.94: as in B2, a steep border passes, a fuzzy one fails.</p>
 <p><strong>E8.</strong> The cytoplasm click gives the highest score in the whole demo (0.94) to a mask that is no nucleus at all (the cytoplasm ring, true IoU 0.98 with the cell, but there is no nucleus at the click): the score measures how clear the border is, not whether the mask is what you want. Automatic 8 × 8: default 15 masks, TP 8, FP 7, FN 3, F1 0.62; strict 5 masks, F1 0.25: the most stable masks are clumps, the cell and the pair, not single nuclei; loose 31 masks, F1 0.38 (many debris specks and background pieces). Debris is kept too: a bright speck has a perfectly sharp border. In the toy the score is itself a stability, so the stability filter almost never drops anything (0 drops at 0.9); in the real network the two are different. Costs: encoder about 140 ms once, decoder 10–70 ms per click: the ratio is much smaller than for the real network (27 s against 0.4 s), because this “encoder” is three blurs, not a transformer.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day40-cellnets/src/sam/exercise.rs</code>. The program has a toy network with the same architecture as the toy demo above. Its “encoder” averages <span class="math inline">4 \times 4</span> pixel blocks into a <span class="math inline">64 \times 64</span> grid of positions, once per image. Its “decoder” makes one coarse logit map per click, around a level halfway between the darkest and the brightest position near the click. You write the parts around the network.</p>
+<p><strong>C1.</strong> <code>upsample_logits(low, width, height)</code>: enlarge the coarse logit map to the image by bilinear interpolation, as in the slide “The math: from logits to a mask”:</p>
+<pre><code>for every output pixel (x, y):
+    u = (x + ½) · coarse width / width − ½;    v = (y + ½) · coarse height / height − ½
+    u0 = floor(u),  fu = u − u0;    v0 = floor(v),  fv = v − v0
+    top    = (1 − fu) · L(u0, v0)     + fu · L(u0 + 1, v0)        # outside: the nearest edge value
+    bottom = (1 − fu) · L(u0, v0 + 1) + fu · L(u0 + 1, v0 + 1)
+    out(x, y) = (1 − fv) · top + fv · bottom</code></pre>
+<p><strong>C2.</strong> <code>stability(logits, delta)</code>: area(logit &gt; δ) / area(logit &gt; −δ). The check is B2 (a).</p>
+<p><strong>C3.</strong> <code>mask_from_click(logits, x, y)</code>: the pixels with logit &gt; 0 that are connected to the click (flood fill with 4-neighbours), as one decoder output.</p>
+<p><strong>C4.</strong> <code>filter_masks(candidates, score_min, stability_min, box_overlap)</code>: the filters of automatic masks:</p>
+<pre><code>list = candidates with score &gt; score_min and stability ≥ stability_min
+sort list by score, highest first
+kept = empty
+for each candidate c in list:
+    if box IoU(c, k) ≤ box_overlap for every k in kept:  add c to kept</code></pre>
+<p>Then <code>cargo run -p day40 -- sam</code> and open the pictures in <code>out/sam/</code>. The program runs automatic masks on 16 synthetic nuclei with grids of <span class="math inline">8 \times 8</span>, <span class="math inline">16 \times 16</span> and <span class="math inline">32 \times 32</span> points and the filters of the lecture (score &gt; 0.8, stability ≥ 0.95, box overlap 0.7). It does so once with the <span class="math inline">64 \times 64</span> embedding and once with a coarse <span class="math inline">16 \times 16</span> one. It prints the counts, TP, FP and FN at IoU ≥ 0.5, and the time of encoder and decoder.</p>
+<p><strong>C5.</strong> Before you run: the nuclei cover 10 % of the image. How many points of each grid will fall on a nucleus (B5)? Then compare with the printout. Why does the <span class="math inline">32 \times 32</span> grid find no more nuclei than the <span class="math inline">16 \times 16</span> grid? Look at <code>auto-64-grid16.png</code> next to <code>truth.png</code>.</p>
+<p><strong>C6.</strong> Compare the <span class="math inline">16 \times 16</span> embedding with the <span class="math inline">64 \times 64</span> one (<code>embedding-16.png</code>, <code>embedding-64.png</code> and the counts). How many pixels does one position cover in each? Relate the result to B4.</p>
+<p><strong>C7.</strong> Read the times. How do encoder and decoder compare in the toy, and in the real network (B3)? What does that change about “encode once, decode per click”?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day40-cellnets/src/sam/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Expected about <span class="math inline">0.10 \cdot 64 = 6</span>, <span class="math inline">0.10 \cdot 256 = 26</span> and <span class="math inline">0.10 \cdot 1024 = 102</span> points. Printed: 6, 29 and 108. With the <span class="math inline">64 \times 64</span> embedding the <span class="math inline">8 \times 8</span> grid gives 6 masks, 5 kept, TP 5, FN 11: at most the nuclei that a point lands on can be found. The <span class="math inline">16 \times 16</span> grid: 24 masks, 8 kept, TP 7, FP 1, FN 9. The <span class="math inline">32 \times 32</span> grid: 100 masks, but again only 8 kept, with the same scores. The extra masks are duplicates (removed by the box overlap), because many of these nuclei touch or overlap. The toy decoder makes a single mask per click: everything brighter than its level and connected to the click. A click on a clump therefore returns the whole clump, and every point of the clump returns the same mask. In <code>auto-64-grid16.png</code> most kept masks are clumps of two or three nuclei. A clump matches its largest nucleus at best, and the others are missed. The real decoder offers three masks per click (part, object, group), so that one of them can be the single nucleus. Even so, in the real network’s automatic mode the most stable masks are often the clumps (E8).</p>
+<p><strong>C6.</strong> <span class="math inline">64 \times 64</span> positions: 4 × 4 pixels each; <span class="math inline">16 \times 16</span>: 16 × 16 pixels each. A nucleus is 12 to 36 pixels across, so it covers one or two coarse positions at most. In <code>embedding-16.png</code> the nuclei are blurred into a few large blobs. The masks are blobs spanning several nuclei, with soft borders. With the <span class="math inline">16 \times 16</span> grid, 1 of the 27 masks survives the filters, and it matches no nucleus (TP 0 for every grid). As in B4, objects not much larger than one embedding position are not resolved, and their borders are unstable.</p>
+<p><strong>C7.</strong> The toy encoder takes about 1 to 2 ms (averaging blocks). The decoder takes about 0.1 s for the 64 clicks of the <span class="math inline">8 \times 8</span> grid and 1.6 s for the 1024 clicks of the <span class="math inline">32 \times 32</span> grid (your times differ), about 2 ms per click. So here one click costs about as much as the encoder. In the real network the encoder takes 26.6 s and a click 0.42 s, a ratio of about 63 (B3, B7). Caching the embedding pays only when the encoder is much more expensive than the decoder. In the toy the time of automatic masks is all decoder time, and it grows with the number of points (<span class="math inline">n^2</span>).</p>
 </div>
 </div>
 </div>

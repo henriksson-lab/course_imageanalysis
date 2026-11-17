@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9177,6 +9178,48 @@ Solutions
 <p><strong>E5.</strong> λ = 1/45 gives RMSE 0.0244, exactly the Wiener result of E2: same gain at every frequency. Too much regularisation (energy, λ = 0.1): RMSE 0.0341, blurred, worse than the observed image; mean of the truth 0.1575, restored 0.1432: the ratio 0.909 is <span class="math inline">1/(1 + \lambda)</span>, the energy penalty’s gain at <span class="math inline">f = 0</span>. Roughness penalty (λ = 0.033): RMSE 0.0237, the best of the three linear methods here, and the mean is kept (0.1575).</p>
 <p><strong>E6.</strong> Dark rims around the bright beads, below the background level, and ripples: the restoration subtracts more blur than there was. RMSE 0.0465 at ×1.3, 0.0412 at ×1.00, 0.0445 at ×0.80. Too narrow is milder: it leaves blur (the beads stay wide) but makes no rims.</p>
 <p><strong>E7.</strong> Stripes start at the left and right borders and run into the image; RMSE 1.30 (the image is ruined). The step edge runs off the left and right borders and the blur brought light in from outside the field, neither of which the periodic model knows. Padded + tapered: RMSE 0.0497 and the stripes are gone.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day05-deconvolution/src/deconv/exercise.rs</code>.</p>
+<p><strong>C1.</strong> The gain of each method at a frequency where the OTF is <span class="math inline">H</span> (real, for a symmetric PSF): <code>truncated_gain(h, eps)</code> (<span class="math inline">1/H</span> where <span class="math inline">|H| &gt; \varepsilon</span>, else 0), <code>wiener_gain(h, snr)</code> (<span class="math inline">H/(H^2 + 1/\mathrm{SNR})</span>) and <code>tikhonov_gain(h, lambda, d2)</code> (<span class="math inline">H/(H^2 + \lambda\, d^2)</span>, with <span class="math inline">d^2 = 1</span> for the energy penalty). The checks are your tables of B1, B2 and B5(b), and the gains of B3 (sum part <span class="math inline">s = 1</span>, difference part <span class="math inline">s = 0.5</span>).</p>
+<p><strong>C2.</strong> <code>gaussian_otf(sigma, w, h)</code>: the OTF <span class="math inline">H = e^{-2\pi^2\sigma^2(f_x^2 + f_y^2)}</span> of a Gaussian PSF for a <span class="math inline">w \times h</span> image, at every frequency, in the layout of the 2D Fourier transform (frequency 0 at pixel (0, 0), the negative frequencies in the upper half). The check is B5(a). <code>laplacian_symbol(fx, fy)</code>: what the Laplacian does to the wave of frequency <span class="math inline">(f_x, f_y)</span>, <span class="math inline">\hat L = 4 - 2\cos 2\pi f_x - 2\cos 2\pi f_y</span>; 0 at frequency 0 (B9).</p>
+<p><strong>C3.</strong> <code>apply_gain(g, gain)</code>: filter in frequency space.</p>
+<pre><code>G = Fourier transform of g
+for every frequency k:   X(k) = gain(k) · G(k)
+x = real part of the inverse Fourier transform of X</code></pre>
+<p><strong>C4.</strong> <code>restore(g, otf, method)</code>: every method of the lecture is C3 with its own gain:</p>
+<pre><code>for every frequency (fx, fy), with H = otf(fx, fy):
+    inverse:             gain = 1/H              (0 where H = 0)
+    truncated inverse:   gain = 1/H if |H| &gt; ε, else 0
+    Wiener:              gain = H / (H² + 1/SNR)
+    Tikhonov, energy:    gain = H / (H² + λ)
+    Tikhonov, roughness: gain = H / (H² + λ · L(fx, fy)²)
+restored = apply_gain(g, gain)</code></pre>
+<p>The checks: B6 (the energy penalty divides the mean by <span class="math inline">1 + \lambda</span>, the roughness penalty keeps it), Tikhonov with the energy penalty and <span class="math inline">\lambda = 1/45</span> gives exactly Wiener with SNR 45, and the inverse restores a noise-free image.</p>
+<p>Then <code>cargo run -p day05 -- deconv</code> and open the pictures in <code>out/deconv/</code>. The program blurs the micrograph with a Gaussian PSF (<span class="math inline">\sigma</span> = 2 pixels), adds noise of 0.01 (1 % of white), and restores it with every method and several settings. It prints the RMSE against the object, the mean and the share of negative pixels.</p>
+<p><strong>C5.</strong> Which method and setting gives the smallest error, and how much better is it than the observed image? Find two lines of the table that are exactly equal, and explain why.</p>
+<p><strong>C6.</strong> The program prints the image’s own SNR, the mean of the squared object over <span class="math inline">\sigma_n^2</span>. Compare it with the best Wiener SNR. Then explain the column “mean” for Wiener with SNR 3 and for the roughness penalty.</p>
+<p><strong>C7.</strong> Compare <code>truncated.png</code> (<span class="math inline">\varepsilon</span> = 0.15), <code>wiener-snr300.png</code>, <code>wiener-snr10000.png</code> and <code>tikhonov-roughness.png</code> (<span class="math inline">\lambda</span> = 0.001) with <code>observed.png</code>. Name the artefact in each, and say which line of the gain curves it comes from.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day05-deconvolution/src/deconv/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> The observed image has RMSE 0.1013. The best are Wiener with SNR 300 (0.0800) and the roughness penalty with <span class="math inline">\lambda</span> = 0.001 (0.0802), about 20 % better; the truncated inverse reaches 0.0831 at <span class="math inline">\varepsilon</span> = 0.05. The inverse filter gives <span class="math inline">1.7 \cdot 10^{13}</span> with half the pixels negative. Tikhonov with the energy penalty and <span class="math inline">\lambda</span> = 0.1 gives exactly the line of Wiener with SNR 10 (RMSE 0.1140, mean 0.6002), and <span class="math inline">\lambda</span> = 0.01 and 0.001 those of SNR 100 and 1000: with <span class="math inline">\hat D = 1</span> the two gains are the same formula, with <span class="math inline">\lambda = 1/\mathrm{SNR}</span>.</p>
+<p><strong>C6.</strong> The image’s own SNR is 4891, but the best flat SNR is about 300: one SNR for all frequencies is a compromise, and it must suit the high frequencies, where the signal of a natural image is much weaker than its average (the slide “What Wiener needs to know”). At SNR 3 the mean drops from 0.6604 to 0.4952, the factor <span class="math inline">1/(1 + 1/3) = 0.75</span> of the gain at frequency 0 (B6); the roughness penalty keeps 0.6603 for every <span class="math inline">\lambda</span>, because <span class="math inline">\hat L(0) = 0</span>.</p>
+<p><strong>C7.</strong> Truncated: ripples run parallel to the outline of the nucleus and around the dark granules (ringing from the sharp cut of the gain). Wiener SNR 300 and roughness <span class="math inline">\lambda</span> = 0.001 look alike: sharper than the observed image, with a little grain; the outline of the nucleus is a dark line again. Wiener SNR 10000 is covered in a dense pattern of dots and short worms of the same size (RMSE 0.1554, worse than the observed image): the gain still rises where <span class="math inline">|H|</span> is small, so the noise at those frequencies is amplified. The inverse is pure black-and-white noise.</p>
 </div>
 </div>
 </div>

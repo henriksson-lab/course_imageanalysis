@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: recovering a sparse signal</a></li>
   <li><a href="#explore-phasetransition" id="toc-explore-phasetransition" class="nav-link" data-scroll-target="#explore-phasetransition">Explore: the phase transition</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9179,6 +9180,57 @@ Solutions
 <p><strong>E8.</strong> The success region (yellow) lies below the curve and its edge follows it, slightly below it at small δ and with a blurred band of partial success, because N = 64 is small (the curve is the limit for large N). Below the curve the trial is recovered exactly; just above it the recovery is clean-looking but has wrong spikes.</p>
 <p><strong>E9.</strong> OMP’s boundary lies lower: at δ ≈ 0.5 OMP succeeds only up to ρ ≈ 0.25, ℓ1 up to ≈ 0.35 (in the lecture’s figure). At ρ = 0.3, ℓ1. OMP is faster and has no shrinkage bias, which matters when the problem is well inside the success region.</p>
 <p><strong>E10.</strong> With 5 % noise no recovery is exact; success now means an error below 10 %. The edge is less sharp, the success region shrinks a little, and some cells deep in the success region have occasional failures: noise blurs the transition.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day11-sparse/src/compressed_sensing/exercise.rs</code>. <code>mat_vec</code>, <code>mat_t_vec</code> and <code>largest_gain</code> (the power method of the last unit) are given. The coding tasks are numbered R1, R2, …, because this page already uses C1, C2, … for its pen-and-paper questions.</p>
+<p><strong>R1.</strong> <code>min_norm(a, y)</code>: the least-energy solution of <span class="math inline">A\mathbf x = \mathbf y</span> with fewer equations than unknowns:</p>
+<pre><code>G = A Aᵀ                 # m × m, entry (i, j) = row i · row j
+solve G w = y
+x = Aᵀ w</code></pre>
+<p>The check is by-hand question C1 (d): (1.2, −0.6, 2.1, 0.3).</p>
+<p><strong>R2.</strong> <code>coherence(a)</code>: the largest <span class="math inline">|\mathbf a_i^\top\mathbf a_j| / (\|\mathbf a_i\|\,\|\mathbf a_j\|)</span> over pairs of different columns. The check is by-hand question C8: μ = 3/√10 = 0.949.</p>
+<p><strong>R3.</strong> <code>zero_filled(x, keep)</code>: the DFT of the signal, the coefficients that are not kept set to 0, the inverse DFT (real part). The checks are by-hand question C3 (a) and (b): a spike at 3 of 16 samples comes back as 0.5 at 3 and 11 (every 2nd coefficient) and as 0.25 at 3, 7, 11, 15 (every 4th).</p>
+<p><strong>R4.</strong> <code>recover(a, y, iterations)</code>: ℓ1 recovery. FISTA from the last unit, with λ lowered step by step towards 0 (so that the data are fitted almost exactly), then a refit on the support it found (no shrinkage bias):</p>
+<pre><code>τ = 1 / L,   λ = λmax = largest |a_jᵀ y|
+x = 0,  z = 0,  t = 1
+repeat N times:
+    one FISTA step with λ (gradient step from z, soft threshold at τλ, momentum)
+    λ = λ · factor                         # factor^N = 1/10⁴
+S = the j with |x_j| &gt; 1 % of the largest |x_j|
+refit x on the columns in S by least squares</code></pre>
+<p>The checks: by-hand question C1, where ℓ1 must find the sparsest solution (0, 0, 3, 0), and 4 spikes among 80 unknowns from 40 random measurements, recovered exactly.</p>
+<p><strong>R5.</strong> <code>success_rate(n, m, k, trials, seed)</code>: one cell of the phase diagram:</p>
+<pre><code>repeat trials times:
+    A = m × n matrix of random normal numbers / sqrt(m)
+    x = k entries ±1 at random positions, 0 elsewhere
+    x̂ = recover(A, A x)
+    success if ‖x̂ − x‖ &lt; 1 % of ‖x‖
+return the fraction of successes</code></pre>
+<p>The checks: N = 32, M = 24, K = 2 always succeeds; N = 32, M = 8, K = 6 never does.</p>
+<p>Then <code>cargo run -p day11 -- compressed-sensing</code> and open the pictures in <code>out/compressed-sensing/</code>. The program measures a signal with 8 spikes of random sign in 256 samples through 64 Fourier coefficients, every 4th or chosen at random, zero-fills (scaled by N/M, so that a spike that comes back has its own height) and recovers by ℓ1. Then it prints a phase diagram for N = 64, 8 trials per cell, and draws it in <code>phase-diagram.png</code> (white: always recovered).</p>
+<p><strong>R6.</strong> Compare <code>zero-filled-regular.png</code> with <code>zero-filled-random.png</code>, and <code>recovered-regular.png</code> with <code>recovered-random.png</code>. Read the printed size of the junk and the recovery errors. Explain the difference with the words “copies” and “noise-like”.</p>
+<p><strong>R7.</strong> In the printed phase diagram, where does recovery switch from success to failure at δ = 0.25 and at δ = 0.5? Compare with the theoretical boundary of by-hand question C5 (ρ ≈ 0.27 and 0.39).</p>
+<p><strong>R8.</strong> Count the cost. One iteration of <code>recover</code> multiplies by <span class="math inline">A</span> and by <span class="math inline">A^\top</span>: about <span class="math inline">2MN</span> multiplications. How many for one cell of the program’s diagram at δ = 0.5? How many, and how much memory for the matrix, for an image of <span class="math inline">N = 10^6</span> pixels and <span class="math inline">M = 10^5</span> Gaussian measurements?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day11-sparse/src/compressed_sensing/solution.rs</code> in the download.</p>
+<p><strong>R6.</strong> Every 4th coefficient: each spike appears four times, 64 samples apart, and the copies are as tall as the original (the largest value away from the true spikes is 1.67, as tall as a spike). ℓ1 cannot tell the copies from the truth: it returns 32 small nonzeros spread over all copies, relative error 0.87. Random coefficients: the spikes stand out above noise-like junk (RMS 0.40, largest 1.10, the spikes are 1 to 2 high); ℓ1 recovers exactly the 8 spikes, relative error 0.000.</p>
+<p><strong>R7.</strong> At δ = 0.25 (M = 16): all 8 trials succeed at ρ = 0.2, 6 of 8 at ρ = 0.3, none at 0.4. At δ = 0.5 (M = 32): all succeed at ρ = 0.2, 7 of 8 at 0.3, 5 of 8 at 0.4, none at 0.5. The switch lies near 0.3 and 0.4, close to the theoretical 0.27 and 0.39. At N = 64 the switch is spread over a band of about 0.1 in ρ, and a single cell can be off (only 8 trials).</p>
+<p><strong>R8.</strong> M = 32, N = 64: <span class="math inline">2 \cdot 32 \cdot 64 = 4096</span> per iteration, <span class="math inline">4 \cdot 10^6</span> for 1000 iterations, <span class="math inline">3.3 \cdot 10^7</span> for a cell of 8 trials: fast. For <span class="math inline">N = 10^6</span>, <span class="math inline">M = 10^5</span>: <span class="math inline">2 \cdot 10^{11}</span> per iteration, and the matrix has <span class="math inline">10^{11}</span> numbers, 800 GB. This is why practical compressed sensing uses measurements with a fast transform, such as random Fourier coefficients (one FFT, <span class="math inline">N\log N</span>) in MRI, the next unit.</p>
 </div>
 </div>
 </div>

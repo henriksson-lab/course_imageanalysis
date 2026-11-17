@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9144,6 +9145,76 @@ Solutions
 <p><strong>E6.</strong> One test: the ray starts in the empty corner and points away from the scene, so it misses the root box and nothing inside is ever looked at (brute force: 256).</p>
 <p><strong>E7.</strong> 19 box tests and 1 object test; <span class="math inline">\log_2 1024 = 10</span>, so about <span class="math inline">2\log_2 N</span>. The ray hits an object early (at <span class="math inline">t = 22.8</span>); every remaining box on the stack starts farther than that and is skipped without being opened.</p>
 <p><strong>E8.</strong> The wall spans the whole scene, so its box is as big as the root, and whichever leaf holds it has a huge box: every ray that crosses the middle of the scene enters that box and tests the wall. In this scene the effect on the average is small (31.5 tests per ray at <span class="math inline">N = 1024</span> against 31.1 for the uniform layout), because only one object is long; scenes made of many long, thin objects (grass, hair) are hard for BVHs.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day50-raytracing/src/bvh/exercise.rs</code>. As in the demo, everything is in 2D: the objects are discs, the boxes rectangles, and the perimeter takes the place of the surface area.</p>
+<p><strong>C1.</strong> <code>slab_test(o, d, box)</code>: the interval of <span class="math inline">t</span> in which the ray is inside the box.</p>
+<pre><code>t_near = −∞;   t_far = +∞
+for each axis k:
+    t0 = (min_k − o_k) / d_k;   t1 = (max_k − o_k) / d_k     # d_k = 0 gives ±∞
+    if t0 &gt; t1: swap them
+    if t0 &gt; t_near: t_near = t0          # written so that a NaN never wins
+    if t1 &lt; t_far:  t_far = t1
+hit if t_near ≤ t_far and t_far &gt; 0</code></pre>
+<p>The checks are B1 (a)–(c), and B7 (c): an origin on a slab plane with <span class="math inline">d_k = 0</span>.</p>
+<p><strong>C2.</strong> <code>build_median(discs, max_leaf)</code>: a BVH by median splits.</p>
+<pre><code>build(objects):
+    node.box = the box around all objects
+    if there are at most max_leaf objects: node is a leaf with these objects
+    else: sort the objects by their centres along the longer side of the box of the centres
+          node.left = build(first half);   node.right = build(second half)</code></pre>
+<p>The check is B2 (a): the intervals of B2 are discs on the <span class="math inline">x</span> axis, and the tree must have the 7 boxes of your answer.</p>
+<p><strong>C3.</strong> <code>traverse(bvh, discs, o, d)</code>: the nearest hit, nearest child first, counting the tests.</p>
+<pre><code>if the ray misses the root's box: return no hit            (1 box test)
+stack = [(root, t where the ray enters its box)];   best = ∞
+while the stack is not empty:
+    take (node, t_enter) from the top
+    if t_enter &gt; best: skip it
+    if node is a leaf: test its discs, keep the nearest hit in best
+    else: slab-test both children (2 box tests); push the ones that are hit, the farther first</code></pre>
+<p>The checks are B2 (b) and (c), 5 box tests and 2 disc tests each, and the same hits as testing every disc, for 200 random rays.</p>
+<p><strong>C4.</strong> <code>sah_cost(parent, left, n_left, right, n_right)</code> = <span class="math inline">1 + \frac{A_L}{A}N_L + \frac{A_R}{A}N_R</span> (the check is B3), and <code>build_sah(discs)</code>:</p>
+<pre><code>build(objects):                                        # n objects
+    best = (cost n: a leaf)
+    for each axis:
+        sort the objects by their centres along the axis
+        for i = 1 … n − 1:   cost = sah_cost(box of all, box of the first i, i, box of the rest, n − i)
+                             keep the cheapest (axis, i)
+    if no split beats the leaf: node is a leaf
+    else: split at the best (axis, i) and build both halves</code></pre>
+<p>The check: every disc in exactly one leaf, the same hits as testing every disc, and a lower SAH cost than the median tree on a clustered scene.</p>
+<p><strong>C5.</strong> <code>grid_walk(o, d, cells, cell_size)</code>: the cells of a grid that the ray visits, in order, with the <span class="math inline">t</span> at which it enters each.</p>
+<pre><code>cell = the cell holding o;   output (cell, t = 0)
+per axis k: step_k = sign(d_k);  t_next_k = t of the next cell boundary;  t_delta_k = cell_size / |d_k|
+repeat:
+    k = the axis with the smaller t_next_k
+    cell_k = cell_k + step_k;   if outside the grid: stop
+    output (cell, t_next_k);   t_next_k = t_next_k + t_delta_k</code></pre>
+<p>The check is B4.</p>
+<p>Then <code>cargo run -p day50 -- bvh</code> and open the pictures in <code>out/bvh/</code>.</p>
+<p><strong>C6.</strong> Read the tables of tests per ray against <span class="math inline">N</span> for the uniform scene. How do brute force, the two BVHs and the grid grow from <span class="math inline">N = 16</span> to <span class="math inline">4096</span>? Compare the BVHs with <span class="math inline">2\log_2 N</span>.</p>
+<p><strong>C7.</strong> Read the last table: rays aimed at the “teapot” in the stadium. How many tests do the grid and the SAH tree need? Why does the grid get <em>better</em> as <span class="math inline">N</span> grows here?</p>
+<p><strong>C8.</strong> Compare <code>median-levels.png</code> and <code>sah-levels.png</code>: the boxes of the first two levels below the root (orange, then blue) of the two trees for four clusters of 64 discs. How do the trees split the clusters, and what are their SAH costs (printed)?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day50-raytracing/src/bvh/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Brute force grows like <span class="math inline">N</span>: 16 to 4096 tests. The median BVH needs 8.8, 16.1, 24.4, 27.7 and 33.5 tests per ray, the SAH BVH 7.5 to 31.0: about <span class="math inline">2\log_2 N</span> (8 at <span class="math inline">N = 16</span>, 24 at <span class="math inline">N = 4096</span>) plus a few, mostly box tests; fewer than 4 disc tests per ray at every <span class="math inline">N</span>. The grid, with about <span class="math inline">\sqrt{N/2}</span> cells per side, stays at 4 to 9 disc tests per ray (plus 1.5 to 3.2 cells walked): for evenly spread discs a grid is excellent.</p>
+<p><strong>C7.</strong> For 256, 1024 and 4096 discs the grid tests 231, 160 and 77 discs per ray; the SAH tree needs 29 to 31 tests (boxes and discs together) for every <span class="math inline">N</span>. Almost all discs sit in one or two grid cells, and a ray into the teapot tests all of them. The cells get smaller as <span class="math inline">N</span> grows (the grid has <span class="math inline">\sqrt{N/2}</span> cells per side but the teapot keeps its size), so the teapot is split over more cells; the tree adapts to the clustering by itself.</p>
+<p><strong>C8.</strong> The median tree cuts at the median of the longer side: its first split separates the left pair of clusters from the right pair, and its boxes are tall rectangles with a lot of empty space between the two clusters inside them. The SAH tree’s first split puts the two upper and the two lower clusters together, in flatter boxes with less perimeter; at the next level both trees have one tight box per cluster. SAH cost 18.6 against 22.2 for the median tree, although the median tree is the shallower one (depth 7 against 10): balance is not what makes a tree cheap.</p>
 </div>
 </div>
 </div>

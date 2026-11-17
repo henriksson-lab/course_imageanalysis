@@ -8975,6 +8975,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9155,6 +9156,55 @@ Solutions
 <p><strong>E3.</strong> The reconstruction always has two (almost) equally bright pixels: the small difference between them, the local edge, is lost. Images that already have equal pixels are rebuilt almost perfectly.</p>
 <p><strong>E4.</strong> PCA error 0.0170. The red segments are longest at the two ends of the horseshoe (spot far left or far right, both pixels fairly dark), where the curve bends back towards the mean and is furthest from the line. The images at the start of the curve (spot far left, pixel 1 medium, pixel 2 dark) and those a little past pixel 1 (pixel 1 bright, pixel 2 a bit brighter) project to nearby points of the line: the line folds the curve.</p>
 <p><strong>E5.</strong> After 1500 steps the error is 0.0006, against 0.0170 for PCA: almost thirty times smaller. The green curve starts roughly straight and bends during training until it follows the horseshoe. It is still one number per image: the decoder maps one number <span class="math inline">z</span> to one point of the plane, so all its outputs lie on one curve; the bends of the ReLU units let that curve bend.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day38-vae/src/autoencoder/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>pca_encode(x, mean, components)</code> and <code>pca_decode(scores, mean, components)</code>: PCA as an encoder and a decoder, for images (vectors) of any length and any number of components:</p>
+<pre><code>encode:  for every component u_k:   s_k = Σ_i u_k[i] · (x[i] − mean[i])
+decode:  x̂ = mean
+         for every component u_k:   x̂ = x̂ + s_k · u_k</code></pre>
+<p>The checks are your answers to B1, B2 and B3.</p>
+<p><strong>C2.</strong> <code>reconstruction_error(images, mean, components)</code>: encode and decode every image, and average the squared length <span class="math inline">\|\mathbf x - \hat{\mathbf x}\|^2</span> of what is lost. The checks use B1, B5 and the matrix <span class="math inline">S</span> of B9.</p>
+<p><strong>C3.</strong> The autoencoder of the lecture, encoder <span class="math inline">2 \to 16 \to 1</span> and decoder <span class="math inline">1 \to 16 \to 2</span>: <code>dense(layer, input, relu)</code> computes one layer, and <code>forward(ae, x)</code> runs all four and returns their outputs <span class="math inline">h_1, z, h_2, \hat{\mathbf x}</span>:</p>
+<pre><code>one layer:   out[o] = b[o] + Σ_i w[o][i] · in[i]
+             if the layer bends:  out[o] = max(0, out[o])
+forward:     h1 = layer 1 (x), bent;   z = layer 2 (h1)
+             h2 = layer 3 (z), bent;   x̂ = layer 4 (h2)</code></pre>
+<p><strong>C4.</strong> <code>train_step(ae, images, rate)</code>: one step downhill on the mean squared reconstruction error, by backpropagation as in the unit <em>Neural networks</em>:</p>
+<pre><code>for every image x (n images):
+    run forward; the input of layer 1 is x, of layer k the output of layer k − 1
+    g = 2 (x̂ − x) / n                            # how the error changes with x̂
+    for layer k = 4, 3, 2, 1:
+        grad w[o][i] += g[o] · input[i];   grad b[o] += g[o]
+        g_in[i] = Σ_o w[o][i] · g[o]              # back to the layer's input
+        if that input came out of a bend: g_in[i] = 0 where input[i] = 0
+        g = g_in
+for every layer:  w = w − rate · grad w,   b = b − rate · grad b</code></pre>
+<p>One check changes single weights a little and compares the change of the error with your gradient; another trains on the moving spot and expects an error below that of PCA.</p>
+<p>Then <code>cargo run -p day38 -- autoencoder</code> and open the pictures in <code>out/autoencoder/</code>. The program uses 300 pairs of neighbouring pixels of the micrograph as two-pixel images, then PCA of the <span class="math inline">8 \times 8</span> patches of the whole micrograph (<code>patches-k1.png</code>, <code>-k4</code>, <code>-k16</code>), and finally trains the autoencoder on the moving spot for 20,000 steps (<code>spot.png</code>: data black, PC1 line blue with the errors in red, the decoder curve green).</p>
+<p><strong>C5.</strong> Read the three printed errors for the neighbouring pixels: keeping pixel 1, keeping PC1, keeping nothing. Compare them with E1 and E2. What is PC1 of the micrograph’s pixel pairs?</p>
+<p><strong>C6.</strong> Open <code>patches-k1.png</code>, <code>patches-k4.png</code> and <code>patches-k16.png</code>. Each patch of 64 pixels is stored as 1, 4 or 16 numbers. What does the image with one number per patch look like, and why? What is lost with 4 numbers, and what with 16?</p>
+<p><strong>C7.</strong> Compare the error of PCA on the moving spot with that of the trained autoencoder. In <code>spot.png</code>, where are the red PCA errors longest? Count the cost: how many numbers does the autoencoder store per image, and how many weights does it have?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day38-vae/src/autoencoder/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Keeping pixel 1: 0.0497; keeping PC1: 0.0057; keeping nothing: 0.1011. As in E1, keeping one pixel loses about half of “keep nothing”, and PC1 loses only the smaller eigenvalue (0.0057). PC1 is <span class="math inline">(0.71, 0.70)</span>, close to <span class="math inline">(1, 1)/\sqrt2</span>: the brightness of the pair, as in E2 and B4. The micrograph’s pairs spread a little more than the demo’s, so the numbers are a little larger.</p>
+<p><strong>C6.</strong> With one number per patch the image is a mosaic of <span class="math inline">8 \times 8</span> squares, each nearly flat: PC1 of the patches is “all pixels together”, so one score is about the mean brightness of the patch. The mean squared error is 0.0171 per pixel. With 4 numbers the squares also get a slope (the next components are ramps), so the outline of the nucleus and the large dark regions come back, but the fine texture is smoothed away (0.0099). With 16 numbers the image looks close to the original; only the finest grain and sharpest edges are softened (0.0038).</p>
+<p><strong>C7.</strong> PCA: 0.0178; the autoencoder: 0.0010 after 20,000 steps (0.0082 after 5,000), almost twenty times smaller. The red PCA segments are longest at the two ends of the horseshoe, where the curve bends back and is furthest from the line. Both store <strong>one</strong> number per image. PC1 has 2 numbers (plus the 2 of the mean); the autoencoder has <span class="math inline">(2 \cdot 16 + 16) + (16 + 1) + (16 + 16) + (16 \cdot 2 + 2) = 131</span> weights and shifts, and needs thousands of training steps, where PCA needs one eigenvector.</p>
 </div>
 </div>
 </div>

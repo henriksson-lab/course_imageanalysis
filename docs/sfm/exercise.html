@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-flatland" id="toc-explore-flatland" class="nav-link" data-scroll-target="#explore-flatland">Explore: plane sweep in flatland</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: bundle adjustment in flatland</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9265,6 +9266,53 @@ Solutions
 <p><strong>E5.</strong> On one side: long, thin ellipses (standard deviations of about 0.5 along their long axis and 0.02 across), all oriented roughly the same way: the depth (along the viewing directions) is poorly fixed, and since the cameras’ own positions are estimated too, the whole reconstruction can flex along that direction. On the ring: small ellipses (about 0.04 by 0.015, magnified ×10 to be visible), points seen from many directions.</p>
 <p><strong>E6.</strong> Initial pair: cameras 1 and 2, 14 points triangulated. Camera 3 is resected from 12 points, camera 4 from only 4, camera 5 from 9, …, camera 10 from 17; each step adds the newly visible points (up to 10). After each step’s bundle adjustment the RMS is 0.10–0.14 px, at the noise level.</p>
 <p><strong>E7.</strong> 5 non-zeros per row (3 for the camera, 2 for the point); <span class="math inline">J</span> is 169 × 110. <span class="math inline">J^\top J</span>: the camera block (30 × 30, top left) is block-diagonal with 3 × 3 blocks, the point block (80 × 80, bottom right) is block-diagonal with 2 × 2 blocks, and the off-diagonal blocks show which camera sees which point: the arrowhead.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day49-multiview/src/sfm/exercise.rs</code>. Everything happens in flatland, as in the demos: points <span class="math inline">(x, y)</span>, and 1D cameras with a position and a heading <span class="math inline">\theta</span> (160 pixels, <span class="math inline">f = 130</span> px, centre at pixel 80).</p>
+<p><strong>C1.</strong> <code>gauss_newton_depth(x_obs, X, z0, steps)</code>: Gauss–Newton in one unknown, <span class="math inline">r(Z) = x_\text{obs} - X/Z</span>, <span class="math inline">r'(Z) = X/Z^2</span>, <span class="math inline">Z \leftarrow Z - r/r'</span>. The check is B2: <span class="math inline">3 \to 3.75 \to 3.984</span>.</p>
+<p><strong>C2.</strong> <code>project(cam, p)</code> and <code>residuals(cams, points, obs)</code>: the pixel of a point, and the residual (observed minus predicted pixel) of every observation:</p>
+<pre><code>(dx, dy) = p − camera position
+depth = dx cos θ + dy sin θ
+side  = dx sin θ − dy cos θ
+u = f · side / depth + 80</code></pre>
+<p>The checks: a point 5 ahead and 1 to the right lands at pixel 106, and moving camera and point together changes nothing.</p>
+<p><strong>C3.</strong> <code>huber(r, delta)</code>: the Huber cost (<span class="math inline">r^2</span> up to <span class="math inline">\delta</span>, <span class="math inline">2\delta|r| - \delta^2</span> beyond) and the weight for reweighted least squares (1 up to <span class="math inline">\delta</span>, <span class="math inline">\delta/|r|</span> beyond). The check is B6: the wrong match of 25 px costs 49 and pulls with 2.</p>
+<p><strong>C4.</strong> <code>damped_step(J, r, w, mu)</code>: one step of Levenberg–Marquardt:</p>
+<pre><code>A = Jᵀ W J,   b = −Jᵀ W r          # W = the weights on the diagonal
+multiply the diagonal of A by (1 + μ)
+solve A δ = b</code></pre>
+<p>The checks: with <span class="math inline">\mu = 0</span> the step solves the linear least-squares problem; with a large <span class="math inline">\mu</span> it is a short step downhill; a weight 0 removes an observation.</p>
+<p><strong>C5.</strong> <code>bundle_adjust(cams, points, obs, iterations, levenberg, delta)</code>:</p>
+<pre><code>μ = 0.001 (Levenberg–Marquardt) or 0 (Gauss–Newton)
+repeat:
+    r = residuals;  w = Huber weights of r (or all 1);  J = Jacobian (given)
+    δ = damped_step(J, r, w, μ)
+    try the parameters + δ (all but the first 4, which fix the gauge)
+    if Gauss–Newton, or the cost went down:  accept, μ = μ / 10
+    else:                                    reject, μ = μ · 10</code></pre>
+<p>The check: from a perturbed start with exact observations, the error must never increase and must fall to zero, with every point back in place.</p>
+<p>Then <code>cargo run -p day49 -- sfm</code> and open the pictures in <code>out/sfm/</code>. The scene: 10 cameras on a circle around a wavy outline of 40 points, 162 observations with 0.2 px noise, 106 unknowns. The program starts from the truth plus a small and a large perturbation and runs Gauss–Newton and Levenberg–Marquardt, printing the RMS error after each step. <code>ba-start.png</code> and <code>ba-lm.png</code> show the large perturbation before and after Levenberg–Marquardt (grey: true points, orange: the estimate, blue: true and estimated cameras). Finally three observations are moved by 20–28 px, and bundle adjustment runs with squared loss and with Huber (<span class="math inline">\delta = 1</span> px).</p>
+<p><strong>C6.</strong> Compare Gauss–Newton and Levenberg–Marquardt from the two starts. Why does the error end below the noise level of 0.2 px?</p>
+<p><strong>C7.</strong> Compare the squared and the Huber loss with the three wrong observations: the RMS of the correct observations, the residuals of the wrong ones, and the largest error of a point. Explain with B6.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day49-multiview/src/sfm/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> From the small perturbation both converge at once: 4.03 px → 0.13 (Gauss–Newton) or 0.12 (Levenberg–Marquardt) → 0.10 px. From the large one (58.7 px) Gauss–Newton jumps about wildly (17, 48, 60, 20, 26, 265, …, 823 px) and never settles: its full steps trust the linearisation far outside where it holds. Levenberg–Marquardt rejects the steps that make things worse, damps, and creeps downhill (13.6, 9.3, 4.5, 2.7, 2.3) until it is close enough for full steps; then it drops to 0.14 and 0.10 px. In <code>ba-lm.png</code> the orange points sit on the grey ones again. The final 0.10 px is below the noise because the 106 unknowns absorb part of the noise of the 162 observations: only <span class="math inline">162 - 106 = 56</span> degrees of freedom are left for the residuals.</p>
+<p><strong>C7.</strong> Squared loss: the correct observations end at an RMS of 1.61 px, eight times the noise, while the wrong ones look harmless (3.9, −6.5 and 10.4 px): the solution bends cameras and points to hide them, and a point ends 0.55 off. Huber: the correct observations fit to 0.22 px, the wrong ones keep almost their full error (17.7, −22.6, 26.5 px), and no point is more than 0.13 off. Beyond <span class="math inline">\delta</span> a residual pulls with at most <span class="math inline">2\delta</span> (B6), so three wrong observations cannot outvote the 159 correct ones.</p>
 </div>
 </div>
 </div>

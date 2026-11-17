@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: unmix a lambda stack</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9131,6 +9132,46 @@ Solutions
 <p><strong>L5.</strong> The residual rises in the cytoplasm (1.37 times the noise on average, against 1.04 in the nucleus): the autofluorescence spectrum cannot be built from the three narrow dyes. Its light leaks into the other maps (mitochondria RMSE 0.054, membrane 0.057). With the autofluorescence added, the residual is about 1 everywhere and the RMSEs return to 0.017–0.062.</p>
 <p><strong>L6.</strong> “3 channels &lt; 4 components: no unique solution”. Three equations cannot determine four unknowns: <span class="math inline">M^\top M</span> is singular, and infinitely many mixtures fit exactly. You need at least as many channels as components (and in practice more, for noise).</p>
 <p><strong>L7.</strong> Ordinary LS: RMSE 0.077, 0.105, 0.108, 0.271; weighted LS: 0.072, 0.095, 0.100, 0.244, a modest gain (6–10 %). About 20 % of the abundance values are negative with either method: the constraints of the <a href="../endmembers/lec.html">next unit</a> address that.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day43-unmixing/src/lsunmix/exercise.rs</code>. A lambda stack is a list of images, one per channel; <span class="math inline">M</span> is stored row by row (rows = channels, columns = components).</p>
+<p><strong>C1.</strong> <code>unmix_pixel(m, y)</code>: least squares by the normal equations:</p>
+<pre><code>G[i][j] = Σ_c M[c][i] · M[c][j]        # MᵀM, K × K
+b[i]    = Σ_c M[c][i] · y[c]           # Mᵀy
+solve G a = b</code></pre>
+<p>The checks are B1(b) and B4(b).</p>
+<p><strong>C2.</strong> <code>pseudo_inverse(m)</code> and <code>unmix_image(stack, m)</code>: column <span class="math inline">c</span> of <span class="math inline">M^+</span> is the unmixing of the pixel that is 1 in channel <span class="math inline">c</span> and 0 elsewhere; then every abundance map is a weighted sum of the channels:</p>
+<pre><code>M⁺ = unmix every unit vector e_c            # once
+for every component k, every pixel:
+    a_k = Σ_c M⁺[k][c] · y_c</code></pre>
+<p>The check is B2(c) (the first columns of <span class="math inline">M^+</span>) and <span class="math inline">M^+M = I</span>.</p>
+<p><strong>C3.</strong> <code>residual(m, y, a)</code> and <code>residual_map(stack, m, abundances)</code>: <span class="math inline">\mathbf r = \mathbf y - M\mathbf a</span>, and per pixel the size of the residual in units of the expected photon noise, <span class="math inline">\sqrt{\tfrac{N}{N-K}\sum_c r_c^2 / \sum_c \text{fit}_c}</span> (Poisson: the variance equals the expected count). The check is B1(c): <span class="math inline">\mathbf r</span> is orthogonal to both columns.</p>
+<p><strong>C4.</strong> <code>condition_number(m)</code>: <span class="math inline">\kappa = \sqrt{\lambda_\text{max}/\lambda_\text{min}}</span> from the eigenvalues of <span class="math inline">M^\top M</span>. The check is B2(b).</p>
+<p><strong>C5.</strong> <code>unmix_weighted(m, y, w)</code>: weighted least squares. Scale row <span class="math inline">c</span> of <span class="math inline">M</span> and <span class="math inline">y_c</span> by <span class="math inline">\sqrt{w_c}</span> and solve ordinary least squares: the normal equations of the scaled problem are <span class="math inline">M^\top W M\,\mathbf a = M^\top W\mathbf y</span>.</p>
+<p>Then <code>cargo run -p day43 -- lsunmix</code> and open the pictures in <code>out/lsunmix/</code>. The program makes a synthetic cell with four components (nucleus blue, mitochondria green, membrane magenta, autofluorescence orange; <code>truth.png</code>) and records 16 channels between 480 and 700 nm with photon noise, 400 photons for a pixel of abundance 1. It unmixes one channel per dye (<code>one-channel.png</code>) and by least squares (<code>least-squares.png</code>), and prints the RMSE of each map against the truth. It draws the residual map with three spectra (the autofluorescence left out) and with all four (<code>residual-3-vs-4.png</code>, 0 black, 2 white). Then it moves the mitochondria dye from 55 nm to 6 nm after the nucleus dye (<code>similar.png</code>), and compares ordinary and weighted least squares at 20 photons.</p>
+<p><strong>C6.</strong> Compare the RMSEs of one channel per dye and least squares. Which map is worst with one channel per dye, and why? What share of the least-squares abundances is negative?</p>
+<p><strong>C7.</strong> Where does the residual light up with three spectra, and how large is it there? What happens to the mitochondria map?</p>
+<p><strong>C8.</strong> Compare κ and the RMSEs for the two gaps. Why is κ of all four spectra the same for both, while κ of the nucleus and mitochondria spectra alone changes so much? How much does weighting help at 20 photons?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day43-unmixing/src/lsunmix/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> One channel per dye: RMSE 0.057, 0.079, 0.073 and 0.470; least squares: 0.035, 0.036, 0.034 and 0.096. The autofluorescence map is by far the worst with one channel per dye: its brightest channel also collects the light of the three narrow dyes, so the map shows the whole cell (yellowish in <code>one-channel.png</code>). Least squares gives each channel’s light to the right component. 22.4 % of all abundance values are negative: wherever a component is absent, its estimate is noise around zero, half of it below.</p>
+<p><strong>C7.</strong> With three spectra the residual is 1.37 times the noise in the cytoplasm and 0.89 in the nucleus; with four it is 0.96 and 0.87. In the picture the cytoplasm is bright on the left and as dark as the nucleus on the right. The broad autofluorescence cannot be made from the three narrow spectra. Its light goes into the other maps: the mitochondria RMSE rises from 0.036 to 0.079. (The value stays a little below 1 even with the right model, because the channels’ noise is not equal; the formula is a rough scale.)</p>
+<p><strong>C8.</strong> 55 nm apart: RMSE 0.036 and 0.036; 6 nm apart: 0.075 and 0.079, about twice the noise. κ of all four spectra is 9.1 both times: it is set by the broad autofluorescence spectrum, which overlaps every other one, and <span class="math inline">\kappa</span> measures the worst direction only. For the nucleus and mitochondria spectra alone κ goes from 1.1 to 8.5: those two maps trade off against each other. At 20 photons weighted least squares lowers the RMSEs from 0.155, 0.158, 0.152, 0.427 to 0.117, 0.121, 0.119, 0.304, about a quarter: in a dim pixel the channels with a few counts are much less noisy than the bright ones, and weighting trusts them more.</p>
 </div>
 </div>
 </div>

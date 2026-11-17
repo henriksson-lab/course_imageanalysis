@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-splinefit" id="toc-explore-splinefit" class="nav-link" data-scroll-target="#explore-splinefit">Explore: interpolate, approximate, smooth</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: smooth outlines from pixels</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9212,6 +9213,56 @@ Solutions
 <p><strong>E5.</strong> At the two necks (curvature about −0.58, concave). Curvature minima are where touching objects are joined: a classic rule for splitting them (cut between the two deepest concavities).</p>
 <p><strong>E6.</strong> At <span class="math inline">K = 8</span> the Fourier outline ripples along every side (length 138.3) while the spline’s sides are straight (141.7; true 144). At <span class="math inline">K = 40</span> the ripples are smaller and faster but still there (Gibbs); the corners get sharper. The spline smooths only where the curve bends.</p>
 <p><strong>E7.</strong> The curvature jumps between about −1.6 and +2.8: the spline follows every step of the staircase. It measures the pixel grid, not the object; some smoothing (over a few pixels) is needed before curvature means anything.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day06-splines/src/spline_fit/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>solve_tridiagonal(lower, diag, upper, rhs)</code>: Gaussian elimination for a system with only three diagonals (the Thomas algorithm):</p>
+<pre><code>for i = 1 … n−1:                       # forward: remove the entry left of the diagonal
+    f = lower[i] / diag[i−1]
+    diag[i] = diag[i] − f · upper[i−1]
+    rhs[i]  = rhs[i]  − f · rhs[i−1]
+x[n−1] = rhs[n−1] / diag[n−1]          # backward
+for i = n−2 down to 0:
+    x[i] = (rhs[i] − upper[i] · x[i+1]) / diag[i]</code></pre>
+<p><strong>C2.</strong> <code>natural_spline(ys)</code>: the second derivatives <span class="math inline">M_i</span> of the natural spline through samples at <span class="math inline">x = 0, 1, 2, \dots</span>: solve <span class="math inline">M_{i-1} + 4M_i + M_{i+1} = 6(y_{i-1} - 2y_i + y_{i+1})</span> for the interior <span class="math inline">M_i</span> with C1, and set <span class="math inline">M = 0</span> at both ends. Then <code>natural_eval(ys, ms, x)</code>: on <span class="math inline">[i, i+1]</span> with <span class="math inline">a = i + 1 - x</span>, <span class="math inline">b = 1 - a</span>, <span class="math inline">s = a\,y_i + b\,y_{i+1} + \tfrac16\big[(a^3 - a)M_i + (b^3 - b)M_{i+1}\big]</span>. The check is B2 and B7: <span class="math inline">M_1 = -3</span> and <span class="math inline">s(0.5) = 0.6875</span>.</p>
+<p><strong>C3.</strong> <code>penalty_matrix(n, closed)</code>: the matrix <span class="math inline">D^\top D</span>, where each row of <span class="math inline">D</span> is a second difference <span class="math inline">(1, -2, 1)</span>; with <code>closed</code> the rows wrap around the ends. Then <code>smooth(ys, λ, closed)</code>: solve <span class="math inline">(I + \lambda D^\top D)\mathbf f = \mathbf y</span>. The check is B1: <span class="math inline">(0.857, 1.286, 0.857)</span> for λ = 1, and the sum 3 for every λ.</p>
+<p><strong>C4.</strong> <code>loo_cv(ys, λ)</code>: leave-one-out cross-validation with one fit, and the effective number of parameters:</p>
+<pre><code>f = smooth(y, λ)
+for every point i:
+    H_ii = entry i of smooth(e_i, λ)            # e_i: 1 at i, 0 elsewhere
+LOO = mean over i of ((y_i − f_i) / (1 − H_ii))²
+df  = sum over i of H_ii</code></pre>
+<p>The check compares your LOO with refitting <span class="math inline">n</span> times without each point, and checks <span class="math inline">\operatorname{tr}H \approx n</span> for a tiny λ and <span class="math inline">\approx 2</span> for a huge one (B6).</p>
+<p><strong>C5.</strong> Outlines:</p>
+<ul>
+<li><code>edge_count(mask)</code>: the number of pixel edges between object and background (B4: 80 for a disc of radius 10, 24 for radius 3);</li>
+<li><code>closed_fit(points, λ)</code>: control points <span class="math inline">\mathbf c_j</span> of a closed cubic B-spline near the boundary points <span class="math inline">\mathbf p_i</span>: solve <span class="math inline">(B^\top B + \lambda D^\top D)\,\mathbf c = B^\top\mathbf p</span> for <span class="math inline">x</span> and for <span class="math inline">y</span>, where row <span class="math inline">i</span> of <span class="math inline">B</span> is <span class="math inline">\tfrac16, \tfrac46, \tfrac16</span> at <span class="math inline">i - 1, i, i + 1</span> (the curve at knot <span class="math inline">i</span>);</li>
+<li><code>closed_length(ctrl, steps)</code>: the length of the polyline through <code>steps</code> curve points per span.</li>
+</ul>
+<p>Then <code>cargo run -p day06 -- spline-fit</code> and open the pictures in <code>out/spline-fit/</code>.</p>
+<p><strong>C6.</strong> The program smooths 30 noisy samples (noise 0.25) of a sine with a kink at <span class="math inline">x = 6</span> and prints LOO, <span class="math inline">\operatorname{tr}H</span> and the RMS distance to the true curve for λ from <span class="math inline">10^{-4}</span> to <span class="math inline">10^6</span>. Where is the LOO minimum, and how close is that fit to the truth compared with the interpolating spline? What does the fit become for the largest λ? Look at <code>smoothing.png</code> (orange: interpolation, blue: LOO minimum, purple: λ = <span class="math inline">10^6</span>).</p>
+<p><strong>C7.</strong> The program prints the perimeter of digital discs of radius 10 and 3: the edge count and the closed spline’s length for λ = 0, 0.1, 1, 10, 100. Which λ gives the right length for the large disc, and does the same λ work for the small one? Look at <code>outline.png</code> (orange: λ = 0, blue: λ = 1).</p>
+<p><strong>C8.</strong> Count the cost: how many multiplications and divisions does C1 need for <span class="math inline">n</span> unknowns, and how many does general Gaussian elimination need (about <span class="math inline">n^3/3</span>)? Compare for <span class="math inline">n = 1000</span>.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day06-splines/src/spline_fit/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> The minimum is at λ ≈ 1.8 (LOO 0.044, <span class="math inline">\operatorname{tr}H = 10.8</span>), with an RMS distance to the truth of 0.062. The interpolating spline is at 0.160, more than twice as far. Below the minimum the LOO rises slowly to 0.079 (<span class="math inline">\operatorname{tr}H \to 30</span>). Above it, it rises quickly, to 0.28 at λ = 100 and 0.92 at <span class="math inline">10^6</span>, where <span class="math inline">\operatorname{tr}H = 2.00</span> and the fit is the least-squares straight line (purple in the picture, RMS 0.87). In <code>smoothing.png</code> the orange curve wiggles through every sample, and the blue one follows the dashed truth, including the kink. (The λ of this discrete smoother is not on the same scale as the demo’s.)</p>
+<p><strong>C7.</strong> Radius 10: 80 edges; spline 68.3 (λ = 0, it follows the staircase), 64.0, 63.3, 63.0 and 62.7 (λ = 100) against the true 62.8. Radius 3: 24 edges; spline 20.7, 20.1, 20.0, 19.2 and 13.6 against 18.8. λ = 100, best for the large disc, shrinks the small one by 28 %; λ = 10 is a compromise (63.0 and 19.2). As in the demo: λ must be chosen relative to the size of the object. In <code>outline.png</code> the orange curve (λ = 0) wiggles through every midpoint of the staircase; the blue one (λ = 1) lies close to the true circle.</p>
+<p><strong>C8.</strong> Forward: one division and two multiplications per row, <span class="math inline">3(n - 1)</span>; backward: one multiplication and one division per row, about <span class="math inline">2n</span>. In all about <span class="math inline">5n</span>: 5000 for <span class="math inline">n = 1000</span>, against <span class="math inline">n^3/3 \approx 3.3 \cdot 10^8</span> for general elimination.</p>
 </div>
 </div>
 </div>

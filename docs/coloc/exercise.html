@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-colocgrid" id="toc-explore-colocgrid" class="nav-link" data-scroll-target="#explore-colocgrid">Explore: coefficients on a grid</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9179,6 +9180,63 @@ Solutions
 <p><strong>E4.</strong> M1 = 0.999, M2 = 0.997: with a background offset and noise, almost every pixel is above 0 in both channels, so “where the other channel is present” means everywhere. Costes is not defined for these anticorrelated channels; the fallback thresholds give 0.20 and 0.18. As in B2(c) and B3(b): without the right threshold, M1 and M2 measure nothing.</p>
 <p><strong>E5.</strong> M1 = 0.79, M2 = 0.32, <span class="math inline">r = 0.37</span>. M1 high and M2 low: most of A lies where B is, but most of B has no A. <span class="math inline">r</span> alone cannot tell this. Without the own threshold M1 = 0.48 and M2 = 0.24: the denominators now contain all of A’s (B’s) intensity in the cells, including the offset and noise of the dim pixels, which mostly lie outside the other channel. With zero thresholds M2 becomes 0.995 (and M1 1.000): every pixel counts as A-positive, so all of B is “where A is”.</p>
 <p><strong>E6.</strong> <span class="math inline">r</span> = 0.26 at <span class="math inline">f = 0.25</span>, 0.69 at 0.5, 0.94 at 0.75. It grows with <span class="math inline">f</span> but is not equal to it: <span class="math inline">r</span> measures how well a straight line explains B from A, which mixes the shared fraction with the intensities and the noise.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day44-colocalisation/src/coloc/exercise.rs</code>. Every function takes the two channels and a mask: only the pixels of the region count.</p>
+<p><strong>C1.</strong> <code>pearson(a, b, mask)</code>: Pearson’s <span class="math inline">r</span> over the pixels of the mask:</p>
+<pre><code>mean_A, mean_B = means over the region
+s_AB = s_AA = s_BB = 0
+for every pixel i in the region:
+    dA = A_i − mean_A,  dB = B_i − mean_B
+    s_AB += dA · dB,  s_AA += dA²,  s_BB += dB²
+r = s_AB / sqrt(s_AA · s_BB)</code></pre>
+<p>The checks are B1(b) (<span class="math inline">r = 0.916</span>), B4 and B5(c), and B7: a gain and an offset of A leave <span class="math inline">r</span> unchanged.</p>
+<p><strong>C2.</strong> <code>overlap(a, b, mask)</code>: the same loop without subtracting the means gives <span class="math inline">\sum AB</span>, <span class="math inline">\sum A^2</span>, <span class="math inline">\sum B^2</span>, and from them the overlap coefficient, k1 and k2. Checks: B1(c), B3(a) and B6.</p>
+<p><strong>C3.</strong> <code>manders(a, b, mask, ta, tb)</code>:</p>
+<pre><code>for every pixel i in the region:
+    if A_i &gt; tA:  sumA += A_i;  if B_i &gt; tB: bothA += A_i
+    if B_i &gt; tB:  sumB += B_i;  if A_i &gt; tA: bothB += B_i
+M1 = bothA / sumA,  M2 = bothB / sumB</code></pre>
+<p>Checks: B2, B3(b, c) and B4.</p>
+<p><strong>C4.</strong> <code>ranks(values)</code> and <code>spearman(a, b, mask)</code>: rank the pixel values of each channel (ties share the average of their ranks), then Pearson’s <span class="math inline">r</span> of the ranks.</p>
+<pre><code>sort the positions by value
+for each group of equal values, taking sorted places k+1 … m:
+    every member gets the rank (k+1 + m) / 2</code></pre>
+<p>Checks: the ranks of B5(a) and Spearman’s coefficient of B5(b, c).</p>
+<p><strong>C5.</strong> <code>orthogonal_line(a, b, mask)</code> and <code>costes(a, b, mask, steps)</code>: the slope of the orthogonal regression line from the slide “The math: the regression line”, then the walk down the line:</p>
+<pre><code>if r(region) ≤ 0: no Costes threshold
+slope, intercept = orthogonal regression line
+for k = 1, 2, …, steps:
+    tA = max A − k · (max A − min A) / steps
+    tB = slope · tA + intercept
+    below = pixels of the region with A ≤ tA or B ≤ tB
+    if r(below) ≤ 0: stop
+report tA, tB</code></pre>
+<p>The check runs it on a synthetic colocalised image with background 0.04: the thresholds must stop just above the background, with <span class="math inline">r \le 0</span> below them.</p>
+<p>Then <code>cargo run -p day44 -- coloc</code> and open the pictures in <code>out/coloc/</code>. The program makes five synthetic two-cell images (grey values 0 to 1, background 0.04, noise 0.015): <em>perfect</em> (B has A’s structures), <em>independent</em>, <em>leak</em> (independent, plus 40 % of A in B), <em>a-inside-b</em> (small A spots inside large B structures) and <em>diffuse</em> (independent, plus a diffuse signal in both cells). For each it prints <span class="math inline">r</span> inside the cells and over the whole image, the overlap coefficient, Spearman, the Costes thresholds and M1, M2, and it saves the merge and the scatter plot with the thresholds (A to the right, B upwards).</p>
+<p><strong>C6.</strong> Compare <span class="math inline">r</span> over the cells and over the whole image for <em>diffuse</em>, and look at <code>diffuse-scatter.png</code> and <code>diffuse-merge.png</code>. Which slide of the lecture is this?</p>
+<p><strong>C7.</strong> For <em>perfect</em>, Spearman is far below <span class="math inline">r</span>. Why? For <em>leak</em>, nothing is colocalised: which numbers say otherwise, and what in <code>leak-scatter.png</code> gives the leak away?</p>
+<p><strong>C8.</strong> For <em>a-inside-b</em>, which numbers describe the situation, and which does not?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day44-colocalisation/src/coloc/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Inside the cells <span class="math inline">r = -0.045</span>, over the whole image <span class="math inline">r = 0.656</span>. The structures are independent; the whole image adds a dense blob of background pixels at (0.04, 0.04) and moves the cell pixels to about (0.19, 0.19), so the scatter plot is stretched along the diagonal between the two clusters. This is the slide “Pearson’s correlation” (the region matters), as in E3.</p>
+<p><strong>C7.</strong> <em>perfect</em>: <span class="math inline">r = 0.932</span> but Spearman 0.453. Most pixels in the cells are background, whose ranks are set by independent noise in the two channels; every rank counts equally, while in <span class="math inline">r</span> the few bright pixels with large deviations dominate. <em>leak</em>: <span class="math inline">r = 0.325</span> (independent: <span class="math inline">-0.045</span>), Spearman 0.282, and with the Costes thresholds M1 = 0.777 (independent: 0.194): the leaked copy of A in channel B looks like colocalisation. In <code>leak-scatter.png</code> the leak is a second, straight arm of slope about 0.4 rising from the background blob, next to the L shape of the independent structures.</p>
+<p><strong>C8.</strong> M1 = 0.916 and M2 = 0.493: almost all of A lies where B is, about half of B has no A. Together they describe “A inside B”. <span class="math inline">r = 0.593</span> alone does not say which channel lies inside the other.</p>
 </div>
 </div>
 </div>

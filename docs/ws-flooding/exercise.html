@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: step through the queue</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9225,6 +9226,48 @@ Solutions
 <p><strong>P4.</strong> B sits at height 6 on the slope. Pop 3 is (2,6) at height 4 (B), pops 4–6 run downhill: (2,5) height 3, (3,5) height 2, (4,5) height 1, all at water level 4: B’s water reaches the right-hand minimum at level 4 and drowns it. The final result is the same as with the marker in the minimum (<strong>two basins</strong>).</p>
 <p><strong>P5.</strong> 5 markers (A–E), 59 pops, 20 line pixels: the grid is just noise, and every minimum makes a region. With 4 neighbours there are 7 regional minima: two pixels that were not minima with 8 neighbours (they had a lower or equal diagonal neighbour) now are.</p>
 <p><strong>P6.</strong> (2, 2) becomes a regional minimum without a marker: a puddle in the middle of the dam. A reaches it first (it is queued by (1,2) at pop 5) and drowns it at pop 6, at water level 2. A’s region grows by the puddle and the line moves one diagonal towards B: 4 line pixels, (1,4), (2,3), (3,2), (4,1), and the corners (0,4) and (4,0) now go to A.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day15-watershed/src/ws_flooding/exercise.rs</code>. The priority queue is given (<code>HeapQueue</code>: a binary heap with arrival numbers; <code>HeapQueue::lifo()</code> breaks ties last in, first out). Markers A, B, … are labels 1, 2, …; a line pixel is 0.</p>
+<p><strong>C1.</strong> <code>regional_minima(f, eight)</code>: the plateaus with no lower neighbour, labelled 1, 2, 3, …:</p>
+<pre><code>for every pixel s not yet seen:
+    collect the plateau of s: flood fill over neighbours of the same height
+    on the way, note whether any neighbour of the plateau is lower
+    if none is lower: give the whole plateau the next label</code></pre>
+<p><strong>C2.</strong> <code>watershed(f, markers, eight, line, queue)</code>, Meyer’s flooding:</p>
+<pre><code>for every marker pixel, in raster order:
+    queue its unlabelled neighbours (in reading order), with priority f
+while the queue is not empty:
+    p = the lowest pixel (first in, first out among equal heights)
+    if line and p's labelled neighbours carry two different labels:
+        p is a line pixel; it queues nothing
+    else:
+        label(p) = the label of the pixel that queued p
+        queue p's unlabelled neighbours that are not yet queued</code></pre>
+<p>Keep, for every pixel, whether it is queued and by which label. The checks are B1 (the first eight pops, 23 pops in all, the line, the first line pixel at pop 15), B2 (7 line pixels with 8 neighbours), B3 (FIFO and LIFO) and B4.</p>
+<p><strong>C3.</strong> <code>BucketQueue</code>: one first-in-first-out list per height <span class="math inline">0, 1, \dots, 255</span> and a pointer to the lowest list that may be non-empty (the math slide “why a bucket queue is linear”). <code>push</code> appends to the list of its height and moves the pointer down if needed; <code>pop</code> moves the pointer up past empty lists and takes the front. The checks compare it with the heap: the same pixels in the same order, and the same watershed.</p>
+<p>Then <code>cargo run -p day15 -- ws-flooding</code>. It prints the result of the exercise grid with 4 and 8 neighbours, and floods a <span class="math inline">1024 \times 1024</span> landscape in 256 grey levels (the inverted synthetic nuclei image) from all its regional minima, once with the heap and once with the bucket queue. Open <code>out/ws-flooding/all-minima-crop.png</code> (the top-left quarter, line pixels white).</p>
+<p><strong>C4.</strong> How many regional minima does the large landscape have, and how many line pixels does the watershed make? What does <code>all-minima-crop.png</code> look like, and why?</p>
+<p><strong>C5.</strong> Compare the two run times. B5 predicts about 20 times fewer steps for the bucket queue. Why is the measured gain smaller?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day15-watershed/src/ws_flooding/solution.rs</code> in the download.</p>
+<p><strong>C4.</strong> 92 951 regional minima (with 8 neighbours) in about a million pixels, and 561 342 line pixels, more than half of the image. The picture is confetti: thousands of tiny regions, a few pixels each, separated by white lines, in the background as well as inside the nuclei. Every speck of camera noise is a regional minimum, and every minimum gets its own region: oversegmentation in its purest form. When the regions are this small, most pixels touch two of them, so most pixels become line pixels. The <a href="../ws-gradient/lec.html">next unit</a> is about the cures.</p>
+<p><strong>C5.</strong> On our computer the heap took about 0.7–1.0 s and the bucket queue about 0.26–0.44 s: two to three times faster, not twenty (the times differ from run to run and between computers; the labels are always the same). The estimate counts only the queue operations. Every pop also reads 8 neighbours, compares labels and pushes, and that work is the same for both queues. Also, the heap holds only the shoreline, not all <span class="math inline">n</span> pixels, so a heap operation costs less than <span class="math inline">\log_2 n = 20</span> steps.</p>
 </div>
 </div>
 </div>

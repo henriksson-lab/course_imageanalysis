@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-scale1d" id="toc-explore-scale1d" class="nav-link" data-scroll-target="#explore-scale1d">Explore: a 1D scale space</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: blobs over scales</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9248,6 +9249,56 @@ Solutions
 <p><strong>E8.</strong> Hardly: at the centre of the patch (180, 192) the noise-free response at σ = 16 is only 5.0, far below the threshold. A smooth background is almost linear over the width of the Mexican hat, and the LoG of a constant or linear function is 0. A global threshold on the image itself would be thrown off by the same patch.</p>
 <p><strong>E9.</strong> 87 296 pixels for 256² (65 536) and its levels: 4/3 as many. The reconstruction error is about <span class="math inline">10^{-6}</span>: exact up to the rounding of 32-bit floating-point numbers (the telescoping sum is exact in real arithmetic).</p>
 <p><strong>E10.</strong> Dark granules, vesicles and dark spots in the fibrous background: 144 detections at threshold 50 (no truth for this image). The granule near (106, 68) responds best at σ = 3.65 (radius 5.2). The nucleus itself, about 45 pixels in radius, would need σ ≈ 32, outside the range.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day02-edges/src/scale_space/exercise.rs</code>. The Gaussian blur of the <a href="../canny/exercise.html#code">edges unit</a> is given, ready to use.</p>
+<p><strong>C1.</strong> <code>normalised_log(img, sigma)</code>: the normalised LoG, with bright blobs positive, and <code>zero_crossings(row)</code>:</p>
+<pre><code>L = I blurred with a Gaussian of width σ
+for every pixel (x, y):
+    Lxx = L(x−1, y) − 2 L(x, y) + L(x+1, y)
+    Lyy = L(x, y−1) − 2 L(x, y) + L(x, y+1)
+    out(x, y) = −σ² · (Lxx + Lyy)
+
+zero crossing between i and i+1 (values a and b of opposite sign) at  i + a / (a − b)</code></pre>
+<p>The checks are B1 (the box of half-width 3: σ = 3 wins), a disc of radius 6 (best σ near <span class="math inline">6/\sqrt2 = 4.24</span>) and B6 (the edge at 2.5).</p>
+<p><strong>C2.</strong> <code>detect_blobs(stack, sigmas, threshold)</code>: maxima in <span class="math inline">(x, y, \sigma)</span>.</p>
+<pre><code>for every scale k and every pixel (x, y) not on the edge of the image:
+    v = stack[k](x, y)
+    a blob if v &gt; threshold and v &gt; every neighbour stack[k + dk](x + dx, y + dy)
+        for dk, dx, dy in −1, 0, 1 (not all 0; only scales that exist)</code></pre>
+<p>The check finds two discs of radius 4 and 10 at the right scale (<span class="math inline">\sqrt2\,\sigma</span> within 25 % of the radius).</p>
+<p><strong>C3.</strong> <code>dog(img, sigma, k)</code>: the image blurred at <span class="math inline">k\sigma</span> minus the image blurred at σ. The check is B3: −5.12 at the centre of the bump.</p>
+<p><strong>C4.</strong> The pyramids: <code>downsample</code> (blur with σ = 1, keep every second pixel), <code>upsample</code> (back to twice the size by bilinear interpolation), and</p>
+<pre><code>laplacian_pyramid:  g = I
+                    repeat levels − 1 times:  g2 = downsample(g);  store g − upsample(g2);  g = g2
+                    store g
+reconstruct:        g = last level
+                    for the other levels l, from the second last to the first:  g = l + upsample(g)</code></pre>
+<p>The checks are B4 (64 × 64 gives sides 64, 32, …, 1 and 5461 pixels in all) and an exact reconstruction.</p>
+<p>Then <code>cargo run -p day02 -- scale-space</code> and open the pictures in <code>out/scale-space/</code>. The test image has discs of radii 3 to 16, a touching pair of radius 10 and an elongated blob (26 × 5), on a background that brightens to the right; the program detects blobs over 16 scales, σ = 1 … 16, and draws them as circles of radius <span class="math inline">\sqrt2\,\sigma</span> in <code>blobs-detected.png</code>.</p>
+<p><strong>C5.</strong> How many detections are there, and how many of the 9 discs are hit? Compare the printed radii <span class="math inline">\sqrt2\,\sigma</span> with the true radii. What is detected at the touching pair and at the elongated blob, and why?</p>
+<p><strong>C6.</strong> The program also detects with the <strong>raw</strong> LoG (the normalised one divided by σ² again). How many detections, at which σ, and how many discs are hit? Then compare the printed DoG (<span class="math inline">k = 1.2</span>, σ = 4) with <span class="math inline">-(k - 1)</span> times the normalised LoG at the centre of the disc of radius 8.</p>
+<p><strong>C7.</strong> Look at <code>gaussian-pyramid.png</code> and <code>laplacian-pyramid.png</code>. How many pixels do the five Gaussian levels hold, compared with the image? What is the largest error of the reconstruction, and why is it not exactly 0?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day02-edges/src/scale_space/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> 13 detections; all 9 discs are hit. The radii come out as 2.96, 5.16, 7.46, 13.00, 15.63, 6.20, 4.29, 8.98 and 8.98 for true radii 3, 5, 8, 12, 16, 6, 4, 10 and 10: within one scale step (20 %) of the truth. The touching pair gets its two circles (σ = 6.35) plus one large circle around both (σ = 11.06, at (63, 205)): at a coarser scale the pair is one blob. The elongated blob gets a row of three small circles (σ = 2.09 to 2.52) along its length: the LoG fits its width (5), not its length.</p>
+<p><strong>C6.</strong> The raw LoG with threshold 0.12 gives 88 detections, all at the smallest scale σ = 1, and only 2 of the 9 discs are hit; the rest are noise. Blurring flattens the image, so raw second derivatives shrink as σ grows and the smallest scale always wins. The DoG is −0.0574 and <span class="math inline">-(k - 1)</span> times the normalised LoG is −0.0549: within 5 %, as the lecture’s <span class="math inline">(k - 1)^2</span> error term predicts.</p>
+<p><strong>C7.</strong> 87 296 pixels for the 65 536 of the image: 1.33 times, the 4/3 of B4. The largest reconstruction error is <span class="math inline">1.5 \cdot 10^{-8}</span>: the telescoping sum is exact in real numbers, and what is left is the rounding of 32-bit floating-point numbers (as in demo question E9). The detail levels are mostly mid-grey (near 0), with the fine texture at the top level and coarser structure below.</p>
 </div>
 </div>
 </div>

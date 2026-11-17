@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-posterior1d" id="toc-explore-posterior1d" class="nav-link" data-scroll-target="#explore-posterior1d">Explore: measured and imagined, in 1D</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: what virtual staining can know</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9181,6 +9182,42 @@ Solutions
 <p><strong>V3.</strong> Truth intensity 0.80; prediction 0.40 (mean and samples), the untreated level. The disagreement map is near 0: all samples agree on the wrong answer. Nothing in the output warns that the effect was lost.</p>
 <p><strong>V4.</strong> About 44 training pairs now share the weight (the noise hides the nuclear envelope, so several geometries fit). Samples show nuclei of different sizes and positions (area 57 or 82); the mean is a blurred nucleus (area 56, intensity 0.35), and the disagreement grows around the nucleus (mean 0.12 inside it).</p>
 <p><strong>V5.</strong> For the next nine cells the mean shows 0 to 2 spots (a haze with a few bumps above the threshold), never the true count (2 to 4). A sample shows 2 to 5 spots, sometimes as many as the truth, but at the wrong places: the count of a sample is a draw from the training cells, not a measurement of this cell.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day41-diffusion/src/diffusion_inverse/exercise.rs</code>. As in the 1D demo, the prior is a finite set of training signals, so the posterior can be computed exactly. A diffusion sampler would only approximate it. The measurement keeps the first cosines of a signal (an ideal low-pass), and is given.</p>
+<p><strong>C1.</strong> <code>split_measured(x, keep)</code>: the part of a signal that the low-pass sees, and the null-space part:</p>
+<pre><code>seen = Σ over k &lt; keep of ⟨x, c_k⟩ · c_k        # c_k: cosine number k, of length 1
+unseen = x − seen</code></pre>
+<p>The checks: seen + unseen = x, the measurement of the unseen part is 0 (B8), and keeping every cosine leaves nothing unseen.</p>
+<p><strong>C2.</strong> <code>posterior_weights(y, measured, prior, sigma_n)</code>: how well each training signal explains the measurement, times its prior weight:</p>
+<pre><code>for every training signal j:   log w_j = log prior_j − |y − A x_j|² / (2 σ_n²)
+subtract the largest log w_j, take exp, and scale the weights to sum 1</code></pre>
+<p>The check is B1 (a): every training image explains <span class="math inline">y = 0.5</span> equally well, so the weights stay 0.4, 0.4 and 0.2.</p>
+<p><strong>C3.</strong> <code>posterior_mean(weights, signals)</code>: <span class="math inline">\sum_j w_j\,\mathbf x_j</span>. The check is B1 (b).</p>
+<p><strong>C4.</strong> <code>posterior_sample(weights, rng)</code>: draw <span class="math inline">j</span> with probability <span class="math inline">w_j</span>. Take a uniform number <span class="math inline">u</span>, then the first <span class="math inline">j</span> at which the running sum of the weights passes <span class="math inline">u</span>. The check is B1 (c): 80 % of the samples show a resolved pair.</p>
+<p><strong>C5.</strong> <code>band_coverage(truth, samples)</code>: the fraction of positions at which the truth lies between the 5th and the 95th percentile of the samples.</p>
+<p>Then <code>cargo run -p day41 -- diffusion-inverse</code> and open the pictures in <code>out/diffusion-inverse/</code>. Signals have 64 samples. The prior is 20 000 training signals: one spot (height 1 to 2, of varying width) or two narrow spots 2 to 12 apart. The truth is two spots 4 apart, measured with noise (<span class="math inline">\sigma_n = 0.1</span>) through 24 and through 6 cosines. The program prints the number of spots in the posterior mean and in 32 samples, the residuals (1 = the size of the noise), and how many training signals share the weight. It also prints the largest disagreement between samples in the seen and in the unseen part. Then it uses a wrong prior, with all spots twice as wide, and measures the coverage of the 90 % band on 100 test signals with both priors. Black in the plots is the truth.</p>
+<p><strong>C6.</strong> Compare 24 and 6 cosines: the spot counts, the weights, and where the samples disagree (<code>samples-keep*.png</code>, <code>unseen-keep*.png</code>, and the printed disagreement). Relate to R1 and R2.</p>
+<p><strong>C7.</strong> The prior with wider spots: what do its samples show, and does the residual check notice? What does the coverage say? Relate to B3, B6 and R4–R6.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day41-diffusion/src/diffusion_inverse/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> 24 cosines: the mean and all 32 samples show two spots, and only about 3 training signals share the weight. The measurement pins the signal down almost completely: the spread of the samples (their sd at one position) is at most 0.07 in the seen part and 0.08 in the unseen part. 6 cosines: about 284 training signals share the weight. The mean still shows two (lower, wider) spots, but 4 samples show one spot and 28 show two, at varying distances. The largest spread is 0.027 in the seen part and 0.39 in the unseen part. The samples agree on what the low-pass measures and differ only in the null space, at the spots (<code>unseen-keep6.png</code>), as in R2. All are consistent with the data: residual 0.38 for the mean and 0.71 for the median sample, both below 1. Whether there are one or two spots is decided by the prior, not by the measurement.</p>
+<p><strong>C7.</strong> With spots twice as wide, all 32 samples show a single wide spot, and their median residual is 0.89. The check passes: a wide spot and two close narrow spots have the same low frequencies (B6, R4). Coverage on 100 test signals: 91.9 % of the positions lie inside the 90 % band with the matched prior, as promised, but only 16.3 % with the wrong prior. Its residual, 1.46 on average, is only somewhat above 1. The bands of the wrong prior are confidently wrong (B3, R6), and only a test on signals with known truth reveals it.</p>
 </div>
 </div>
 </div>

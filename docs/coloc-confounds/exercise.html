@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9141,6 +9142,48 @@ Solutions
 <p><strong>E5.</strong> Measured: <span class="math inline">r = 0.485</span> (from 0.418), but M1/M2 jump to 0.84/0.88 (from 0.52/0.40): the thresholds now count the bright background as signal, and the ICQ drops to 0.178 (the PDM sign pattern follows the background). The object fraction hardly changes (53 %): spot detection is local. After the top-hat: <span class="math inline">r = 0.354</span>, M1/M2 = 0.52/0.39: the thresholds are right again; <span class="math inline">r</span> stays below the ideal 0.418, because subtraction removes the background but not its shot noise, which is independent in the two channels.</p>
 <p><strong>E6.</strong> Measured: <span class="math inline">r = 0.595</span>, M1/M2 = 0.93/0.96, 70 %. After 1 (background): 0.496, 0.68/0.52, 72 %. After 2 (compensation): 0.182, 0.41/0.19, 42 %: the leakage is gone, but the channels are still 100 nm apart, so the real pairs no longer overlap well: the shift was hidden under the leakage. After 3 (registration): 0.343, 0.52/0.37, 53 % (ideal 0.418, 0.52/0.40, 50 %). Compensation without background subtraction: <span class="math inline">r = 0.325</span>, M1/M2 = 0.51/0.47, 43 %: still shifted, and the background left in distorts the thresholds.</p>
 <p><strong>E7.</strong> <span class="math inline">r</span>: 0.91 (0 nm), 0.84 (50), 0.67 (100), 0.48 (150), 0.30 (200). Object fraction: 94 %, 96 %, 78 %, 13 %, 7 %. Neither method separates 0 from 50 nm: both are far below the resolution (FWHM ≈ 184 nm in this model). The object fraction separates 100 from 150 nm sharply because it thresholds a measured distance at <span class="math inline">d_\text{max}</span> = 130 nm (with the localisation error smearing the step); <span class="math inline">r</span> fades smoothly with the overlap of the PSFs, as the Gaussian formula says (dashed curve).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day44-colocalisation/src/coloc_confounds/exercise.rs</code>. Pearson’s <span class="math inline">r</span> over a mask is given.</p>
+<p><strong>C1.</strong> <code>leak_slope(a, b, mask)</code> and <code>compensate(b, a, s)</code>: the slope through the origin <span class="math inline">\sum AB/\sum A^2</span> of a single-stained control, and <span class="math inline">\hat B = B - \hat s A</span> at every pixel. The checks are B1(c, d, e).</p>
+<p><strong>C2.</strong> <code>gaussian_overlap(s1, s2, delta)</code>: the normalised overlap of two Gaussian spots, <span class="math inline">\frac{2\sigma_1\sigma_2}{\sigma_1^2 + \sigma_2^2}\exp\big(-\delta^2/2(\sigma_1^2 + \sigma_2^2)\big)</span>. The checks are B2 and B3.</p>
+<p><strong>C3.</strong> <code>subtract_background(img, radius)</code>: the white top-hat, image minus its opening with a square of side <span class="math inline">2r + 1</span>:</p>
+<pre><code>for every pixel: low(x, y)  = minimum of img  over the square around (x, y)
+for every pixel: open(x, y) = maximum of low  over the square around (x, y)
+result = img − open</code></pre>
+<p>The checks: a ramp becomes 0, a constant offset becomes 0, a one-pixel spot keeps its height.</p>
+<p><strong>C4.</strong> <code>estimate_shift(a, b, max_shift)</code> and <code>shift_image(img, dx, dy)</code>: the chromatic shift from bead images, and the shift back:</p>
+<pre><code>subtract the mean from A and from B
+for every (tx, ty) with |tx|, |ty| ≤ max_shift:
+    c(tx, ty) = Σ A(x, y) · B(x + tx, y + ty)          # zero outside the image
+(tx, ty) = the best one; refine tx with a parabola through c(tx−1, ty), c(tx, ty), c(tx+1, ty),
+                         and ty likewise
+shift back: B_registered(x, y) = B(x + tx, y + ty), read between pixels by bilinear interpolation</code></pre>
+<p>The checks use bead images with known shifts, and small images shifted by whole and half pixels.</p>
+<p>Then <code>cargo run -p day44 -- coloc-confounds</code> and open the pictures in <code>out/coloc-confounds/</code>. The program makes the synthetic two-cell scene of this day’s programs with half of B’s structures on A’s, once <strong>ideal</strong> and once <strong>measured</strong> through a microscope that shifts B by 1.5 px (about 100 nm at 65 nm pixels), leaks 30 % of A into B and adds a haze shared by both channels. It measures the leak on a single-stained control and the shift on beads, then corrects in order (background, compensation, registration), printing <span class="math inline">r</span> inside the cells after each step; then it tries the wrong order, skips the background, and uses wrong leak factors. Last, the overlap of a 78 nm and a 100 nm spot at several distances.</p>
+<p><strong>C5.</strong> Write down <span class="math inline">r</span> for the ideal and the measured images and after each step. Why does <span class="math inline">r</span> drop <strong>below</strong> the ideal after compensation, and rise again after registration? Look at <code>2-compensated.png</code> and <code>3-registered.png</code>.</p>
+<p><strong>C6.</strong> Why is “registered before compensating” worse, and why does skipping the background leave <span class="math inline">r</span> so high? Compare with B5.</p>
+<p><strong>C7.</strong> From the printed overlaps, at what distance do a green and a red spot overlap by one half? Compare with B2(c).</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day44-colocalisation/src/coloc_confounds/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Ideal <span class="math inline">r = 0.403</span>, measured 0.716. The control gives <span class="math inline">\hat s = 0.291</span> (true 0.3) and the beads a shift of (1.51, 0.00) px (true (1.5, 0)). After background subtraction 0.533, after compensation 0.289, after registration <strong>0.401</strong>, back at the ideal. After compensation the leaked copy is gone, but the shared structures still sit 1.5 px apart: the shift was hidden under the leak (in <code>2-compensated.png</code> the shared spots show green and magenta halves side by side). After registration they are white again (<code>3-registered.png</code>), as in the ideal image. This is E6.</p>
+<p><strong>C6.</strong> Registering first moves the leaked copy of A in channel B away from A’s position; compensation then subtracts <span class="math inline">\hat s A</span> at A’s position, leaving a positive copy beside a negative one: <span class="math inline">r = 0.328</span> instead of 0.401. Without background subtraction <span class="math inline">r = 0.611</span>: compensation subtracts <span class="math inline">\hat s</span> times A’s haze, but B’s haze is a full copy of the shared haze, so most of it remains and correlates the channels (B5: background first, because the later steps assume that zero means no dye). Wrong factors: <span class="math inline">\hat s = 0.15</span> gives 0.494 (leak left over), <span class="math inline">\hat s = 0.6</span> gives 0.142 (a negative copy of A in B).</p>
+<p><strong>C7.</strong> 0.71 at 100 nm and 0.48 at 150 nm, so one half at a little under 150 nm. For two equal spots of 78 nm, B2(c) gives 130 nm; the red spot is wider, which spreads the overlap a little further (and lowers it to 0.97 at 0 nm).</p>
 </div>
 </div>
 </div>

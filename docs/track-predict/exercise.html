@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-kalman1d" id="toc-explore-kalman1d" class="nav-link" data-scroll-target="#explore-kalman1d">Explore: the filter step by step</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: linking with prediction</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9169,6 +9170,55 @@ Solutions
 <p><strong>E3.</strong> Global on the last position (20 px gate) does best: 2.3 %, against 4.7 % for the Kalman tracker with Q = 0.002 and 9.3 % for nearest. After the turn the Kalman prediction overshoots in the old direction, and with a small Q the ellipse is too small to contain the new position: tracks break. With Q = 0.2 the Kalman error falls to 2.8 %; with a 5σ gate also to 2.8 %.</p>
 <p><strong>E4.</strong> Kalman 7.4 % against 1.8 % for global on the last position: a waiting particle that starts running jumps out of its small ellipse, and a running one that stops overshoots. One constant-velocity model fits neither phase. With Q = 1 the filter allows sudden velocity changes and reaches 3.6 %.</p>
 <p><strong>E5.</strong> Nearest 18.3 %, global (last) 7.2 %, Kalman 5.3 % (60 particles at 6 px per frame; the preset uses a 12 px fixed gate). With σ = 4 px: 42.3 %, 37.9 % and 17.8 %. All suffer, the fixed-gate trackers most: noise pushes detections out of the 12 px gate and into neighbours’ gates, while the Kalman gates include R and adapt, and the velocity estimate averages the noise over several frames.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day26-tracking/src/track_predict/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>predict(e, q)</code> and <code>update(pred, z, r)</code>: one step of the random-walk filter in 1D:</p>
+<pre><code>predict:  x⁻ = x;   P⁻ = P + Q
+update:   K = P⁻ / (P⁻ + R)
+          x = x⁻ + K · (z − x⁻)
+          P = (1 − K) · P⁻</code></pre>
+<p>The checks are your answers to B1 and B2(a).</p>
+<p><strong>C2.</strong> <code>run_filter(first, zs, q, r)</code>: the filter over a whole sequence, with missed detections:</p>
+<pre><code>for every frame:
+    predict
+    if there is a measurement z: update with z      # missed: keep the prediction
+    store the estimate</code></pre>
+<p>The checks are B2 (a missed frame, then the measurement 15) and the steady-state gain <span class="math inline">(\sqrt5 - 1)/2 = 0.618</span> for <span class="math inline">Q = R</span> (B8).</p>
+<p><strong>C3.</strong> <code>cv_predict(e, dt, q_v)</code> and <code>cv_update(pred, z, r)</code>: the constant-velocity filter, state (position, velocity), only the position measured:</p>
+<pre><code>predict:  position = position + velocity · Δt
+          P⁻ = F P Fᵀ + Q        F = [[1, Δt], [0, 1]],  Q = [[0, 0], [0, q_v]]
+update:   S = P⁻ₓₓ + R
+          K = (P⁻ₓₓ / S,  P⁻ₓᵥ / S)
+          y = z − predicted position
+          position = position + K₁ · y;   velocity = velocity + K₂ · y
+          P = (I − K H) P⁻               H = (1  0)</code></pre>
+<p>The checks are B3 and B7 (gain (2/3, 1/3), position +2, velocity +1), and that the velocity of an object moving at 2 per frame is found from its positions alone.</p>
+<p><strong>C4.</strong> <code>mahalanobis2(y, s)</code>: the squared distance <span class="math inline">d^2 = \mathbf y^\top S^{-1}\mathbf y</span> of a 2D innovation, with <span class="math inline">S^{-1} = \frac{1}{ad - b^2}\begin{pmatrix}d &amp; -b\\ -b &amp; a\end{pmatrix}</span> for <span class="math inline">S = \begin{pmatrix}a &amp; b\\ b &amp; d\end{pmatrix}</span>. The checks are B4 (1.25σ and 3.54σ) and B9: for innovations drawn from <span class="math inline">\mathcal N(0, S)</span> the mean of <span class="math inline">d^2</span> is 2.</p>
+<p>Then <code>cargo run -p day26 -- track-predict</code> and open <code>out/track-predict/filters.png</code>. An object moves along a line at 1 unit per frame, turns back at frame 20 (velocity −0.8), and is measured with variance <span class="math inline">R = 4</span>; frames 12, 13 and 14 are missed. Two filters follow it: random walk (<span class="math inline">Q = 0.1</span>) and constant velocity (velocity noise 0.01). The program prints a table and draws truth (grey), measurements (orange; missed frames red), the random-walk estimate (green) and the constant-velocity estimate (dark blue, with ±2σ bars).</p>
+<p><strong>C5.</strong> At frame 15, how far behind the truth is each filter? For a random-walk filter following an object at speed <span class="math inline">v</span>, the steady lag is <span class="math inline">v(1 - K)/K</span> (D3), with <span class="math inline">K = 0.146</span> for <span class="math inline">Q = 0.1</span>, <span class="math inline">R = 4</span>. Why is the lag at frame 15 larger than that?</p>
+<p><strong>C6.</strong> Follow the variance <span class="math inline">P</span> of the constant-velocity filter (last column) through the missed frames 12–14 and after. What happens, and what does it mean for a gate?</p>
+<p><strong>C7.</strong> After the turn at frame 20: when does the velocity estimate become negative, and when does it reach −0.8? Which filter has the larger error after the turn?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day26-tracking/src/track_predict/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Truth 15: random walk 8.55 (6.45 behind), constant velocity 13.85 (1.15 behind). The steady lag <span class="math inline">1 \cdot 0.854/0.146 = 5.85</span> assumes a measurement in every frame. During the three missed frames the random-walk filter only predicts “no motion”: it stays at 6.89 while the object moves on 3 units, and one measurement at frame 15 pulls it only part of the way back (the green line is flat over the gap). The constant-velocity filter keeps moving with its velocity estimate (0.70 per frame) through the gap.</p>
+<p><strong>C6.</strong> <span class="math inline">P</span> is 1.26 at frame 11, then grows to 1.74, 2.36 and 3.16 in the missed frames (the prediction moves on: 10.47, 11.17, 11.87), drops to 2.04 with the measurement at frame 15, and is back to 1.16 by frame 19. The bars widen over the gap. A gate of k standard deviations of <span class="math inline">P + R</span> grows with it, from <span class="math inline">k\sqrt{5.26}</span> to <span class="math inline">k\sqrt{7.16}</span>: after a gap the next detection may be farther from the prediction and still be accepted.</p>
+<p><strong>C7.</strong> The velocity estimate is 1.18 at frame 20, 0.85 at frame 22, −0.02 at frame 25, −0.36 at frame 29 and −0.85 at frame 35: it turns negative about 5 frames after the turn and needs about 15 frames to reach −0.8. Meanwhile the estimate overshoots: at frame 22 it is 21.64 against the truth 18.4. The largest errors after the turn are similar: 3.64 for the random walk (which lags behind all the time) and 3.24 for constant velocity (which overshoots, then follows closely: −0.85 per frame at frame 35). With a small velocity noise the filter trusts its velocity and is slow to change it (slide “Tuning Q and R”).</p>
 </div>
 </div>
 </div>

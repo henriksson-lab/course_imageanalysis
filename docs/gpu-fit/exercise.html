@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: irregular algorithms in parallel</a></li>
   <li><a href="#explore-roofline" id="toc-explore-roofline" class="nav-link" data-scroll-target="#explore-roofline">Explore: precision and the roofline</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9294,6 +9295,55 @@ Solutions
 <div class="callout-body-container callout-body">
 <p><strong>N1.</strong> float32: <span class="math inline">I = 143</span>, at the float32 roof, 161 µs. float16 on the lanes: <span class="math inline">I = 287</span> (half the bytes), at the doubled roof, 81 µs. Matrix units: <span class="math inline">I = 287</span>, at the matrix roof (240·10¹² op/s), 20 µs: 8 times faster than float32. All three are compute-bound.</p>
 <p><strong>N2.</strong> With <span class="math inline">C = 8</span> the intensity falls 8-fold (<span class="math inline">9C/4</span>: about 18 in float32, 36 in float16). The float32 point drops below the ridge (memory-bound); the float16 points sit on the bandwidth slope, and the matrix units give no more than float16 on the lanes: both are limited by the bytes. Matrix units pay off only for layers with many channels (large matrices); small layers are memory-bound like any filter.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day51-gpus/src/gpu_fit/exercise.rs</code>. The parallel algorithms are written as passes: every pass reads only the result of the previous pass, so all pixels of a pass could be done at the same time on a GPU.</p>
+<p><strong>C1.</strong> <code>propagate_once(mask, labels)</code> (C1a) and <code>label_propagation(mask)</code> (C1b): label propagation.</p>
+<pre><code>label(p) = raster number of p (1, 2, 3, … row by row) for foreground pixels, 0 elsewhere
+repeat:
+    for every foreground pixel p, all at once (reading the previous labels):
+        new(p) = min(label(p), label of each foreground 4-neighbour)
+    if nothing changed: stop
+    label = new;  passes = passes + 1</code></pre>
+<p>The checks are B3 (a) (row 3 after one pass), B3 (b) (20 passes) and B8 (a) (a bar).</p>
+<p><strong>C2.</strong> <code>label_pointer_jumping(mask)</code>: after each propagation pass, every pixel replaces its label <span class="math inline">L</span> by the label that pixel number <span class="math inline">L</span> has now:</p>
+<pre><code>after = the labels after the propagation pass
+for every foreground pixel p, all at once:
+    q = the pixel whose raster number is after(p)
+    if after(q) &lt; after(p): new(p) = after(q)</code></pre>
+<p>The checks: the same labels as C1, and B3 (c): 9 passes.</p>
+<p><strong>C3.</strong> <code>dp_wavefront(cost)</code>: fill <span class="math inline">D(x, y) = \text{cost}(x, y) + \min(D(x-1, y), D(x, y-1), D(x-1, y-1))</span> one anti-diagonal at a time:</p>
+<pre><code>for s = 0 … width + height − 2:                 # one parallel step each
+    for every cell (x, y) with x + y = s:         # all independent
+        D(x, y) = cost(x, y) + the smallest of the neighbours that exist (0 if none)
+    record how many cells step s had</code></pre>
+<p>The checks are B4 (11 steps, at most 5 cells) and the same table as filling row by row.</p>
+<p><strong>C4.</strong> <code>amdahl(s, k)</code> <span class="math inline">= 1/(s + (1 - s)/k)</span>. The check is B2.</p>
+<p><strong>C5.</strong> <code>sum_f16(values)</code> and <code>sum_mixed(values)</code>: sums of values stored in float16, with every partial sum rounded to float16, or kept in float32. <code>to_f16</code> (ready to use) rounds to the nearest float16. The checks are B5 (a) and (b): 4097 → 4096, 65 535 → ∞, and <span class="math inline">10\,000 \times 0.01</span> = 32 and 100.02.</p>
+<p>Then <code>cargo run -p day51 -- gpu-fit</code> and open the pictures in <code>out/gpu-fit/</code>.</p>
+<p><strong>C6.</strong> Read the passes for the spiral and for the synthetic nuclei, with and without pointer jumping, and look at <code>spiral-passes.png</code> (each pixel shaded by the pass in which its label last changed: dark = early). Explain the order of the shades.</p>
+<p><strong>C7.</strong> Read the steps and the cells per step of the DP wavefront for a 10 × 16 and a 1000 × 1000 table. How busy can a GPU with 10 000 lanes be on the second?</p>
+<p><strong>C8.</strong> Read the float16 sums of 0.01. Why is the float16 sum of 1000 terms a little <em>below</em> 10, and the sum of 3000 terms (32) <em>above</em> 30?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day51-gpus/src/gpu_fit/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> The spiral (312 pixels, one component) needs 310 propagation passes, 45 with pointer jumping; the nuclei (13 379 pixels in 15 components) 139 and 50. In the picture the shade grows steadily from the outer end of the spiral (top left, where label 1 starts) inwards to the centre: the smallest label crawls along the spiral one pixel per pass. Pointer jumping cuts the passes by a factor of about 7 for the spiral and 3 for the nuclei: a jump lets a label skip ahead along a chain of labels instead of moving one pixel per pass.</p>
+<p><strong>C7.</strong> 10 × 16: 25 steps, at most 10 cells, 6.4 on average (the lecture’s numbers). 1000 × 1000: 1999 steps, at most 1000 cells, 500 on average: at best a tenth of the 10 000 lanes, on average a twentieth, and a barrier between every two steps.</p>
+<p><strong>C8.</strong> Each term is stored as 0.010002 in float16. Up to 32, every partial sum is rounded to the float16 grid, whose spacing grows with the sum. Between 4 and 8 it is 1/256, and adding 0.010002 rounds to <span class="math inline">+0.0117</span> (a gain); between 8 and 16 it is 1/128 = 0.0078, and every addition rounds down to <span class="math inline">+0.0078</span> (a loss): 1000 terms end a little below 10 (9.953). Between 16 and 32 the spacing is 1/64 = 0.0156, and every addition rounds up to <span class="math inline">+0.0156</span>: 3000 terms climb too fast, to 32. From 32 on the spacing is 1/32 = 0.031, more than twice 0.010002, and the sum stays at 32 for ever. With a float32 sum: 10.002, 30.006, 100.02, 1000.9, only the storage error of 0.010002.</p>
 </div>
 </div>
 </div>

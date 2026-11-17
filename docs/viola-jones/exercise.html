@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: boosting and the cascade</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9148,6 +9149,53 @@ Solutions
 <p><strong>E6.</strong> The large face right of the centre, turned by 34°, is missed by the cascade (6 of 7 found). Without the cascade the looser single classifier does find it (7 of 7, but with 11 false detections). Axis-aligned rectangle features expect upright faces; add rotated faces to the training set, use rotated (45°) features, or train separate detectors for several angles.</p>
 <p><strong>E7.</strong> One of the two faces with glasses is missed (6 of 7 found, no false detections). The glasses’ bright lenses and dark frames replace the dark eyes; trained only on faces without glasses, some stage rejects that window. In B5 terms: the training set decides whom the detector finds.</p>
 <p><strong>E8.</strong> After 10 rounds: training 0.2 %, test 0.8 %. On the test scene the cascade finds all 9 cells with no false detections (the single 50-stump classifier: 10 false detections). The first stumps are a three-rectangle line (a bright middle band between darker top and bottom), a four-rectangle diagonal and a three-rectangle line across: features that describe a bright round blob with a darker centre.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day22-integral/src/viola_jones/exercise.rs</code>. Labels are <span class="math inline">+1</span> (object) and <span class="math inline">-1</span> (background). The training data and the rectangle features (the last unit) are given in <code>day22-integral/src/viola_jones/data.rs</code>.</p>
+<p><strong>C1.</strong> <code>best_stump(values, labels, weights)</code>: the best threshold and direction for one feature, in one pass over the sorted values (the slide “The math: the best threshold in one pass”).</p>
+<pre><code>sort the examples by value
+error = total weight of the negatives            # threshold below all: everything is "object"
+best = (below all, "object if above", error), or the opposite direction with error total − error
+for each example i, in sorted order:
+    error = error + y(i) · w(i)                  # example i is now below the threshold
+    if the next value is the same: continue
+    threshold = halfway to the next value
+    keep (threshold, "above", error) or (threshold, "below", total − error) if better</code></pre>
+<p>The checks are your answers to B1(a) and (c).</p>
+<p><strong>C2.</strong> <code>adaboost(features, labels, rounds)</code>: AdaBoost with stumps.</p>
+<pre><code>w(i) = 1/n for every example
+repeat for every round:
+    best stump over all features (C1), weighted error ε
+    α = ½ ln((1 − ε) / ε)
+    w(i) = w(i) · e^(−α · y(i) · h(i))        # h(i) = ±1: what the stump says
+    divide every w(i) by the sum of all w</code></pre>
+<p>The checks are B1: thresholds 2.5, 4.5, 3.5, errors <span class="math inline">\tfrac16</span>, 0.1, <span class="math inline">\tfrac29</span>, and their votes.</p>
+<p><strong>C3.</strong> <code>score(stumps, feature_value)</code>: <span class="math inline">\sum_t \alpha_t h_t</span>; positive means object. The checks are the scores of B1(c) and (d).</p>
+<p><strong>C4.</strong> <code>cascade_rates(stages)</code>: <span class="math inline">D = \prod d_i</span>, <span class="math inline">F = \prod f_i</span> and the expected number of features per background window, <span class="math inline">n_1 + n_2 f_1 + n_3 f_1 f_2 + \dots</span> The checks are B2 and B3(a).</p>
+<p>Then <code>cargo run -p day22 -- viola-jones</code>. It trains a detector for <strong>nuclei</strong> in synthetic fluorescence images: <span class="math inline">24 \times 24</span> windows centred on a nucleus against background windows, half of them near misses (centred 6 to 12 px from a nucleus). It prints the first stumps and the errors, then slides the window over a new image and writes <code>out/viola-jones/detections.png</code> (green: a detection on a nucleus, red: a false one); <code>examples.png</code> shows some training windows.</p>
+<p><strong>C5.</strong> Which features does boosting pick first, and why do they suit nuclei? Compare with the cartoon faces of the demo (E1).</p>
+<p><strong>C6.</strong> Read the training and test errors after 1, 2, 5, 10 and 20 stumps. Why does the test error not follow the training error down to 0?</p>
+<p><strong>C7.</strong> The detector scores 4761 windows of the new image with 20 stumps each. Use the printed cascade (10 stages, the lecture’s numbers): how many features would a background window need on average, and how much faster would that be?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day22-integral/src/viola_jones/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Round 1: centre − surround over the whole window (<span class="math inline">8 \times 8</span> centre), “object if above”, error 2.9 %: a nucleus is a bright blob in the middle of the window. Round 2: a narrow edge down near the top, “object if below” (dark above, bright below: the upper rim of a centred nucleus); round 3 a centre − surround over the lower part of the window. Their errors, 5.9 % and 6.4 % on the reweighted examples, come mostly from the near misses, whose nucleus lies off-centre. Faces have no single bright blob; there the first stumps were the hairline and the outline of the face.</p>
+<p><strong>C6.</strong> After 1 and 2 stumps: training 2.9 %, test 3.0 %. After 5: training 0 %, test 3.0 %; after 10 and 20: training 0 %, test 0.8 % (1 of 132 test windows). The stumps are chosen and weighted on the training windows only; boosting keeps reducing the exponential loss on them even after all are right, while new windows (unusual nuclei, near misses) can still fall on the wrong side. With 279 training windows the test error is a rough estimate; one window more or less changes it by 0.8 %. On the new image all 12 nuclei are found, with no false detections.</p>
+<p><strong>C7.</strong> <span class="math inline">D = 0.904</span>, <span class="math inline">F = 5.9 \cdot 10^{-6}</span>, and 5.21 features per background window on average, although the cascade holds 257. Against 20 features per window, that is about 4 times fewer; against a single classifier with all 257 features, about 50 times fewer.</p>
 </div>
 </div>
 </div>

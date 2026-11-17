@@ -8974,6 +8974,7 @@ window.Quarto = {
   <li><a href="#explore-selfattn" id="toc-explore-selfattn" class="nav-link" data-scroll-target="#explore-selfattn">Explore: attention on patches</a></li>
   <li><a href="#explore-embedprobe" id="toc-explore-embedprobe" class="nav-link" data-scroll-target="#explore-embedprobe">Explore: frozen features and a probe</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: calibration</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9275,6 +9276,51 @@ Solutions
 <p><strong>C3.</strong> <span class="math inline">T = 2.86</span> (close to the overconfidence factor 3). ECE 0.4 %, mean confidence 88.9 %, accuracy 89.0 %: dividing all logits by the same positive number does not change which class has the larger logit.</p>
 <p><strong>C4.</strong> Accuracy 73.0 %, mean confidence 83.5 %, ECE 10.5 %: on shifted data the network is overconfident again although <span class="math inline">T</span> was fitted. Fitting <span class="math inline">T</span> on validation data does not change anything (the validation data are from the training domain). What helps: validation (and recalibration) data from the new domain, or retraining/fine-tuning with such data; and flagging inputs that look unlike the training data.</p>
 <p><strong>C5.</strong> Underconfident: confidence 75.1 % against accuracy 89.0 %, ECE 13.9 %; the bars lie above the diagonal. A temperature <span class="math inline">T &lt; 1</span> (about 0.4) sharpens the probabilities and fixes it; <strong>fit T</strong> finds it.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day39-moderndl/src/attention/exercise.rs</code>. The coding tasks are numbered R1, R2, …, because this page already uses C1, C2, … for the demo questions.</p>
+<p><strong>R1.</strong> <code>weights_and_average(scores, values)</code>: the softmax of the scores, and the weighted average of the values (vectors):</p>
+<pre><code>m = the largest score                       # subtracting it changes nothing, but avoids overflow
+e_j = exp(score_j − m)
+weight_j = e_j / Σ_l e_l
+output = Σ_j weight_j · value_j</code></pre>
+<p><strong>R2.</strong> <code>attend(query, keys, values, temperature)</code>: attention for one query, with the score <span class="math inline">\mathbf q \cdot \mathbf k_j / T</span> for every token, then R1. The checks are your answers to B1.</p>
+<p><strong>R3.</strong> <code>patch_attention(img, p, content, position, temperature)</code>: one attention layer on the <span class="math inline">p \times p</span> patches of an image, with hand-set scores as in the demo:</p>
+<pre><code>for every patch i:
+    for every patch j:
+        d = mean of (patch i − patch j)² over the pixels
+        g = (grid distance between patch i and patch j)²
+        score_j = (−content · d − position · g) / T
+    output patch i = weighted average of all patches (R1)</code></pre>
+<p>The checks: with <span class="math inline">T \to 0</span> every patch keeps itself; without the position term, shuffling the patches only shuffles the output (B8); with it, it does not.</p>
+<p><strong>R4.</strong> <code>ece(confidence, correct, bins)</code>: the expected calibration error, with equal confidence bins between 0.5 and 1:</p>
+<pre><code>for every prediction: put it in its bin by confidence
+for every bin b with n_b predictions:
+    ECE = ECE + (n_b / n) · | accuracy in b − mean confidence in b |</code></pre>
+<p>The check is your answer to B6.</p>
+<p><strong>R5.</strong> <code>fit_temperature(logits, labels, candidates)</code>: temperature scaling for two classes: for every candidate <span class="math inline">T</span>, the negative log-likelihood <span class="math inline">-\frac1n\sum_i \ln p_i(\text{true class})</span> with <span class="math inline">p = \sigma(z/T)</span>; return the <span class="math inline">T</span> with the smallest. The checks: B10’s numbers, and logits that are 3 times too large give <span class="math inline">T \approx 3</span>.</p>
+<p>Then <code>cargo run -p day39 -- attention</code> and open the pictures in <code>out/attention/</code> (enlarged 4 times). The program cuts a <span class="math inline">64 \times 64</span> crop of the micrograph into 64 patches of <span class="math inline">8 \times 8</span> and runs one attention layer: position only, content only, and on a noisy copy (noise sd 0.1) content only at three temperatures, a non-local means. For the query patch at grid position (3, 3) it prints the weight it keeps for itself and the number of patches it effectively averages (<span class="math inline">1/\sum_j w_j^2</span>), and for every output the mean squared difference from the clean crop. Then it simulates an overconfident two-class network (logits 3 times too large), fits <span class="math inline">T</span> on validation data, and prints accuracy, mean confidence and ECE before, after, and on test data whose classes have moved closer together.</p>
+<p><strong>R6.</strong> Compare <code>position-only.png</code> and <code>content-only.png</code> with <code>input.png</code>. Which one is a convolution, and what does the other one do? Then compare <code>noisy.png</code> with the three non-local-means outputs: which temperature denoises, and what goes wrong at the other two?</p>
+<p><strong>R7.</strong> Read the calibration numbers. Which <span class="math inline">T</span> is fitted, and what does it change and not change? What happens on the shifted data? Compare with the calibration demo’s questions above.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day39-moderndl/src/attention/solution.rs</code> in the download.</p>
+<p><strong>R6.</strong> Position only: the query keeps 32 % for itself and averages about 6 patches in effect, the same bell-shaped weights for every patch: a convolution on the patch grid. The output is a blocky blur (error 0.0122 against the input). Content only: the query keeps 28 % and averages about 10 patches in effect, chosen by similarity wherever they are; each patch becomes an average of patches that look like it, so the output looks like a patchwork of a few typical textures (light background, darker cytoplasm, the dark edge). Non-local means on the noisy crop (noisy input: error 0.0103): at <span class="math inline">T = 1</span> the query keeps 51 % and averages about 4 similar patches, and the error falls to 0.0074: the noise is reduced and the structures stay. At <span class="math inline">T = 0.2</span> every patch keeps itself (100 %): no change (0.0102). At <span class="math inline">T = 5</span> the query keeps only 4 % and averages about 56 of the 64 patches: everything is washed into the average, and the error rises to 0.0231, worse than the noisy input.</p>
+<p><strong>R7.</strong> <span class="math inline">T = 3.0</span>, the factor by which the logits were too large. Overconfident network: accuracy 83.5 %, mean confidence 94.4 %, ECE 11.0 %. With <span class="math inline">T = 3.0</span>: the same accuracy 83.5 % (dividing by <span class="math inline">T</span> never changes the sign of a logit, so never the predicted class), mean confidence 84.2 %, ECE 2.3 %. On the shifted data, with the same <span class="math inline">T</span>: accuracy 70.3 %, mean confidence 79.4 %, ECE 10.0 %: overconfident again. As in the demo (calibration questions R3 and R4), temperature fixes calibration only on data like the validation data.</p>
 </div>
 </div>
 </div>

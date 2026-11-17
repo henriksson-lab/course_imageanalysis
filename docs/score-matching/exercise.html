@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-noisespectrum" id="toc-explore-noisespectrum" class="nav-link" data-scroll-target="#explore-noisespectrum">Explore: noise against the spectrum</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: pairs, averages and a learned network</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9206,6 +9207,50 @@ Solutions
 <p><strong>S4.</strong> Exact: the score at <span class="math inline">x = 2</span> is +4.4 (towards the rare mode at 2.5), at <span class="math inline">x = 3</span> it is −4.4 (back towards it from the other side). Learned (2 000 steps): −1.45 and −1.70: it points left everywhere, towards the common mode. A sampler would move such points towards the common mode: the rare mode is under-generated. After 20 000 steps the learned score is +3.9 at <span class="math inline">x = 2</span> and −3.8 at <span class="math inline">x = 3</span>: the rare mode is learned, late.</p>
 <p><strong>S5.</strong> The scatter and the axis change (clean value, noise <span class="math inline">(x - x_0)/\sigma</span>, or <span class="math inline">-(x - x_0)/\sigma^2</span>), but the curves carry the same information: each is computed from the same denoiser. On the noise target at σ = 0.6 the curve is <span class="math inline">(x - \hat x_0)/\sigma</span>; at <span class="math inline">x = 1.5</span> (centre of a mode, <span class="math inline">\hat x_0 = 1.5</span>) it is 0. Same conversions as B5.</p>
 <p><strong>S6.</strong> After 500 steps the plateaus inside the modes are already right (error at σ = 0.6: 0.138 against 0.132 exact; at σ = 0.15 the network maps −1.5 to −1.52). What lags is the steep jump <strong>between</strong> the modes at low noise: at σ = 0.15 and <span class="math inline">x = 0.3</span> the network gives 0.35 where the exact denoiser gives 0.62, and still 0.38 after 1 500 steps. Set the noise level slider to 0.15 to see it. The low-noise, between-mode detail is the hardest part.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day41-diffusion/src/score_matching/exercise.rs</code>. The fast Fourier transform of the library may be used. Here it is a tool, not the exercise.</p>
+<p><strong>C1.</strong> <code>noise_level(alpha_bar)</code>: SNR <span class="math inline">= \bar\alpha/(1-\bar\alpha)</span> and <span class="math inline">\sigma = 1/\sqrt{\text{SNR}}</span>. The check is B1.</p>
+<p><strong>C2.</strong> <code>from_noise(x, eps, alpha_bar)</code>: from a predicted noise to the clean estimate, the score and the velocity:</p>
+<pre><code>a = √ᾱ,  b = √(1 − ᾱ)
+x̂0 = (x − b · ε̂) / a
+score = −ε̂ / b
+v = a · ε̂ − b · x̂0</code></pre>
+<p>The check is B5.</p>
+<p><strong>C3.</strong> <code>binned_average(pairs, lo, hi, bins)</code>: denoising score matching without a network. Sort the training pairs (noisy, clean) into equal bins by their noisy value, and average the clean values in each bin:</p>
+<pre><code>for every pair (x, x0) with lo ≤ x &lt; hi:
+    b = floor((x − lo) / bin width)
+    sum[b] = sum[b] + x0;   count[b] = count[b] + 1
+mean of bin b = sum[b] / count[b]</code></pre>
+<p>The checks are B4 (a), and B4 (c): with 40 000 pairs the bin averages approach <span class="math inline">\tanh(x)</span>.</p>
+<p><strong>C4.</strong> <code>radial_power(img)</code>: the radially averaged power spectrum. Every frequency <span class="math inline">(f_x, f_y)</span> adds its power <span class="math inline">|F|^2/n^2</span> to the ring <span class="math inline">r = \text{round}(\sqrt{f_x^2 + f_y^2})</span>, and each ring is averaged. Checks: white noise of variance 4 has power 4 in every ring, and a cosine with 4 periods has its power at <span class="math inline">r = 4</span>.</p>
+<p><strong>C5.</strong> <code>wiener_denoise(noisy, sigma, power)</code>: the best denoiser of a Gaussian image model with that power spectrum, as in the noise-spectrum demo:</p>
+<pre><code>F = DFT of the noisy image
+for every frequency, in ring r:   F = F · P(r) / (P(r) + σ²)
+result = inverse DFT of F</code></pre>
+<p>The check is B3: a flat spectrum of power 4 gives the gains 0.8, 0.5 and 0.2.</p>
+<p>Then <code>cargo run -p day41 -- score-matching</code> and open the pictures in <code>out/score-matching/</code>. Part 1: 400 training pairs of two narrow modes at ±1.5 at σ = 0.15, 0.6 and 2.5. The plots <code>pairs-sigma*.png</code> show the pairs (grey), the binned average (green) and the exact best denoiser (blue). The program prints the sparse bins and the denoising error on fresh pairs. Part 2: a <span class="math inline">128 \times 128</span> crop of the micrograph, scaled to mean 0 and variance 1, at log-SNR 2.3, 0, −2.3 and −4.6. It prints the crossover ring and the error of the noisy and the Wiener image, and saves both images.</p>
+<p><strong>C6.</strong> Part 1: describe the exact denoiser at the three noise levels, and where the binned average departs from it. Where does a noisy value of 1.5 go at σ = 2.5? Relate this to B3 and to S1–S2.</p>
+<p><strong>C7.</strong> Part 2: compare the crossover rings with B2 and N1, and the errors with N2. Then look at <code>wiener-logsnr*.png</code>. What survives at each noise level?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day41-diffusion/src/score_matching/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> At σ = 0.15 the denoiser is a staircase: a gentle slope through each mode and a steep jump at 0. Each noisy value goes back to its own mode. 12 of the 20 bins have fewer than 3 pairs: the region between the modes is almost empty. At σ = 0.6 the jump is softer (only 1 sparse bin), and at σ = 2.5 the curve is nearly a straight line through 0: a noisy 1.5 goes to 0.52 (as in S2). The noise no longer tells which mode a value came from, so the best guess shrinks towards the mean (B3). The binned average follows the exact curve where there are many pairs. Its error on fresh pairs is a little larger: 0.013 against 0.011, 0.091 against 0.083, and 1.89 against 1.66 at σ = 2.5. In the last case about a third of the noisy values fall outside −3 … 3, and they get the average of the outermost bin. Where there are no pairs, regression learns nothing: the same problem as a network’s tails (S3).</p>
+<p><strong>C7.</strong> The image stays above the noise floor up to ring 61 at SNR 10, 21 at SNR 1, 7 at SNR 0.1 and 3 at SNR 0.01. As in B2 and N1, each tenfold drop in SNR divides the crossover by about 3. At SNR 1 the error drops from 0.999 (noisy) to 0.193 (Wiener). N2 measured 1.005 and 0.197 on the demo’s crop. At SNR 0.1: 9.97 against 0.370; at SNR 0.01: 99.4 against 0.557. In the pictures, the Wiener estimate at SNR 1 keeps the nucleus, its envelope and the large dark regions, but the fine texture is gone. At SNR 0.1 only a smooth outline of the nucleus is left, and at SNR 0.01 only bright and dark patches, the coarse layout. The noise erases the fine detail first.</p>
 </div>
 </div>
 </div>

@@ -30,21 +30,31 @@ library of our own, with `image` used inside it for file reading and writing onl
 
 `code/` is a Cargo workspace (it is also the student download, packed by
 `tools/code_zip.py` into `downloads/imageanalysis-code.zip`; `make render` copies it to
-`docs/downloads/`). Members: `imgcourse`, `starter`, and one crate per unit, named after the
-unit folder:
+`docs/downloads/`). Members: `imgcourse`, `starter`, and **one crate per day**,
+`code/dayNN-<day id>/` with package name `dayNN` (merged from one crate per unit on
+2026-11-17: 51 crates instead of 209, each with one binary and one test binary). Per unit
+`U` (Rust module `u` = `U` with `-` → `_`):
 
 ```
-code/<unit>/Cargo.toml        feature "solution"
-code/<unit>/src/lib.rs        exports exercise.rs, or solution.rs with --features solution
-code/<unit>/src/exercise.rs   the same signatures and doc comments as the solution, bodies todo!("C1: name"), hints
-code/<unit>/src/solution.rs   model solution
-code/<unit>/tests/check.rs    checks, preferably the numbers of the by-hand exercises
-code/<unit>/src/main.rs       runs the functions on real images, pictures in out/<unit>/
+code/dayNN-id/Cargo.toml             feature "solution"; deps imgcourse + clap; lib/bin test = false
+code/dayNN-id/src/lib.rs             pub mod u; ... (one per unit)
+code/dayNN-id/src/main.rs            clap: one subcommand per unit (named U), calls u::run::main()
+code/dayNN-id/src/u/mod.rs           exports exercise.rs, or solution.rs with --features solution
+code/dayNN-id/src/u/exercise.rs      same signatures and doc comments as the solution, bodies todo!("C1: name"), hints
+code/dayNN-id/src/u/solution.rs      model solution
+code/dayNN-id/src/u/run.rs           pub fn main(): runs the functions on real images, pictures in out/U/
+code/dayNN-id/tests/check/main.rs    mod u; ... (one test binary per day)
+code/dayNN-id/tests/check/u.rs       checks, preferably the numbers of the by-hand exercises
 ```
+
+Student commands: `cargo test -p dayNN u::`, `cargo run -p dayNN -- U`, plus
+`--features solution` for the model solution. Builds: one `target/`; dev profile with
+`debug = "line-tables-only"` (deps without debug info), so a program is ~7 MB, not ~56 MB.
 
 `make code-test` (also in CI): tests with `--all-features` (the solutions), builds the
-templates, and runs clippy on both with `-D warnings`. Add a new unit crate to `members`
-in `code/Cargo.toml` and to the list on `code.qmd`.
+templates, and runs clippy on both with `-D warnings`. A new unit: a module folder in its
+day's crate, `pub mod u;` in `lib.rs`, a subcommand in `main.rs`, `mod u;` in
+`tests/check/main.rs`; `make code-zip` regenerates the list on `code.qmd`.
 
 ## On the site
 

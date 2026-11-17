@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9210,6 +9211,48 @@ Solutions
 <p><strong>E5.</strong> Frame: 19 (with area <span class="math inline">\ge 40</span>; 29 without the area filter). Keep: 27. Remove touching: 24 (3 nuclei touch the border). Removing border objects keeps every object that lies fully inside the image, also those near the edges; the frame counts only objects that hit the inner frame (margin 20), i.e.&nbsp;it samples a smaller area, and in exchange it is unbiased.</p>
 <p><strong>E6.</strong> Threshold 60: 1057 labels; 80: 51; 100: 41; 120: 37; 140: 29. At 60 the threshold is within a few noise standard deviations of the background (40, noise 10): hundreds of single noise pixels become objects. Above 100 dim specks and the rims of objects are lost.</p>
 <p><strong>E7.</strong> 4-connectivity: 1141 objects, 8-connectivity: 764 (mean area 7.5 and 11.2 pixels): most “objects” are noise specks that touch diagonally. With opening radius 1 and fill holes: 172 and 145. The count of a raw thresholded real image is dominated by noise and by the connectivity convention; cleaning and an area filter are needed before the number means anything.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day14-labelling/src/label_measure/exercise.rs</code>. The labelling of the <a href="../label-connectivity/exercise.html#code">first unit of the day</a> is given as <code>label_components</code>.</p>
+<p><strong>C1.</strong> <code>table(labels)</code>: one row per label with its area and bounding box (one scan, as in the <a href="../regionprops/exercise.html#code">region properties</a> unit), and <code>touches_border</code>. The check is the table of B1.</p>
+<p><strong>C2.</strong> <code>keep_and_relabel(labels, keep)</code>: remove the labels that are not kept and renumber the others in raster order of their first pixel:</p>
+<pre><code>new = 0 for every old label;  n = 0
+for every pixel p, in raster order, with label k &gt; 0:
+    if k is not kept:  out(p) = 0
+    else:
+        if new[k] = 0:  n = n + 1;  new[k] = n      # first pixel of k
+        out(p) = new[k]</code></pre>
+<p>The check is B1 (b).</p>
+<p><strong>C3.</strong> <code>area_opening(labels, a)</code>: keep the objects with at least <span class="math inline">a</span> pixels, whole. The check is B1 with <span class="math inline">a = 5</span>.</p>
+<p><strong>C4.</strong> <code>counting_frame(labels, m)</code>: the counted labels, with the frame and the exclusion line of the Background table:</p>
+<pre><code>for every pixel p with label k &gt; 0:
+    if p is in the frame [m, W − m) × [m, H − m):  hits[k] = true
+    if p is on the exclusion line:                 excluded[k] = true
+count the labels with hits and not excluded</code></pre>
+<p>The checks are B2, and four frames that tile a square: every object inside is counted exactly once.</p>
+<p><strong>C5.</strong> <code>hysteresis(img, low, high)</code>: label the mask <span class="math inline">I &gt; \text{low}</span> and keep the objects that contain at least one pixel <span class="math inline">I &gt; \text{high}</span>.</p>
+<p>Then <code>cargo run -p day14 -- label-measure</code> and open the pictures in <code>out/label-measure/</code>. The program thresholds a synthetic nuclei image at 0.24 (the middle of a larger image, so that nuclei are cut by the border), removes the specks with the area opening (at least 30 pixels) and with hysteresis (0.24 and 0.5), and counts with three border rules. <code>3-counting-frame.png</code> shows the frame (margin 20): counted objects in colour, the others grey.</p>
+<p><strong>C6.</strong> How many objects does the threshold give, and how many after the area opening and after hysteresis? The two label images differ in one object: find it (compare <code>2-area-opening.png</code> with <code>2-hysteresis.png</code>). Which method is right about it?</p>
+<p><strong>C7.</strong> Compare the three counts (keep all, remove those touching the border, counting frame) and the three mean areas. Why is the mean area of “keep all” the smallest here? One object counted by the frame touches the image border: which rule of the counting frame does that break, and what would fix it?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day14-labelling/src/label_measure/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> 46 objects, 32 of them smaller than 30 pixels: noise specks where the background is brightest. The area opening leaves 14, hysteresis 15. The extra object of hysteresis is a 19-pixel piece at the left edge (rows 188–198, columns 0–1): the edge of a nucleus that lies mostly outside the image. It is bright, so hysteresis keeps it; it is small, so the area opening removes it. Both are right in their own terms: it is a real nucleus, but a cut one, so its size is wrong. The border rule must decide about it, not the speck filter.</p>
+<p><strong>C7.</strong> Keep all: 14; remove touching: 9; counting frame: 8. The mean areas are 1129, 1470 and 1218 pixels. Keeping all includes the cut pieces at the border, which are small, so the mean is too low. Removing the border objects keeps only whole objects, but drops large ones more often (a large object touches the border more easily), so the mean is biased upwards. The frame keeps objects with the same probability whatever their size. The one counted object that touches the image border is a large merged blob on the left that crosses the inclusion edge and reaches the image edge: the guard zone of 20 pixels is narrower than that object. The guard zone must be at least as wide as the largest object (the math slide); a margin of about 60 pixels here, or first splitting the merged nuclei (<a href="../ws-distance/lec.html">watershed day</a>).</p>
 </div>
 </div>
 </div>

@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9196,6 +9197,57 @@ Solutions
 <p><strong>E5.</strong> At <span class="math inline">\lambda = 0</span> both have 3321 wrong pixels. The MAP stays equal to the thresholded image up to <span class="math inline">\lambda \approx 0.35</span> (at 0.3 still 3321 wrong; at 0.4, 2106): the threshold of B5(a), <span class="math inline">\log 4/4 = 0.347</span>, where isolated wrong pixels start to be corrected.</p>
 <p><strong>E6.</strong> Exact MAP: lowest energy (5581.8) but 469 wrong pixels. ICM: energy 5931.9 but 401 wrong. Mean field: 5660.6 and only 207 wrong. The lowest energy is not the most correct image: at this <span class="math inline">\lambda</span> the prior says that thin lines are improbable, and the exact optimiser obeys it fully. Approximate methods that stop earlier happen to keep more of the lines. Greig, Porteous and Seheult (1989) found the same.</p>
 <p><strong>E7.</strong> Thresholding: 4378 wrong (at <span class="math inline">\sigma_n = 0.8</span> about a quarter of the pixels fall on the wrong side of 0.5); ICM: 793; mean field: 256; exact MAP: 260. With <span class="math inline">\lambda = 0.5</span> the exact MAP has 739 wrong, with <span class="math inline">\lambda = 2</span> 365: the best <span class="math inline">\lambda</span> is somewhere in between. Note the “truth” here is itself a thresholded micrograph.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day28-ising/src/mrf_denoise/exercise.rs</code>. Labels are 0 (background) and 1 (object). Every pixel has two data costs <span class="math inline">D_p(0)</span> and <span class="math inline">D_p(1)</span>; <code>flip_noise_costs</code> (given) makes them for flip noise. <code>local_energy</code> (given) is the energy of one pixel with a label, given its neighbours: <span class="math inline">D_p(\ell) + \lambda \cdot (\text{number of
+neighbours with a label} \ne \ell)</span>. The three pixels of B2 are a <span class="math inline">3 \times 1</span> image.</p>
+<p><strong>C1.</strong> <code>energy(labels, costs, λ)</code>: the posterior energy <span class="math inline">\sum_p D_p(L_p) + \lambda \cdot
+(\text{number of disagreeing neighbour pairs})</span>, each pair counted once (pair every pixel with its right neighbour and the one below). The check is the table of B2(a).</p>
+<p><strong>C2.</strong> <code>icm(start, costs, λ, order)</code>: iterated conditional modes, visiting the pixels in the given order. Returns the result and the number of sweeps:</p>
+<pre><code>repeat:
+    changed = false
+    for every pixel p, in the given order:
+        if local_energy(p, other label) &lt; local_energy(p, current label):
+            L_p = other label
+            changed = true
+until changed is false</code></pre>
+<p>The checks are B3(a) and B3(b): order 1, 2, 3 ends in <span class="math inline">000</span>, order 2, 1, 3 in <span class="math inline">111</span>.</p>
+<p><strong>C3.</strong> <code>gibbs_sweep(labels, costs, λ, T, rng)</code>: one sweep of the Gibbs sampler at temperature <span class="math inline">T</span>, as in the <a href="../mcmc/exercise.html">sampling unit</a>, now with labels:</p>
+<pre><code>for every pixel p, row by row:
+    Δ = local_energy(p, 1) − local_energy(p, 0)
+    L_p = 1 if random() &lt; 1 / (1 + e^(Δ/T)), else 0</code></pre>
+<p><strong>C4.</strong> <code>marginals(start, costs, λ, burn_in, sweeps, rng)</code>: the marginals <span class="math inline">p(L_p = 1 \mid
+\mathbf y)</span>: run <code>burn_in</code> sweeps at <span class="math inline">T = 1</span>, then count, for each pixel, in how many of the next <code>sweeps</code> sweeps it is 1, and divide by <code>sweeps</code>. The check is B4: 0.747, 0.643 and 0.747.</p>
+<p><strong>C5.</strong> <code>mean_field(costs, λ, sweeps)</code>: every pixel holds a number <span class="math inline">q_p \approx p(L_p = 1)</span>:</p>
+<pre><code>q_p = 1 / (1 + e^(D_p(1) − D_p(0)))          for every pixel (each pixel alone)
+repeat sweeps times, row by row, in place:
+    Δ = D_p(1) − D_p(0) + λ · Σ over neighbours q of (1 − 2 q_q)
+    q_p = 1 / (1 + e^Δ)</code></pre>
+<p>This is the spin formula of B9 with <span class="math inline">q = (1 + m)/2</span>. The checks are B9: after one sweep <span class="math inline">q = (0.546, 0.500, 0.800)</span>, and the fixed point <span class="math inline">q = (0.952, 0.903, 0.952)</span>.</p>
+<p>Then <code>cargo run -p day28 -- mrf-denoise</code> and open the pictures in <code>out/mrf-denoise/</code>. The program adds flip noise (<span class="math inline">\varepsilon = 0.2</span>) to the test image of the lecture and runs ICM, annealing (Gibbs sweeps while <span class="math inline">T</span> falls from 4 to 0.05, then ICM), the MPM and mean field for <span class="math inline">\lambda = 0.8</span>, 1.2 and 1.6. The error pictures show false object pixels red, missed ones blue.</p>
+<p><strong>C6.</strong> At <span class="math inline">\lambda = 0.8</span>: compare ICM, the quench (10 sweeps) and slow cooling (600 sweeps), by energy and by wrong pixels. Where are ICM’s extra errors (<code>errors-icm.png</code> against <code>errors-anneal-0.8.png</code>)?</p>
+<p><strong>C7.</strong> At <span class="math inline">\lambda = 1.2</span>: compare the MPM with slow cooling (the best approximation of the MAP here). Which has fewer wrong pixels, which the lower energy? Where is <code>marginal.png</code> grey?</p>
+<p><strong>C8.</strong> At <span class="math inline">\lambda = 1.6</span>: which method has the lowest energy, and which the fewest wrong pixels? Compare <code>errors-anneal-1.6.png</code> with <code>errors-mean-field.png</code>. Which lecture slide is this?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day28-ising/src/mrf_denoise/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> ICM stops after 7 sweeps at energy 4961.5 with 403 wrong pixels; the quench reaches 4952.1 (347 wrong) and slow cooling 4918.9 (234 wrong). ICM’s extra errors are small clumps of false object pixels scattered over the background (red), and a few holes (blue) in the disc and the square: a clump of noise pixels supports itself, and no single change lowers the energy. Both lose the 1-pixel line at this <span class="math inline">\lambda</span> (B5(b): above 0.69 it is cheaper to remove).</p>
+<p><strong>C7.</strong> The MPM has 183 wrong pixels, slow cooling 204, but the MPM’s energy is higher (5167.2 against 5136.2). No contradiction: the MPM aims at few expected wrong pixels, not at low energy. <code>marginal.png</code> is grey (uncertain) along the edges of every shape and on the 3-pixel line; the 1-pixel line is hardly darker than the background.</p>
+<p><strong>C8.</strong> Slow cooling has the lowest energy (5324.5) but 246 wrong pixels; mean field has a higher energy (5346.3) and only 162 wrong. Annealing removes the lower half of the 3-pixel line (blue in <code>errors-anneal-1.6.png</code>); mean field keeps it. A lower energy is not a more correct image when the prior is too strong: the slide “Lessons from the comparison” (Greig, Porteous and Seheult). Your numbers can differ a little if your sweeps use the random numbers in another order.</p>
 </div>
 </div>
 </div>

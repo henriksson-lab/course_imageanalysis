@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-pinhole" id="toc-explore-pinhole" class="nav-link" data-scroll-target="#explore-pinhole">Explore: the pinhole camera</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: calibrating a camera</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9192,6 +9193,61 @@ Solutions
 <p><strong>E5.</strong> The arrows form a radial pattern, growing towards the edges. Linear: <span class="math inline">f_x = 954.7</span>, <span class="math inline">c_y = 300.6</span>, RMS 1.08 px. Refined without distortion: <span class="math inline">f_x = 957.2</span>, RMS 1.08 px: the pinhole model cannot explain bent lines, so it compensates with a wrong focal length. With <span class="math inline">k_1, k_2</span>: <span class="math inline">f_x = 819.8</span>, <span class="math inline">c_y = 250.8</span>, <span class="math inline">k_1 = -0.275</span> (true <span class="math inline">-0.3</span>), RMS 0.43 px (<span class="math inline">\approx 0.3\sqrt 2</span>).</p>
 <p><strong>E6.</strong> 1 view: only 3 equations for 5 unknowns (with the zero-skew row): no <span class="math inline">K</span>. 2 views: <span class="math inline">f_x = 840</span> (zero skew assumed). 3 views: <span class="math inline">f_x = 832.6</span>, and 833.3 after refinement; 5 views: 830.2. Within about 2 % of 820: with 0.5 px noise and moderate tilts, the focal length of a planar calibration is uncertain by about that much; more and more strongly tilted views help.</p>
 <p><strong>E7.</strong> 2 views: <span class="math inline">f_x \approx 3100</span>; 3 views: no valid <span class="math inline">K</span> at all; 5 views: <span class="math inline">f_x \approx 7300</span>. Seen face-on, a board at distance <span class="math inline">Z</span> photographed with focal length <span class="math inline">f</span> looks the same as one at <span class="math inline">2Z</span> with <span class="math inline">2f</span>: the images cannot separate <span class="math inline">f</span> from the distance. Tilting the board breaks the tie, because foreshortening depends on <span class="math inline">f</span>.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day49-multiview/src/cameras/exercise.rs</code>. The conventions are those of the lecture: the camera looks down <span class="math inline">+z</span>, <span class="math inline">x</span> right, <span class="math inline">y</span> down.</p>
+<p><strong>C1.</strong> <code>project(cam, X)</code>: the pixel of a world point, or nothing if it is behind the camera:</p>
+<pre><code>(X, Y, Z) = R · X + t
+if Z ≤ 0: not visible
+u = f X / Z + cx,   v = f Y / Z + cy</code></pre>
+<p>The checks are B1, and a rotated camera compared with <span class="math inline">P = K[R \mid \mathbf t]</span>.</p>
+<p><strong>C2.</strong> <code>pixel_ray(cam, u, v)</code>: the centre <span class="math inline">\mathbf c = -R^\top\mathbf t</span> and the direction <span class="math inline">R^\top\big((u - c_x)/f,\ (v - c_y)/f,\ 1\big)</span>. The checks are B2, and that points along the ray of a rotated camera project back onto the pixel.</p>
+<p><strong>C3.</strong> <code>distort(x, y, k1, k2)</code> and <code>undistort(xd, yd, k1, k2)</code>: radial distortion of normalised coordinates, and its inverse by fixed-point steps:</p>
+<pre><code>distort:    r² = x² + y²,  return (1 + k1 r² + k2 r⁴) · (x, y)
+undistort:  (x, y) = (xd, yd)
+            repeat 20 times:
+                r² = x² + y²
+                (x, y) = (xd, yd) / (1 + k1 r² + k2 r⁴)</code></pre>
+<p>The checks are B4 (a) and (c), and that <code>undistort</code> undoes <code>distort</code>.</p>
+<p><strong>C4.</strong> <code>dlt(points, pixels)</code>: the camera matrix from <span class="math inline">n \ge 6</span> known points (slide “The math: the DLT”):</p>
+<pre><code>T, U = normalising transforms of the pixels and of the world points
+for every point:  X̂ = U X (4 entries),  (û, v̂) = T (u, v)
+    add the rows  ( 0ᵀ,  −X̂ᵀ,  v̂ X̂ᵀ )  and  ( X̂ᵀ,  0ᵀ,  −û X̂ᵀ )  to A
+p̂ = the unit vector with the smallest |A p̂|      # eigenvector of AᵀA, smallest eigenvalue
+P̂ = p̂ as 3 rows of 4;   P = T⁻¹ P̂ U</code></pre>
+<p>The normalising transforms are given. The check: from exact pixels of a hidden camera, with 72 points and with 6, every point reprojects exactly and <span class="math inline">P</span> is the true matrix up to scale.</p>
+<p><strong>C5.</strong> <code>decompose(P)</code>: split <span class="math inline">P</span> into <span class="math inline">K</span>, <span class="math inline">R</span> and <span class="math inline">\mathbf t</span>. The left <span class="math inline">3\times3</span> block is <span class="math inline">M = KR</span>; take its rows apart from the bottom up:</p>
+<pre><code>if det M &lt; 0: P = −P
+for i = 2, 1, 0:
+    rest = row i of M
+    for j &gt; i:  K[i][j] = (row i of M) · R_j,   rest = rest − K[i][j] R_j
+    K[i][i] = |rest|,   R_i = rest / K[i][i]
+scale K and the last column of P so that K[2][2] = 1;   t = K⁻¹ · (last column)</code></pre>
+<p>The check recovers <span class="math inline">f = 820</span>, <span class="math inline">(c_x, c_y) = (335, 245)</span>, <span class="math inline">R</span> and <span class="math inline">\mathbf t</span> from <span class="math inline">-3P</span>.</p>
+<p>Then <code>cargo run -p day49 -- cameras</code> and open the pictures in <code>out/cameras/</code>. The program photographs 72 corners on two walls at right angles with a hidden camera (<span class="math inline">f = 820</span>, principal point <span class="math inline">(335, 245)</span>), calibrates it with your DLT in several situations and prints <span class="math inline">K</span> and the RMS reprojection error. <code>residuals-noise.png</code> and <code>residuals-distortion.png</code> show the residual arrows (from the seen corner to where the estimated camera puts it, 30 times longer). It also distorts a checkerboard picture with <span class="math inline">k_1 = -0.3</span> and undistorts it again (<code>checker-barrel.png</code>, <code>checker-undistorted.png</code>).</p>
+<p><strong>C6.</strong> Compare the calibrations from 6 points (with and without noise) and from 72 points with noise. Six noisy points give a <em>smaller</em> RMS error than 72; why is that calibration still the worse one? What RMS do you expect for 72 points with noise <span class="math inline">\sigma = 0.5</span> px (slide “The math: the reprojection error”)?</p>
+<p><strong>C7.</strong> Compare the two residual pictures and the printed <span class="math inline">K</span>. Which one shows noise, and which a missing model term? What does the DLT do with the distortion it cannot model?</p>
+<p><strong>C8.</strong> What happens with the 36 points on one wall? Explain with B5 (b).</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day49-multiview/src/cameras/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Six exact points give the exact camera (<span class="math inline">f = 820.0</span>, RMS 0). With 0.5 px noise the six points give <span class="math inline">f_x = 841.9</span>, a principal point <span class="math inline">(354.2, 270.2)</span> and a skew of <span class="math inline">-4.5</span>, with an RMS of only 0.29 px: 12 equations for 11 unknowns, so the camera bends to fit the noise of these few points almost exactly. The small error measures the fit, not the camera. 72 points average the noise out: <span class="math inline">f_x = 819.7</span>, <span class="math inline">f_y = 820.6</span>, principal point <span class="math inline">(334.1, 246.4)</span>, RMS 0.73 px, close to <span class="math inline">\sigma\sqrt2 = 0.71</span> px.</p>
+<p><strong>C7.</strong> <code>residuals-noise.png</code>: short arrows in random directions, neighbours unrelated: noise. <code>residuals-distortion.png</code> (noise only 0.1 px): the arrows form a smooth pattern, neighbours point the same way, and they are longest at the outer corners of the target (top left, right): a model term is missing. The RMS is 0.81 px, eight times the noise. The DLT absorbs as much of the distortion as a pinhole camera can: <span class="math inline">f_x = 945</span> instead of 820 and a principal point <span class="math inline">(347, 179)</span> far from <span class="math inline">(335, 245)</span>. <code>checker-barrel.png</code> shows the same distortion on a picture: straight edges bow outwards, most at the corners; <code>checker-undistorted.png</code> is straight again (black where the distorted picture had no data).</p>
+<p><strong>C8.</strong> The calibration breaks down: the printed <span class="math inline">K</span> is “NaN” (not a number), nonsense. All points have <span class="math inline">Z = 0</span>, so the third column of <span class="math inline">P</span> never enters the equations: <span class="math inline">A</span> has a whole family of null vectors (4 dimensions), and the one returned has nothing to do with the camera. Its left <span class="math inline">3\times3</span> block is singular, so there is no <span class="math inline">K</span> to extract.</p>
 </div>
 </div>
 </div>

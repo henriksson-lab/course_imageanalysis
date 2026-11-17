@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-ray" id="toc-explore-ray" class="nav-link" data-scroll-target="#explore-ray">Explore: one ray</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: volume rendering</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9254,6 +9255,58 @@ Solutions
 <p><strong>V6.</strong> Rays through the box but outside the head take all their samples (nothing to stop them) and so do rays that graze the head; rays through the skull stop soon after it. The readout: 345 of the 1489 rays stop early and save 45 % of their samples; over all rays only 18 % (69.4 of 84.2 samples per ray), because most rays never become opaque. Rays through empty space need empty-space skipping instead.</p>
 <p><strong>V7.</strong> The head is squashed to 40/64 of its height in the side view: the renderer treats the voxels as cubes. The matrix shows <span class="math inline">1, 1, 1</span> on its diagonal instead of <span class="math inline">1, 1, 1.6</span>.</p>
 <p><strong>V8.</strong> The outer surface of the skull (<span class="math inline">c = 135</span> lies between brain 100 and bone 170; from outside, the first crossing is the soft tissue → bone boundary). At <span class="math inline">c = 60</span> the skin (air 0 → soft tissue 70); at <span class="math inline">c = 200</span> only the vessels (230) are above it, but the bone is not, so the vessels appear (seen through the skull). Isosurface rays stop at their first hit: 59.0 samples per ray on average instead of 84.2 (30 % saved).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day48-graphics3d/src/volrender/exercise.rs</code>. The code tasks are numbered R1, R2, … (C1, C2, … are the demo questions above).</p>
+<p><strong>R1.</strong> <code>trilinear(vol, x, y, z)</code>: the value between voxels, from the 8 voxels around the point (voxel <span class="math inline">(i, j, k)</span> sits at the voxel coordinates <span class="math inline">(i, j, k)</span>; outside the volume counts as 0):</p>
+<pre><code>x0, y0, z0 = floor(x), floor(y), floor(z)
+tx, ty, tz = x − x0, y − y0, z − z0
+value = 0
+for dx, dy, dz in {0, 1}:
+    weight = (dx ? tx : 1 − tx) · (dy ? ty : 1 − ty) · (dz ? tz : 1 − tz)
+    value = value + weight · V(x0 + dx, y0 + dy, z0 + dz)</code></pre>
+<p>The check: a volume whose values grow linearly with the position is reproduced exactly between the voxels.</p>
+<p><strong>R2.</strong> <code>sample_ray(vol, spacing, start, dir, step, n)</code>: <span class="math inline">n</span> samples at the world points <span class="math inline">\mathbf s + k\,\Delta s\,\mathbf d</span> (in millimetres), each divided by the voxel spacing to get voxel coordinates, then sampled with <code>trilinear</code>.</p>
+<p><strong>R3.</strong> <code>front_to_back(samples, eps)</code> and <code>back_to_front(samples)</code>: compositing.</p>
+<pre><code>front to back:                         back to front:
+C = 0, T = 1                           C = 0
+for each sample (c, α), eye first:     for each sample (c, α), far end first:
+    if T &lt; eps: stop                       C = α c + (1 − α) C
+    C = C + T α c
+    T = T (1 − α)</code></pre>
+<p>The checks are B1 (b), (c) and (d): the same final colour both ways, and the early stop after sample 4.</p>
+<p><strong>R4.</strong> <code>opacity_correct(alpha0, ratio)</code>: <span class="math inline">1 - (1 - \alpha_0)^{\Delta s/\Delta s_0}</span>. The checks are B2 and B3: with the correction a slab has opacity 0.950 whatever the step.</p>
+<p><strong>R5.</strong> <code>iso_crossing(values, c)</code>: the first <span class="math inline">i</span> with <span class="math inline">v_i &lt; c \le v_{i+1}</span>, refined to <span class="math inline">i + (c - v_i)/(v_{i+1} - v_i)</span>. The check is B6.</p>
+<p>Then <code>cargo run -p day48 -- volrender</code> and open the pictures in <code>out/volrender/</code>. The program builds a synthetic head of <span class="math inline">64\times64\times40</span> voxels of <span class="math inline">1\times1\times1.6</span> mm (skin, skull, brain, ventricles, an air cavity and a thin vessel tree) and casts one ray per pixel, orthographically:</p>
+<ul>
+<li><code>mip-front.png</code>, <code>mip-side.png</code>, <code>average-front.png</code>: projections;</li>
+<li><code>dvr-*.png</code>: volume rendering, turned by 30°, with a transfer function that makes the vessels red and nearly opaque, the skull fairly opaque and the brain faint; with steps of 0.5, 3, 1 and 0.25 mm, and at 0.25 mm once without opacity correction. It prints the mean opacity <span class="math inline">1 - T</span> of the rays;</li>
+<li><code>samples-per-ray.png</code>: how many samples each ray takes with early termination at <span class="math inline">\varepsilon = 0.05</span> (white = all 200);</li>
+<li><code>iso-60.png</code>, <code>iso-135.png</code>, <code>iso-200.png</code>: isosurfaces by ray casting, lit with the gradient.</li>
+</ul>
+<p><strong>R6.</strong> Compare <code>mip-front.png</code>, <code>mip-side.png</code> and <code>average-front.png</code>. Which structures does each show? Can you tell from the MIPs which branch of the vessel tree is in front?</p>
+<p><strong>R7.</strong> Compare <code>dvr-step0.5.png</code> with <code>dvr-step3.png</code>, and read the printed mean opacities. Which artefact does the large step give? What happens at 0.25 mm without opacity correction, and why (B2)?</p>
+<p><strong>R8.</strong> Look at <code>samples-per-ray.png</code> and the printed numbers. Which rays stop early, and which take all their samples? Why is the saving over the whole image modest?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day48-graphics3d/src/volrender/solution.rs</code> in the download.</p>
+<p><strong>R6.</strong> The MIPs show the vessel tree (value 230), the brightest thing on its rays, inside a grey disc (the head’s brightest tissue on the other rays). From the front the tree is a Y; from the side the two branches lie on top of each other and cross. A MIP keeps no depth: one view cannot tell which branch is nearer; comparing the two views (or rotating) can. The average is like an X-ray: soft, with the darker ventricles and the air cavity showing as holes, and the vessels barely visible.</p>
+<p><strong>R7.</strong> At a step of 3 mm the skull is covered in concentric rings (wood grain): all rays sample at the same depths, and the thin shell is caught at different phases from pixel to pixel. At 0.5 mm the surface is even. With opacity correction the mean opacity hardly depends on the step (0.540 at 0.5 mm, 0.542 at 1 mm, 0.539 at 0.25 mm; 0.548 at 3 mm, where thin layers are sampled badly). Without correction at 0.25 mm it rises to 0.573: four samples per millimetre each get the opacity meant for a whole millimetre, so the image is too opaque.</p>
+<p><strong>R8.</strong> Rays that graze the skull (the dark rim) stop first, after a long path through bone (the earliest after 78 samples), and rays that hit a vessel stop soon after it. A ray through the middle of the head crosses the near skull and the faint brain and stops only at the far side of the skull (149 samples at pixel (80, 64)). Rays outside the head take all 200 samples. Over the image the average falls from 200 to 158.8 samples per ray (8704 of 16 384 rays stop early): about a fifth saved, because the empty rays around the head and the rays through the faint brain never become opaque. Skipping empty space needs another trick.</p>
 </div>
 </div>
 </div>

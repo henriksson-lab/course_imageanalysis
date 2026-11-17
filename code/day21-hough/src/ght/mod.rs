@@ -1,0 +1,21 @@
+//! Coding exercises for the unit "The generalised Hough transform".
+//!
+//! Write your code in `src/ght/exercise.rs`. Check it with `cargo test -p day21 ght::`, and run it
+//! on a synthetic scene of keys with `cargo run -p day21 -- ght` (pictures in `out/ght/`).
+//! `src/ght/solution.rs` is a model solution: `cargo test -p day21 --features solution ght::`.
+//! `src/sim.rs` makes the test images and draws the results; it is not part of the exercise.
+
+pub mod sim;
+
+#[cfg(not(feature = "solution"))]
+mod exercise;
+#[cfg(not(feature = "solution"))]
+pub use exercise::*;
+
+#[cfg(feature = "solution")]
+mod solution;
+#[cfg(feature = "solution")]
+pub use solution::*;
+
+/// The program of this unit: `cargo run -p day21 -- ght`.
+pub mod run;

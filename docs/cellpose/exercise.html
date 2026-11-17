@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-flowtrack" id="toc-explore-flowtrack" class="nav-link" data-scroll-target="#explore-flowtrack">Explore: following the arrows</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: Cellpose on real images</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9211,6 +9212,48 @@ Solutions
 <p><strong>E5.</strong> Default diameter 29 (network on 407 × 304, 6 tiles): 107 cells, <strong>F1 0.921</strong> (TP 93, FP 14, FN 2). Diameter 15 (788 × 589, 20 tiles, about 13 s): 109 cells, F1 0.892 (91, 18, 4): more splits. Diameter 58 (203 × 152, one tile): 96 cells, F1 0.953 (91, 5, 4): fewer false positives here; most of the default’s FP are large nuclei split in two, which a coarser view keeps whole. Diameter 8 (1479 × 1105, 63 tiles, much slower): 143 masks, the flow check removes 49, 94 cells, F1 0.836 (79, 15, 16): the nuclei look like 2–4 times their training size and break up. Diameter 100 (118 × 88): only 7 cells, F1 0.137 (7, 0, 88): nuclei of 5 network pixels are not recognised at all. So the network tolerates about a factor of 2 either way (its training images were randomly rescaled), not more. Estimate diameter on the cells sample: the network is run at diameter 30 and its style vector gives about <strong>30.4 px</strong>, so the slider goes back to 30 and the result is the default one.</p>
 <p><strong>E6.</strong> Pixels tracked: 5614 at −2, 4579 at 0, 3721 at +2. Masks: 40, 36 and 35; removed by the flow check: 7, 3 and 2; 33 cells each time. Median diameter: 14.0, 13.0 and 12.2 px. F1: 0.957 (TP 33, FP 0, FN 3) at −2 and at 0; 0.928 (32, 1, 4) at +2. On this image the threshold mostly moves the <strong>borders</strong>: −2 gives fatter masks and a few extra fragments of background, which the flow check removes; +2 gives thinner masks, and one nucleus shrinks below IoU 0.5 (an FN plus an FP). The three missed nuclei stay missed at −2: lowering the threshold does not recover them here.</p>
 <p><strong>E7.</strong> (a) Inverted (the default for this sample): 70 cells, F1 0.871 (TP 61, FP 9, FN 9). Not inverted: the nuclei network sees dark nuclei on a bright background, the opposite of its training data; 48 masks, 25 removed by the flow check, 23 kept, all on the light <strong>gaps between</strong> nuclei: F1 0.000. A generalist still has a domain; polarity is the user’s job. (b) Dense (313 nuclei): 301 cells, F1 0.958 (TP 294, FP 7, FN 19); the readout’s errors include about 5 merges and 2 splits (measured from the overlap table). A merge shows as one colour wheel spanning two touching nuclei (no reversal of the colours at the contact); a split as two wheels inside one nucleus, typically an elongated or dividing one. (c) Depends on your image; the explanation is always in the Flows view (two wheels in one object, or one wheel over two).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day40-cellnets/src/cellpose/exercise.rs</code>. As in the flowtrack demo, the “network” of the program is simulated: its arrows are the exact training targets, with or without noise. The target and the whole decoding are yours.</p>
+<p><strong>C1.</strong> <code>heat_target(mask, steps)</code>: the training target of one cell. The source is the cell pixel nearest the median of the cell’s <span class="math inline">x</span> and <span class="math inline">y</span> coordinates (given).</p>
+<pre><code>heat = 0 everywhere
+repeat steps times:
+    heat(source) = heat(source) + 1
+    for every cell pixel p:
+        new(p) = mean of heat over the pixels of the 3 × 3 neighbourhood of p that lie in the cell
+    heat = new</code></pre>
+<p>The checks are B1 (a) and (c).</p>
+<p><strong>C2.</strong> <code>arrows(heat, mask)</code>: at every cell pixel the vector (heat right − heat left, heat below − heat above), with 0 for neighbours outside the cell, scaled to length 1. The checks are B1 (b) and (c), and a disc whose arrows must point to its centre.</p>
+<p><strong>C3.</strong> <code>follow(flow, mask, steps)</code>: put a particle on every pixel of the mask and move it along the arrows. The position is a real number; the arrow is read at the nearest pixel:</p>
+<pre><code>for every mask pixel p:
+    x = p
+    repeat steps times:
+        x = x + arrow at (x rounded to a pixel)
+    end(p) = x</code></pre>
+<p><strong>C4.</strong> <code>group_ends(ends, mask, min_count)</code>: count the end points in every pixel. The pixels with at least <code>min_count</code> end points are sink pixels, and sink pixels that touch (8-neighbours) form one sink. Number the sinks 1, 2, … (flood fill, as in connected components). A mask pixel gets the number of the sink its particle ended in, or 0 if it ended elsewhere. The checks are B2 (with both an even and an odd number of steps) and B5.</p>
+<p><strong>C5.</strong> <code>flow_error(predicted, own)</code>: the mean of <span class="math inline">|\text{predicted arrow} - \text{own arrow}|^2</span> over the pixels of a mask. The check is B3 (a) and (b).</p>
+<p>Then <code>cargo run -p day40 -- cellpose</code> and open the pictures in <code>out/cellpose/</code>. The scene has five cells: a C, a bent rod, a disc and two touching discs (<code>truth.png</code>). The program decodes it six ways and prints the objects, the masks removed by the flow check (threshold 0.4) and TP, FP and FN at IoU ≥ 0.5. Sinks need at least 3 end points per pixel.</p>
+<p><strong>C6.</strong> Compare <code>heat-c-10.png</code> with <code>heat-c-192.png</code> (the C’s heat after 10 steps and after the default 2 × (width + height) steps, on a log scale). Then compare the runs with 200 and with 10 Euler steps, with and without the flow check. Which cells suffer from too few steps, and why those? What does the flow check do with the pieces?</p>
+<p><strong>C7.</strong> Noisy arrows (<code>flows-noisy.png</code>), with and without the flow check, and the shared field of the touching pair. Which errors appear, and which of them does the flow check catch? Why does it not catch the merge?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day40-cellnets/src/cellpose/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> After 10 steps only a spot around the source on the back of the C has heat. After 192 steps the whole C is warm, warmest at the source, so every pixel has an arrow that leads around the bend (as in F1). Exact arrows with 200 Euler steps give all 5 cells (TP 5, FP 0, FN 0). With 10 steps, 714 pixels end on the way to their sink. The particles that stop in the same place still form 26 small “sinks”, so without the flow check there are 26 objects: TP 4, FP 22, FN 1. The bent rod suffers most: its longest path, from a tip to the middle, is far longer than 10 pixels. Only its middle becomes a mask, too small to match (FN), and the mask counts as an FP. The C keeps its back but loses the tips of its arms, which still matches. The discs are fine: their longest path is their radius, 13 to 15 pixels, and the particles that are short of the centre still end within the sink. The flow check removes 21 of the small pieces, whose arrows point to a centre elsewhere: 5 objects, TP 4, FP 1, FN 1, and 806 cell pixels without an object. As in F3 and E3, the count looks almost normal, but the masks are wrong.</p>
+<p><strong>C7.</strong> Smooth noise on the arrows creates extra sinks. Without the flow check: 14 objects, TP 5, FP 9. The C breaks into several pieces (the largest still matches), and smaller pieces appear elsewhere, for example at the edge of the touching pair. With the check, 10 masks are removed and 4 objects remain: the rod, the disc and the pair are found, but the C is lost completely (FN 1), because each of its pieces has arrows that point to the other sinks. As in F4, the check turns a split into a miss. With the shared field, the pair comes out as one object (4 objects, TP 4, FN 1), and the check removes nothing. The merged mask’s own target is computed from the merged mask, and that is exactly the shared field that was predicted. So its flow error is 0. The flow check can only find arrows that do not fit their mask, not a mask that is one cell too many.</p>
 </div>
 </div>
 </div>

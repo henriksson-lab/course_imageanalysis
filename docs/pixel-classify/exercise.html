@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: an SVM in the pixel classifier</a></li>
   <li><a href="#explore-cv" id="toc-explore-cv" class="nav-link" data-scroll-target="#explore-cv">Explore: training error, test error and cross-validation in 2D</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9233,6 +9234,54 @@ Solutions
 <p><strong>C2.</strong> The test error is lowest around <span class="math inline">\gamma = 0.3</span>–1 (12–13%). At <span class="math inline">\gamma = 10</span> the training error is 3% but the test error 32%; at <span class="math inline">\gamma = 20</span> the training error is 0% and the test error 35%. Small bumps memorise the training points, including the mislabelled ones.</p>
 <p><strong>C3.</strong> Best cell: <span class="math inline">C = 10</span>, <span class="math inline">\gamma = 0.1</span>, CV error 13%. With it, the test error is 14.0%, close to the best the test curves showed (12%). Cross-validation used only the training points and still found a setting near the best for new data.</p>
 <p><strong>C4.</strong> Best cell: <span class="math inline">C = 1</span>, <span class="math inline">\gamma = 0.01</span>, CV error 11%; test error 12.0%. The two blobs overlap and the best boundary is a straight line; a small <span class="math inline">\gamma</span> (length scale 10, wider than the data) gives an almost linear boundary, while a large <span class="math inline">\gamma</span> only fits the noise in the overlap (at <span class="math inline">\gamma = 100</span> the CV error is about 50%).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day34-svm/src/pixel_classify/exercise.rs</code>. A pixel is a list of features; classes are numbered <span class="math inline">0, 1, 2, \dots</span></p>
+<p><strong>C1.</strong> <code>fit_standardise(points)</code> and <code>standardise(x, mean, sd)</code>: the mean <span class="math inline">\mu_j</span> and standard deviation <span class="math inline">s_j</span> of every feature over the training pixels (divide by <span class="math inline">n</span>), and the z-scores <span class="math inline">z_j = (x_j - \mu_j)/s_j</span> of one pixel. The check is B1(b).</p>
+<p><strong>C2.</strong> <code>class_weights(classes, k)</code>: the balancing weight <span class="math inline">n/(k\,n_c)</span> of every class. The check is B4(a).</p>
+<p><strong>C3.</strong> <code>train_linear_svm(points, labels, weights, c, steps)</code>: the linear SVM of the <a href="../maxmargin/exercise.html#code">maximum-margin unit</a>, with a weight per pixel: a violation by pixel <span class="math inline">i</span> costs <span class="math inline">C \cdot \text{weight}_i</span>.</p>
+<pre><code>w = 0;  b = 0
+for t = 1, 2, ..., steps:
+    g_w = w;  g_b = 0
+    for every training pixel i with y_i · f(x_i) &lt; 1:
+        g_w = g_w − C · weight_i · y_i · x_i
+        g_b = g_b − C · weight_i · y_i
+    move (w, b) a distance 1/√t against (g_w, g_b)
+    remember (w, b) if ½‖w‖² + C Σ_i weight_i · max(0, 1 − y_i f(x_i)) is the smallest so far</code></pre>
+<p>The checks: the street of the lecture example of the maximum-margin unit, and balanced weights moving the threshold of an imbalanced 1D example into the large class.</p>
+<p><strong>C4.</strong> <code>train_one_vs_rest(points, classes, k, c, steps, balanced)</code> and <code>predict_one_vs_rest(models, x)</code>: one SVM per class (that class <span class="math inline">+1</span>, all others <span class="math inline">-1</span>), and the class with the largest <span class="math inline">f</span>. The check of the prediction is B2.</p>
+<p><strong>C5.</strong> <code>cross_validate(points, classes, folds, n_folds, fit_predict)</code>: the error of <span class="math inline">k</span>-fold cross-validation, for any classifier <code>fit_predict</code> (which also does its own standardisation, as in B5):</p>
+<pre><code>wrong = 0
+for f = 0, 1, ..., n_folds − 1:
+    train = the pixels with folds[i] ≠ f;   held out = the pixels with folds[i] = f
+    predictions = fit_predict(train, classes of train, held out)
+    wrong = wrong + number of held-out pixels predicted wrongly
+return wrong / number of pixels</code></pre>
+<p>A check makes 20 strokes of nearly identical pixels with a <strong>random</strong> class each, so that there is nothing to learn, and expects nearest-neighbour cross-validation to look perfect with folds by pixel and to be near chance with folds by stroke (B3(c)).</p>
+<p>Then <code>cargo run -p day34 -- pixel-classify</code> and open the pictures in <code>out/pixel-classify/</code>. The program paints 22 short strokes on a synthetic fluorescence image (<code>strokes.png</code>: 16 on the background, 4 in nuclei, 2 on the edges of nuclei), computes four features per pixel (grey value and <span class="math inline">5 \times 5</span> local mean in camera counts 0 to 4095, local standard deviation and gradient on a scale 0 to 1), trains one-vs-rest linear SVMs and classifies every pixel (<code>truth.png</code> is the answer; one colour per class).</p>
+<p><strong>C6.</strong> Compare <code>raw-features.png</code> with <code>standardised.png</code>, and the printed standard deviations of the four features. What goes wrong without standardisation?</p>
+<p><strong>C7.</strong> Compare <code>standardised.png</code> with <code>standardised-balanced.png</code>: which class gains from the balancing weights, and what does it cost?</p>
+<p><strong>C8.</strong> Read the printed cross-validation errors, by pixel and by stroke. Which is larger, and for which classifier is the difference largest? Which <span class="math inline">C</span> would you choose?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day34-svm/src/pixel_classify/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> The standard deviations of the painted pixels are about 937 and 876 for grey value and local mean, and 0.036 and 0.235 for local standard deviation and gradient. On the raw features only 82.1 % of the pixels are correct, and the classifier finds 98 % of the background, but 0 % of the nuclei and 0 % of the edges: the picture is background with some speckle. In raw units the weights on the two large features must be tiny, and the street and the steps of the descent are measured in units where the small features hardly count. Standardised, 97.5 % are correct (100 %, 97 %, 82 % of background, nucleus and edge).</p>
+<p><strong>C7.</strong> The edges: with balancing weights 88 % of the edge pixels are found instead of 82 %, and 98.2 % of all pixels are correct instead of 97.5 %. The price: slightly fewer nucleus pixels are found (94 % instead of 97 %), because the edge class now claims more of the boundary between the two. Only 17 edge pixels were painted, against 141 background pixels.</p>
+<p><strong>C8.</strong> By stroke, the errors are larger for every classifier: linear SVM 4.5 % against 3.4 % at <span class="math inline">C = 0.01</span> and <span class="math inline">0.1</span>, 6.2 % against 4.0 % at <span class="math inline">C = 1</span>; nearest neighbour 4.0 % against 2.3 %. The difference is largest, relative to the error, for nearest neighbour, which can memorise the neighbouring pixels of the same stroke. By stroke, <span class="math inline">C = 0.01</span> or <span class="math inline">0.1</span> (4.5 %) is best. With so few strokes per class these numbers are rough: one stroke more or less in a fold changes them by a percent or more.</p>
 </div>
 </div>
 </div>

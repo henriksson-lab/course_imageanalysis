@@ -8976,6 +8976,7 @@ window.Quarto = {
   <li><a href="#explore-jointhist" id="toc-explore-jointhist" class="nav-link" data-scroll-target="#explore-jointhist">Explore: joint histogram and similarity</a></li>
   <li><a href="#explore-ffdreg" id="toc-explore-ffdreg" class="nav-link" data-scroll-target="#explore-ffdreg">Explore: free-form registration</a></li>
   </ul></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9189,6 +9190,56 @@ Solutions
 </div>
 </div>
 </section>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day25-opticalflow/src/nonrigid_reg/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>bspline3(t)</code>: the cubic B-spline of the Background table. The checks are the values of B8 and the partition of unity.</p>
+<p><strong>C2.</strong> <code>ffd_displacement(cx, cy, spacing, x, y)</code>: the displacement of a free-form deformation. The coefficients are two small images, one value per control point; control point <span class="math inline">(k, l)</span> sits at pixel <span class="math inline">((k - 1)\Delta, (l - 1)\Delta)</span>, so that one ring of control points lies outside the image. The checks are B1 and B7.</p>
+<pre><code>k0 = ⌊x / Δ⌋,  l0 = ⌊y / Δ⌋
+d = (0, 0)
+for l = l0 .. l0 + 3,  k = k0 .. k0 + 3:            # the 4 × 4 control points nearby
+    w = β(x/Δ − k + 1) · β(y/Δ − l + 1)
+    d = d + w · (cx[k, l], cy[k, l])</code></pre>
+<p><strong>C3.</strong> <code>jacobian_determinant(dx, dy)</code>: at every pixel, by central differences, <span class="math inline">(1 + \partial_x d_x)(1 + \partial_y d_y) - \partial_y d_x\,\partial_x d_y</span>. The check is B3.</p>
+<p><strong>C4.</strong> <code>entropy(p)</code> in bits, and <code>mutual_information(a, b, bins)</code> of two images with values in [0, 1]. The checks are B5 and B4.</p>
+<pre><code>joint = bins × bins zeros
+for every pixel:  joint[bin of a, bin of b] += 1          # bin = min(⌊v · bins⌋, bins − 1)
+p = joint / number of pixels;  pa = row sums of p;  pb = column sums of p
+MI = H(pa) + H(pb) − H(p),   with H(q) = −Σ q log2 q over the non-empty bins</code></pre>
+<p><strong>C5.</strong> <code>register_ssd(fixed, moving, spacing, iterations, step)</code>: gradient descent on the SSD (B11), from zero coefficients.</p>
+<pre><code>∇M = gradient of the moving image (once)
+repeat N times:
+    G = zeros, one pair per control point
+    for every pixel x:
+        d = ffd_displacement(c, x);   r = M(x + d) − F(x)
+        for each of its 4 × 4 control points (k, l), weight w = β β as in C2:
+            G[k, l] += 2 · r · ∇M(x + d) · w
+    c = c − step · G</code></pre>
+<p>The check: a smooth pattern moved by <span class="math inline">(1.5, -1)</span> must be registered to a displacement of <span class="math inline">(1.5, -1)</span>.</p>
+<p>Then <code>cargo run -p day25 -- nonrigid-reg</code> and open the pictures in <code>out/nonrigid-reg/</code>. First the program compares SSD and mutual information (16 bins) on a 96 × 96 crop of the micrograph and a noisy copy, with the same and with inverted contrast, for shifts along <span class="math inline">x</span> from −30 to 30. Then it deforms a 128 × 128 crop with a smooth random free-form deformation (control points every 32 px), so the true displacement is known, and registers it with your <code>register_ssd</code> (control points every 16 px, 200 iterations), once with the same contrast and once with the moving image inverted. The checkerboards alternate the fixed image and the registered moving image in squares of 16 px; the Jacobian pictures run from black (smallest) to white (largest).</p>
+<p><strong>C6.</strong> SSD and MI against the shift: which shift does each pick, with the same and with inverted contrast? Compare the MI at shift 0 in the two cases.</p>
+<p><strong>C7.</strong> The registration with the same contrast: the error against the true displacement before and after, and the range of the Jacobian determinant. Compare <code>checker-before.png</code> with <code>checker-after-same.png</code>.</p>
+<p><strong>C8.</strong> The registration of the inverted image with SSD: what happens to the error and to the Jacobian? Look at <code>checker-after-inverted.png</code> (the registered image is inverted back for the picture). Which measure should the registration have used, and what would it need that this code does not have?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day25-opticalflow/src/nonrigid_reg/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Same contrast: SSD and MI both pick shift 0 (SSD 0.0009, MI 2.16 bits; at a shift of 6 the MI is only 0.12 bits). Inverted: MI still picks 0, with the same 2.16 bits, because inverting only relabels the bins (B10). SSD is 0.40 at shift 0 and picks −30, the end of the tested range: it wants the images to look alike, which an inverted copy never does.</p>
+<p><strong>C7.</strong> The true displacement has a mean of 1.96 px (at most 3.64 px). After registration the mean error is 0.07 px. The Jacobian determinant lies between 0.85 and 1.12: mild compression and stretching, no folding. In <code>checker-before.png</code> the membranes jump at the square borders; in <code>checker-after-same.png</code> they run straight across.</p>
+<p><strong>C8.</strong> The error grows from 1.96 to 10.48 px; the Jacobian runs from −0.54 to 5.30, and 1566 pixels fold. SSD rewards moving bright pixels of the inverted image onto bright pixels of the fixed image, which no smooth deformation can do consistently, and <code>checker-after-inverted.png</code> is crumpled and smeared. The registration should have maximised mutual information, which is as high for the inverted pair as for the original (C6). For gradient descent it needs the derivative of MI with respect to the coefficients, which needs a histogram that changes smoothly with the displacement (each value spread over two neighbouring bins, slide “The math: mutual information”).</p>
+</div>
+</div>
+</div>
 </section>
 <section id="where-this-leads" class="level2">
 <h2 class="anchored" data-anchor-id="where-this-leads">Where this leads</h2>

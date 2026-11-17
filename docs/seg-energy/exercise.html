@@ -8969,6 +8969,7 @@ window.Quarto = {
   <li><a href="#background" id="toc-background" class="nav-link" data-scroll-target="#background">Background</a></li>
   <li><a href="#by-hand" id="toc-by-hand" class="nav-link" data-scroll-target="#by-hand">By hand</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9162,6 +9163,50 @@ Solutions
 <p><strong>E3.</strong> One boundary is left, between samples 50 and 51, and 14 samples are wrong: the 12 background samples on the left and the 2 samples of the thin structure. One boundary must stay, because labelling everything background (data 258.0) or everything object (248.9) costs more than <span class="math inline">122.7 + 100</span>. With one boundary, the cheaper way is to give the 12 dark samples on the left the object label (they cost 59.7 more data) and save the boundary at the left edge of the cell (100). This happens for <span class="math inline">\lambda</span> above about 59.7 (on the slider from 59.75).</p>
 <p><strong>E4.</strong> With noise 60, thresholding gets 21 samples wrong (31 boundaries); the optimal labelling at <span class="math inline">\lambda = 3</span> gets 9 wrong (9 boundaries). The best on the slider is <span class="math inline">\lambda = 6.25</span> to <span class="math inline">8.75</span>: 5 wrong samples and 4 boundaries. The cell and the thin structure are both found, but the boundaries are off: the cell starts one sample early and ends three samples late, and the thin structure is one sample too wide. From <span class="math inline">\lambda = 9</span> the thin structure is gone (6 wrong). With this much noise, the smoothness term can remove the specks, but it cannot place the boundaries exactly: the data near a boundary are too noisy to say where it is.</p>
 <p><strong>E5.</strong> The threshold moves to <span class="math inline">\tfrac12(60 + 110) = 85</span>. Thresholding now gets 10 samples wrong (bright noise in the background passes the low threshold), and the optimal labelling at <span class="math inline">\lambda = 3</span> still gets 5 wrong: the cell and the thin structure come out too wide, because background samples next to them now look like object. The smoothness term helps, but it cannot fix a wrong <strong>intensity model</strong>: the data term says the wrong thing everywhere. The model (<span class="math inline">\mu_0</span>, <span class="math inline">\mu_1</span>, <span class="math inline">s</span>) has to fit the image; in the <a href="../graphcut-seg/lec.html">graph-cut unit</a> it is estimated from seed pixels.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day27-graphcuts/src/seg_energy/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>data_costs(img, mu0, mu1, s)</code> and <code>energy(labels, d0, d1, lambda)</code>: the data costs <span class="math inline">D_p(\ell) = (I_p - \mu_\ell)^2/2s^2</span> of both labels, and the energy of a labelling with 4-neighbours and <span class="math inline">w_{pq} = 1</span>:</p>
+<pre><code>E = 0
+for every pixel p:
+    E = E + D_p(L_p)
+    if p has a neighbour q to the right and L_p ≠ L_q:  E = E + λ
+    if p has a neighbour q below        and L_p ≠ L_q:  E = E + λ</code></pre>
+<p>(Looking only right and down counts every pair of neighbours once.) The checks are your answers to B1, B2 and B5.</p>
+<p><strong>C2.</strong> <code>threshold(d0, d1)</code>: the minimum for <span class="math inline">\lambda = 0</span>, every pixel its cheaper label. The check is B1.</p>
+<p><strong>C3.</strong> <code>chain_dp(d0, d1, lambda)</code>: the exact minimum on a chain by dynamic programming:</p>
+<pre><code>C(1, ℓ) = D_1(ℓ)                                       for ℓ = 0, 1
+for k = 2, ..., n and ℓ = 0, 1:
+    C(k, ℓ) = D_k(ℓ) + min( C(k−1, ℓ),  C(k−1, 1−ℓ) + λ )
+    from(k, ℓ) = the label of pixel k−1 that gave the minimum
+ℓ = the label with the smaller C(n, ℓ)                 # the minimum energy
+for k = n down to 1:  L_k = ℓ;  ℓ = from(k, ℓ)         # trace back</code></pre>
+<p>The checks are your table of B3, the labellings of B2, the thin structure of B4 (kept at λ = 7.7, dropped at 7.9), and a comparison with trying all 1024 labellings of random chains of 10 pixels.</p>
+<p><strong>C4.</strong> <code>rows_dp(d0, d1, lambda)</code>: <code>chain_dp</code> on every row of an image separately.</p>
+<p>Then <code>cargo run -p day27 -- seg-energy</code> and open the pictures in <code>out/seg-energy/</code>. The program makes a <span class="math inline">128 \times 128</span> image of a disk with a thin diagonal arm (grey levels 80 and 170 of 255, noise 50), and compares thresholding with dynamic programming along the rows for λ = 1.5, 4 and 10. For every labelling it prints the wrong pixels, the number of boundaries (both directions), the data term and the 2D energy at λ = 1.5. Then it treats row 70, through the disk, as a chain.</p>
+<p><strong>C5.</strong> Look at <code>rows-dp-lambda*.png</code>. What is wrong with them? Compare the 2D energy at λ = 1.5 of the rows-by-DP result (λ = 1.5) with that of the truth. Is the result the minimum of the 2D energy? Why not?</p>
+<p><strong>C6.</strong> At λ = 10 the arm is gone from the rows-by-DP result, while the disk survives. Use B4 to explain why. (How wide is the arm within one row?)</p>
+<p><strong>C7.</strong> Count the cost: how many additions and comparisons does <code>chain_dp</code> need for a row of <span class="math inline">n</span> pixels? How many labellings would you have to try instead for a row of 128 pixels?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day27-graphcuts/src/seg_energy/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> The results are made of horizontal streaks: specks have become short horizontal dashes, and the left and right edges of the disk are ragged. Each row is smoothed on its own, and a boundary between two rows costs nothing in the row energy. The 2D energy (λ = 1.5) of the rows-by-DP result is 10057.3, with 1721 boundaries, against 8900.4 for the truth (400 boundaries): the truth is better, so the row result is not the minimum of the 2D energy. It minimises each row, ignoring the vertical boundaries. On a grid the rows are tied to each other through loops, and dynamic programming no longer applies: the next units use graph cuts. (The row result is still much better than thresholding: 591 wrong pixels at λ = 1.5 and 213 at λ = 4, against 3024.)</p>
+<p><strong>C6.</strong> The arm runs diagonally, so in each row it is a piece about 4 pixels wide (3/sin 45°) with two boundaries. As in B4, a short piece survives only if its data gain is more than the 2λ its two boundaries cost. On average an object pixel gains <span class="math inline">(170 - 80)^2/(2 \cdot 50^2) = 1.6</span>, so the 4 pixels gain about 6.5: far less than 20 at λ = 10, and already less than 8 at λ = 4, where the arm is broken into dashes. The disk is up to 61 pixels wide in a row; its gain is far above 20. (Row 70 as a chain: 13 wrong samples at λ = 0, 4 at 1.5, none at 4 and 10; at λ = 100 all 61 disk samples are wrong, because one label for the whole row is cheaper than two boundaries.)</p>
+<p><strong>C7.</strong> For every pixel and both labels one minimum of two sums: about <span class="math inline">4n</span> additions and <span class="math inline">2n</span> comparisons, plus <span class="math inline">n</span> steps back: proportional to <span class="math inline">n</span>. Trying all labellings of 128 pixels means <span class="math inline">2^{128} \approx 3 \cdot 10^{38}</span> labellings.</p>
 </div>
 </div>
 </div>

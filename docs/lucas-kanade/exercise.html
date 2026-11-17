@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9146,6 +9147,94 @@ Solutions
 <p><strong>E6.</strong> 0.35 px at ρ = 1.5, 0.18 at ρ = 3, 0.14 at ρ = 4 and 0.09 at ρ = 6. More pixels per window average the noise of the constraints away. (The motion is a uniform shift, so a larger window costs nothing here.)</p>
 <p><strong>E7.</strong> The truth is <span class="math inline">(0, 0)</span> (the substrate is still), but the estimates are <span class="math inline">(1.60, -0.50)</span> at ρ = 1.5, <span class="math inline">(1.36, -0.38)</span> at ρ = 4 and <span class="math inline">(1.26, -0.61)</span> at ρ = 8. The pixel itself sees little texture (the substrate has low contrast), while its window reaches into the strongly textured moving cell, whose constraint lines dominate the least squares. The cell’s motion leaks out across the boundary, more so for larger windows (the mean EPE rises from 0.26 at ρ = 4 to 0.43 at ρ = 8).</p>
 <p><strong>E8.</strong> 0.07 px with the pyramid against 0.29 px for a single solve. The arrows follow the rotation: short near the centre, longest at the edges (3 px), where the motion is too large for a single linearised solve.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day25-opticalflow/src/lucas_kanade/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>gradients(f1, f2)</code>: <span class="math inline">I_x</span>, <span class="math inline">I_y</span> by central differences of the mean of the two frames (as in B10), and <span class="math inline">I_t = f_2 - f_1</span>.</p>
+<p><strong>C2.</strong> <code>lk_solve(j, b)</code>: solve <span class="math inline">J\mathbf u = -\mathbf b</span> for one window, with <span class="math inline">J = \begin{pmatrix}a &amp; c\\ c &amp; d\end{pmatrix}</span>; then <code>lk_window(pixels)</code>: add up <span class="math inline">J</span> and <span class="math inline">\mathbf b</span> from a list of pixels <span class="math inline">(I_x, I_y, I_t)</span> and solve. The checks are B1, B2, B4 and B5.</p>
+<pre><code>J = (Σ Ix², Σ Ix·Iy, Σ Iy²),   b = (Σ Ix·It, Σ Iy·It)
+det = a·d − c²                              # 0: no unique answer
+u = −( d · b1 − c · b2) / det
+v = −(−c · b1 + a · b2) / det</code></pre>
+<p><strong>C3.</strong> <code>min_eigenvalue(j)</code>: the confidence <span class="math inline">\mu_2 = \tfrac{a + d}{2} - \sqrt{\big(\tfrac{a - d}{2}\big)^2 + c^2}</span>. The checks are B2, B3 and B4.</p>
+<p><strong>C4.</strong> <code>lucas_kanade(f1, f2, rho)</code>: the flow and <span class="math inline">\mu_2</span> at every pixel, with a Gaussian window.</p>
+<pre><code>Ix, Iy, It = gradients(f1, f2)
+Sxx = blur(Ix·Ix, ρ);  Sxy = blur(Ix·Iy, ρ);  Syy = blur(Iy·Iy, ρ)
+Sxt = blur(Ix·It, ρ);  Syt = blur(Iy·It, ρ)
+for every pixel:
+    (u, v) = lk_solve((Sxx, Sxy, Syy), (Sxt, Syt))     # 0 where it fails
+    μ2 = min_eigenvalue((Sxx, Sxy, Syy))</code></pre>
+<p><strong>C5.</strong> <code>pyramid_lk(f1, f2, levels, iterations, rho)</code>: coarse to fine, with warping.</p>
+<pre><code>pyramids of f1 and f2: level 0 = the frames, each next level = blur and keep every second pixel
+u = v = 0 at the coarsest level
+for every level, coarsest first:
+    if not the coarsest: u, v = the flow of the level above, enlarged twice and doubled
+    repeat `iterations` times:
+        g = f2 of this level, read at (x + u, y + v)       # warp back
+        (du, dv) = lucas_kanade(f1 of this level, g)
+        u = u + du;  v = v + dv</code></pre>
+<p>The checks: a smooth pattern moved by <span class="math inline">(0.6, -0.4)</span> (C4) and by <span class="math inline">(5, 3)</span> (C5).</p>
+<p>Then <code>cargo run -p day25 -- lucas-kanade</code> and open the pictures in <code>out/lucas-kanade/</code>. The program moves the micrograph (blurred with σ = 1) by <span class="math inline">s \cdot (0.8, 0.6)</span> px, a shift of length <span class="math inline">s</span>, adds noise, and prints the mean endpoint error for one solve, for 3 warping iterations, and for a pyramid of 4 levels × 3 iterations. Then, with stronger noise (0.05), it tries three window sizes and compares the error where <span class="math inline">\mu_2</span> is small with the rest. Flow pictures use the colour wheel of the previous unit (red = right, white = still).</p>
+<p><strong>C6.</strong> Read the table. Up to which shift does one solve work? What do the warping iterations rescue, and what not? Compare <code>flow-8px-one-solve.png</code> with <code>flow-8px-pyramid.png</code>.</p>
+<p><strong>C7.</strong> With noise 0.05: the mean error for ρ = 1.5, 3 and 6. Why does it fall? What would a large window cost if the motion were not the same everywhere?</p>
+<p><strong>C8.</strong> Where is <span class="math inline">\mu_2</span> small in <code>confidence.png</code> (shown as <span class="math inline">\sqrt{\mu_2}</span>, dark = small)? Compare the error in the lowest tenth of <span class="math inline">\mu_2</span> with the rest, and look at <code>flow-1px-confident.png</code>, where that tenth is grey.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day25-opticalflow/src/lucas_kanade/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Mean endpoint error (px):</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>shift</th>
+<th>one solve</th>
+<th>3 warping iterations</th>
+<th>pyramid 4 × 3</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>0.15</td>
+<td>0.10</td>
+<td>0.11</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>0.38</td>
+<td>0.12</td>
+<td>0.11</td>
+</tr>
+<tr class="odd">
+<td>4</td>
+<td>1.70</td>
+<td>0.78</td>
+<td>0.11</td>
+</tr>
+<tr class="even">
+<td>8</td>
+<td>7.13</td>
+<td>6.78</td>
+<td>0.11</td>
+</tr>
+</tbody>
+</table>
+<p>One solve works up to about a pixel; at 2 px its error is already 0.38. Warping rescues 2 px and halves the error at 4 px: the first estimate points the right way, and each iteration corrects what is left. At 8 px it fails: the first linearisation is meaningless, and warping by a wrong estimate does not help. The pyramid keeps 0.11 px at every shift, because at its coarsest level 8 px is 1 px. <code>flow-8px-one-solve.png</code> is a speckle of all colours (random directions), the pyramid’s flow one even pink-magenta (right and down) everywhere.</p>
+<p><strong>C7.</strong> 0.61 px at ρ = 1.5, 0.39 at ρ = 3, 0.31 at ρ = 6: more pixels per window average the noise in <span class="math inline">\mathbf b</span> away. Here the motion is the same everywhere, so a large window costs nothing; at a motion boundary a large window mixes the two motions (E7).</p>
+<p><strong>C8.</strong> <span class="math inline">\mu_2</span> is smallest inside the nucleus, where the texture is fine and faint, and in the other smooth, darker regions (bottom left); it is largest in the bright, finely textured cytoplasm. In the lowest tenth of <span class="math inline">\mu_2</span> the mean error is 0.63 px, elsewhere 0.37 px: noise is amplified by <span class="math inline">1/\mu_2</span> (B5). The grey patches of <code>flow-1px-confident.png</code> lie mostly in the nucleus, a few near the image edges.</p>
 </div>
 </div>
 </div>

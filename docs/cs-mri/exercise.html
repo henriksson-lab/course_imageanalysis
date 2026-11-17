@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9138,6 +9139,93 @@ Solutions
 <p><strong>E4.</strong> CS: 27.1 dB at 4×, 24.6 dB at 6×, then 21.0 dB at 8× and 20.7 dB at 10×, barely better than zero filling (19.9 and 19.7 dB): the image breaks into blocks. The drop between 6× and 8× is the abrupt failure of the phase transition.</p>
 <p><strong>E5.</strong> At 4× the lesions are not visible (the error map shows them as small dots of the missing contrast). Lowering λ lets more small coefficients through, so faint structure returns, but so do the noise-like artefacts: there is no λ that keeps the lesions and removes the artefacts, because both consist of small coefficients.</p>
 <p><strong>E6.</strong> TV turns the texture into flat patches with sharp boundaries (cartoon); Haar wavelets give blocks. Both remove fine, low-contrast texture, which is not sparse in either representation. This is why MRI images (mostly smooth tissue regions with edges) suit compressed sensing better than textured micrographs.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day11-sparse/src/cs_mri/exercise.rs</code>. k-space is the 2D DFT of the image (computed with the fast transform, from the Fourier unit), and one line is one row of it; the 2D Haar transform of the wavelets day is given.</p>
+<p><strong>C1.</strong> <code>variable_density_mask(n, lines, centre, q, seed)</code>: which of the <code>n</code> lines to measure:</p>
+<pre><code>measure every line with |frequency| ≤ centre/2
+while fewer than `lines` lines are measured:
+    draw one line f &gt; 0 not yet measured, with probability ∝ (1 − |f| / (n/2))^q
+    measure f and −f                     # the phantom is real: k and −k come together</code></pre>
+<p>The checks: the number of lines, the full centre, the pairs <span class="math inline">f, -f</span>, and that lines near the centre are drawn far more often.</p>
+<p><strong>C2.</strong> <code>zero_filled(img, mask)</code>: 2D DFT, the rows that were not measured set to 0, inverse DFT, real part. The checks are D2 (a) and (b): the 8-sample profile with a 5 at row 2 comes back as 2.5 at rows 2 and 6 (every 2nd line) and 1.25 at rows 0, 2, 4, 6 (every 4th).</p>
+<p><strong>C3.</strong> <code>data_consistency(x, kspace, mask)</code>: the gradient step with step 1 (D7):</p>
+<pre><code>K = 2D DFT of x
+on every measured line: K = the measured data
+x_new = real part of the inverse 2D DFT of K</code></pre>
+<p>The checks: with all lines measured the result is the truth; with none, <span class="math inline">\mathbf x</span> does not change; otherwise the measured lines agree with the data afterwards.</p>
+<p><strong>C4.</strong> <code>cs_reconstruct(kspace, mask, λ, levels, iterations)</code>: the CS-MRI reconstruction with FISTA and Haar-wavelet ℓ1:</p>
+<pre><code>x = zero-filled image,  z = x,  t = 1
+repeat:
+    g = data_consistency(z)
+    c = Haar transform of g
+    soft-threshold every detail coefficient of c at λ   # keep the coarse averages
+    x_new = inverse Haar transform of c
+    t_new = (1 + sqrt(1 + 4 t²)) / 2
+    z = x_new + (t − 1)/t_new · (x_new − x)
+    x = x_new,  t = t_new</code></pre>
+<p>The checks: on a piecewise-constant 64 × 64 image with a third of the lines, CS has a clearly smaller error than zero filling; with all lines and λ = 0 it returns the truth.</p>
+<p>Then <code>cargo run -p day11 -- cs-mri</code> and open the pictures in <code>out/cs-mri/</code>. The program takes the 256 × 256 head phantom (no noise) and four masks: the 63 central lines, every 2nd line plus a centre of 17, and random variable-density masks (centre 16, q = 3) with 4× and 8× fewer lines. It writes the masks (frequency 0 in the middle), the zero-filled images and the CS reconstructions (λ = 0.01, 5 Haar levels, 100 iterations), and does the same at 4× for a phantom with five small faint lesions, shown with a narrow grey window.</p>
+<p><strong>C5.</strong> Make a table of the printed PSNRs (zero filled and CS) for the four masks. For each mask, what does CS change in the picture, and what does it not change?</p>
+<p><strong>C6.</strong> Compare <code>lesions.png</code> with <code>lesions-cs-random4x.png</code>. Can you find the five lesions in the reconstruction? What PSNR does the program print for it, and what does that tell you?</p>
+<p><strong>C7.</strong> Count the cost of one iteration on a 256 × 256 image: a 2D FFT needs about <span class="math inline">N^2\log_2 N</span> butterfly operations for an <span class="math inline">N \times N</span> image. Compare with multiplying by the matrix <span class="math inline">PF</span> written out (<span class="math inline">N^2</span> unknowns, up to <span class="math inline">N^2</span> measurements).</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day11-sparse/src/cs_mri/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>mask</th>
+<th>lines</th>
+<th>zero filled</th>
+<th>CS</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>centre only</td>
+<td>63 (4.1×)</td>
+<td>24.4 dB</td>
+<td>22.8 dB</td>
+</tr>
+<tr class="even">
+<td>every 2nd + centre</td>
+<td>136 (1.9×)</td>
+<td>20.9 dB</td>
+<td>23.9 dB</td>
+</tr>
+<tr class="odd">
+<td>random, 4×</td>
+<td>65 (3.9×)</td>
+<td>20.6 dB</td>
+<td>28.5 dB</td>
+</tr>
+<tr class="even">
+<td>random, 8×</td>
+<td>33 (7.8×)</td>
+<td>18.7 dB</td>
+<td>20.4 dB</td>
+</tr>
+</tbody>
+</table>
+<p>Centre only: CS removes the ringing, but the edges stay soft along <span class="math inline">y</span> and the small bright discs lose contrast; the PSNR even falls, because the high frequencies were never measured and the threshold costs contrast. Every 2nd line: the ghost copy of the bright rim stays in the CS image as arcs across the head (the ghost is as sparse as the object). Random 4×: the streaks are gone and the edges are sharp, with some Haar blockiness: +7.9 dB. Random 8×: the image breaks into blocks; CS gains only 1.7 dB.</p>
+<p><strong>C6.</strong> In the phantom the five faint discs are visible as small grey dots in the narrow window. In the CS reconstruction at 4× they cannot be told apart from the blocky texture of the brain region. The PSNR is 28.5 dB, the same as for the phantom without lesions: losing the lesions costs almost nothing in PSNR, so a good PSNR says nothing about small, faint details.</p>
+<p><strong>C7.</strong> <span class="math inline">N = 256</span>: <span class="math inline">256^2 \cdot 8 \approx 5 \cdot 10^5</span> per 2D FFT, about <span class="math inline">10^6</span> for the two FFTs of one iteration, plus a Haar transform pair (a few operations per pixel). The matrix <span class="math inline">PF</span> written out has up to <span class="math inline">65\,536^2 \approx 4.3 \cdot 10^9</span> complex entries: thousands of times more work per multiplication, and tens of gigabytes of memory.</p>
 </div>
 </div>
 </div>

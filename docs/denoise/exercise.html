@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: denoisers</a></li>
   <li><a href="#explore-measure" id="toc-explore-measure" class="nav-link" data-scroll-target="#explore-measure">Explore: what may be measured</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9223,6 +9224,54 @@ Solutions
 <p><strong>M3.</strong> Raw: 4.95 px (truth 5.92): the blur pulls the two maxima together. RL <span class="math inline">k</span> = 100: 5.85 px; <span class="math inline">k</span> = 1000: 5.62 px. Restoration reduces the bias but the result depends on the stopping point; at 3000 photons the raw value is 6.11 and RL gives about 6.0. Validate separations with pairs of known distance.</p>
 <p><strong>M4.</strong> Raw 11, restored (<span class="math inline">k</span> = 1000) 259, truth 11. At <span class="math inline">k</span> = 100 the count is still 11; at <span class="math inline">k</span> = 316 it is 64: the noise has been turned into speckles above the threshold. Counting on restored images needs a stopping rule and validation.</p>
 <p><strong>M5.</strong> Wiener (SNR 300) at 1000 photons: peak ratio 3.66, integrated 4.27, FWHM 3.53 px, separation 5.82 px, 16 spots. RL at <span class="math inline">k</span> = 100: 4.75, 4.38, 2.22 px, 5.85 px, 11 spots. Wiener sharpens much less (the FWHM stays large) and its ringing adds a few false maxima; RL sharpens more and keeps a correct count at this stopping point. Neither keeps peak ratios.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day05-deconvolution/src/denoise/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>median_filter(img, radius)</code>: the middle value of the <span class="math inline">(2r + 1) \times (2r + 1)</span> window around every pixel (mirror the image at its edges).</p>
+<pre><code>for every pixel p:
+    values = the pixels of the window around p
+    sort values
+    out(p) = values[middle]</code></pre>
+<p>The checks are your answers to B1(a) and B1(c), and isolated outliers vanish.</p>
+<p><strong>C2.</strong> <code>bilateral(img, radius, sigma_s, sigma_r)</code>: a weighted mean over the window, each neighbour weighted by how close and how similar it is:</p>
+<pre><code>for every pixel p:
+    sum = 0, total = 0
+    for every neighbour q in the window:
+        w = exp(−|p − q|² / 2σs²) · exp(−(I(p) − I(q))² / 2σr²)
+        sum = sum + w · I(q);  total = total + w
+    out(p) = sum / total</code></pre>
+<p>The checks: B2 (10.007, and a weight of 0.5 for the 50 at <span class="math inline">\sigma_r = 34</span>, which gives 18), and with a huge <span class="math inline">\sigma_r</span> it is a Gaussian-weighted mean.</p>
+<p><strong>C3.</strong> <code>nonlocal_means(img, patch, search, h)</code>: the same weighted mean, over a larger search window, with weights from whole patches:</p>
+<pre><code>for every pixel p:
+    for every pixel q in the search window (inside the image):
+        d² = mean over the patch offsets o of (I(p + o) − I(q + o))²
+        w = exp(−d² / h²)
+    out(p) = (sum of w · I(q)) / (sum of w)</code></pre>
+<p>The checks: with a tiny <span class="math inline">h</span> only the pixel itself matches and the image is unchanged, and on a noisy lattice of dots the error drops.</p>
+<p>Then <code>cargo run -p day05 -- denoise</code> and open the pictures in <code>out/denoise/</code>. The program builds a test image like the lecture’s (a step, a ramp crossed by a 1-pixel line, a lattice of dots, one unique spot; <code>truth.png</code>), adds Gaussian noise of 20 grey levels, and denoises it with a Gaussian blur (<span class="math inline">\sigma</span> = 1.5), your median (<span class="math inline">3 \times 3</span> and <span class="math inline">5 \times 5</span>), bilateral (<span class="math inline">\sigma_s</span> = 2, <span class="math inline">\sigma_r</span> = 30) and non-local means (patch <span class="math inline">3 \times 3</span>, search <span class="math inline">15 \times 15</span>, <span class="math inline">h</span> = 30). It prints the PSNR on the whole image and on each quarter, and the values of a line pixel and of the centre of the spot. For each filter it also writes the method noise (noisy − denoised, 0 = grey). At the end it does the same for salt-and-pepper noise.</p>
+<p><strong>C4.</strong> Which filter has the best PSNR overall, and which is worse than doing nothing? Find the quarter that explains each.</p>
+<p><strong>C5.</strong> Follow the line pixel and the centre of the spot through the table. Which filters erase the line? What happens to the spot with non-local means, and why?</p>
+<p><strong>C6.</strong> Look at the method-noise pictures. Which of them show structure, and which look like pure noise? Then compare <code>salt-pepper-gaussian.png</code> and <code>salt-pepper-median3.png</code>.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day05-deconvolution/src/denoise/solution.rs</code> in the download.</p>
+<p><strong>C4.</strong> The noisy image has 22.1 dB. Non-local means is best overall (32.7 dB; 38.9 on the step and 37.8 on the quarter with the spot, where the flat areas find many similar patches), then the bilateral filter (29.5 dB), the <span class="math inline">3 \times 3</span> median (25.5 dB). The Gaussian (19.2 dB) and the <span class="math inline">5 \times 5</span> median (17.3 dB) are worse than doing nothing: both wipe out the lattice (13.6 and 11.5 dB in that quarter, against 22.1 noisy). The dots cover 12 pixels (4 across); the <span class="math inline">5 \times 5</span> median sees them as a minority in every window. In the other quarters both still gain.</p>
+<p><strong>C5.</strong> The line pixel (truth 191, ramp beside it about 111) drops to 118 and 122 with the two medians: the line is a minority in every window and is erased (B1c). The Gaussian smears it to 133. The bilateral filter keeps it (187); non-local means weakens it (162), because few patches elsewhere contain the line. The spot’s centre (truth 220) is blurred down by the Gaussian (173) and the <span class="math inline">5 \times 5</span> median (192). With non-local means it keeps its noisy value, 236: no other patch looks like the spot, so the pixel is averaged only with itself and is not denoised at all. With a larger <span class="math inline">h</span> it would be averaged with dissimilar patches and fade instead (the lecture’s “smears the unique spot”).</p>
+<p><strong>C6.</strong> The Gaussian’s method noise shows the step edges, the line, the whole lattice and the spot: it removed signal everywhere. The <span class="math inline">3 \times 3</span> median’s shows mainly the line. The bilateral’s and non-local means’ look like pure noise, with only the line faintly visible. Salt and pepper: the Gaussian turns every outlier into a grey smudge (19.8 dB), while the median removes almost all of them and keeps the edges sharp (23.4 dB, from 15.4).</p>
 </div>
 </div>
 </div>

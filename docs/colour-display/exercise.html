@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: colour maps</a></li>
   <li><a href="#explore-pca" id="toc-explore-pca" class="nav-link" data-scroll-target="#explore-pca">Explore: PCA of the colour cloud</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9204,6 +9205,52 @@ Solutions
 <p><strong>P2.</strong> The sheet swells towards a round blob: the thin directions are stretched by large factors, the third one most (its σ is tiny, so the gain is about 63). The image becomes garish, but nuclei and stroma now differ strongly in colour. Values pushed outside <span class="math inline">[0, 1]</span> are clipped (14 % of the pixels), which is why some areas are flat saturated colours. A gain this large on the third axis would also amplify any noise along it.</p>
 <p><strong>P3.</strong> PC1 is <span class="math inline">(0.55, 0.64, 0.54)</span>, close to the grey diagonal <span class="math inline">(0.58, 0.58, 0.58)</span>: brightness (shading, shadow). It carries 77.2 % of the variance (standard deviations 0.309, 0.143, 0.088). As in B4, the correlated channels make one long axis along “all channels together”.</p>
 <p><strong>P4.</strong> The stretched image exaggerates colour differences: the table, the shadow and the objects separate more by colour, and subtle tints (such as the faint cast of the shadow) are easier to see. The colours are false and depend on the image’s own statistics: do not measure colours or intensities on it, and do not compare stretched images of different scenes as if their colours meant the same.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day42-colour/src/colour_display/exercise.rs</code>. Colours are encoded sRGB values in <span class="math inline">[0, 1]</span>; the maps are given as equally spaced anchor colours (viridis, jet and a blue–white–red map are in the file).</p>
+<p><strong>C1.</strong> <code>position(v, lo, hi)</code> and <code>colour_map(img, lo, hi, anchors)</code>: a lookup table with colours:</p>
+<pre><code>t = (v − lo) / (hi − lo), clipped to [0, 1]
+s = t · (number of anchors − 1)
+i = floor(s) (at most the second-to-last anchor),  f = s − i
+colour = (1 − f) · anchor[i] + f · anchor[i + 1]</code></pre>
+<p>The checks are B2 and a small three-anchor map.</p>
+<p><strong>C2.</strong> <code>lightness(c)</code> and <code>is_monotone(values)</code>: <span class="math inline">L^* = 116\,f(Y) - 16</span> with the luminance <span class="math inline">Y</span> of the decoded colour, and whether a profile only rises (or only falls). The check is B1(a).</p>
+<p><strong>C3.</strong> <code>merge(channels, colours)</code>: add every grey channel times its colour, clip to <span class="math inline">[0, 1]</span>. The check: magenta + green gives white.</p>
+<p><strong>C4.</strong> <code>deutan_lms(white, blue)</code>: the deuteranope’s matrix in LMS:</p>
+<pre><code>solve  a·w_L + b·w_S = w_M
+       a·q_L + b·q_S = q_M        # white w and blue q keep their M
+D = rows (1, 0, 0), (a, 0, b), (0, 0, 1)</code></pre>
+<p>The check is B3 (anchors chosen so that <span class="math inline">a = b = 0.5</span>).</p>
+<p><strong>C5.</strong> <code>stretch_factors(λ, amount)</code> and <code>decorrelation_stretch(img, amount)</code>:</p>
+<pre><code>μ = mean colour,  S = covariance of all pixels (divide by n)
+λ_k, u_k = eigenvalues and eigenvectors of S
+σ̄² = (λ1 + λ2 + λ3) / 3,  factor_k = (σ̄ / sqrt(λ_k))^amount
+for every pixel x:  x' = μ + Σ_k factor_k · (u_k · (x − μ)) · u_k</code></pre>
+<p>The checks are B4(c), and that after a full stretch the covariance is <span class="math inline">\bar\sigma^2 I</span> (B6).</p>
+<p>Then <code>cargo run -p day42 -- colour-display</code> and open the pictures in <code>out/colour-display/</code>. The program shows a smooth field of hills with jet and with viridis (<code>hills-jet.png</code>, <code>hills-viridis.png</code>) and prints their lightness profiles. It shows a signed field (values −3 … 7) with the diverging map and the ranges −3 … 7 and −7 … 7 (<code>signed-3..7.png</code>, <code>signed-7..7.png</code>). It merges two synthetic fluorescence channels red + green and magenta + green, each next to a simulated deuteranope’s view (<code>merge-deutan.png</code>), and stretches a synthetic H&amp;E image (<code>he.png</code>, <code>he-stretched.png</code>).</p>
+<p><strong>C6.</strong> Compare the two hill pictures. Where does jet show edges that are not in the field, and where is jet’s lightness largest? Which map shows the highest hill as the lightest place? In the signed pictures, which range shows zero as white?</p>
+<p><strong>C7.</strong> In <code>merge-deutan.png</code>, what do red and green become for the deuteranope, and magenta? Which merge can the deuteranope still read?</p>
+<p><strong>C8.</strong> Give the standard deviations along the principal axes before and after the stretch, and the share of PC1. What is the gain on the third axis, and what does it do to the image? What share of the pixels needs clipping?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day42-colour/src/colour_display/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Jet’s lightness is 12.9, 54.6, 90.6, 67.0, 25.4 at <span class="math inline">t = 0, 0.25, 0.5, 0.75, 1</span>, with its largest value 96.8 at <span class="math inline">t = 0.62</span>: not monotone (the numbers of B1). On the hills it draws bright cyan and yellow rings around each hill that look like edges, and the top of the highest hill is dark red, darker than its slopes. Viridis rises steadily, 14.9, 35.7, 54.2, 72.6, 90.9: smooth hills, and the highest point is the lightest. With the range −3 … 7 the white centre is the value 2 (zero sits at <span class="math inline">t = 0.3</span>, a light blue), so the white ring around the hills is not the zero line. With −7 … 7 zero is exactly white: the background (−3) is light blue, the hills are red.</p>
+<p><strong>C7.</strong> For the simulated deuteranope, pure red becomes the yellow (156, 156, 0) and pure green the lighter yellow (214, 214, 46): in the red + green merge nuclei and filaments are both yellows and hard to tell apart. Magenta becomes a light blue (156, 156, 252), so in the magenta + green merge the nuclei are blue and the filaments yellow: still readable. These are the numbers of demo question E5.</p>
+<p><strong>C8.</strong> Before: 0.173, 0.073 and 0.002 along the three axes, PC1 84.7 % of the variance: a thin flat sheet (two stains). After: 0.109 along all three, each 33.3 %. The gain on the third axis is of the order of <span class="math inline">0.109 / 0.002 \approx 50</span>: the faint differences across the sheet, and the camera noise along that axis, are blown up. The stretched image is garish and speckled; nuclei and stroma differ more in colour, the holes turn pale green. 47.8 % of the pixels have a value outside <span class="math inline">[0, 1]</span> and are clipped when saved.</p>
 </div>
 </div>
 </div>

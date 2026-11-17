@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-crowdfit" id="toc-explore-crowdfit" class="nav-link" data-scroll-target="#explore-crowdfit">Explore: two spots</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: evaluating a spot detector</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9232,6 +9233,49 @@ Solutions
 <p><strong>E5.</strong> 1 000 spots: recall 0.49, precision 1.00, F1 0.66: misses dominate. At a mean spacing of about 8 px, many spots have a neighbour closer than the <span class="math inline">2\sqrt2\sigma</span> = 4.2 px the filter can separate: two spots, one candidate (which matches one of them). The density plot shows F1 falling steadily with density.</p>
 <p><strong>E6.</strong> With fitting (300 spots): RMSE 0.44 px, FN 84. Without: RMSE 0.61 px, FN 83. Fitting moves each detection onto the light of its spot (better localisation), but a merged pair still has one candidate, and fitting one spot to it does not create the second one (unit 4’s two-spot fit would be needed).</p>
 <p><strong>E7.</strong> F1 is unchanged (0.92: the shifted detections are still within the 2 px gate); the RMSE rises from 0.31 to 0.73 px and the mean offset is (0.43, 0.51) instead of about zero. Only the mean offset says that the error is systematic.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day20-pointdetection/src/spot_crowd/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>count_peaks(profile)</code>: the number of samples larger than both neighbours. The check samples two equal Gaussians finely and counts their maxima: B1 (a)–(c).</p>
+<p><strong>C2.</strong> <code>match_greedy(truth, det, gate)</code>:</p>
+<pre><code>pairs = every (i, j) with distance(truth i, detection j) ≤ gate, sorted by distance
+for each pair (i, j), closest first:
+    if truth i and detection j are both still free: match them</code></pre>
+<p><strong>C3.</strong> <code>match_optimal(truth, det, gate)</code> for a small group, by trying every possibility:</p>
+<pre><code>search(i):                      # the best matching of truths i, i+1, … with the free detections
+    if no truths are left: return (0 pairs, distance 0)
+    best = search(i + 1)        # truth i stays unmatched
+    for every free detection j within the gate of truth i:
+        mark j used;  result = search(i + 1) plus the pair (i, j);  mark j free
+        keep result if it has more pairs than best, or as many with a smaller total distance
+    return best</code></pre>
+<p>The program splits a whole image into small independent groups first (given in the code); the work grows very fast with the size of a group.</p>
+<p><strong>C4.</strong> <code>scores(truth, det, pairs)</code>: TP, FP, FN, precision, recall, F1, Jaccard and the RMSE of the matched distances. The checks for C2–C4 are B2 and the example of the slide “Greedy vs optimal matching”.</p>
+<p><strong>C5.</strong> <code>pr_curve(is_tp, n_truth)</code>: precision and recall after each ranked detection, and AP as in the Background table. The check is B3.</p>
+<p>Then <code>cargo run -p day20 -- spot-crowd</code>. It makes the image of the matching demo (spots of σ = 1.5, amplitudes 8–80, noise 10) with 80, 300 and 1 000 spots, detects them with the zero-mean matched filter at <span class="math inline">k = 4</span> (the first two units), matches with a gate of 2 px and prints the scores; then F1 and RMSE against the gate, and the precision–recall curve over all candidates down to <span class="math inline">k = 2</span>. <code>out/spot-crowd/matching-*.png</code> show the matches: rings are true spots (white matched, yellow missed), dots are detections (green matched, red false).</p>
+<p><strong>C6.</strong> Read the density table and look at <code>matching-1000.png</code>. Which kind of error grows with density? Where are the missed spots? Do the numbers agree with the demo’s density plot?</p>
+<p><strong>C7.</strong> Read the gate table. Where is the flat part of F1? Why does a gate of 0.5 px give 28 FP <strong>and</strong> 40 FN, and why is the RMSE smallest there?</p>
+<p><strong>C8.</strong> Compare the greedy and optimal TP counts in the density table. Is the difference you saw in B2 important for these images? Count the cost: why is trying every possibility fine here, but not for a group of 30 truths and 30 detections all within each other’s gates?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day20-pointdetection/src/spot_crowd/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> 80 spots: 68 detections, TP 66, FP 2, FN 14, recall 0.82, F1 0.89. 300: recall 0.67, F1 0.80. 1 000: 494 detections, TP 493, FP 1, FN 507, recall 0.49, precision 1.00, F1 0.66, as in the demo (recall 0.49, F1 0.66). Misses grow; false spots do not. In the picture most yellow rings sit next to a white one: two spots closer than the filter can separate give one candidate, which matches one of them. The RMSE also rises with density (0.54, 0.61, 0.72 px): the light of a neighbour pulls the maximum to one side.</p>
+<p><strong>C7.</strong> F1 is 0.54 at 0.5 px, 0.86 at 1 px and flat at 0.89 from 1.5 px on, so a gate of 2 px is in the flat part. The detections are integer pixel positions, up to 0.7 px from the true centre even without noise: with a 0.5 px gate many correct detections are not matched; each counts as a false detection and leaves its spot missed (TP 40, FP 28, FN 40). The RMSE (0.37 px) is smallest because only the best-placed pairs are matched: a small gate cuts off the larger errors (B4).</p>
+<p><strong>C8.</strong> Greedy and optimal give the same TP here (66, 200, 493): conflicts like B2, where the closest pair blocks a better assignment, need detections that lie between two truths, which is rare with these spacings and a gate of 2 px. They become frequent with larger gates or very crowded spots, and then greedy undercounts the detector. The search tries, for each truth, “no match” or every free detection in its gate: with a few points per group that is a handful of cases, but with 30 truths each having several candidates it is of the order of <span class="math inline">(\text{candidates}+1)^{30}</span>; the assignment solver of the math slide does it in polynomial time.</p>
 </div>
 </div>
 </div>

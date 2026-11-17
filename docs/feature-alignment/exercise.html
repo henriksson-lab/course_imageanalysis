@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-transformzoo" id="toc-explore-transformzoo" class="nav-link" data-scroll-target="#explore-transformzoo">Explore: the transform zoo</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: RANSAC on matches and a mosaic</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9177,6 +9178,82 @@ Solutions
 <p><strong>E6.</strong> 64 matches. Similarity: 14 inliers, true error 73 px; affine: 18 inliers, true error 71 px; homography: 58 inliers, true error 0.88 px. The affine difference image is grey near the centre (where the fit’s inliers are) and shows strong structure towards the corners: perspective cannot be expressed by an affine map.</p>
 <p><strong>E7.</strong> 12 matches, 5 inliers (true error 4.1 px): fewer than 10 inliers, so report “no reliable alignment” rather than this transform.</p>
 <p><strong>E8.</strong> Match noise 1.5 px: chain 1 → 2 → 4 → 3: tile errors 0, 0.76, 2.21, 1.56 px; global: 0, 0.54, 1.00, 0.50 px. Tile 3, at the end of the chain, profits most. Noise 0: chain 0.04, 0.11, 0.13 px, global 0.04, 0.10, 0.06 px (both tiny). Noise 3: chain 1.60, 4.42, 3.24 px, global 1.05, 1.42, 0.86 px. Blends: without blending the seams and the exposure steps of the tiles (gains 1, 1.22, 0.85, 1.12) are visible; feathering hides them in soft transitions; multi-band gives similar smooth transitions with less blurring of detail in the overlaps.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day24-keypoints/src/feature_alignment/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>fit_translation(pairs)</code>: the least-squares translation, the mean of the differences <span class="math inline">\mathbf q_i - \mathbf p_i</span>. The check is A2(a).</p>
+<p><strong>C2.</strong> <code>similarity_from_two(p1, q1, p2, q2)</code>: the similarity that maps two points exactly. Write each point as a complex number <span class="math inline">x + iy</span>; a similarity is then <span class="math inline">z \mapsto az + b</span>. The check is A2(b).</p>
+<pre><code>a = (q2 − q1) / (p2 − p1)          # complex division: turn and scale
+b = q1 − a · p1
+matrix = [ Re a  −Im a  Re b ]
+         [ Im a   Re a  Im b ]</code></pre>
+<p><strong>C3.</strong> <code>fit_affine(pairs)</code>: the least-squares affine transform (exact for three pairs). The two rows of the matrix are two separate problems with the same 3 × 3 normal equations (B7):</p>
+<pre><code>BᵀB = 3 × 3 zeros;  r1 = r2 = 3 zeros
+for every pair ((x, y), (x', y')):
+    b = (x, y, 1)
+    BᵀB += b bᵀ;   r1 += x' · b;   r2 += y' · b
+row 1 = solve(BᵀB, r1);   row 2 = solve(BᵀB, r2)      # no solution if the points lie on a line</code></pre>
+<p><strong>C4.</strong> <code>inliers(m, pairs, eps)</code>: the pairs that the transform maps to within ε px (the check is A4); and <code>ransac_iterations(w, s, p)</code> <span class="math inline">= \lceil \log(1 - p)/\log(1 - w^s) \rceil</span> (the checks are the table of A3 and the lecture).</p>
+<p><strong>C5.</strong> <code>ransac_affine(pairs, eps, iterations, rng)</code>:</p>
+<pre><code>repeat N times:
+    pick 3 different pairs at random
+    m = the affine transform through them (C3)
+    count its inliers (C4); remember m if it has the most so far
+refit by least squares on the inliers of the best m; count its inliers again</code></pre>
+<p>Then <code>cargo run -p day24 -- feature-alignment</code> and open the pictures in <code>out/feature-alignment/</code>. View 2 is the micrograph under a known affine transform (turned by about 10°, zoomed by 1.1, a little shear, shifted). The program makes 100 pairs: 40 correct (with 0.5 px of noise) and 60 wrong, and fits the transform with least squares on all pairs and with RANSAC (ε = 2 px). The true error is the mean distance between where the fitted and the true transform put the pixels. The checkerboards show view 1 and view 2 read back through each fit in alternate squares of 32 px.</p>
+<p><strong>C6.</strong> Compare the two checkerboards and the true errors of least squares on all pairs and of RANSAC. Which pairs did RANSAC keep?</p>
+<p><strong>C7.</strong> The program runs RANSAC 200 times with different random samples, for N = 5, 10, 20 and the N of the formula, and counts how often it succeeds (true error below 1 px). Compare with the prediction <span class="math inline">1 - (1 - w^3)^N</span>. Why can the true success rate be lower than the formula?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day24-keypoints/src/feature_alignment/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Least squares on all 100 pairs: true error 73 px; <code>checker-least-squares.png</code> is a patchwork in which nothing continues from one square to the next. RANSAC with N = 70 (the formula for <span class="math inline">w = 0.4</span>, <span class="math inline">s = 3</span>, <span class="math inline">p = 0.99</span>): 40 inliers, none of them a wrong pair, and a true error of 0.14 px, the same as least squares on the 40 correct pairs alone. In <code>checker-ransac.png</code> the membranes and granules run straight across the square borders. (The black squares are where view 2 has no pixels.)</p>
+<p><strong>C7.</strong></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>N</th>
+<th>success in 200 runs</th>
+<th>predicted</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>5</td>
+<td>22 %</td>
+<td>28 %</td>
+</tr>
+<tr class="even">
+<td>10</td>
+<td>38 %</td>
+<td>48 %</td>
+</tr>
+<tr class="odd">
+<td>20</td>
+<td>62 %</td>
+<td>73 %</td>
+</tr>
+<tr class="even">
+<td>70</td>
+<td>94 %</td>
+<td>99 %</td>
+</tr>
+</tbody>
+</table>
+<p>Always a little lower. The formula counts a run as a success as soon as one sample consists of three correct pairs. But three correct pairs that lie close together (or nearly on a line) fix the transform badly: with 0.5 px of noise their exact fit can be several pixels off far away from them, so it finds few inliers and may lose against a luckier wrong sample. The formula is a lower bound on N, not a guarantee; in practice one takes more iterations.</p>
 </div>
 </div>
 </div>

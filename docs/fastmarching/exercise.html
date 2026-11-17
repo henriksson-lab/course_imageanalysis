@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9188,6 +9189,56 @@ Solutions
 <p><strong>E4.</strong> Both paths follow the neurite from the tip at the bottom left, past the soma, to the tip at the top. Fast marching: <span class="math inline">T = 149.7</span>, path length 250.1; Dijkstra (8): <span class="math inline">d = 123.9</span>, path length 261.5 (a pixel path, with small zig-zags). Here fast marching is <strong>slower</strong>: its update uses only the 4 axis neighbours, so a fast lane only 2–3 pixels wide that runs diagonally looks like a staircase to it, and the front partly leaks into the slow background beside the lane. Dijkstra with 8 neighbours can step diagonally inside the lane. With 4 neighbours Dijkstra gives <span class="math inline">d = 159.5</span> and a 323.0 px path. For thin structures, the cost should be smoothed a little or the grid refined.</p>
 <p><strong>E5.</strong> The fronts bunch up along the nucleus boundary (many iso-lines close together), most where the edge is strong; through the soft lower-left part they pass more easily. <span class="math inline">T = 206.8</span> at the target, against 171.9 with <span class="math inline">P = 1</span>: crossing the boundary costs about 35 time units. With <span class="math inline">k = 20</span>: <span class="math inline">T = 177.7</span>; with <span class="math inline">k = 60</span>: 172.6, nearly flat: a large <span class="math inline">k</span> makes only very strong edges slow.</p>
 <p><strong>E6.</strong> The meeting lines form a <strong>Voronoi diagram</strong> of the seeds (with <span class="math inline">P = 1</span>): every pixel belongs to the seed whose front reaches it first, i.e.&nbsp;the nearest seed. With an image cost, the regions follow the image (fronts are slowed by edges), much like watershed basins grown from markers; watershed, however, uses the highest point along the way instead of the accumulated travel time.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day32-dynprog/src/fastmarching/exercise.rs</code>.</p>
+<p>As in the <a href="../livewire/exercise.html#code">live-wire unit</a>, a priority queue of pixels, <code>MinQueue</code>, is ready in the download.</p>
+<p><strong>C1.</strong> <code>upwind_update(a, b, p)</code>: the arrival time at a pixel from the smaller known neighbour along <span class="math inline">x</span> (<span class="math inline">a</span>) and along <span class="math inline">y</span> (<span class="math inline">b</span>), <span class="math inline">\infty</span> if none is known:</p>
+<pre><code>if |a − b| &lt; p:  T = ( a + b + sqrt(2p² − (a − b)²) ) / 2
+else:            T = min(a, b) + p                       # Dijkstra's update</code></pre>
+<p>The checks are B1 (a)–(d) and B3.</p>
+<p><strong>C2.</strong> <code>fast_marching(cost, seeds)</code>: Dijkstra’s order with the update of C1. The seeds start at <span class="math inline">T = 0</span>, with no special treatment of their neighbourhood:</p>
+<pre><code>T = ∞ everywhere;  T = 0 at the seeds, which go into the queue
+while the queue is not empty:
+    take the pixel u with the smallest T;  skip it if it is already final
+    u is final
+    for every 4-neighbour v of u that is not final:
+        a = the smaller final T of v's left and right neighbours   (∞ if none)
+        b = the smaller final T of v's upper and lower neighbours  (∞ if none)
+        t = upwind_update(a, b, P(v))
+        if t &lt; T(v):  T(v) = t;  put v in the queue with t</code></pre>
+<p>The checks are the quadrant of B2 (a), <span class="math inline">T(1, 1) = 1.707</span>, …, <span class="math inline">T(3, 3) = 4.755</span>, and B5 (two seeds).</p>
+<p><strong>C3.</strong> <code>dijkstra_time(cost, seeds, eight)</code>: Dijkstra with the same cost, for comparison: a step into pixel <span class="math inline">v</span> costs <span class="math inline">\ell \cdot P(v)</span>, with <span class="math inline">\ell = 1</span> or <span class="math inline">\sqrt2</span>; the seeds start at 0. The check is the table of B2 (b).</p>
+<p><strong>C4.</strong> <code>descend(t, target, step)</code>: the minimal path from a target back to a seed:</p>
+<pre><code>x = the target
+repeat until T is 0 at the nearest pixel (a seed):
+    g = the gradient of T at the nearest pixel (central differences)
+    x = x − step · g / |g|</code></pre>
+<p>The check is B9: with <span class="math inline">P = 1</span> the path runs straight to the seed.</p>
+<p>Then <code>cargo run -p day32 -- fastmarching</code> and open the pictures in <code>out/fastmarching/</code>. <code>fronts-fm-d4-d8.png</code> shows the arrival time from one seed in the middle of a flat <span class="math inline">201 \times 201</span> image, with fronts every 10 units: fast marching, Dijkstra with 4 and with 8 neighbours. The program prints the three times at about 95 to 100 px from the seed, in three directions. <code>edge-cost-fronts.png</code> uses the cost <span class="math inline">P = 1 + (|\nabla I|/k)^2</span> of a smoothed synthetic fluorescence image (<span class="math inline">k = 0.03</span>), with the seed inside a nucleus and the minimal path (orange) from a target outside.</p>
+<p><strong>C5.</strong> Predict the error of each method at 0°, 22.5° and 45° (B8, and the lecture), then compare with the printed numbers.</p>
+<p><strong>C6.</strong> In <code>edge-cost-fronts.png</code>, where do the fronts crowd together? Compare the printed <span class="math inline">T</span> at the target with the time for <span class="math inline">P = 1</span>.</p>
+<p><strong>C7.</strong> <em>(math)</em> Fast marching is 1.0 % too far at 22.5° and 1.4 % at 45°, although B7 says the update is exact for every straight front. Where does this error come from? (B2 helps.)</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day32-dynprog/src/fastmarching/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Fast marching gives circles, Dijkstra 4 diamonds, Dijkstra 8 octagons. Along the axis (0°, 95 px) all three are exact. At 22.5° (Euclidean 99.5): fast marching 100.5 (+1.0 %), Dijkstra 4 130.0 (+30.6 %), Dijkstra 8 107.7 (+8.2 %, the worst angle of B8). At 45° (Euclidean 99.0): fast marching 100.4 (+1.4 %), Dijkstra 4 140.0 (+41.4 %, the factor <span class="math inline">\sqrt2</span>), Dijkstra 8 99.0 (exact on the diagonal).</p>
+<p><strong>C6.</strong> The fronts crowd together along the boundary of the nucleus with the seed and around the other nuclei: crossing an edge costs much more time than crossing the flat background. At the target <span class="math inline">T = 198.6</span>, against 139.4 with <span class="math inline">P = 1</span>: about 60 time units are spent getting out of the nucleus. The minimal path (149.5 px) leaves the nucleus downwards, where it touches its neighbour and the edge is weakest, passes along the neighbour’s left side and then runs almost straight to the target.</p>
+<p><strong>C7.</strong> The update is exact for a straight front, but next to a point seed the front is a small circle, nothing like straight: B2 shows <span class="math inline">T(1, 1) = 1.707</span> instead of 1.414. This error, made in the first few pixels, is carried outward with the front and grows only slowly after that: about 1.4 px at 100 px. That is why implementations set the pixels within a few pixels of a point seed to their exact distance first (the demo: within 3 px).</p>
 </div>
 </div>
 </div>

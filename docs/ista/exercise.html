@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: ISTA, FISTA and OMP</a></li>
   <li><a href="#explore-sparserestore" id="toc-explore-sparserestore" class="nav-link" data-scroll-target="#explore-sparserestore">Explore: restoring images with a sparsity prior</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9179,6 +9180,62 @@ Solutions
 <p><strong>E10.</strong> At large λ the stripes are shrunk away (their coefficients are small, of the order of the noise threshold) and only the disc remains. Lowering λ brings them back together with some noise; the best PSNR lies at an intermediate λ. That image still has visibly weaker stripes than the truth: the PSNR rewards removing noise more than keeping low-contrast texture.</p>
 <p><strong>E11.</strong> The thin scratches disappear almost completely (the atoms around them see enough known pixels). The 16 × 16 hole is filled with a smooth average of its surroundings: no texture, no continuation of edges that cross it. TV fills it with flat patches (piecewise constant), Haar with blocks.</p>
 <p><strong>E12.</strong> The thin strokes vanish almost completely; the thick parts of the letters leave faint, smooth blobs. A thick stroke is a hole wider than the fine-scale atoms, so as in E11 only the coarse atoms can fill it.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day11-sparse/src/ista/exercise.rs</code>. Vectors are lists of numbers and a matrix is a list of rows; <code>mat_vec</code> (<span class="math inline">A\mathbf x</span>), <code>mat_t_vec</code> (<span class="math inline">A^\top\mathbf r</span>) and <code>objective</code> are given.</p>
+<p><strong>C1.</strong> <code>soft_threshold(v, t)</code> (every entry soft-thresholded at <span class="math inline">t</span>) and <code>ista_step(a, y, x, λ, τ)</code>, one ISTA iteration:</p>
+<pre><code>r = y − A x                  # residual: data minus prediction
+z = x + τ · Aᵀ r             # gradient (Landweber) step
+x_new = soft(z, τ λ)         # soft threshold of every entry</code></pre>
+<p>The check is B1 (a): <span class="math inline">\mathbf x_1 = (0.8, 0.6)</span>, <span class="math inline">\mathbf x_2 = (0.96, 0.58)</span>.</p>
+<p><strong>C2.</strong> <code>ista(a, y, λ, τ, iterations)</code>: start at <span class="math inline">\mathbf x = 0</span> and repeat <code>ista_step</code>. The checks are B1 (b) and (d): the iterates reach (1.6, 0) with an exact zero and the objective 0.9, and on a blurred signal the objective never increases.</p>
+<p><strong>C3.</strong> <code>largest_gain(a, iterations)</code>: L, the largest eigenvalue of <span class="math inline">A^\top A</span>, by the power method:</p>
+<pre><code>v = any vector of length 1
+repeat:
+    w = Aᵀ (A v)
+    L = length of w
+    v = w / L</code></pre>
+<p>The checks are B3: L = 2.25 for the matrix of B1, L = 1 for a normalised blur.</p>
+<p><strong>C4.</strong> <code>fista(a, y, λ, τ, iterations)</code>: ISTA steps from an extrapolated point:</p>
+<pre><code>x = 0,  z = 0,  t = 1
+repeat:
+    x_new = ista_step(z)
+    t_new = (1 + sqrt(1 + 4 t²)) / 2
+    z = x_new + (t − 1)/t_new · (x_new − x)
+    x = x_new,  t = t_new</code></pre>
+<p>The checks: the same minimum (1.6, 0) for B1, and on a blurred signal a much smaller gap to the minimum than ISTA after 100 iterations.</p>
+<p><strong>C5.</strong> <code>omp(a, y, max_atoms, tolerance)</code>: orthogonal matching pursuit:</p>
+<pre><code>S = no columns,  r = y,  x = 0
+while S has fewer than max_atoms columns and ‖r‖² &gt; tolerance:
+    j = the column with the largest |a_jᵀ r| / ‖a_j‖
+    add j to S
+    x_S = least-squares fit of y with the columns in S     # the others stay 0
+    r = y − A x</code></pre>
+<p>The checks are B2, (2, 0) after one atom, and B4 (c): the masked DCT atoms, atom 0 first with <span class="math inline">a = 1.82</span>, then <span class="math inline">a = 2</span>, <span class="math inline">b = 1</span>.</p>
+<p>Then <code>cargo run -p day11 -- ista</code> and open the pictures in <code>out/ista/</code>. The program deblurs a signal of 128 samples with five spikes (at 20, 52, 70, 76 and 105; blur σ = 2, noise 0.01) with λ = 0.01. In the pictures the truth is black, the data grey and the result blue dots.</p>
+<p><strong>C6.</strong> How many iterations do ISTA and FISTA need to get within <span class="math inline">10^{-6}</span> of the minimum of the objective? Look at <code>ista-20.png</code> and <code>fista-1000.png</code>, and at the printed numbers of nonzeros after 1, 10, 100 and 1000 ISTA iterations. Describe how the estimate develops.</p>
+<p><strong>C7.</strong> Which positions does OMP pick (<code>omp.png</code>)? Its relative error is much larger than that of FISTA, although the picture looks almost right. Why?</p>
+<p><strong>C8.</strong> Count the cost. One ISTA iteration with a dense <span class="math inline">n \times n</span> matrix costs about <span class="math inline">2n^2</span> multiplications. How many is that for a 256 × 256 image (<span class="math inline">n = 65\,536</span>), and how much memory would the matrix take (8 bytes per number)? How does a blur avoid this?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day11-sparse/src/ista/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> ISTA needs about 3100 iterations, FISTA about 150: twenty times fewer, at the same cost per iteration (the lecture’s signal: 993 and 121). After 20 ISTA iterations every spike is still a cluster of small coefficients spread over the width of the blur; the counts fall from 54 nonzeros after 1 iteration to 30, 16 and 10 after 10, 100 and 1000 (relative error 0.91, 0.83, 0.67, 0.22). After 1000 FISTA iterations (error 0.12) all five spikes sit at the right positions, including the close pair at 70 and 76, each a little too low (shrinkage bias), with a few tiny extra coefficients next to them.</p>
+<p><strong>C7.</strong> OMP picks 20, 52, 71, 77 and 105: the close pair at 70 and 76 is found one sample off each time. Under the blur, neighbouring atoms are almost the same, and the overlap of the two bumps plus the noise make the atom one sample over fit slightly better. OMP refits the values but never replaces an atom it has chosen. A spike one sample off counts as a missed spike plus a false one, hence the relative error of 0.85 against 0.12 for FISTA.</p>
+<p><strong>C8.</strong> <span class="math inline">2 \cdot 65\,536^2 \approx 8.6 \cdot 10^9</span> multiplications per iteration, and <span class="math inline">65\,536^2 \cdot 8</span> bytes = 34 GB for the matrix. A blur is never stored as a matrix: it is a small kernel (a convolution, or a multiplication in the Fourier domain), which costs about (kernel size) × <span class="math inline">n</span> or <span class="math inline">n\log n</span> per iteration.</p>
 </div>
 </div>
 </div>

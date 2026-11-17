@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-linkpairs" id="toc-explore-linkpairs" class="nav-link" data-scroll-target="#explore-linkpairs">Explore: linking two frames</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: a simulated movie</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9220,6 +9221,60 @@ Solutions
 <p><strong>E4.</strong> With drift (6.7 px per frame) the ratio is 0.44 and global misses 17.9 % of links; 16 % of tracks are perfect. Corrected: ratio 0.17, 1.7 % errors, 86 % perfect tracks. The drift adds the same large step to every object, so the links must reach further and compete with neighbours; once it is removed only the particles’ own small motion remains.</p>
 <p><strong>E5.</strong> b = 3 px (as a distance): 37.9 % of true links missed but only 5.1 % of the links made are wrong: tracks shatter into pieces (every step longer than about √2·3 ≈ 4.2 px ends a track). b = 60 px with the gate off: 10.8 % missed and 11.8 % wrong: particles that leave are linked to ones that enter. For these settings (100 particles, gate off) b between 8 and 15 px gives about 4.3 % missed and 4.4 % wrong.</p>
 <p><strong>E6.</strong> Directed particles move speed × Δt = 4 px per frame on top of the diffusion, so the displacement and the ratio rise (0.24 → 0.34), and the global error rate from 3.6 % to 4.8 % (nearest neighbour 6.9 % → 7.5 %). The extra errors sit where tracks cross or run close: the linker looks only at the last position and does not know where each particle is heading.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day26-tracking/src/track_linking/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>cost_matrix(from, to, gate)</code>: the cost of every candidate link, with the gate:</p>
+<pre><code>for every detection i at frame t, every detection j at frame t+1:
+    d² = (x_i − x_j)² + (y_i − y_j)²
+    c[i][j] = d²  if d² ≤ gate²,  else ∞</code></pre>
+<p>The check is your matrix of B1(a).</p>
+<p><strong>C2.</strong> <code>nearest(cost)</code>: every row takes its cheapest column (none if all its costs are ∞). Conflicts are allowed. The check is the conflict of B1(a).</p>
+<p><strong>C3.</strong> <code>greedy(cost)</code>: the cheapest free pair first, never revisited:</p>
+<pre><code>repeat:
+    (i, j) = the cheapest pair with c[i][j] &lt; ∞, row i and column j both still free
+    if there is none: stop
+    link i → j</code></pre>
+<p>The checks are B1(b) (total 26) and B3(b) (B is left without a link).</p>
+<p><strong>C4.</strong> <code>global_by_search(cost)</code>: global assignment by trying every possibility: each row gets a different column, all costs finite, and the total is as small as possible:</p>
+<pre><code>try(row i, columns chosen so far, total so far):
+    if every row has a column: keep this choice if its total is the smallest so far
+    for every free column j with c[i][j] &lt; ∞:
+        try(row i + 1, chosen + j, total + c[i][j])
+start with try(row 0, nothing chosen, 0)</code></pre>
+<p>The checks are B1(c) and B3(a), and a comparison with a fast exact solver (the Hungarian algorithm, provided in the download) on random <span class="math inline">6 \times 6</span> matrices.</p>
+<p><strong>C5.</strong> <code>augmented(cost, b)</code> and <code>link_with_ends(cost, b, solver)</code>: ends and starts of tracks at cost b, with the augmented matrix of the math slide:</p>
+<pre><code>M = (m + n) × (n + m) matrix, all ∞
+M[i][j]         = c[i][j]      the links (m rows at t, n columns at t+1)
+M[i][n + i]     = b            row i ends its track
+M[m + j][j]     = b            column j starts a track
+M[m + j][n + i] = 0            leftover dummies pair up
+solve M; row i given a column j &lt; n is a link, a column ≥ n means "ends"</code></pre>
+<p>The checks are your matrix of B7 and the ranges of b of B2(b).</p>
+<p>Then <code>cargo run -p day26 -- track-linking</code> and open the pictures in <code>out/track-linking/</code>. The program simulates 80 particles in a <span class="math inline">256 \times 256</span> px field for 40 frames (random walk, bouncing off the walls) at difficulty ratios 0.2, 0.5 and 1. It links every pair of frames with <code>nearest</code>, <code>greedy</code> and global assignment (<code>link_with_ends</code> with the fast solver, gate 5 rms displacements, b = (3 rms)²), and counts the true links missed. The pictures show 15 frames at ratio 0.5, with right links green and wrong ones red.</p>
+<p><strong>C6.</strong> Compare the three error rates at each ratio with the estimate <span class="math inline">a/(1+a)</span> printed next to them. Which method is best, and by how much at ratio 0.5? Where are the red links in the two pictures?</p>
+<p><strong>C7.</strong> At ratio 0.5, compare the fraction of perfect tracks (global) with <span class="math inline">(1 - e)^{39}</span>, the fraction you would expect if every link were wrong independently with the error rate <span class="math inline">e</span>. Which is larger, and why?</p>
+<p><strong>C8.</strong> <code>global_by_search</code> tries up to <span class="math inline">n!</span> assignments for <span class="math inline">n</span> rows and columns. How many is that for <span class="math inline">n = 10</span>, 20 and 80? Why does the program use a different solver?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day26-tracking/src/track_linking/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Errors (true links missed) for nearest, greedy and global: ratio 0.2: 2.9 %, 2.6 %, 1.7 % (estimate 3.0 %); ratio 0.5: 13.3 %, 12.9 %, 7.4 % (estimate 16.4 %); ratio 1: 41.3 %, 40.8 %, 29.5 % (estimate 44.0 %). Nearest neighbour follows the estimate (a little below it; near the walls a particle has fewer neighbours), greedy is barely better, and global assignment is clearly best: at ratio 0.5 it misses 44 % fewer links than nearest neighbour. At ratio 1 every method fails. In the pictures the red links sit where two or more particles come close; the nearest-neighbour picture has many more of them.</p>
+<p><strong>C7.</strong> 11 of 80 tracks (14 %) are perfect, against <span class="math inline">(1 - 0.074)^{39} \approx 5</span> %. More tracks survive than the independent estimate says, because the errors are not spread evenly: they cluster on particles that pass through crowded places, while particles that stay alone are never linked wrongly. (At ratio 0.2: 68 % against 51 %.) The lesson of the slide “Errors compound” still holds: even at 7 % errors per link only a small fraction of long tracks is perfect.</p>
+<p><strong>C8.</strong> <span class="math inline">10! = 3.6 \cdot 10^6</span>, <span class="math inline">20! = 2.4 \cdot 10^{18}</span>, <span class="math inline">80! \approx 7 \cdot 10^{118}</span>. At <span class="math inline">10^9</span> assignments per second, 20 rows already take about 80 years. The Hungarian algorithm finds the same optimum in about <span class="math inline">n^3</span> steps: <span class="math inline">160^3 \approx 4 \cdot 10^6</span> for the augmented matrix of 80 particles, a few milliseconds.</p>
 </div>
 </div>
 </div>

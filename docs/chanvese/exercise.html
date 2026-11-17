@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: regions instead of edges</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9228,6 +9229,47 @@ Solutions
 <p><strong>E6.</strong> About 4370 wrong pixels: the brighter right part of the background is labelled as object, because it is closer to the object mean (0.62) than to the background mean (0.23). The threshold makes the same mistake (4383). The edge-based flow only looks at local differences: the slow ramp is no edge, and it wraps the objects with 1463 wrong pixels (4 curves; the blurred disk’s soft edge and the thin bar are the hard parts). Here edges win.</p>
 <p><strong>E7.</strong> <span class="math inline">c_1 = 0.81</span> (inside) and <span class="math inline">c_2 = 0.43</span>: the inside is the <strong>bright</strong> background between the cells; the outside is the darker cell, nucleus and cytoplasm together. Chan–Vese splits into the two best-fitting grey levels, and these are “light” and “dark”, not “nucleus” and “the rest”. <span class="math inline">\lambda = 0.05</span>: 46 curves, a ragged boundary; <span class="math inline">\lambda = 0.3</span>: 7; <span class="math inline">\lambda = 1</span>: 3 smooth curves.</p>
 <p><strong>E8.</strong> With <span class="math inline">\lambda_1/\lambda_2 = 2</span> the inside (the objects, <span class="math inline">c_1 = 0.68</span>) shrinks from 3563 to 3399 pixels; with 0.5 it grows to 3677. A heavier weight on the inside data makes a pixel need to be closer to <span class="math inline">c_1</span> to join (B8). (From a grid start, unequal weights can tip the whole image to one side before the means separate; that is why we change them only after convergence here.)</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day31-levelsets/src/chanvese/exercise.rs</code>. The eight pixels of the exercises are an image one pixel high; <span class="math inline">\phi &lt; 0</span> is inside.</p>
+<p><strong>C1.</strong> <code>region_means(img, phi)</code>: <span class="math inline">c_1</span>, the mean grey level where <span class="math inline">\phi &lt; 0</span>, and <span class="math inline">c_2</span>, the mean where <span class="math inline">\phi \ge 0</span>. The check is B1(a, b).</p>
+<p><strong>C2.</strong> <code>energy(img, inside, lambda)</code>: the energy of a labelling, with the means of its two regions and the boundary counted as the number of pairs of neighbouring pixels with different labels:</p>
+<pre><code>c1, c2 = mean inside, mean outside
+E = 0
+for every pixel p:
+    E += (I(p) − c1)²  if p is inside, else (I(p) − c2)²
+    for the right and the lower neighbour q of p:
+        if exactly one of p, q is inside:  E += λ</code></pre>
+<p>The checks are the table of B1 and the two energies of B3(a).</p>
+<p><strong>C3.</strong> <code>chan_vese_step(img, phi, c1, c2, params)</code>: one step for fixed means:</p>
+<pre><code>for every pixel:
+    κ = curvature of the level line of φ (as in the previous units)
+    δ = ε / (π (ε² + φ²))                                 # soft spike, largest near φ = 0
+    new φ = φ + Δt · δ · (λκ + ν + (I − c1)² − (I − c2)²)</code></pre>
+<p>The curvature is taken between neighbours (see the comment in the code), so that a single pixel that sticks out is smoothed too. The check is B2: a pixel of grey level 4 moves inside, one of grey level 2 moves out.</p>
+<p><strong>C4.</strong> <code>chan_vese(img, phi0, params, iterations)</code>: repeat C1 then C3. The check is B4: from a start with only pixel 5 inside and <span class="math inline">\lambda = 0</span>, it ends with pixels 4–7 inside and the means 6.5 and 1.25: the threshold at <span class="math inline">(c_1 + c_2)/2</span>.</p>
+<p>Then <code>cargo run -p day31 -- chanvese</code> and open the pictures in <code>out/chanvese/</code>. The test image has objects at 0.7 on a background of 0.3 (a ring, a square, a disk with a blurred edge, a small disk, a bar 3 pixels wide). The start is a grid of small blobs, <span class="math inline">\phi = \sin(\pi x/8)\sin(\pi y/8)</span>; <span class="math inline">\Delta t = 1</span>, <span class="math inline">\varepsilon = 1</span>, 300 iterations. The program calls the brighter of the two regions the object (the energy does not care which is inside). Blue: the object; yellow: its boundary. <code>noise.png</code>: noise 0.3, the threshold at <span class="math inline">(c_1 + c_2)/2</span> (left) and Chan–Vese with <span class="math inline">\lambda = 0.2</span> (right). <code>lambda.png</code>: noise 0.15, <span class="math inline">\lambda = 0</span>, 0.1 and 1.</p>
+<p><strong>C5.</strong> Compare the wrong pixels and the energies of thresholding and Chan–Vese in <code>noise.png</code>. Which has the lower energy, and why does thresholding not find it although it uses the same means?</p>
+<p><strong>C6.</strong> In <code>lambda.png</code>, what happens to the bar, the small disk and the ring’s hole as <span class="math inline">\lambda</span> grows? With <span class="math inline">\lambda = 0</span>, how many pixels still differ from the threshold at <span class="math inline">(c_1 + c_2)/2</span>, and what should that number do with more iterations? <em>(math)</em> Should the ring’s hole be filled for <span class="math inline">\lambda = 1</span>? Compare the length of its boundary with the data cost of filling it (radius about 10, contrast 0.4).</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day31-levelsets/src/chanvese/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Chan–Vese: <span class="math inline">c_1 = 0.69</span>, <span class="math inline">c_2 = 0.30</span>, 318 wrong pixels, one clean outline per object (the thin bar is broken into a few pieces). Thresholding at 0.50: 4394 wrong pixels, speckle everywhere. The energy with <span class="math inline">\lambda = 0.2</span> is 1599 for Chan–Vese and 3262 for the threshold. The threshold minimises the data terms alone, pixel by pixel; every isolated noise pixel then costs four boundary edges, <span class="math inline">4\lambda = 0.8</span>, more than the data it saves. Only the length term, which couples each pixel with its neighbours, removes them.</p>
+<p><strong>C6.</strong> <span class="math inline">\lambda = 0</span>: speckle around single noise pixels, 3345 wrong pixels; only 337 pixels still differ from the threshold at <span class="math inline">(c_1 + c_2)/2</span>, and the number keeps falling (160 after 1200 iterations): with <span class="math inline">\lambda = 0</span> Chan–Vese is thresholding with the isodata means. <span class="math inline">\lambda = 0.1</span>: one clean outline per object, the thin bar and the small disk included, 103 wrong pixels. <span class="math inline">\lambda = 1</span>: the bar and the small disk are gone, the square’s corners are rounded and the ring’s hole is filled, 850 wrong pixels (after 300 iterations a thin tongue from the start still joins the ring to the left edge; it is gone after 1200 iterations, 832 wrong). Filling the hole removes a boundary of length about <span class="math inline">2\pi \cdot 10 = 63</span>, which costs <span class="math inline">63\lambda</span>, and adds the data cost of about <span class="math inline">\pi \cdot 10^2 \cdot 0.4^2 = 50</span> (each hole pixel is 0.4 from <span class="math inline">c_1</span> instead of 0 from <span class="math inline">c_2</span>). For <span class="math inline">\lambda = 1</span> filling is cheaper (<span class="math inline">50 &lt; 63</span>); for <span class="math inline">\lambda = 0.1</span> it is not (<span class="math inline">50 &gt; 6.3</span>).</p>
 </div>
 </div>
 </div>

@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9153,6 +9154,107 @@ Solutions
 <p><strong>E4.</strong> 20 objects, TP 13, FP 7, FN 1, F1 0.76, matching accuracy 0.62: the rod is split into 3 pieces and the C-shaped cell into 5. With <span class="math inline">h = 0.2</span>: 16 objects, only the C is split (in 3), F1 0.87. With <span class="math inline">h = 0.3</span>: all 14, F1 1.00. As in B2(c), the noise makes small extra peaks along the long ridge of the distance; a larger <span class="math inline">h</span> removes them, but a too large <span class="math inline">h</span> would also merge touching cells with shallow necks.</p>
 <p><strong>E5.</strong> Distance: 74 objects, F1 1.00. Semantic: <strong>1</strong> object (the whole tissue is one connected blob), F1 0.00. Boundary class: 68 objects, F1 0.94, six merges: the blur smears the thin boundary between some cells. Star-convex: 74, F1 1.00. Flows: 74, F1 1.00. In crowded tissue every route that predicts something wider than a one-pixel line (a distance, rays from the centre, arrows) separates the cells; the semantic mask cannot, and the thin boundary is fragile.</p>
 <p><strong>E6.</strong> On the distance route, cells disappear only from about 0.9 (at 0.6 all 14 are still found; at 0.9, 12 objects): the two dim cells’ distances fall below the mask threshold 0.1, and they count as <strong>FN</strong> (missed). On the flows route the threshold of P(cell) is 0.5, so the dim cells are already lost at 0.6 (12 objects, F1 0.92). A network that has seen few dim cells makes exactly this error, and it is invisible in a picture of the bright cells.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day39-moderndl/src/instances/exercise.rs</code>. Labelling the connected pieces of a mask (the <a href="../label-connectivity/lec.html">labelling day</a>) is already there, as <code>label_components</code>.</p>
+<p><strong>C1.</strong> <code>boundary_route(classes)</code>: from a three-class map to objects:</p>
+<pre><code>labels = connected pieces of the interior pixels (4 neighbours)
+repeat until nothing changes:
+    for every boundary pixel without a label:
+        if a 4-neighbour has a label (before this pass): take that label</code></pre>
+<p>The checks are your answers to B1 (a) and (b).</p>
+<p><strong>C2.</strong> <code>distance_route(dist, mask_threshold, h)</code>: watershed on a predicted distance map with h-maxima markers, done in one pass by flooding from the top:</p>
+<pre><code>for every pixel with dist &gt; mask_threshold, from the highest value down:
+    look at the objects among its labelled 4-neighbours
+    none:         start a new object; its peak = dist(pixel)
+    one:          join it
+    two or more:  join the one with the highest peak;
+                  every other one whose peak is less than h above dist(pixel)
+                  is merged into it (its peak was not a real marker)</code></pre>
+<p>The checks are your answers to B2 (b) and (c), with the profiles as images one pixel high.</p>
+<p><strong>C3.</strong> <code>match_objects(truth, pred)</code>: match predicted to true objects at IoU <span class="math inline">&gt; 0.5</span> and count TP, FP and FN (the <a href="../object-eval/lec.html">evaluation day</a>’s matching):</p>
+<pre><code>one pass over the pixels: area of every true object, of every predicted object,
+                          and the overlap of every pair (true t, predicted p)
+for every overlapping pair:  IoU = overlap / (area t + area p − overlap)
+TP = number of pairs with IoU &gt; 0.5;  FP = predicted objects − TP;  FN = true objects − TP</code></pre>
+<p><strong>C4.</strong> <code>panoptic_quality(ious, fp, fn)</code>: SQ, RQ and PQ from the IoUs of the matches. The check is B4.</p>
+<p>Then <code>cargo run -p day39 -- instances</code> and open the pictures in <code>out/instances/</code>. The program makes a synthetic image of 20 nuclei (<code>input.png</code>, <code>truth.png</code>) and runs three routes. The “network outputs” are simulated from the true labels: a perfect three-class map; the same map with the boundary <strong>missed wherever two nuclei touch</strong>; and the exact distance map plus smooth random errors (sd 0.15, <code>distance.png</code>), split with several <span class="math inline">h</span>. It prints the objects, TP, FP, FN, SQ, RQ and PQ of each, and saves the labels.</p>
+<p><strong>C5.</strong> Compare the semantic route with the boundary route with missed contacts. Which nuclei are merged in <code>semantic.png</code> and <code>boundary-contacts.png</code>? Why does the boundary route have no false positives, but the semantic route has two?</p>
+<p><strong>C6.</strong> Read the results of the distance route for <span class="math inline">h</span> = 0.05, 0.1, 0.2, 0.4 and 0.8, and look at <code>distance-h0.05.png</code>. What goes wrong with a small <span class="math inline">h</span>, and what with a large one? Compare with B2 (c) and E4.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day39-moderndl/src/instances/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Semantic mask: 13 objects for 20 nuclei, TP 11, FP 2, FN 9, PQ 0.51. Boundary class with missed contacts: 14 objects, TP 14, FP 0, FN 6, PQ 0.73 (with the perfect boundary map: all 20, PQ 0.99). In both, the groups of touching nuclei come out as single objects: the two pairs at the top, the group of three in the upper middle, the group of three on the left and the pair on the right. A merged blob still counts as a match (TP) if one of its nuclei covers more than half of it; its other nuclei are missed (FN). In the semantic mask two blobs, the group on the left and the pair on the right, have no such nucleus (best IoU 0.43 and 0.40): they are false positives, and all their nuclei are missed. The semantic threshold also makes every blob a little larger or smaller than its cells, which lowers the IoUs; the boundary route grows every blob exactly over its cells, so here each of its merged blobs still matches one nucleus.</p>
+<p><strong>C6.</strong></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><span class="math inline">h</span></th>
+<th>objects</th>
+<th>TP</th>
+<th>FP</th>
+<th>FN</th>
+<th>PQ</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0.05</td>
+<td>29</td>
+<td>20</td>
+<td>9</td>
+<td>0</td>
+<td>0.69</td>
+</tr>
+<tr class="even">
+<td>0.1</td>
+<td>22</td>
+<td>20</td>
+<td>2</td>
+<td>0</td>
+<td>0.82</td>
+</tr>
+<tr class="odd">
+<td>0.2</td>
+<td>20</td>
+<td>20</td>
+<td>0</td>
+<td>0</td>
+<td>0.87</td>
+</tr>
+<tr class="even">
+<td>0.4</td>
+<td>20</td>
+<td>20</td>
+<td>0</td>
+<td>0</td>
+<td>0.87</td>
+</tr>
+<tr class="odd">
+<td>0.8</td>
+<td>15</td>
+<td>14</td>
+<td>1</td>
+<td>6</td>
+<td>0.66</td>
+</tr>
+</tbody>
+</table>
+<p>With <span class="math inline">h = 0.05</span> the small bumps that the errors put on each distance map become markers: <code>distance-h0.05.png</code> shows nuclei cut into two or three pieces (splits, the false positives). From <span class="math inline">h = 0.2</span> all 20 are found. At <span class="math inline">h = 0.8</span> even the real necks between touching nuclei are too shallow, and touching nuclei merge again. As in B2 (c), <span class="math inline">h</span> must be larger than the ripples on a cell and smaller than the necks between cells; here 0.2 to 0.4 works. SQ stays at about 0.87 even then, because the noisy map moves the outlines.</p>
 </div>
 </div>
 </div>

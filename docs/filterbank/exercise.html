@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: the filter bank</a></li>
   <li><a href="#explore-wavesparse" id="toc-explore-wavesparse" class="nav-link" data-scroll-target="#explore-wavesparse">Explore: smoother wavelets, sparser coefficients</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9179,6 +9180,49 @@ Solutions
 <p><strong>E9.</strong> Fourier 145; Haar 184, db2 54, db4 34, db8 40. The smooth parts need vanishing moments (Haar is worse than Fourier here!), but db8’s long filter spreads the two jumps over more coefficients than db4’s.</p>
 <p><strong>E10.</strong> Haar 11, db2 24, db4 39, db8 55 (Fourier 176). A pure jump has no smooth part to exploit, so only the filter length matters: the shortest wavelet wins.</p>
 <p><strong>E11.</strong> Doppler (smooth oscillation): db8 (69) or db4 (75), against Haar 196 and Fourier 231. Blocks (piecewise constant): Haar (39) against db2 77, db4 103, db8 131. Choose the wavelet to match the signal: vanishing moments for smooth parts, short filters for jumps.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day07-wavelets/src/filterbank/exercise.rs</code>. The low-pass filters of Haar, db2, db3 and db4 are given.</p>
+<p><strong>C1.</strong> <code>highpass(h)</code>: the matching high-pass, <span class="math inline">g_n = (-1)^n h_{L-1-n}</span>. The check is the db2 table.</p>
+<p><strong>C2.</strong> <code>vanishing_moments(g)</code>: count <span class="math inline">m = 0, 1, 2, \dots</span> while <span class="math inline">\sum_n n^m g_n = 0</span> (up to rounding). The check is B2: Haar 1, db2 2, db3 3, db4 4.</p>
+<p><strong>C3.</strong> <code>analysis(x, h)</code>: one level of the filter bank with a periodic border:</p>
+<pre><code>for k = 0 … N/2 − 1:
+    a[k] = 0;  d[k] = 0
+    for n = 0 … L − 1:
+        a[k] = a[k] + h[n] · x[(2k + n) mod N]      # low-pass, every second sample
+        d[k] = d[k] + g[n] · x[(2k + n) mod N]      # high-pass, every second sample</code></pre>
+<p>The checks are B1(a) and B3: the db2 details of the ramp <span class="math inline">0, \dots, 7</span> are <span class="math inline">0, 0, 0, -2.83</span>.</p>
+<p><strong>C4.</strong> <code>synthesis(a, d, h)</code>: each coefficient puts its filter back where it came from:</p>
+<pre><code>x = N zeros
+for k = 0 … N/2 − 1:
+    for n = 0 … L − 1:
+        x[(2k + n) mod N] = x[(2k + n) mod N] + h[n] · a[k] + g[n] · d[k]</code></pre>
+<p>The checks are B1(b) (the low branch alone gives <span class="math inline">5, 5, 11, 11</span>), perfect reconstruction and <span class="math inline">\sum a^2 + \sum d^2 = \sum x^2</span> for all four wavelets.</p>
+<p><strong>C5.</strong> <code>dwt(x, h, levels)</code> and <code>idwt(c, h, levels)</code>: the cascade, repeating C3 on the approximation only, and back with C4. Layout <span class="math inline">(a_L \mid d_L \mid \dots \mid d_1)</span>, as in the Haar unit. The checks: the Haar cascade gives the orthonormal Haar transform of the board example; <code>idwt</code> undoes <code>dwt</code>; a quadratic has zero db3 details.</p>
+<p>Then <code>cargo run -p day07 -- filterbank</code> and open the pictures in <code>out/filterbank/</code>.</p>
+<p><strong>C6.</strong> The program prints the largest level-1 detail of HeaviSine (a smooth wave with two jumps, 256 samples) on the smooth parts and at the jumps, for Haar, db2, db3 and db4. Before you run it: how should the smooth-part column change from one wavelet to the next? Then look at <code>details.png</code> (the level-1 details; from the top: Haar, db2, db3, db4).</p>
+<p><strong>C7.</strong> It also prints how many coefficients (5 levels) each wavelet needs for 1 % error on HeaviSine, a step and the Doppler signal. Which wavelet wins on each signal, and why?</p>
+<p><strong>C8.</strong> <code>aliasing.png</code>: a chirp (grey) through db2, rebuilt from both branches (dots) and from the low branch alone (orange). Where does the low branch fail, and what does it put there? How many samples does the 5-level cascade filter, compared with <span class="math inline">2N</span>?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day07-wavelets/src/filterbank/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> On the smooth parts the largest detail falls by a factor of about 20 for every extra vanishing moment: Haar 0.14, db2 0.0059, db3 0.00026, db4 0.000012. At the jumps the details stay large but get smaller as the filter gets longer: 1.53, 0.96, 0.67, 0.46 (the jump is spread over more coefficients). In <code>details.png</code> the Haar details follow the sine along the whole signal; for db2 to db4 the curve is flat except for spikes at the two jumps.</p>
+<p><strong>C7.</strong> HeaviSine: Haar 184, db2 54, db3 35, db4 34: vanishing moments pay off on the smooth parts. Step: Haar 10, db2 24, db3 33, db4 39: a pure jump has nothing smooth, and the shortest filter touches the fewest coefficients. Doppler: 197, 109, 86, 75: a smooth oscillation needs many vanishing moments.</p>
+<p><strong>C8.</strong> Both branches together rebuild the chirp exactly (largest error <span class="math inline">1.2 \cdot 10^{-7}</span>, rounding). The low branch alone follows the slow start of the chirp, but where it oscillates fast (the right half) it gives a slow, wrong wave instead of the fast one: largest error 1.17. These are the fast oscillations folded down by keeping every second sample, normally cancelled by the high branch. The cascade filters <span class="math inline">256 + 128 + 64 + 32 + 16 = 496</span> samples, less than <span class="math inline">2N = 512</span>.</p>
 </div>
 </div>
 </div>

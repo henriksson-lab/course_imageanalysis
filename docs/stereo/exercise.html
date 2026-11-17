@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-slice" id="toc-explore-slice" class="nav-link" data-scroll-target="#explore-slice">Explore: the cost slice</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: stereo matching</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9231,6 +9232,55 @@ Solutions
 <p><strong>E5.</strong> 1103 pixels are marked invalid, 939 of them occluded (of 1138 occluded pixels). Without the check, 1054 of the occluded pixels get a wrong disparity (they have no correct match at all). An invalid pixel is honest: it can be left as a hole or filled from its neighbours later; a wrong disparity is a wrong 3D point that nothing downstream can detect.</p>
 <p><strong>E6.</strong> Integer disparities: mean error 0.26 px (about a quarter pixel, as expected for rounding). With the parabola: 0.12 px. The parabola through the three costs around the minimum puts its vertex between two integers, here e.g.&nbsp;16.05 at (160, 120) where the truth is 16.07.</p>
 <p><strong>E7.</strong> Winner-take-all updates take tens of milliseconds, SGM 8 a few hundred: the aggregation over 8 directions, each touching every pixel × disparity, dominates; the cost volume itself is cheaper (and is only recomputed when the cost or the window changes).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day49-multiview/src/stereo/exercise.rs</code>. The left pixel <span class="math inline">(x, y)</span> matches the right pixel <span class="math inline">(x - d, y)</span>; a cost volume is one image of costs per disparity <span class="math inline">d</span>.</p>
+<p><strong>C1.</strong> <code>sad_cost_volume(left, right, max_d, radius)</code>:</p>
+<pre><code>for d in 0 … max_d:
+    for every left pixel (x, y):
+        C_d(x, y) = sum over the window (i, j) of |L(x+i, y+j) − R(x+i−d, y+j)|</code></pre>
+<p>Outside the images, read 0. The check is B2: SAD 12, 12 and 0 for <span class="math inline">d = 0, 1, 2</span>, and equal costs for a constant row.</p>
+<p><strong>C2.</strong> <code>census(img)</code> and <code>hamming(a, b)</code>: the 8-bit census code of every pixel (row by row, the first neighbour in the highest bit, 1 = darker than the centre), and the number of bits in which two codes differ. The check is B3: 11001100, 10001100, distance 1, and the same code for <span class="math inline">2W_1 + 10</span>.</p>
+<p><strong>C3.</strong> <code>winner_take_all(costs)</code>: at every pixel the disparity of the lowest cost. The check is B2.</p>
+<p><strong>C4.</strong> <code>scanline_dp(costs, p1, p2)</code>: the cheapest disparity path through one row, <code>costs[x][d]</code>:</p>
+<pre><code>total[0][d] = C[0][d]
+for x = 1 … n−1, for every d:
+    total[x][d] = C[x][d] + min over e of ( total[x−1][e] + jump(e, d) )
+    from[x][d]  = the e that gave the minimum         # jump: 0, p1 if |e−d| = 1, else p2
+path[n−1] = the d with the smallest total[n−1][d]
+for x = n−1 … 1:  path[x−1] = from[x][path[x]]</code></pre>
+<p>The check is B5: with <span class="math inline">P_1 = 1</span>, <span class="math inline">P_2 = 2</span> the straight path <span class="math inline">d = 1</span>; with <span class="math inline">P_1 = 0.25</span> the winner-take-all path.</p>
+<p><strong>C5.</strong> <code>subpixel_offset(c_minus, c0, c_plus)</code>: the minimum of the parabola, <span class="math inline">(C_- - C_+)/\big(2(C_- - 2C_0 + C_+)\big)</span>. The check is B6: <span class="math inline">+0.25</span>.</p>
+<p>Then <code>cargo run -p day49 -- stereo</code> and open the pictures in <code>out/stereo/</code> (disparity maps: brighter = nearer). The program makes a rectified pair of random texture, <span class="math inline">160\times120</span> pixels: a slanted ground (disparity 6 at the top to 18 at the bottom) and a raised square (disparity 26), with true disparities in <code>truth.png</code>. It prints the percentage of bad pixels (more than 1 off; occluded pixels and the left strip <span class="math inline">x &lt; 32</span> are not counted) for:</p>
+<ul>
+<li>SAD with windows <span class="math inline">3\times3</span>, <span class="math inline">7\times7</span>, <span class="math inline">15\times15</span> and winner-take-all (<code>wta-sad*.png</code>);</li>
+<li>a square whose inside is one flat grey, with winner-take-all and with scanline DP (<span class="math inline">P_1 = 0.3</span>, <span class="math inline">P_2 = 3</span>) on <span class="math inline">3\times3</span> SAD (<code>textureless-*.png</code>);</li>
+<li>a right camera with gain 0.5 and offset 0.3, with SAD and with census, <span class="math inline">7\times7</span> (<code>gain-*.png</code>);</li>
+</ul>
+<p>and the mean disparity error on the ground with whole disparities and with the parabola.</p>
+<p><strong>C6.</strong> Compare the three window sizes, by the numbers and the pictures. Why is <span class="math inline">3\times3</span> noisy, and why is <span class="math inline">15\times15</span> worse again than <span class="math inline">7\times7</span>? What is the noisy strip just left of the square?</p>
+<p><strong>C7.</strong> Compare winner-take-all and DP on the textureless square. Where does DP get the inside’s disparity from? What artefact does DP leave?</p>
+<p><strong>C8.</strong> What does the gain change do to SAD and to census? How much does the parabola improve the disparity of the ground?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day49-multiview/src/stereo/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> <span class="math inline">3\times3</span>: 4.4 % bad, with isolated wrong specks all over the ground (9 pixels of texture are sometimes matched as well by a wrong window). <span class="math inline">7\times7</span>: 2.4 %. <span class="math inline">15\times15</span>: 6.6 %: the square’s corners are rounded and the square grows to the sides, because a window centred on a ground pixel next to the square contains part of the square, and the square’s texture wins (foreground fattening). The noisy strip just left of the square is the background that the right camera cannot see (occluded): it has no correct match, and it is not counted.</p>
+<p><strong>C7.</strong> Winner-take-all: 19.6 % bad; the flat inside gets random disparities, because every disparity matches a flat grey equally well. DP: 0.3 %: along each row the path keeps the disparity of the textured frame across the flat inside, since a jump costs <span class="math inline">P_2</span> and staying costs nothing extra. It leaves horizontal streaks in the occluded strip left of the square, where each row decides on its own.</p>
+<p><strong>C8.</strong> SAD gets worse, from 2.4 % to 3.2 % bad, because the offset and gain make even the correct window differ. Census is unaffected by any increasing change of brightness and gives 0.7 % (better even than SAD on the original pair). The parabola halves the mean error on the ground, from 0.249 px with whole disparities to 0.125 px.</p>
 </div>
 </div>
 </div>

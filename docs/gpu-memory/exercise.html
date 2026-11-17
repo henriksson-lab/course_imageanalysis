@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-coalesce" id="toc-explore-coalesce" class="nav-link" data-scroll-target="#explore-coalesce">Explore: coalescing and tiles</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: the roofline and the end-to-end time</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9176,6 +9177,50 @@ Solutions
 <p><strong>R5.</strong> float16: <span class="math inline">I = 12.5</span>, 67 µs; float32: <span class="math inline">I = 6.25</span>, 134 µs. Half the bytes doubles the intensity; since the filter is memory-bound, the time halves.</p>
 <p><strong>R6.</strong> At 128² with a 3 × 3 filter: upload 2.6 µs, launch 10 µs, kernel 0.13 µs, download 2.6 µs: 15.4 µs against 2.6 µs on the CPU. The GPU never wins with <span class="math inline">k = 3</span>: the CPU filters (memory-bound at 50 GB/s, 8 bytes per pixel) faster than the link can move the image (2 × 4 bytes per pixel at 25 GB/s). With <span class="math inline">k = 11</span> the CPU becomes compute-bound and slow; the GPU wins from <span class="math inline">n \approx 191</span>.</p>
 <p><strong>R7.</strong> GPU 1.78 ms (upload 0.67, launches 0.10, kernels 0.34, download 0.67) against 17.0 ms on the CPU; crossover <span class="math inline">n \approx 167</span>. Without keeping the data, every step uploads and downloads: 13.9 ms, crossover <span class="math inline">n \approx 362</span>; the GPU still wins at 2048², but by 1.2 times instead of 10.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day51-gpus/src/gpu_memory/exercise.rs</code>. There is no GPU code here: the functions model the memory system with the rules of a real one and count the bytes it would move. (The tasks are numbered <strong>P1, P2, …</strong>, since this page already uses C and R for the demo questions.)</p>
+<p><strong>P1.</strong> <code>warp_traffic(addresses)</code>: the cost of one warp’s read, every lane reading one 4-byte float at a byte address:</p>
+<pre><code>lines   = the distinct values of address / 128
+sectors = the distinct values of address / 32
+bytes moved = 32 · (number of sectors);   bytes used = 4 · (number of distinct addresses)
+efficiency  = bytes used / bytes moved</code></pre>
+<p>The checks are B3 (a)–(c). (Pixel <span class="math inline">(x, y)</span> of a <span class="math inline">W</span> pixels wide float image is at byte <span class="math inline">4(yW + x)</span>.)</p>
+<p><strong>P2.</strong> <code>tile_reads(out_w, out_h, tile, k)</code>: how often each input pixel is read from global memory when a <span class="math inline">k\times k</span> filter works in tiles of <code>tile</code> × <code>tile</code> outputs, every tile loading its input window (the tile plus the halo) once:</p>
+<pre><code>reads = zeros, the size of the output plus k − 1 in each direction
+for every tile (tx, ty) of the output, w × h outputs (smaller at the edges):
+    for every pixel of the window tx … tx + w + k − 2,  ty … ty + h + k − 2:
+        reads(x, y) = reads(x, y) + 1</code></pre>
+<p>With <code>tile</code> = 1 this is the filter without tiles. The checks are B4 and the lecture’s heat map (1.27 reads per output for 16 × 16 tiles and a 3 × 3 filter).</p>
+<p><strong>P3.</strong> <code>roofline_time(work, bytes, peak, bandwidth)</code>: <span class="math inline">t = \max(W/\pi, Q/\beta)</span>, and whether the kernel is memory-bound (<span class="math inline">W/Q &lt; \pi/\beta</span>). The checks are B2 (a), (d) and an 11 × 11 filter.</p>
+<p><strong>P4.</strong> <code>pipeline_separate</code> and <code>pipeline_fused</code>: scale, subtract a background, clip to <span class="math inline">[0, 1]</span>, threshold, as four passes and as one. Read and write every pixel through <code>load</code> and <code>store</code>, which count 4 bytes each:</p>
+<pre><code>separate:  for each step: for every pixel: store(next image, step(load(previous image)))
+fused:     for every pixel: v = load(input); v = threshold(clip(subtract(scale(v))));  store(out, v)</code></pre>
+<p>The check is B6: 32 against 8 bytes per pixel, and the same result.</p>
+<p>Then <code>cargo run -p day51 -- gpu-memory</code> and open the picture in <code>out/gpu-memory/</code>.</p>
+<p><strong>P5.</strong> Read the table of strided reads (stride 1, 2, 4, 8, 16, 1024 floats). From which stride on does the efficiency stop falling, and why?</p>
+<p><strong>P6.</strong> Read the reads per output for a 3 × 3 and a 31 × 31 filter with different tile sizes, and look at <code>reads-3x3-tile16.png</code> (black: read once, white: read 4 times). Where are the pixels that are read more than once? Why do small tiles hurt the 31 × 31 filter so much more?</p>
+<p><strong>P7.</strong> The program runs the four-step pipeline on a 4096 × 4096 image on <strong>this computer’s CPU</strong>, separate and fused, and prints the times. Compare the ratio of the times with the ratio of the bytes. What does that say about the CPU?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day51-gpus/src/gpu_memory/solution.rs</code> in the download.</p>
+<p><strong>P5.</strong> Stride 1: 1 line, 4 sectors, 100 %; stride 2: 50 %; 4: 25 %; from stride 8 on, 12.5 % whatever the stride (8, 16 or 1024): each lane then has a sector of its own, and a sector (32 bytes, 8 floats) is the least memory can deliver. Larger strides touch more lines (8, 16, 32) but move the same 1024 bytes.</p>
+<p><strong>P6.</strong> 3 × 3: 9 reads per output without tiles, 2.25 with 4 × 4 tiles, 1.56 with 8 × 8, 1.27 with 16 × 16, 1.13 with 32 × 32. 31 × 31: 961 without tiles, 22.6, 8.3 and 3.75 with tiles of 8, 16 and 32. In the picture the pixels read twice are the seams between tiles, two pixels wide (the halo of the tiles on both sides), and the crossings of the seams are read four times. The halo of a 31 × 31 filter is 15 pixels on each side, larger than an 8 × 8 tile itself, so a small tile loads mostly halo: <span class="math inline">(8 + 30)^2 / 64 = 22.6</span> inputs per output.</p>
+<p><strong>P7.</strong> On our computer, in two runs: four passes 720–820 ms, fused 190–265 ms, 3 to 4 times faster for 4 times fewer bytes and the same arithmetic. So the CPU, too, spends most of the time of this pipeline moving the image to and from memory, not computing. Your times will differ; the ratio should be similar.</p>
 </div>
 </div>
 </div>

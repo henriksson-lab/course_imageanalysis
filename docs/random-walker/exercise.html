@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-walker1d" id="toc-explore-walker1d" class="nav-link" data-scroll-target="#explore-walker1d">Explore: the random walker on a chain</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: painting seeds</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9201,6 +9202,55 @@ Solutions
 <p><strong>R5.</strong> Without priors the boundary crosses the middle row between <span class="math inline">x = 45</span> and 46: well left of the true split, because the walker only sees seed geometry on a smooth ramp. With priors (λ = 0.05) it crosses between <span class="math inline">x = 63</span> and 64: on the true split. At λ = 1 the boundary is sharp and still correct here, but the result approaches thresholding with the seed histograms: an object-coloured region anywhere in the image would become object even without a seed.</p>
 <p><strong>R6.</strong> At σ = 5: 8447 object pixels and about 3060 iterations; at σ = 20: 3377 object pixels and about 710 iterations. At σ = 5 noise differences (noise 18) are already “edges”: the walker is trapped in patches near its seeds and large parts of the background end up closer (in resistance) to the object seed. The contrast of the weights also makes the system badly conditioned, so CG needs many more steps.</p>
 <p><strong>R7.</strong> The cytoplasm between the nucleus and the image border is uncertain (pale): it is far from the strokes and its texture gives many weak links. Two or three background strokes on the cytoplasm around the nucleus (left, right, below) are usually enough for the 0.5 contour to follow the nuclear envelope everywhere.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day29-graphseg/src/random_walker/exercise.rs</code>. Seeds are a label image: 0 = free pixel, 1 = object seed, 2 = background seed (3, 4, … for more labels). A chain is a one-row image. The exercises number the nodes from 1, the code from 0.</p>
+<p><strong>C1.</strong> <code>chain_voltages(weights, seeds)</code>: the voltages of a chain, the way B1 and B3 compute them by hand:</p>
+<pre><code>for every pair of consecutive seeds a &lt; b (voltages Va, Vb):
+    R = Σ of 1/w over the edges from a to b                 # total resistance
+    r = 0
+    for i = a .. b−1:
+        V[i] = Va + (Vb − Va) · r / R;   r = r + 1/w[i]
+before the first seed and after the last one: V = that seed's voltage</code></pre>
+<p>The checks are B1(a), B3(a) and B4.</p>
+<p><strong>C2.</strong> <code>edge_weights(img, σ)</code>: the contrast weight <span class="math inline">w = \exp(-(I_p - I_q)^2/2\sigma^2)</span> of every edge to the right neighbour and to the one below. Grey values are between 0 and 1 here, so <span class="math inline">\sigma = 0.08</span> is about 20 grey levels of 255.</p>
+<p><strong>C3.</strong> <code>averaging_sweep(x, seeds, weights)</code>: every free pixel, row by row, takes the weighted mean of its neighbours; returns the largest change:</p>
+<pre><code>for every free pixel p, row by row:
+    x_p = Σ_q w_pq x_q / Σ_q w_pq            # the values already updated in this sweep</code></pre>
+<p>The check repeats it until nothing changes on the <span class="math inline">3 \times 3</span> grid of B5.</p>
+<p><strong>C4.</strong> <code>random_walker(seeds, weights, label, tol, max_iterations)</code>: the exact probabilities, by <strong>conjugate gradients</strong> on the system <span class="math inline">L_U\mathbf x_U = \mathbf b</span> (the lecture’s math slide). First <code>apply_lu(v, seeds, weights)</code> (C4a): multiplying by <span class="math inline">L_U</span> needs no matrix; for a free pixel, <span class="math inline">(L_U\mathbf v)_p = d_p v_p - \sum_{q \text{ free}} w_{pq} v_q</span>, with <span class="math inline">d_p</span> the sum of all its weights, and 0 at the seeds. Then <code>random_walker</code> (C4b), with the right side <span class="math inline">b_p = \sum_{q \text{ seed}} w_{pq}\,x_q</span>, what the seeds pull with:</p>
+<pre><code>x = 0,  r = b,  p = r                         # images, 0 at the seeds
+repeat until r·r is small enough:
+    q = L_U p
+    α = (r·r) / (p·q)
+    x = x + α p,   r_new = r − α q
+    p = r_new + (r_new·r_new) / (r·r) · p,   r = r_new</code></pre>
+<p>The checks are B5, B1 as a one-row image, B2(a) (3/5), and three labels whose probabilities sum to 1 at every pixel.</p>
+<p><strong>C5.</strong> <code>walk_estimate(seeds, weights, label, start, walks, rng)</code>: release random walks from <code>start</code>, each step to neighbour <span class="math inline">q</span> with probability <span class="math inline">w_{pq}/d_p</span>, until a seed; return the fraction that ends at a seed of <code>label</code>. The check is 4000 walks from node 3 of B1.</p>
+<p>Then <code>cargo run -p day29 -- random-walker</code> and open the pictures in <code>out/random-walker/</code>. The program repeats the chains, segments the micrograph (at half size) from one object stroke in the nucleus and background strokes on three borders, solves a flat image with seeds in two corners, and segments synthetic nuclei with one seed per nucleus.</p>
+<p><strong>C6.</strong> The program runs averaging sweeps on the chain of B3, from 0.5 at the free nodes, until the largest change is below 0.001. How many sweeps does it take, and how close are the values to the exact ones of C1? Compare with demo question W3.</p>
+<p><strong>C7.</strong> Open <code>cell-seeds.png</code> (0.5 contour in yellow) and <code>cell-probability.png</code>. Where does the contour follow the nuclear envelope, and where not? How many CG iterations were needed? Compare the two probed probabilities with the 200 walks: are the differences what you expect?</p>
+<p><strong>C8.</strong> Read the probabilities along the diagonal of the flat image. Where does the probability change fastest? Which failure mode of the lecture is this? In <code>nuclei-walker.png</code>, what fraction of the pixels got their true label, and why does it work so well there?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day29-graphseg/src/random_walker/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> 24 sweeps; the values are then 0.624, 0.548, 0.471, 0.393, 0.314 against the exact 0.615, 0.538, 0.462, 0.385, 0.308 of C1: about 0.01 too high, although every sweep changed them by less than 0.001. The same numbers as in W3. A small change per sweep does not mean a small error: averaging converges slowly, which is why the walker is solved by conjugate gradients.</p>
+<p><strong>C7.</strong> The yellow contour follows the nuclear envelope on the left, top and right. At the bottom it leaves the envelope and takes in a piece of the darker cytoplasm below the nucleus, which is far from all background strokes. Conjugate gradients needed 530 iterations (relative residual <span class="math inline">10^{-5}</span>); 2997 pixels are object. Probes: 0.647 against 0.650 from 200 walks, and 0.345 against 0.325. With 200 walks the standard error is <span class="math inline">\sqrt{p(1-p)/200} \approx 0.034</span>: both estimates are within one standard error.</p>
+<p><strong>C8.</strong> 1.00, 0.89, 0.80, 0.71, 0.61, 0.50, 0.38, 0.27, 0.16, 0.11, 0.00: the steepest change is right next to the two seeds (from 1 to 0.89 in one pixel, and from 0.11 to 0 in the last), and in between the probability falls slowly through 0.5 in the middle. Only the geometry decides: “far from all seeds”. The nuclei: 99.4 % of the pixels get their true label. Every nucleus has its own seed and a strong edge all round (bright nuclei on a dark background), so each walk is trapped where it starts.</p>
 </div>
 </div>
 </div>

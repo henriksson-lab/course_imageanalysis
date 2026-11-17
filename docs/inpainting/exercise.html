@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9228,6 +9229,45 @@ Solutions
 <p><strong>E4.</strong> Gaps up to 8 are bridged (centre 50, as dark as the bar); from 14 on the bar stays broken (centre 200). Between 9 and 12 the result after the default iterations is grey (e.g.&nbsp;gap 10: about 100–110): connecting and breaking cost almost the same near <span class="math inline">d = w</span>, so the iterations converge very slowly and the minimiser is (nearly) not unique.</p>
 <p><strong>E5.</strong> The fill starts at the rim where the data term is large: where the texture’s strong edges (or a nucleus’s edge) meet the hole. Texture: 33 patches, mean error 4.5 (harmonic: 41.9). Nuclei: 30 patches; a bright, textured blob (part of a nucleus, 244 pixels brighter than 120) grows into a hole that was empty background (whose truth never exceeds 80).</p>
 <p><strong>E6.</strong> Harmonic and TV remove the nucleus and fill a smooth or flat patch (they invent “nothing here”); exemplar may rebuild a nucleus-like structure, but not the one that was there (a different texture, size or position), or continue the background. Every method invents something; none recovers the hidden nucleus.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day10-pdesmooth/src/inpainting/exercise.rs</code>. The hole is given as a mask: <code>missing(x, y)</code> is true for the pixels to fill.</p>
+<p><strong>C1.</strong> <code>jacobi_sweep(img, missing)</code>: one Jacobi sweep, reading only old values:</p>
+<pre><code>new = copy of I
+for every pixel p with missing(p):
+    new(p) = mean of the neighbours of p that lie inside the image</code></pre>
+<p>In a single row this is the 1D fill of B1. The check is B1 (b).</p>
+<p><strong>C2.</strong> <code>gauss_seidel_sweep(img, missing)</code>: the same, row by row, writing every new value into the image at once, so that later pixels already use it. The check is B1 (c).</p>
+<p><strong>C3.</strong> <code>harmonic_inpaint(img, missing, tol)</code>: set the hole to 0, then Gauss–Seidel sweeps until no pixel changes by more than <code>tol</code>; return the result and the number of sweeps. The checks are B1 (a) and B2 (<span class="math inline">a = 14</span>, <span class="math inline">b = 26</span>), and that no known pixel changes.</p>
+<p><strong>C4.</strong> <code>masked_ssd(img, missing, target, source, half)</code>: the squared difference of the patches around <code>target</code> and <code>source</code>, over the pixels known in the target patch:</p>
+<pre><code>d = 0
+for every offset k in the patch:
+    if target + k is known:
+        d = d + (I(target + k) − I(source + k))²</code></pre>
+<p>The check is B4 (a): 10, 1893 and 1764 for A, B and C.</p>
+<p><strong>C5.</strong> <code>fill_best_patch(img, missing, target, half, search)</code>: one exemplar step. Among all source patches near the target that are inside the image and completely known, take the one with the smallest <code>masked_ssd</code>, copy its values into the missing pixels of the target patch, and mark them as known. The check is B4 (b): A is copied, and the four missing pixels become 50, 52, 49, 51.</p>
+<p>Then <code>cargo run -p day10 -- inpainting</code> and open the pictures in <code>out/inpainting/</code>.</p>
+<p><strong>C6.</strong> The program counts the sweeps that Jacobi and Gauss–Seidel need for square holes of width 8, 16 and 32 until every pixel is within 1 grey level of the exact fill. Predict first: by what factor does the count grow when the width doubles? Then compare <code>hole32.png</code> with <code>hole32-harmonic.png</code>.</p>
+<p><strong>C7.</strong> A dot texture with a <span class="math inline">28 \times 28</span> hole (<code>texture-hole.png</code>), filled harmonically and by exemplar inpainting, one <span class="math inline">9 \times 9</span> patch at a time, starting where the patch has the most known pixels. Compare the two pictures and the errors. Would you measure the dots in the filled hole?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day10-pdesmooth/src/inpainting/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Jacobi: 82, 304 and 1188 sweeps; Gauss–Seidel: 42, 153 and 595. Doubling the width costs about four times the sweeps (information spreads like heat, a distance <span class="math inline">w</span> in about <span class="math inline">w^2</span> steps), and Gauss–Seidel needs about half as many as Jacobi (slide “Iterating is slow”). The harmonic fill of the <span class="math inline">32 \times 32</span> hole is a smooth grey blur in the middle of the nucleus: the texture cannot come back. The thin dead column and scratch (<code>defects-harmonic.png</code>) are filled after 23 sweeps and can hardly be seen, although the mean error in them is still 17 grey levels: the fine texture under them is gone.</p>
+<p><strong>C7.</strong> The harmonic fill is a flat grey square (error 52.7 grey levels); the exemplar fill (36 patches) continues the dot pattern so well that the hole cannot be found by eye (error 5.6). But the dots inside the hole are copies of dots elsewhere: they are invented, not measured. Count and measure only outside the mask (slide “What may never be measured”).</p>
 </div>
 </div>
 </div>

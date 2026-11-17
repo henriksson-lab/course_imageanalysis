@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-ray2d" id="toc-explore-ray2d" class="nav-link" data-scroll-target="#explore-ray2d">Explore: rays in 2D</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: ray trees</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9195,6 +9196,62 @@ Solutions
 <p><strong>E5.</strong> 10 rays: primary → ball (1.00); reflected → floor (0.04) with its shadow ray; refracted → inside → back of the ball (0.96), where 0.92 leaves to the sky and 0.04 is reflected inside again, and so on, down to weights of 0.001. A glass ball acts as a lens with a focus just behind it: the image it forms is inverted. The shadow behind it is black: the floor’s shadow rays hit the ball and count as blocked; no light is focused through it (no caustic).</p>
 <p><strong>E6.</strong> At depth 0 the glass ball is black: glass has no colour of its own; everything it shows comes from the reflected and refracted rays, which depth 0 does not trace. Depth 5 shows the refracted scene.</p>
 <p><strong>E7.</strong> Pixel (32, 30) sees the glass floor at a grazing angle: <span class="math inline">R = 0.43</span>, so the floor reflects the triangle strongly; the refracted 57 % reaches the lower floor, which is in shadow (the glass floor blocks its shadow rays). Without Fresnel all light is refracted: the floor shows only the dark lower floor, no reflections, and the image needs fewer rays (1.94 instead of 2.45 per pixel).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day50-raytracing/src/whitted/exercise.rs</code>. The scene and the nearest hit of the last unit are ready to use in <code>day50-raytracing/src/whitted/scene.rs</code>.</p>
+<p><strong>C1.</strong> <code>reflect(d, n)</code>: the mirror direction <span class="math inline">\mathbf r = \mathbf d - 2(\mathbf d\cdot\mathbf n)\mathbf n</span>. The check is B1.</p>
+<p><strong>C2.</strong> <code>refract(d, n, eta)</code>: Snell’s law in vector form, with <span class="math inline">\mathbf n</span> facing the incoming ray and <span class="math inline">\eta = n_1/n_2</span>:</p>
+<pre><code>c1 = −d · n                          # cos θ1
+k  = 1 − η² (1 − c1²)                # cos² θ2
+if k &lt; 0: total internal reflection (no refracted ray)
+return η d + (η c1 − √k) n</code></pre>
+<p>The checks are B10 (d), B2 (c) and the critical angle of B3 (a).</p>
+<p><strong>C3.</strong> <code>schlick(cos1, n1, n2)</code>: the reflected fraction by Schlick’s formula, <span class="math inline">R_0 + (1 - R_0)(1 - \cos)^5</span> with <span class="math inline">R_0 = \left(\frac{n_1 - n_2}{n_1 + n_2}\right)^2</span>, where <span class="math inline">\cos</span> is taken on the side of the less dense medium:</p>
+<pre><code>R0 = ((n1 − n2) / (n1 + n2))²
+c  = cos1
+if n1 &gt; n2:                              # leaving the denser medium
+    s2 = (n1 / n2) · √(1 − cos1²)        # sin θ2
+    if s2 &gt; 1: return 1                  # total internal reflection
+    c = √(1 − s2²)
+return R0 + (1 − R0)(1 − c)⁵</code></pre>
+<p>The checks are B4 (a), (e) and B5.</p>
+<p><strong>C4.</strong> <code>in_shadow(p, n, light, scene, eps)</code>: send the shadow ray from <span class="math inline">\mathbf p + \varepsilon\mathbf n</span> towards the light; the point is in shadow if anything is hit before the light. The check is B8 (c): a small ball whose top is 0.12 above the floor shadows the point under it with <span class="math inline">\varepsilon = 10^{-4}</span>, but not with <span class="math inline">\varepsilon = 0.2</span>.</p>
+<p><strong>C5.</strong> <code>trace(ray, scene, depth, max_depth, eps, rays)</code>: Whitted’s recursion (count every ray, shadow rays included, in <code>rays</code>):</p>
+<pre><code>trace(ray, depth):
+    hit = nearest hit;  if none: return the sky
+    p = hit point;  n = normal, facing the ray
+    matte:  colour · (ambient + (n · l if the shadow ray reaches the light, else 0))
+    mirror: if depth = max_depth: black
+            else reflectance · trace(ray from p + ε n along reflect(d, n), depth + 1)
+    glass:  if depth = max_depth: black
+            (n1, n2) = (1, index) if entering, else (index, 1)
+            R = schlick(−d · n, n1, n2)
+            colour = R · trace(reflected ray from p + ε n, depth + 1)
+            if refract(d, n, n1/n2) gives t:
+                colour += (1 − R) · trace(ray from p − ε n along t, depth + 1)</code></pre>
+<p>The checks: a lit matte floor, a mirror at depth 1 and at depth 0, and a glass ball alone in the sky, which must show the sky (<span class="math inline">R + (1 - R) = 1</span> at every split).</p>
+<p>Then <code>cargo run -p day50 -- whitted</code> and open the pictures in <code>out/whitted/</code>.</p>
+<p><strong>C6.</strong> Compare <code>depth0.png</code>, <code>depth1.png</code> and <code>whitted.png</code> (maximum depth 0, 1 and 5). What do the mirror ball and the glass ball show at each depth, and why? How many rays per pixel does each need (printed)? What does the shadow of the glass ball look like?</p>
+<p><strong>C7.</strong> Compare <code>acne.png</code> (<span class="math inline">\varepsilon = 0</span>) with <code>whitted.png</code> (<span class="math inline">\varepsilon = 10^{-4}</span>), and read the numbers of matte pixels in shadow. Then read the shadow pixels of the small low ball for <span class="math inline">\varepsilon = 10^{-4}</span>, <span class="math inline">0.1</span> and <span class="math inline">0.2</span> (and look at the <code>leak-eps*.png</code> pictures). Explain both effects.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day50-raytracing/src/whitted/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Depth 0 is plain ray casting: the mirror and the glass ball are black, since all their colour comes from the rays they send on (1.40 rays per pixel: the primary rays plus the shadow rays of the matte pixels). At depth 1 the mirror ball shows the scene, but the glass ball in its reflection is black, and the glass ball itself is nearly black: its refracted ray reaches the back of the ball and stops there; only the faint 4 % reflection of the front shows (1.65 rays per pixel). At depth 5 the glass ball shows the scene behind it upside down, the floor at the top, like a lens (2.46 rays per pixel). At every depth the shadow of the glass ball is as black as that of the red ball: the shadow rays hit the glass and count as blocked.</p>
+<p><strong>C7.</strong> With <span class="math inline">\varepsilon = 0</span> all the balls are covered in dark speckles: 3348 of the 31 093 matte pixels are in shadow, against 2914 with <span class="math inline">\varepsilon = 10^{-4}</span>, the real shadows. Where the rounded hit point lies a little inside the ball, the shadow ray (or the reflected ray of the mirror and the glass) hits the same surface again at a tiny <span class="math inline">t</span>. (The floor at <span class="math inline">y = -1</span> happens to round outwards here and shows almost no acne.) The small ball casts a shadow of 13 floor pixels with <span class="math inline">\varepsilon = 10^{-4}</span>, 6 with <span class="math inline">\varepsilon = 0.1</span> and none with <span class="math inline">\varepsilon = 0.2</span>: the shadow rays start above the ball’s top (0.12) and pass over it, so light leaks under it.</p>
 </div>
 </div>
 </div>

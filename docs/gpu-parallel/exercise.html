@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-gpufilter" id="toc-explore-gpufilter" class="nav-link" data-scroll-target="#explore-gpufilter">Explore: the same filter on the CPU and the GPU</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: warps and divergence, latency hiding</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9215,6 +9216,55 @@ Solutions
 <p><strong>E4.</strong> With rows, 16 of the 64 warps contain a slow pixel (32 iterations instead of 1): 5600 cycles, 17.0 % efficiency. With tiles, the slow pixels fall into 32 different warps: 10 560 cycles, 9.0 %. Rows are better here only because these slow pixels happen to share rows; the general cure is to collect the slow pixels into their own warps.</p>
 <p><strong>E5.</strong> <span class="math inline">N = 1</span>: 2.3 %; <span class="math inline">N = 8</span>: 18.3 %; <span class="math inline">N = 16</span>: 35.4 %; <span class="math inline">N = 32</span>: 66.9 %. It never reaches 100 %: each warp is busy 4 of every 204 cycles, so about <span class="math inline">204/4 = 51</span> warps would be needed, more than the 32 allowed. (The simulation is a little above Little’s law, <span class="math inline">N\cdot4/204</span>, because the last of the 6 rounds has no load to wait for.)</p>
 <p><strong>E6.</strong> 100 % down to <span class="math inline">N = 26</span> warps; at 13 warps 54.5 %, at 8 warps 34.8 %. <span class="math inline">(k + L)/k = 208/8 = 26</span>. With 255 registers per thread only <span class="math inline">65\,536/(32 \cdot 255) = 8</span> warps fit (occupancy 25 %), so the utilisation stays at 34.8 % whatever <span class="math inline">N</span> is asked for: a big per-thread program costs latency hiding.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day51-gpus/src/gpu_parallel/exercise.rs</code>. There is no GPU code here: the functions model a GPU with the rules of a real one, as the demo does, and count what it would do.</p>
+<p><strong>C1.</strong> <code>warp_cycles(inside, cost_a, cost_b)</code>: the cycles of one warp for <code>if inside: A else: B</code>:</p>
+<pre><code>cycles = 0
+if any lane is inside:  cycles = cycles + cost_a      # the others are masked off
+if any lane is outside: cycles = cycles + cost_b</code></pre>
+<p>The check is B2 (a).</p>
+<p><strong>C2.</strong> <code>divergence(mask, warp_w, warp_h, cost_a, cost_b)</code>: run the branch over a whole image, cut into warps of <code>warp_w</code> × <code>warp_h</code> pixels:</p>
+<pre><code>for every tile of warp_w × warp_h pixels:
+    lanes = the mask values of its 32 pixels
+    c = warp_cycles(lanes, cost_a, cost_b);   cycles += c
+    if c = cost_a + cost_b: diverged += 1
+    useful += cost_a for every lane inside, cost_b for every lane outside
+efficiency = useful / (32 · cycles)</code></pre>
+<p>The checks are B2 (b), B2 (c) and B5.</p>
+<p><strong>C3.</strong> <code>loop_efficiency(iterations)</code>: a warp runs its loop as long as its slowest lane; the efficiency is the sum of the iterations ÷ (lanes × the largest). The check is B4.</p>
+<p><strong>C4.</strong> <code>utilisation(n_warps, k, latency, loads)</code>: latency hiding on one multiprocessor that issues one instruction per cycle.</p>
+<pre><code>every warp: k instructions left, ready at cycle 0, `loads` loads to do
+for cycle = 0, 1, 2, … while some warp has loads left:
+    w = the warp served last if it is ready, else the next ready warp (if any)
+    if there is one: issue one instruction of w; busy += 1
+        if it was w's k-th: w waits for its load until cycle + 1 + latency; k left again; loads − 1
+utilisation = busy / (the cycle when the last load arrives)</code></pre>
+<p>The checks: one warp with <span class="math inline">k = 4</span>, <span class="math inline">L = 200</span> is busy <span class="math inline">4/204</span> of the time, and 13 warps with <span class="math inline">k = 8</span> about half the time, as Little’s law says.</p>
+<p>Then <code>cargo run -p day51 -- gpu-parallel</code> and open the pictures in <code>out/gpu-parallel/</code>.</p>
+<p><strong>C5.</strong> The program runs the branch (100 cycles inside a nucleus, 10 outside) over 256 × 256 synthetic nuclei, with warps of 32 × 1, 8 × 4 and 4 × 8 pixels. Read the numbers of diverged warps, the cycles and the efficiencies, and look at <code>warps-32x1.png</code> and <code>warps-8x4.png</code> (orange: all lanes inside, blue: all outside, red: mixed). Why are the tiles better?</p>
+<p><strong>C6.</strong> The program then runs a loop of 1 iteration in the background and 2 to 20 in the nuclei (brighter = more), with warps = rows. Read the lane efficiency. Without divergence, how many warp-iterations would the same work need?</p>
+<p><strong>C7.</strong> Read the latency table (20 loads per warp) and compare the simulation with Little’s law, <span class="math inline">\min(1, Nk/(k + L))</span>. How many warps does it take to keep the multiprocessor busy for <span class="math inline">k = 4</span> and for <span class="math inline">k = 8</span>? Why is the simulation a little below the formula?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day51-gpus/src/gpu_parallel/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Rows of 32: 1028 of 2048 warps diverge, 126 880 cycles against 69 569 without divergence, efficiency 54.8 %. Tiles of 8 × 4: 436 diverge, 94 410 cycles, 73.7 %; 4 × 8 tiles about the same (426, 74.1 %). In the pictures, nearly every row-warp that touches a nucleus is red, a long red band across the nucleus; with tiles only a thin red ring of tiles along the outline of each nucleus is mixed, and the tiles inside it are orange. A compact tile of 32 pixels has a much shorter perimeter than a row of 32, so fewer of them are cut by a boundary.</p>
+<p><strong>C6.</strong> Lane efficiency 51.8 %: the warps run 17 533 warp-iterations, but the useful work (4.4 iterations per lane on average) would fill only 51.8 % of them, about 9100. Every row-warp that crosses a nucleus waits for its brightest pixel.</p>
+<p><strong>C7.</strong> <span class="math inline">k = 4</span>: 2.0, 3.9, 7.8, 15.6, 30.9, 49.8, 60.9 and 96.2 % for 1 to 64 warps, close to <span class="math inline">N\cdot4/204</span> (51 warps needed for 100 %). <span class="math inline">k = 8</span>: 3.8 % for one warp, 95.4 % at 26 warps and 98.1 % at 64, with Little’s law reaching 100 % at <span class="math inline">208/8 = 26</span>. The simulation stays a little below because of the start and the end: at the start all warps are ready together and then all wait together, and at the end the last loads are waited for with nothing left to do.</p>
 </div>
 </div>
 </div>

@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: a descriptor, step by step</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9163,6 +9164,56 @@ Solutions
 <p><strong>E6.</strong> Hamming distance 4 to the partner, 35 to the second nearest (ratio 0.11). Unrelated: 128 ± 8, so 4 is <span class="math inline">(128 - 4)/8 = 15.5</span> standard deviations below. 44 of 53 keypoints (83 %) have their partner nearest.</p>
 <p><strong>E7.</strong> The partner is only 7th of 574; <span class="math inline">d_1</span> = 0.017 and <span class="math inline">d_2</span> = 0.020, ratio 0.83: dozens of wells give almost the same descriptor, and the strip is nearly flat at the left. Overall only 28 of 458 (6 %). Nothing in the window says which well it is: the <a href="../feature-matching/lec.html">next unit</a>’s ratio test rejects such matches, and geometry (<a href="../feature-alignment/lec.html">unit 4</a>) is needed.</p>
 <p><strong>E8.</strong> Gradient histogram: 47 of 59 (80 %); binary: 32 of 38 (84 %). Blur removes small keypoints, so fewer have a partner; the binary descriptor uses its own orientation (intensity centroid) and its keypoints with a partner are fewer, but in this scene it copes with the blur about as well.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day24-keypoints/src/descriptors/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>cell_histogram(votes)</code>: the 8-bin histogram of one cell, each vote (magnitude, direction) to the nearest bin. The check is A1, before and after turning by 90°.</p>
+<pre><code>hist = 8 zeros
+for every vote (m, θ):  hist[round((θ mod 360°) / 45°) mod 8] += m</code></pre>
+<p><strong>C2.</strong> <code>normalise_clip(v, clip)</code>: normalise to length 1, clip, normalise again. The check is A2.</p>
+<pre><code>v = v / |v|
+every entry = min(entry, clip)
+v = v / |v|</code></pre>
+<p><strong>C3.</strong> <code>sample_patch(img, x, y, sigma, theta, n)</code>: an <span class="math inline">n \times n</span> patch read in the keypoint frame, <span class="math inline">12\sigma</span> wide and turned by θ (bilinear interpolation between pixels). Then <code>normalised_patch(patch)</code>: the simplest descriptor, the patch minus its mean, divided by its length.</p>
+<pre><code>step = 12σ / n
+for every sample (i, j):
+    u = (i + ½ − n/2) · step;   v = (j + ½ − n/2) · step        # in the frame
+    patch(i, j) = I(x + u cos θ + v sin θ,  y − u sin θ + v cos θ)   # y points down</code></pre>
+<p><strong>C4.</strong> <code>gradient_descriptor(patch)</code>: the 128 numbers of a 16 × 16 patch.</p>
+<pre><code>for every pixel of the patch:
+    gradient by central differences; direction θ, magnitude m
+    weight w = Gaussian of σ = 8 px around the patch centre
+    vote (w · m, θ) in the cell (⌊x/4⌋, ⌊y/4⌋)
+descriptor = the 16 cell histograms (C1), one after the other
+return normalise_clip(descriptor, 0.2)                      # C2</code></pre>
+<p>The checks: gain and offset do not change it (B7), and a vertical step edge only fills the 0° bins.</p>
+<p><strong>C5.</strong> <code>binary_descriptor(patch, pairs)</code> and <code>hamming(a, b)</code>. The bits are packed 64 to a word. The checks are A3 and A4.</p>
+<pre><code>bit i = 1 if patch(p_i) &lt; patch(q_i)
+Hamming distance = number of 1 bits in (a XOR b), word by word</code></pre>
+<p>Then <code>cargo run -p day24 -- descriptors</code> and open the pictures in <code>out/descriptors/</code>. View 2 is the micrograph turned by 30°, zoomed 1.2 times, 1.5 times brighter and with noise. The program takes 242 points on a grid where the micrograph has contrast, and their frames from the known transform (σ = 2 in view 1, 2.4 in view 2, θ = 30° in view 2), so that only the descriptors are tested. It counts how often the nearest descriptor in view 2 is the true partner. <code>view1.png</code> and <code>view2.png</code> show some of the frames; <code>patches.png</code> shows one point’s patch in view 1, in view 2 with θ, and in view 2 without θ.</p>
+<p><strong>C6.</strong> How often is the partner the nearest with θ, and without θ (θ = 0 in both views)? Explain with <code>patches.png</code>.</p>
+<p><strong>C7.</strong> The program also moves the frame in view 2 by 2 and by 4 px. Compare the gradient histogram with the normalised patch. Why does one of them suffer less?</p>
+<p><strong>C8.</strong> The binary descriptor: read the mean Hamming distance to the partner and to the other points. How many standard deviations below the distance of unrelated descriptors (B9) is the partner? How many bytes do the 242 binary descriptors take, and how many the gradient histograms as 4-byte numbers?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day24-keypoints/src/descriptors/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> With θ: 242 of 242 (100 %) for the gradient histogram and also for the normalised patch. Without θ: 29 (12 %) and 14 (6 %). In <code>patches.png</code> the first two patches (view 1, and view 2 read in the turned frame) look the same, apart from noise; the third (view 2 read without turning) shows the same structure turned by 30°. Every number of both descriptors depends on which way the structure points in the patch, so without θ the vectors no longer match.</p>
+<p><strong>C7.</strong> Frame 2 px off: gradient histogram 237 (98 %), normalised patch 207 (86 %). 4 px off: 135 (56 %) against 60 (25 %). The patch compares pixel by pixel, so a shift changes every number. The histogram only asks which way the gradients point within each 4 × 4 cell (here 6 to 7 px wide in the image): a small shift moves only a few votes to the neighbouring cell. At 4 px, more than half a cell, it degrades too.</p>
+<p><strong>C8.</strong> 13.0 bits to the partner, 127.8 to the other points: as B9 predicts for unrelated descriptors, 128 ± 8. The partner lies <span class="math inline">(128 - 13)/8 \approx 14</span> standard deviations below. With θ the nearest binary descriptor is the partner for all 242 points. Memory: <span class="math inline">242 \cdot 32 = 7\,744</span> bytes for the bits, <span class="math inline">242 \cdot 128 \cdot 4 = 123\,904</span> bytes for the histograms, 16 times more (as in A5).</p>
 </div>
 </div>
 </div>

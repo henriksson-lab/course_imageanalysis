@@ -1,3 +1,7 @@
+> **Historical (2026-11-17):** this brief made one crate per unit; the crates were then merged into
+> one crate per day (see `plan/code-plan.md`, Layout). For new work follow the plan, not the
+> crate layout below.
+
 # Brief: Rust coding exercises and pseudocode slides for a day
 
 You add code to the units of the day(s) you are given, following the pattern of day 1

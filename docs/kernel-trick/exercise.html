@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-lift" id="toc-explore-lift" class="nav-link" data-scroll-target="#explore-lift">Explore: lift and cut</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: kernel functions in 2D</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9156,6 +9157,116 @@ Solutions
 <p><strong>K3.</strong> At <span class="math inline">\gamma = 20</span>: 79 of 80 points are support vectors, 0 training errors, an island around each point. <span class="math inline">\gamma = 1</span>: 35 support vectors, 1 error; <span class="math inline">\gamma = 0.32</span>: 26 support vectors, 2 errors; <span class="math inline">\gamma = 0.1</span>: 25 support vectors, 5 errors. The training error rises as <span class="math inline">\gamma</span> falls, but the boundary becomes a smooth curve that follows the two moons instead of every (partly mislabelled) point: <span class="math inline">\gamma</span> around 0.3–1 is the one to trust. Cross-validation (<a href="../pixel-classify/lec.html">next unit</a>) makes this choice by measurement.</p>
 <p><strong>K4.</strong> At <span class="math inline">\gamma = 0.01</span>: 10 training errors and 40 support vectors, exactly like the linear kernel function (10 errors): the bumps are wider than the data, so <span class="math inline">f</span> is nearly linear. At <span class="math inline">\gamma = 0.1</span>: 2 errors; at <span class="math inline">\gamma = 0.32</span>: 0 errors (25 support vectors).</p>
 <p><strong>K5.</strong> <span class="math inline">\gamma = 0.01</span>: almost every entry is close to 1 (every point is “similar” to every other): the matrix carries little information, the boundary is nearly linear. <span class="math inline">\gamma = 100</span>: the matrix is almost the identity (each point is similar only to itself): every point is its own island, as in K3. In between, the matrix has structure: each point is similar to its neighbours, which mostly belong to its own class.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day34-svm/src/kernel_trick/exercise.rs</code>. A point is a list of features; the labels are <span class="math inline">+1</span> and <span class="math inline">-1</span>.</p>
+<p><strong>C1.</strong> <code>quadratic_map(x)</code>: the lifted point <span class="math inline">\varphi(\mathbf x) = (x_1^2,\ \sqrt2\,x_1x_2,\ x_2^2)</span>. The checks are the lecture’s “two routes” (<span class="math inline">\varphi(\mathbf x)\cdot\varphi(\mathbf z) = 25</span>) and B1(a).</p>
+<p><strong>C2.</strong> <code>kernel(k, x, z)</code>: the linear, polynomial <span class="math inline">(\mathbf x\cdot\mathbf z + c)^p</span> and RBF <span class="math inline">e^{-\gamma\|\mathbf x - \mathbf z\|^2}</span> kernel functions. The checks are B1 and B4(a).</p>
+<p><strong>C3.</strong> <code>decision(points, labels, alpha, b, k, x)</code>: the decision value of a kernel SVM, a signed sum of similarities to the support vectors. The checks are your values of B3 and the lecture’s “two bumps”.</p>
+<pre><code>f = b
+for every training point i with α_i &gt; 0:          # the support vectors
+    f = f + α_i · y_i · k(x_i, x)</code></pre>
+<p><strong>C4.</strong> <code>train_smo(points, labels, k, c, tol, max_steps)</code>: find the <span class="math inline">\alpha_i</span> (slide “The math: how it is solved”). The dual keeps <span class="math inline">\sum_i \alpha_i y_i = 0</span>, so SMO changes two <span class="math inline">\alpha</span>s at a time, the pair that most violates the optimality conditions:</p>
+<pre><code>K[i][j] = k(x_i, x_j) for all pairs;   α = 0;   g = 0      # g_t = Σ_l α_l y_l K[l][t]
+repeat:
+    F_t = g_t − y_t for every point t
+    i = argmin F_t over the points whose α_t may move with y_t
+        (y_t = +1 and α_t &lt; C, or y_t = −1 and α_t &gt; 0)
+    j = argmax F_t over the points whose α_t may move against y_t
+        (y_t = −1 and α_t &lt; C, or y_t = +1 and α_t &gt; 0)
+    if F_j − F_i &lt; 2 · tol: stop, with b = −(F_i + F_j)/2
+    η = K[i][i] + K[j][j] − 2 K[i][j]
+    α_j ← α_j + y_j (F_i − F_j)/η, clipped so that α_i and α_j stay in [0, C]
+    α_i ← α_i + y_i y_j (old α_j − new α_j)                   # keeps Σ α y
+    update every g_t with the two changes</code></pre>
+<p>The checks: B7 (<span class="math inline">\alpha = 0.4</span>, <span class="math inline">b = -1</span>), the previous unit’s example (<span class="math inline">\alpha = (0.25, 0.25, 0.5, 0)</span> as in its B9), and XOR (B2), which the degree-2 polynomial kernel function separates and the linear one does not.</p>
+<p>Then <code>cargo run -p day34 -- kernel-trick</code> and open the pictures in <code>out/kernel-trick/</code>: the street in grey, the boundary in black, the support vectors ringed.</p>
+<p><strong>C5.</strong> The ring around a blob (<code>ring-*.png</code>) and XOR (<code>xor-*.png</code>). For each kernel function, how many training points are wrong, and how many are support vectors? What does the linear SVM do with the ring?</p>
+<p><strong>C6.</strong> Two noisy half-moons, for <span class="math inline">\gamma = 0.1, 2, 100</span> and <span class="math inline">C = 0.1, 1000</span> (<code>moons-*.png</code>). The program also classifies 2000 new points from the same recipe. Which setting is best on the new points? Which settings have 0 training errors, and are they good? Describe the pictures for <span class="math inline">\gamma = 100</span>.</p>
+<p><strong>C7.</strong> Count the cost of predicting one pixel with 300 support vectors and 40 features with the RBF kernel function, and compare with the explicit map of B5.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day34-svm/src/kernel_trick/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Ring: linear 20 of 60 wrong with 47 support vectors (it gives up the 20 inner points: every point is called blue); degree 2: 0 wrong, 6 support vectors, a closed curve; RBF (<span class="math inline">\gamma = 0.5</span>): 0 wrong, 15 support vectors. XOR: linear 30 of 60 wrong with 57 support vectors; degree 2: 0 wrong with only 5 support vectors.</p>
+<p><strong>C6.</strong></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th><span class="math inline">\gamma</span></th>
+<th><span class="math inline">C</span></th>
+<th>support vectors</th>
+<th>training errors</th>
+<th>new points wrong</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0.1</td>
+<td>0.1</td>
+<td>78</td>
+<td>10</td>
+<td>17.2 %</td>
+</tr>
+<tr class="even">
+<td>0.1</td>
+<td>1000</td>
+<td>13</td>
+<td>2</td>
+<td>13.6 %</td>
+</tr>
+<tr class="odd">
+<td>2</td>
+<td>0.1</td>
+<td>73</td>
+<td>4</td>
+<td>10.8 %</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>1000</td>
+<td>17</td>
+<td>0</td>
+<td>10.1 %</td>
+</tr>
+<tr class="odd">
+<td>100</td>
+<td>0.1</td>
+<td>80</td>
+<td>0</td>
+<td>32.8 %</td>
+</tr>
+<tr class="even">
+<td>100</td>
+<td>1000</td>
+<td>78</td>
+<td>0</td>
+<td>19.1 %</td>
+</tr>
+</tbody>
+</table>
+<p>The best on new points is <span class="math inline">\gamma = 2</span>, <span class="math inline">C = 1000</span> (10.1 %): its boundary is a smooth S between the moons. <span class="math inline">\gamma = 100</span> also has 0 training errors, but is the worst on new points: the bumps reach only <span class="math inline">1/\sqrt{100} = 0.1</span>, nearly every point is a support vector, and the red region is a tight outline around the red points, with a separate island around one isolated red point (large <span class="math inline">C</span>); away from the points <span class="math inline">f</span> falls back to <span class="math inline">b</span>. With <span class="math inline">C = 0.1</span> the whole picture lies inside the street, and the boundary is a tight outline around the blue points instead. Zero training errors say nothing about new points. At <span class="math inline">\gamma = 0.1</span> the boundary is almost a straight line: underfitting.</p>
+<p><strong>C7.</strong> One RBF evaluation needs 40 subtractions, 40 squares and an exponential: about <span class="math inline">300 \times 80 = 24\,000</span> operations per pixel. The explicit degree-2 map of B5 has 861 coordinates per pixel, but the RBF kernel function’s map has infinitely many: only the kernel route is possible.</p>
 </div>
 </div>
 </div>

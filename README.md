@@ -21,9 +21,9 @@ One folder per unit, each with
 Every demo also goes on `demos.qmd`, the gallery page.
 
 Optional coding exercises (Rust) live in `code/`, a Cargo workspace: the course library
-`code/imgcourse/`, a `starter/` project, and one project per unit with exercises
-(`code/<unit>/`: `src/exercise.rs` with `todo!()` stubs, `src/solution.rs`, `tests/check.rs`,
-`src/main.rs`). Students download it as one zip from the page `code.qmd`; the exercise page's
+`code/imgcourse/`, a `starter/` project, and one project per day (`code/dayNN-<id>/`, one
+module per unit: `src/<unit>/exercise.rs` with `todo!()` stubs, `solution.rs`, `run.rs`, and
+`tests/check/<unit>.rs`). Students download it as one zip from the page `code.qmd`; the exercise page's
 `## Code {#code}` section describes the tasks in pseudocode. See `plan/code-plan.md`.
 
 ### Course structure: `days.yml`

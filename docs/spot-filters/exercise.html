@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-peaks1d" id="toc-explore-peaks1d" class="nav-link" data-scroll-target="#explore-peaks1d">Explore: spots in 1D</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: spot detection</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9236,6 +9237,59 @@ Solutions
 <p><strong>E5.</strong> 1730 detections, 1668 false (F1 0.07): without a filter, the noise sd of a pixel is 10 and a threshold of 40 above the median is passed by many noisy pixels, and a bright spot has several noisy maxima. A larger window removes most of them (<span class="math inline">r = 3</span>: 389 detections), because now only the largest pixel in a 7 × 7 neighbourhood can be a candidate. The zero-mean Gaussian with <span class="math inline">r = 1</span> is much better still (F1 0.97): filtering, not the window, is what removes noise; the window only sets the smallest spacing between candidates.</p>
 <p><strong>E6.</strong> 253 of 300 found, 47 missed (F1 0.92, no false spots). The missed spots are next to another spot, closer than the filter can separate: two spots, one candidate. <a href="../spot-crowd/lec.html">Unit 4</a> is about this.</p>
 <p><strong>E7.</strong> The spot size is fixed by the PSF, so the scale is known in advance: one LoG at σ = 1.5 already gives F1 0.95. Blobs of the <a href="../scale-space/lec.html">edges day</a> have unknown sizes; the scale search is there to find the size, which here is not needed.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day20-pointdetection/src/spot_filters/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>local_maxima(img, r)</code>: the candidates, with the tie rule of the Background table (of equal values only the first in raster order counts):</p>
+<pre><code>for every pixel p:
+    candidate = yes
+    for every other pixel q in the (2r+1) × (2r+1) window around p, inside the image:
+        if I(q) &gt; I(p): candidate = no
+        if I(q) = I(p) and q comes before p (row by row): candidate = no
+    if candidate: add p to the list</code></pre>
+<p>The checks are your answers to B1 (a), (b) and the first case of (c). (With this simple rule, a plateau that is a step on a slope can still give a candidate; the threshold of the next unit removes such weak ones.)</p>
+<p><strong>C2.</strong> <code>spot_kernel(sigma, zero_mean)</code>: the matched filter for a spot of width σ, and its zero-mean version:</p>
+<pre><code>r = ceil(3σ)
+w(dx, dy) = exp(−(dx² + dy²) / 2σ²)    for dx, dy in −r … r
+w = w / (sum of w)                       # weights sum to 1
+if zero_mean: w = w − (mean of w)        # weights sum to 0</code></pre>
+<p>The check computes <span class="math inline">\sum w^2</span> and compares it with B8.</p>
+<p><strong>C3.</strong> <code>correlate(img, kernel)</code>: the weighted sum of the kernels unit, for a kernel of any odd size, mirrored at the border. The checks are B5 (a constant and a ramp as background) and B2 (the SNR of a spot after the matched filter).</p>
+<p><strong>C4.</strong> <code>atrous(img, levels)</code>: the à trous decomposition:</p>
+<pre><code>a = I
+for j = 1, 2, …, levels:
+    step = 2^(j−1)
+    b = a blurred along rows with taps (1, 4, 6, 4, 1)/16 at offsets −2·step, −step, 0, step, 2·step
+    b = b blurred the same way along columns
+    w_j = a − b
+    a = b
+return w_1 … w_levels and the last a</code></pre>
+<p>The checks are B3 and the sum <span class="math inline">a_J + \sum_j w_j = I</span>.</p>
+<p><strong>C5.</strong> <code>multiscale_product(ws, levels, k)</code>: keep each chosen level only where it is above <span class="math inline">k</span> times its own noise (<span class="math inline">\mathrm{MAD}/0.6745</span>, given in the code; the next unit asks you to write it), set it to 0 elsewhere, and multiply the kept levels pixel by pixel.</p>
+<p>Then <code>cargo run -p day20 -- spot-filters</code> and open the pictures in <code>out/spot-filters/</code>. The program makes the image of the second demo (80 spots of σ = 1.5 on a slope with a bright patch, noise 10) and detects spots with the Gaussian, the zero-mean Gaussian and the à trous product. In <code>detections-*.png</code> green crosses are found spots, red crosses false ones, yellow rings missed ones.</p>
+<p><strong>C6.</strong> Compare <code>detections-gaussian.png</code> with <code>detections-zero-mean.png</code> and the printed counts. Where are the false spots of the Gaussian filter, and where are its missed spots? Why does the zero-mean filter have neither?</p>
+<p><strong>C7.</strong> Look at <code>atrous-w1.png</code> to <code>atrous-w4.png</code> and <code>atrous-product.png</code>. Which level holds the noise, and which the spots? Compare the printed results for the product of <span class="math inline">w_2 w_3</span> and for <span class="math inline">w_1</span> alone.</p>
+<p><strong>C8.</strong> Count the cost per pixel: how many multiplications does <code>correlate</code> need with the <span class="math inline">11 \times 11</span> kernel of σ = 1.5, and how many does <code>atrous</code> need for four levels?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day20-pointdetection/src/spot_filters/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Without a filter the image has 7 078 local maxima (<span class="math inline">r = 1</span>) for 80 spots. The Gaussian filter, thresholded at 4 noise sd above the median response, keeps 328: 62 found, 266 false, 18 missed (F1 0.30). The false spots fill the right half and the bright patch: the Gaussian keeps the background, so there every noise bump is “bright”. The missed spots are dim ones on the dark left side, where the background is below the median. The zero-mean filter gives a constant background, and a slope, a response of 0: 77 kept, 75 found, 2 false, 5 missed (F1 0.96). The noise estimated from the image is 10.1 (true 10); after the Gaussian it is 1.89 = 0.188 × 10.1, as in B8.</p>
+<p><strong>C7.</strong> <span class="math inline">w_1</span> is almost pure noise: the spots are barely visible in it. The spots of σ = 1.5 stand out in <span class="math inline">w_2</span> and <span class="math inline">w_3</span>; <span class="math inline">w_4</span> is blurred, and the slope and the bright patch are left in <span class="math inline">a_4</span>. The product of <span class="math inline">w_2</span> and <span class="math inline">w_3</span> at <span class="math inline">k = 3</span> is black except at the spots: 74 detections, all true, 6 missed (F1 0.96). <span class="math inline">w_1</span> alone gives 113 detections, 77 of them false, and misses 44 (F1 0.37), as in demo question E3.</p>
+<p><strong>C8.</strong> The <span class="math inline">11 \times 11</span> kernel: 121 multiplications per pixel. À trous: 5 taps per pass, two passes per level, four levels: 40 per pixel, whatever the scale, because the holes make the kernel wider without adding taps.</p>
 </div>
 </div>
 </div>

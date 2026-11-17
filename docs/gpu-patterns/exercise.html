@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: patterns step by step</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9272,6 +9273,54 @@ Solutions
 <p><strong>P3.</strong> Hillis–Steele: 4 steps, 49 additions (<span class="math inline">16\cdot4 - 15</span>). Blelloch: 8 steps, 30 additions (<span class="math inline">2\cdot15</span>). The loop: 15 and 15. After the last up-sweep step the last element holds the total, 53; it is then set to 0 and the down-sweep distributes the partial sums.</p>
 <p><strong>P4.</strong> 8 of 16 kept (positions 0, 2, 3, 6, 8, 9, 13, 15 with values 3, 7, 0, 6, 5, 2, 4, 6). With every element kept, the exclusive scan is <span class="math inline">0, 1, 2, \dots, 15</span>: every element keeps its own position.</p>
 <p><strong>P5.</strong> Dark: 58 of 64 pixels in bin 0: 58 cycles with global atomics; privatised: the busiest private bin has 8 updates, plus 8 merge cycles: 16. Uniform: global 11, privatised 4 + 8 = 12: no gain, the merge costs more than the contention it removes. Bimodal: global 20 (bin 1), privatised 6 + 8 = 14. Privatisation pays when one bin is much busier than <span class="math inline">n/b</span>, and with real images (millions of pixels, hundreds of blocks) the merge is small compared with the counting.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day51-gpus/src/gpu_patterns/exercise.rs</code>. Every parallel step is written as a loop that reads only the previous row of values, so that all its iterations could run at the same time on a GPU.</p>
+<p><strong>C1.</strong> <code>reduce_tree(values)</code>: the tree reduction; return the row after every step.</p>
+<pre><code>row = values
+while row has more than one value:
+    next = [row[0] + row[1], row[2] + row[3], …]     # an odd last value is carried over
+    output next;   row = next</code></pre>
+<p>The checks are B1, and B8 (b)’s point: <span class="math inline">10^8</span> followed by fifteen ones in float32 gives <span class="math inline">10^8</span> with a loop and <span class="math inline">10^8 + 8</span> with the tree.</p>
+<p><strong>C2.</strong> <code>scan_hillis_steele(x)</code>: the inclusive scan; also count the additions.</p>
+<pre><code>for offset = 1, 2, 4, … while offset &lt; n:
+    previous = copy of x
+    for i = offset … n − 1:  x[i] = previous[i] + previous[i − offset]</code></pre>
+<p>The check is B2 (a): the running totals and 17 additions.</p>
+<p><strong>C3.</strong> <code>scan_blelloch(x)</code>: the exclusive scan, for <span class="math inline">n</span> a power of two; count the additions.</p>
+<pre><code>for step = 1, 2, 4, … &lt; n:                       # up-sweep
+    for i = 2·step − 1, 4·step − 1, … &lt; n:   x[i] = x[i] + x[i − step]
+x[n − 1] = 0
+for step = n/2, n/4, …, 1:                       # down-sweep
+    for i = 2·step − 1, 4·step − 1, … &lt; n:
+        left = x[i − step];   x[i − step] = x[i];   x[i] = x[i] + left</code></pre>
+<p>The check is B2 (b): the exclusive scan and 14 additions.</p>
+<p><strong>C4.</strong> <code>compact(values, keep)</code>: stream compaction. Compute the exclusive scan of the 0/1 flags; then every kept value <span class="math inline">i</span> writes itself to output position scan<span class="math inline">[i]</span>. The check is B3.</p>
+<p><strong>C5.</strong> <code>atomic_histogram(values, bins, block)</code>: the histogram, and its cost in cycles. With one global histogram the cost is the count of the busiest bin (its atomic updates wait in one queue). With a private histogram per block of <code>block</code> threads it is the busiest private bin of any block (the blocks run in parallel) plus one cycle per block to add the block histograms. The check is B5.</p>
+<p>Then <code>cargo run -p day51 -- gpu-patterns</code> and open the picture in <code>out/gpu-patterns/</code>.</p>
+<p><strong>C6.</strong> The program sums the <span class="math inline">4096 \times 4096</span> pixels of the micrograph (tiled 256 times) in float32, with a loop and with your tree. Compare both with the exact sum. Why is the tree so much better? How many parallel steps does it need?</p>
+<p><strong>C7.</strong> It then builds the integral image of the micrograph from a Hillis–Steele scan of every row and a Blelloch scan of every column (<code>integral.png</code>). Check the bottom-right value against the exact sum, and the number of additions against B7 (a)’s formulas for <span class="math inline">n = 256</span>.</p>
+<p><strong>C8.</strong> Finally it makes the histogram of the micrograph, and of a dark version of it (every pixel divided by 8), with one thread per pixel and blocks of 256 threads. Compare the cycles with global atomics and with private block histograms for both. Why does the dark image gain so much more?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day51-gpus/src/gpu_patterns/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Exact sum 11 077 394.3. The float32 loop gives 11 552 686, 4.3 % too much: once the running sum is in the millions, floats are 1 apart and more, and every added pixel value (below 1) is rounded, here mostly upwards. The tree gives 11 077 394, a relative error of <span class="math inline">2\cdot10^{-8}</span>: it only ever adds partial sums of similar size (pairwise summation). It needs 24 steps (<span class="math inline">\log_2 2^{24}</span>) against 16 777 215 for the loop.</p>
+<p><strong>C7.</strong> The bottom-right value is 43 271.07, the exact sum of all pixels (43 271.07 in float64). Additions: 256 row scans of <span class="math inline">256\cdot8 - 255 = 1793</span> (Hillis–Steele, <span class="math inline">n\log_2 n - (n-1)</span>) and 256 column scans of <span class="math inline">2\cdot255 = 510</span> (Blelloch, <span class="math inline">2(n-1)</span>): <span class="math inline">256\cdot(1793 + 510) = 589\,568</span>, as printed.</p>
+<p><strong>C8.</strong> The micrograph: the busiest bin (240) has 556 pixels: 556 cycles with global atomics, 275 with private histograms. The dark image: the busiest bin (30) has 4128 pixels, 4128 cycles with global atomics, and only 321 with private histograms, 13 times fewer. The more the values pile up in one bin, the longer that bin’s queue; private histograms split the queue over the 256 blocks, and then pay one fixed cost of 256 cycles to add the block histograms.</p>
 </div>
 </div>
 </div>

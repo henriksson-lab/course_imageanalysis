@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: the volume viewer</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9274,6 +9275,49 @@ Solutions
 <p><strong>E4.</strong> The box becomes 20 µm deep (twice the truth); C now looks steeper: <span class="math inline">\arctan(0.70 \cdot 1.0/0.5) = 54.5°</span>.</p>
 <p><strong>E5.</strong> About 33 pixels long and 11 wide, i.e.&nbsp;about 7.2 µm by 2.4 µm: the full length <span class="math inline">2 \cdot 3.6</span> µm and width <span class="math inline">2 \cdot 1.2</span> µm of the cell. At 0° the plane is an <span class="math inline">xy</span> plane through C’s centre: it cuts the tilted cell at an angle, through its narrow direction, so the section is only about 3.8 µm long (17 pixels).</p>
 <p><strong>E6.</strong> <span class="math inline">64 \times 64 \times 50 = 204\,800</span> voxels; the matrix has 0.2 on the whole diagonal and the same origin. The slices look the same, slightly smoother along <span class="math inline">z</span>: resampling interpolates between existing slices and adds no information.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day47-marchingcubes/src/volumes3d/exercise.rs</code>. A volume is indexed <code>vol[(i, j, k)]</code> (column, row, slice); its <code>Grid</code> holds the spacing and the origin (no rotation).</p>
+<p><strong>C1.</strong> <code>voxel_to_world(grid, v)</code> and <code>world_to_voxel(grid, p)</code>: <span class="math inline">x = o_x + i\,\Delta x</span> and back, <span class="math inline">i = (x - o_x)/\Delta x</span>, for each of the three axes. The checks are B1(b) and (c).</p>
+<p><strong>C2.</strong> <code>trilinear(vol, v)</code>: the value at a fractional voxel position, 0 outside the volume:</p>
+<pre><code>(x0, y0, z0) = (floor x, floor y, floor z);  x1 = x0 + 1 (but not past the last voxel), ...
+(fx, fy, fz) = (x − x0, y − y0, z − z0)
+along x:  c00 = mix(I(x0,y0,z0), I(x1,y0,z0), fx),  c10, c01, c11 likewise
+along y:  c0 = mix(c00, c10, fy),  c1 = mix(c01, c11, fy)
+along z:  value = mix(c0, c1, fz)                     # mix(a, b, f) = a + f·(b − a)</code></pre>
+<p>The checks are B2(a) and (c), and a position exactly on the last voxel.</p>
+<p><strong>C3.</strong> <code>oblique_slice(vol, grid, centre, u, w, pixel, width, height)</code>: the pseudocode of the lecture: for every output pixel, the world point <span class="math inline">\mathbf c + s(p\,\mathbf u + q\,\mathbf w)</span> (with <span class="math inline">p, q</span> counted from the middle of the output), then <code>world_to_voxel</code>, then <code>trilinear</code>. The check is B6: in a volume whose value is <span class="math inline">i + 10j + 100k</span>, the output pixel <span class="math inline">(p, q) = (5, 10)</span> must read the value at voxel <span class="math inline">(35, 38.66, 12)</span>.</p>
+<p><strong>C4.</strong> <code>mip_z(vol)</code>: for every <span class="math inline">(x, y)</span>, the largest value over <span class="math inline">z</span>. The check is B3(a).</p>
+<p><strong>C5.</strong> <code>label_3d(mask, connectivity)</code>: connected components in 3D, with 6 or 26 neighbours:</p>
+<pre><code>for every voxel v that is in the mask and has no label yet:
+    count = count + 1;  label v with count;  stack = [v]
+    while the stack is not empty:
+        take a voxel off the stack
+        for each of its 6 (or 26) neighbours n inside the volume:
+            if n is in the mask and has no label: label n with count, put n on the stack</code></pre>
+<p>The checks are B3(b) and (c): 3 objects with 6 neighbours, 2 with 26, and 1 in the MIP.</p>
+<p>Then <code>cargo run -p day47 -- volumes3d</code> and open the pictures in <code>out/volumes3d/</code>. The program builds the stack of the demo: <span class="math inline">64 \times 64 \times 20</span> voxels of <span class="math inline">0.2 \times 0.2 \times 0.5</span> µm, origin (10, 20, 4) µm, with nuclei A and B overlapping in <span class="math inline">x</span>–<span class="math inline">y</span> at different depths, a long cell C tilted by 35° in the <span class="math inline">x</span>–<span class="math inline">z</span> plane, and a small nucleus D. It saves an <span class="math inline">xy</span> slice, the <span class="math inline">xz</span> slice through row 31 drawn with pixels of 0.2 µm (with the true spacing, and with a header that wrongly says <span class="math inline">\Delta z = 0.2</span> µm), an oblique slice along C and the <span class="math inline">xy</span> plane through C’s centre, and the MIP. It counts the objects above 100 in the MIP and in 3D and prints their volumes.</p>
+<p><strong>C6.</strong> Compare <code>slice-xz-j31.png</code> with <code>slice-xz-j31-squashed.png</code>. What happened to the two nuclei, and by what factor are their volumes wrong in the squashed version (B5)?</p>
+<p><strong>C7.</strong> How long is C in <code>oblique-C.png</code> and in <code>flat-C.png</code> (printed)? Why the difference? How many objects do the MIP and the 3D labelling find, and which two merge in <code>mip-z.png</code>? Compare the printed volumes with the true ellipsoids: A <span class="math inline">\tfrac43\pi \cdot 1.6 \cdot 1.6 \cdot 1.2 = 12.9</span> µm³, B 12.0 µm³, C 21.7 µm³, D 2.1 µm³.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day47-marchingcubes/src/volumes3d/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> With the true spacing the <span class="math inline">xz</span> slice is 9.6 µm tall (48 pixels of 0.2 µm), and A (above) and B (below) are round-ish ellipses separated by background. Squashed, the same 20 slices span only 4 µm: both nuclei are flat pancakes, 0.4 times as tall. Every length along <span class="math inline">z</span>, and therefore every volume, is multiplied by <span class="math inline">0.2/0.5 = 0.4</span>.</p>
+<p><strong>C7.</strong> Along the tilted plane C is 35 pixels long, 7.0 µm (its true length is 7.2 µm; the partial voxels at its tips fall below 100). In the <span class="math inline">xy</span> plane through its centre only 19 pixels, 3.8 µm: that plane cuts the tilted cell at an angle, through its narrow direction (E5). The MIP finds 3 objects, the 3D labelling 4 (with 6 and with 26 neighbours alike): A and B overlap in <span class="math inline">x</span>–<span class="math inline">y</span> and merge into one blob in the MIP, while in 3D background separates them (E2). The voxel volumes are 12.7, 22.0, 2.1 and 11.7 µm³ (A, C, D, B in the order the labelling finds them): within about 3 % of the ellipsoids, because the spacing is used.</p>
 </div>
 </div>
 </div>

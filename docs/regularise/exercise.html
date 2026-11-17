@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9241,6 +9242,53 @@ Solutions
 <p><strong>E4.</strong> Energy (λ = 0.3) shrinks the whole profile: mean 0.256 against 0.331 in the truth (factor 1/1.3); roughness keeps the mean (0.333). TV (λ = 0.01) keeps the step sharp and flat at 0.80 but turns the ramp into small flat steps; its error 0.0219 is far below the best roughness error (0.0537), because this profile is mostly flat pieces. TV on the narrow peak (λ = 0.02): the peak of height 1.0 comes out at 0.31; TV pays for every jump, and a narrow spot has two jumps for little area. Non-negativity: roughness with λ = 10⁻⁴ dips to −1.16 (error 0.323); adding x ≥ 0 removes the dips (minimum 0) and the error falls to 0.109.</p>
 <p><strong>E5.</strong> Smallest error at <span class="math inline">k</span> = 32 (0.0542). At <span class="math inline">k</span> = 100: 0.0586, at 1000: 0.143, at 10 000: 0.375 (semi-convergence). The residual keeps falling all the time. The discrepancy rule stops at <span class="math inline">k</span> = 6: early, a little blurred, but safe. The filter-factor step moves from high <span class="math inline">|H|</span> (low frequencies) towards low <span class="math inline">|H|</span> as <span class="math inline">k</span> grows.</p>
 <p><strong>E6.</strong> Discrepancy λ = 0.0189 (error 0.0552), corner λ = 0.0056 (error 0.0635), best λ = 0.0178 (error 0.0553). Here the discrepancy principle is almost exactly right and the corner too far to the left: the rules have no guarantee, and checking with a known-truth test is the honest way.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day05-deconvolution/src/regularise/exercise.rs</code>. Everything is 1D, as in the demo: a profile of <span class="math inline">n</span> samples, the blur an <span class="math inline">n \times n</span> matrix <span class="math inline">A</span>. The penalty matrix <span class="math inline">D</span> (the identity, or one row <span class="math inline">(1, -2, 1)</span> per second difference) is given.</p>
+<p><strong>C1.</strong> <code>blur_matrix(n, sigma)</code>: row <span class="math inline">i</span> holds the Gaussian weights <span class="math inline">e^{-(i - j)^2/2\sigma^2}</span> for <span class="math inline">|i - j| \le \lceil 3\sigma\rceil</span>, divided by their sum.</p>
+<p><strong>C2.</strong> <code>tikhonov(a, y, lambda, penalty)</code>: the minimiser of <span class="math inline">\|A\mathbf x - \mathbf y\|^2 + \lambda\|D\mathbf x\|^2</span>, from the normal equations (the slide “The math: filter factors”):</p>
+<pre><code>M = AᵀA + λ DᵀD
+b = Aᵀy
+solve M x = b</code></pre>
+<p>The checks: the two-pixel blur of the deconvolution unit (B3 there: <span class="math inline">(1.04, 0.33)</span> for <span class="math inline">\lambda = 0.1</span>), and the roughness penalty returns a ramp unchanged for every <span class="math inline">\lambda</span>.</p>
+<p><strong>C3.</strong> <code>tikhonov_factor(s, lambda)</code> and <code>landweber_factor(s, k)</code>: the filter factors <span class="math inline">s^2/(s^2 + \lambda)</span> and <span class="math inline">1 - (1 - s^2)^k</span>. The checks are your tables of B1 and B2.</p>
+<p><strong>C4.</strong> <code>landweber(a, y, k, omega)</code>: <span class="math inline">k</span> steps from zero.</p>
+<pre><code>x = 0
+repeat k times:
+    r = y − A x            # what the estimate does not explain yet
+    x = x + ω · Aᵀ r       # blur the difference back, add it</code></pre>
+<p>The check: on a diagonal blur with gains 1, 0.5 and 0.1, each component after <span class="math inline">k</span> steps is its filter factor.</p>
+<p><strong>C5.</strong> <code>rms_residual(a, x, y)</code> <span class="math inline">= \sqrt{\|A\mathbf x - \mathbf y\|^2/m}</span>, and <code>discrepancy_lambda(a, y, sigma, penalty)</code>: the <span class="math inline">\lambda</span> whose RMS residual equals <span class="math inline">\sigma_n</span>, found by halving an interval of <span class="math inline">\log_{10}\lambda</span>:</p>
+<pre><code>lo = −8, hi = 4                       # log10 λ
+repeat 40 times:
+    mid = (lo + hi) / 2
+    if rms residual of tikhonov(10^mid) &lt; σn:  lo = mid    # fits the noise: more λ
+    else:                                      hi = mid
+λ = 10^((lo + hi) / 2)</code></pre>
+<p>Then <code>cargo run -p day05 -- regularise</code> and open the pictures in <code>out/regularise/</code>. The program makes a profile of 128 samples (a step and a ramp), blurs it (<span class="math inline">\sigma</span> = 2), adds noise (<span class="math inline">\sigma_n</span> = 0.02), and restores it with both penalties for <span class="math inline">\lambda</span> from <span class="math inline">10^{-7}</span> to 100, and with Landweber for <span class="math inline">k</span> = 1 to 3162. It prints the error against the truth, the RMS residual, the L-curve’s two norms <span class="math inline">\|A\mathbf x - \mathbf y\|</span> and <span class="math inline">\|D\mathbf x\|</span>, and the mean. The pictures show the truth (black), the data (grey) and an estimate.</p>
+<p><strong>C6.</strong> Compare the column “mean” of the two penalties as <span class="math inline">\lambda</span> grows. Then open <code>roughness-small-lambda.png</code>, <code>roughness-best-lambda.png</code> and <code>roughness-large-lambda.png</code>: describe each.</p>
+<p><strong>C7.</strong> For the roughness penalty, which <span class="math inline">\lambda</span> gives the smallest error, which does the discrepancy principle choose, and how much worse is it? Use the columns <span class="math inline">\|A\mathbf x - \mathbf y\|</span> and <span class="math inline">\|D\mathbf x\|</span> to find the corner of the L-curve, as in B4.</p>
+<p><strong>C8.</strong> How does the error of Landweber change with <span class="math inline">k</span>, and how does the residual? Where would the discrepancy principle stop? Compare <code>landweber-32.png</code> with <code>landweber-3162.png</code>.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day05-deconvolution/src/regularise/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> With the energy penalty the mean falls from 0.434 (small <span class="math inline">\lambda</span>) to 0.395 at <span class="math inline">\lambda</span> = 0.1, 0.217 at 1 and 0.004 at 100: everything is pulled towards 0. With the roughness penalty it stays at 0.434 for every <span class="math inline">\lambda</span>, because a constant has no roughness. Small <span class="math inline">\lambda</span> (<span class="math inline">10^{-6}</span>): the estimate swings wildly far beyond the plot, error 1.34, while its RMS residual (0.0123) is below <span class="math inline">\sigma_n</span>: it explains the noise. Best <span class="math inline">\lambda</span> (0.1): close to the truth with small wiggles, the steps a little rounded, error 0.0561 (the data alone: 0.0647). Large <span class="math inline">\lambda</span> (100): smooth and rounded, the step a hill and the end of the ramp cut off, error 0.0893.</p>
+<p><strong>C7.</strong> The smallest error is 0.0561 at <span class="math inline">\lambda</span> = 0.1. The discrepancy principle picks <span class="math inline">\lambda</span> = 1.11 (RMS residual 0.02), error 0.0616, 10 % worse and on the smooth side, as in the demo. The L-curve: from <span class="math inline">\lambda = 10^{-3}</span> to <span class="math inline">10^{-2}</span>, <span class="math inline">\|D\mathbf x\|</span> halves (1.08 to 0.52) while <span class="math inline">\|A\mathbf x - \mathbf y\|</span> grows by 5 % (0.168 to 0.175): the vertical branch. From <span class="math inline">\lambda</span> = 1 to 10, <span class="math inline">\|A\mathbf x - \mathbf y\|</span> grows by half (0.224 to 0.334): the horizontal branch. The corner lies in between, around <span class="math inline">\lambda</span> = 0.03 to 0.3, close to the best <span class="math inline">\lambda</span>.</p>
+<p><strong>C8.</strong> The error falls from 0.0739 (<span class="math inline">k</span> = 1) to 0.0566 at <span class="math inline">k</span> = 10, then rises: 0.0694 at 100, 0.1254 at 1000, 0.2154 at 3162. The residual falls all the time, from 0.0362 to 0.0140: semi-convergence. The residual first drops below <span class="math inline">\sigma_n</span> = 0.02 at <span class="math inline">k</span> = 10 of the values tried, right at the smallest error. At <span class="math inline">k</span> = 32 the estimate is close to the truth with some ripple; at <span class="math inline">k</span> = 3162 it oscillates from sample to sample with a large amplitude: the weak, noisy components have been filled in.</p>
 </div>
 </div>
 </div>

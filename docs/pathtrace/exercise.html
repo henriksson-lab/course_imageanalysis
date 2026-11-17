@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-mcpixel" id="toc-explore-mcpixel" class="nav-link" data-scroll-target="#explore-mcpixel">Explore: one pixel’s integral</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: a path tracer</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9185,6 +9186,53 @@ Solutions
 <p><strong>E6.</strong> With a lamp of 0.1 × 0.1 and the same power, its radiance is 25 times higher, and random directions hit it 25 times less often: rare, huge samples. Light sampling picks a point on the lamp at every matte hit, so every path gets a modest, reliable contribution. The image without light sampling is not wrong (unbiased): it converges to the same image, only much more slowly.</p>
 <p><strong>E7.</strong> On the floor under and beside the glass ball, a bright, focused spot. Its light reaches the floor only through the glass: floor → (random direction) → glass → (refraction) → lamp. Light sampling cannot help (a shadow ray from the floor to the lamp is blocked by the glass), so the floor point must find the lamp through the glass by chance: fireflies again, which converge slowly.</p>
 <p><strong>E8.</strong> The denoised 16-spp image has a much lower RMSE and a higher PSNR than the noisy one, often comparable to or better than a several times longer render. The joint bilateral keeps the edges between walls, floor and balls sharpest (the guides change there); the Gaussian blurs everything, including the edges; the bilateral and non-local means keep strong edges but also keep some noise blotches. All of them blur the soft shadow edges and smear the caustic: these have no edge in the guides, and the noise there looks like detail. At 1024 spp without denoising the image is clean and unbiased; the denoised 16-spp image is smoother but differs in exactly those places: lower variance, some bias.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day50-raytracing/src/pathtrace/exercise.rs</code>. The closed box of the lecture, the nearest hit and the camera are ready to use in <code>day50-raytracing/src/pathtrace/scene.rs</code>.</p>
+<p><strong>C1.</strong> <code>mc_estimate(f, p, xs)</code>: the Monte Carlo estimate <span class="math inline">\frac1N\sum_k f(x_k)/p(x_k)</span> for samples drawn from the density <span class="math inline">p</span>. The checks are B1 (a) and (b).</p>
+<p><strong>C2.</strong> <code>cosine_direction(n, u1, u2)</code>: a random direction with density <span class="math inline">\cos\theta/\pi</span> around the normal, from two uniform numbers:</p>
+<pre><code>r = √u1;   φ = 2π u2
+(x, y) = (r cos φ, r sin φ)              # uniform on the unit disc
+z = √(1 − u1)                            # lifted straight up onto the hemisphere
+(t, b) = two unit vectors across n
+return x t + y b + z n</code></pre>
+<p>The check: unit length, never below the surface, and a mean <span class="math inline">\cos\theta</span> of <span class="math inline">2/3</span> (B8 (c)).</p>
+<p><strong>C3.</strong> <code>direct_light(x, n, albedo, y, lamp_normal, emission, area)</code>: one lamp sample, <span class="math inline">\frac{\rho}{\pi} L_e \frac{\cos\theta_x\cos\theta_\ell}{\lVert\mathbf x - \mathbf y\rVert^2} A</span> (0 if either cosine is negative). The check is B10 (b).</p>
+<p><strong>C4.</strong> <code>radiance(ray, scene, rng, max_bounces, light_sampling)</code>: one path.</p>
+<pre><code>colour = 0;   throughput = 1
+for bounce = 0, 1, …, max_bounces:
+    hit = nearest hit;   if none: stop
+    if bounce = 0 or not light_sampling: colour += throughput · emission of the hit
+    if bounce = max_bounces: stop
+    if light_sampling: pick a point y on the lamp; if visible: colour += throughput · direct_light(...)
+    throughput = throughput · albedo                 # BRDF · cos / pdf for cosine sampling
+    ray = from the hit point, along cosine_direction(n, random, random)</code></pre>
+<p>The checks: inside a ball that emits 1 and reflects half, every path carries exactly <span class="math inline">1 + 0.5 + 0.25 + \dots</span>; and one pixel of the box gives the same mean with and without lamp sampling (with less noise with it).</p>
+<p><strong>C5.</strong> <code>render(scene, eye, width, height, settings)</code>: for every pixel, the mean of <code>spp</code> paths, each through a random point of the pixel.</p>
+<p>Then <code>cargo run -p day50 -- pathtrace</code> and open the pictures in <code>out/pathtrace/</code>.</p>
+<p><strong>C6.</strong> Look at <code>spp1.png</code>, <code>spp16.png</code> and <code>spp64.png</code>, and read the RMS errors against the 1024-sample reference. By what factor does the error fall per 4 times the samples? What did you expect?</p>
+<p><strong>C7.</strong> Compare <code>direct-only.png</code> (one bounce) with <code>spp64.png</code> (up to four). Name three differences and explain them.</p>
+<p><strong>C8.</strong> The tiny lamp (0.1 × 0.1, the same power): compare <code>tiny-cosine-only.png</code> with <code>tiny-lamp-sampled.png</code>, both with 32 samples per pixel, and read their RMS errors and the number of pixels brighter than 2. Which pixels are the few bright ones that remain with lamp sampling?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day50-raytracing/src/pathtrace/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> The RMS error is 0.067, 0.040, 0.021 and 0.011 for 1, 4, 16 and 64 samples per pixel: it falls by 1.7, then 1.9 and 1.9 per 4 times the samples, close to the factor 2 of <span class="math inline">\sigma/\sqrt N</span>. The first step falls short because the error is measured after clipping to <span class="math inline">[0, 1]</span>, which caps the large errors of a single sample, and because the reference has some noise of its own. The pictures show the same: speckle at 1 sample, a fine grain at 16, nearly smooth at 64.</p>
+<p><strong>C7.</strong> With one bounce the ceiling is black (the lamp faces down and cannot light it directly), the shadows under the balls are much darker, and the white walls next to the red and green walls stay white: no colour bleeding. All three need light that bounces off another surface first.</p>
+<p><strong>C8.</strong> Lamp sampling: a smooth image, RMS 0.009. Cosine sampling only: a nearly black image covered in bright dots, RMS 0.22, with 357 pixels brighter than 2: fireflies, the rare paths that hit the tiny lamp by chance and carry its full radiance. The 4 bright pixels left with lamp sampling are at the edge of the lamp itself, pixels partly covered by it.</p>
 </div>
 </div>
 </div>

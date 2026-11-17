@@ -8970,6 +8970,7 @@ window.Quarto = {
   <li><a href="#by-hand" id="toc-by-hand" class="nav-link" data-scroll-target="#by-hand">By hand</a></li>
   <li><a href="#explore-graph" id="toc-explore-graph" class="nav-link" data-scroll-target="#explore-graph">Explore: the graph of a small image</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: interactive segmentation</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9218,6 +9219,51 @@ Solutions
 <p><strong>G5.</strong> With these seeds the nucleus is found along its envelope (3152 object pixels), with a leak into dark material at the right edge of the image. A background stroke there removes it. With <span class="math inline">\sigma = \infty</span> (no contrast weights) the boundary no longer follows the dark nuclear envelope: at <span class="math inline">\lambda = 10</span> it takes short cuts and the object shrinks to 1779 pixels. The contrast weights make the envelope the cheapest place for the boundary.</p>
 <p><strong>G6.</strong> The whole cell and its neighbours are segmented (6239 object pixels): the cytoplasm and the other dark material are included. The background model has only seen white, so every grey pixel looks more like the object than like the background; nucleus and cytoplasm have overlapping grey levels, and the data term cannot tell them apart. A few background strokes on the cytoplasm add its grey levels to the background model; with the contrast weights at the envelope the result approaches the <strong>nucleus</strong> preset.</p>
 <p><strong>G7.</strong> All bright nuclei, not only the one under the stroke: the data term compares each pixel’s grey level with the object and background models, and every nucleus has the grey levels of the object model. Seeds fix single pixels, the model applies everywhere; to get one nucleus, paint background seeds on the others. Touching nuclei are separated only where the boundary between them is cheap: a darker gap gives small weights <span class="math inline">w_{pq}</span> at small <span class="math inline">\sigma</span>, so the cut can pass through it. A larger <span class="math inline">\lambda</span> makes every boundary more expensive, merges touching nuclei and removes small ones (the shrinking bias of G2).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day27-graphcuts/src/graphcut_seg/exercise.rs</code>. The maximum flow itself is provided in the download: the same idea as in the <a href="../maxflow/exercise.html#code">maximum flow unit</a>, but with a list of edges per node, so that it is fast on graphs with one node per pixel.</p>
+<p><strong>C1.</strong> <code>contrast_weight(ip, iq, sigma)</code>: <span class="math inline">w_{pq} = \exp\!\big(-(I_p - I_q)^2/2\sigma^2\big)</span>, and 1 for σ = ∞. The check is B2(a).</p>
+<p><strong>C2.</strong> <code>build_graph(img, d0, d1, lambda, sigma, nb)</code>: the graph of an image:</p>
+<pre><code>one node per pixel, plus s (object) and t (background)
+for every pixel p:
+    edge s → p with capacity D_p(0)
+    edge p → t with capacity D_p(1)
+    for every neighbour q to the right and below
+            (8 neighbours: also the two lower diagonals):
+        c = λ · (neighbourhood weight) · w_pq      # 1; or ½ and 1/(2√2) for 8 neighbours
+        edges p → q and q → p, each with capacity c</code></pre>
+<p><strong>C3.</strong> <code>graph_cut(img, d0, d1, lambda, sigma, nb)</code>: the segmentation by a minimum cut:</p>
+<pre><code>build the graph;  flow = maximum flow from s to t
+L_p = 1 for the pixels still reachable from s, 0 for the others</code></pre>
+<p>The checks are your answers to B1 (101, cost 3; 111, cost 4), B2(b) (1.541), B3 (1100, cost 6), B4 (a seed is <span class="math inline">D_p(0) = \infty</span>: 1110, cost 9) and B5 (the line goes above λ = 1.5, the band above 9), and B6(b): with 8 neighbours a horizontal and a 45° boundary both cost 1.207 per unit length.</p>
+<p><strong>C4.</strong> <code>seed_model(img, seeds, label)</code> and <code>seeded_costs(img, seeds)</code>: the intensity model from seeds (1 = object, 2 = background):</p>
+<pre><code>μ1, s1 = mean and standard deviation of the object seeds;  μ0, s0 of the background seeds
+D_p(ℓ) = (I_p − μℓ)² / 2sℓ² + log(sℓ / smaller of s0 and s1)     # never negative
+object seed: D_p(0) = ∞;   background seed: D_p(1) = ∞</code></pre>
+<p>Then <code>cargo run -p day27 -- graphcut-seg</code> and open the pictures in <code>out/graphcut-seg/</code>. The program segments three images of <span class="math inline">128 \times 128</span> pixels: the noisy disk with a thin arm (grey levels 80 and 170, noise 50, the model known) for several λ; the same disk with noise 90 at λ = 4 with 4 and with 8 neighbours; and synthetic fluorescent nuclei with extra noise, from one short object stroke in one nucleus and five short background strokes, comparing λ and σ. It prints the wrong pixels of each result.</p>
+<p><strong>C5.</strong> Disk: which λ gives the fewest wrong pixels? Look at <code>disk-cut-lambda*.png</code>: what is left of the arm at λ = 1.5, and at λ = 4? Explain with B5.</p>
+<p><strong>C6.</strong> Compare <code>blocky-4.png</code> with <code>blocky-8.png</code>. Describe the two shapes and explain them with B6.</p>
+<p><strong>C7.</strong> Nuclei: look at <code>nuclei-threshold.png</code> and <code>nuclei-cut.png</code>. How many nuclei are found from one object stroke, and why? Which λ is best, and why do contrast weights with σ = 0.1 make the result worse here?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day27-graphcuts/src/graphcut_seg/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Thresholding: 3024 wrong pixels. Graph cut: 680 at λ = 0.5 (specks left), <strong>112</strong> at λ = 1.5, 226 at λ = 4, 239 at λ = 10. At λ = 1.5 the specks are gone and the outer half of the arm is kept, but its inner part, next to the disk, is lost; at λ = 4 only a stub at the disk is left. The arm is 3 pixels wide: its data gain per unit length is about 3 times the gain of one pixel, while its two long sides cost 2λ (B5(c)). The disk has a large area for its boundary and is not affected. Each cut takes a few hundredths of a second.</p>
+<p><strong>C6.</strong> With 4 neighbours the disk comes out as a rounded square with flat horizontal and vertical sides (326 wrong pixels); with 8 neighbours it is closer to round, an octagon (275). With 4 neighbours a diagonal boundary costs 41 % more per unit length than an axis-aligned one, so the cut replaces the diagonal parts of the circle by horizontal and vertical ones; with 8 neighbours both cost 1.207 (B6).</p>
+<p><strong>C7.</strong> All 14 nuclei are touched (at λ = 5, 13 of 14): the data term compares every pixel with the object model, and every nucleus has the grey levels of the object seeds. Thresholding with the seed model gives 531 wrong pixels, with many specks in the background; the graph cut 391 (λ = 1), <strong>336</strong> (λ = 2) and 398 (λ = 5, where small parts are lost). With contrast weights, σ = 0.4 gives 367 and σ = 0.1 gives 488: the noise (standard deviation 0.15) makes neighbouring pixels differ by more than 0.1 everywhere, so with σ = 0.1 boundaries are cheap everywhere, including around noise specks (as in G3). Touching nuclei (bottom left) come out as one object.</p>
 </div>
 </div>
 </div>

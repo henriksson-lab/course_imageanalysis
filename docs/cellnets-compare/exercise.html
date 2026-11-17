@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9245,6 +9246,46 @@ Solutions
 <p><strong>E4.</strong> As is, every method scores 0 on the histology image (classical 16 objects, StarDist 37, Cellpose 23, none matching a nucleus): the nuclei are dark, the methods look for bright objects and outline background or cytoplasm instead. Inverted: classical 0.61 / 0.46 (11 merges), StarDist 0.85 / 0.68, Cellpose 0.87 / 0.81. On the bright-field image (inverted): classical 0.06, StarDist 0.43 (161 objects: it outlines whole cells, now bright, as well as nuclei), Cellpose 0.87 / 0.76 (81 objects), SAM 0; without inverting all score 0. Least bad: Cellpose, because its diameter setting tells it to look for nucleus-sized objects. All struggle because they were trained on (or, for the classical pipeline, designed for) bright nuclei on a dark background: these images are outside the training domain. Inversion is a trick; fine-tuning on annotated images of the kind is the fix.</p>
 <p><strong>E5.</strong> Our headless-browser run on the dense image (696 × 520, same size as U2OS 1): classical 0.7 s, StarDist 3.2 s, Cellpose 8.8 s (with workers), SAM automatic 49.5 s, i.e.&nbsp;about 5100, 1100, 410 and 73 images per hour; downloads 5.5, 13 and 74 MB (StarDist, Cellpose, SAM; the demo lists them), parameters 1.4 M, 6.6 M and 39 M; the classical pipeline has 5 knobs and nothing to download. The first run of each network also downloads its weights once (cached afterwards).</p>
 <p><strong>E6.</strong> For example: “For dense fluorescence nuclei like the dense image I would use Cellpose (nuclei): F1 0.97 at τ = 0.5 and 0.93 at 0.7 with 5 merges in 313 nuclei, against 0.52 / 0.30 and 38 merges for the classical pipeline; at about 9 s per image a screen of 1000 images takes under 3 hours. I would check it on a held-out annotated subset of my own images.” Or: “For sparse bright nuclei I would use the classical pipeline with σ = 0: F1 1.00 / 1.00 on the sparse image, like StarDist, in well under a second per image and without downloading anything.”</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day40-cellnets/src/cellnets_compare/exercise.rs</code>. The networks run in the demo. The code is about the comparison itself: scoring two methods on the same annotated images, and asking whether their difference is real. The overlap table and the IoU table of two label images (the evaluation day) are given.</p>
+<p><strong>C1.</strong> <code>f1_curve(iou, n_pred, taus)</code>: F1 at several thresholds τ ≥ 0.5 from the IoU table. Above 0.5 every object has at most one partner (B7), so no matching problem needs solving:</p>
+<pre><code>for every τ:
+    TP = number of (true, predicted) pairs with IoU ≥ τ
+    F1(τ) = 2 · TP / (number of true objects + number of predicted objects)</code></pre>
+<p>The checks are B1 (method A) and B2 (a).</p>
+<p><strong>C2.</strong> <code>merges_and_splits(inter)</code>: from the overlap table (pixels of true object <span class="math inline">t</span> inside predicted object <span class="math inline">p</span>):</p>
+<pre><code>merge: a predicted object p that contains at least half of each of two or more true objects
+split: a true object t that contains at least half of each of two or more predicted objects</code></pre>
+<p>The check is B2 (b): P3 contains 0.93 of T1 and 0.83 of T2.</p>
+<p><strong>C3.</strong> <code>bootstrap_interval(d, resamples, seed)</code>: the 95 % interval for the mean of per-image differences, as in B6 (b):</p>
+<pre><code>repeat resamples times:
+    draw n values from d with replacement;  store their mean
+sort the stored means
+interval = (value at 2.5 % of the list, value at 97.5 % of the list)</code></pre>
+<p>The check is B6: mean 0.076, interval about [0.004, 0.199].</p>
+<p>Then <code>cargo run -p day40 -- cellnets-compare</code> and open the pictures in <code>out/cellnets-compare/</code>. The program segments ten synthetic images of 25 nuclei (many touch or overlap) with two simple classical pipelines. Both smooth the image, threshold it and label the connected parts. “Low” uses the threshold 0.3, “high” the threshold 0.6. It prints per image the objects, merges, splits and F1 at τ = 0.5 and 0.7, the mean F1 curves, and bootstrap intervals for “high − low”. The pictures show image 1.</p>
+<p><strong>C4.</strong> Before you run: which threshold will merge more touching nuclei, and which will outline the nuclei worse? Then read the printout and look at <code>low.png</code> and <code>high.png</code>. Which method would you use to count, and which to measure areas?</p>
+<p><strong>C5.</strong> Is “high” worse than “low” at τ = 0.5? At τ = 0.7? Use the two bootstrap intervals. Then compare with the B6 lines printed at the end: what changes without the dense image?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day40-cellnets/src/cellnets_compare/solution.rs</code> in the download.</p>
+<p><strong>C4.</strong> One might expect the higher threshold to merge less. It does a little (2 to 7 merges per image against 4 to 8), but both merge a lot: these nuclei overlap, and a threshold cannot separate nuclei that form one bright region. Mean F1 at τ = 0.5, 0.6, 0.7, 0.8, 0.9: low 0.603, 0.495, 0.445, 0.445, 0.201; high 0.581, 0.466, 0.356, 0.250, 0.051. The high threshold cuts the nuclei too small, and the dim nuclei break into ragged fragments along their texture (<code>high.png</code>). It even produces a few splits. The curve of “high” falls much faster: it finds almost as many nuclei as “low”, but outlines them badly. For counting, the two are close (both poor because of the merges). For areas, “low” is clearly better.</p>
+<p><strong>C5.</strong> At τ = 0.5: high − low = −0.022, interval [−0.082, +0.027]. It contains 0: on ten images the two methods cannot be told apart at finding nuclei. At τ = 0.7: −0.089, interval [−0.167, −0.017], entirely below 0: “high” outlines worse, and ten images are enough to show it. The B6 lines: all seven images, mean 0.076, interval [0.004, 0.198] (the lecture has [0.004, 0.199]: the resampling is random, and a different generator gives slightly different percentiles). Without the dense image: mean 0.017, interval [−0.001, 0.037], which touches 0. One image decides the comparison (B6 (c)).</p>
 </div>
 </div>
 </div>

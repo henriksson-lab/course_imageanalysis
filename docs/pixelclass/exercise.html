@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9231,6 +9232,48 @@ Solutions
 <p><strong>E7.</strong> High uncertainty on the rims of all objects and on the background in the right part of the image, which is brighter than any painted background (the background strokes are on the left). Not on the granular cells: they are classified confidently as nucleus (8.4 % of the image is granular cell called nucleus). The uncertainty map shows where the classes it knows meet, not what it has never seen. Paint background on the right; for the granular cells you need the truth (or your eyes) to add a class.</p>
 <p><strong>E8.</strong> Single tree: accuracy 94.6 %, Dice nucleus 0.78, granular 0.74 (forest: 96.3 %, 0.85, 0.86). Every granular cell gets a thick nucleus-coloured rim: 3.5 % of the image is granular cell called nucleus. One tree uses only a few channels (mean depth 3) and draws one hard boundary in them; the forest averages many trees that use different channels and gets the rims right.</p>
 <p><strong>E9.</strong> With nucleus and background only: the nucleus is found, but so is much of the cytoplasm and other dark material (it is neither the light background nor anything else the forest knows). With the cytoplasm strokes, the cytoplasm around the nucleus and the cell processes become cytoplasm; the nucleus is mostly nucleus, with its lower part and its envelope partly called cytoplasm. Paint nucleus in the lower part of the nucleus and cytoplasm or background where the result is uncertain (the uncertainty view).</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day33-randomforest/src/pixelclass/exercise.rs</code>.</p>
+<p>A random forest is ready in the download (the forest of the <a href="../forest/exercise.html#code">forest unit</a>, with class weights), and so is Gaussian smoothing, <code>gaussian(img, σ)</code>. The code writes a pixel as <span class="math inline">(x, y)</span> = (column, row): the centre of the patch in B1 is <code>(2, 2)</code>.</p>
+<p><strong>C1.</strong> <code>pixel_features(img, x, y)</code>: the three features of B1, with the edge pixel copied outside the image:</p>
+<pre><code>b = the mean of the 3 × 3 neighbourhood
+g = sqrt(gx² + gy²),   gx = (I(x+1, y) − I(x−1, y)) / 2,   gy = (I(x, y+1) − I(x, y−1)) / 2
+l = I(x+1, y) + I(x−1, y) + I(x, y+1) + I(x, y−1) − 4 · I(x, y)</code></pre>
+<p>The checks are B1 (a) and (c).</p>
+<p><strong>C2.</strong> <code>feature_stack(img, sigmas)</code>: three channels per scale:</p>
+<pre><code>for every σ:
+    L = the image smoothed with a Gaussian of scale σ
+    channel: L                                   # intensity
+    channel: g of C1, computed on L, at every pixel     # edges
+    channel: σ² · l of C1, computed on L          # blobs (Laplacian of Gaussian)</code></pre>
+<p>The checks: on a flat image the edge and blob channels are 0; at a bright spot the blob channel is negative.</p>
+<p><strong>C3.</strong> <code>class_weights(counts)</code>: <span class="math inline">w_k = n / (K\, n_k)</span>; <code>weighted_shares(counts, weights)</code>: the class shares of a leaf when every pixel of class <span class="math inline">k</span> counts <span class="math inline">w_k</span> times. The check is B2: weights 0.525 and 10.5, and the leaf with 8 B and 2 N says <span class="math inline">P(\text{N}) = 0.83</span> instead of 0.2.</p>
+<p><strong>C4.</strong> <code>confusion(truth, predicted, n_classes)</code>: <span class="math inline">m[t][p]</span> = the number of pixels of true class <span class="math inline">t</span> predicted as <span class="math inline">p</span>; <code>dice(m, k)</code> <span class="math inline">= 2\,TP / (2\,TP + FP + FN)</span> for class <span class="math inline">k</span>, with <span class="math inline">TP = m[k][k]</span>, <span class="math inline">FP</span> the rest of column <span class="math inline">k</span> and <span class="math inline">FN</span> the rest of row <span class="math inline">k</span>. The check is B3.</p>
+<p>Then <code>cargo run -p day33 -- pixelclass</code> and open the pictures in <code>out/pixelclass/</code>. The test image (<code>input.png</code>, <span class="math inline">256 \times 256</span>) has a background that gets brighter to the right, smooth nuclei, and granular cells about as bright as the nuclei; <code>truth.png</code> shows the classes (green = nucleus, magenta = granular cell). The program “paints” strokes on the <strong>left half</strong> only (<code>strokes.png</code>): through three nuclei, three granular cells and the background. It trains a forest (50 trees) on the painted pixels with the stack at σ = 0.7, 1.6, 3.5 and 8 (12 channels), classifies every pixel, and scores the result against the truth on the left half and on the held-out right half. It repeats this with balanced class weights, with the intensity channels only, and with the small scales only. For each run it writes the segmentation, the nucleus probability and the uncertainty (<span class="math inline">1 - \max_k P</span>).</p>
+<p><strong>C5.</strong> Compare the OOB accuracy with the accuracy and the Dice coefficients on the right half. Which number would you report, and why is the OOB number so high?</p>
+<p><strong>C6.</strong> What do the edge and blob channels add? Compare the full stack with the intensity channels only, for the granular cells. Then compare with the small scales only: which does better on the right half, and why could that be?</p>
+<p><strong>C7.</strong> Look at <code>full-stack-uncertainty.png</code> and <code>full-stack-segmentation.png</code>. Where is the forest uncertain, and where would you paint next?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day33-randomforest/src/pixelclass/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> Painted: 1119 background, 144 nucleus and 138 granular-cell pixels. The OOB accuracy is 99.4 %, but on the held-out right half only 94.1 % of the pixels are right, with Dice 0.75 for the nuclei and 0.58 for the granular cells (left half: 97.7 %, 0.77, 0.82). Report the held-out numbers. The OOB votes are cast on painted pixels, whose neighbours (near copies) were in the trees’ samples, and which sit in the middle of objects and of the background, where painting was easy (Trap 1).</p>
+<p><strong>C6.</strong> With the intensity channels only (4 channels) the right half drops to 90.3 %, Dice 0.47 (nuclei) and 0.29 (granular): smoothed brightness cannot tell a speckled cell from a smooth nucleus of the same brightness, while the gradient at small σ can (as in demo question E2). The small scales only (σ ≤ 1.6, 6 channels) do slightly <strong>better</strong> than the full stack on the right half (95.1 %, Dice 0.77 and 0.63). The large-scale intensity channels see mostly the illumination, which on the right half is brighter than anything that was painted: the forest has learned “bright surroundings” from the left half, and that does not carry over. (Balancing the classes changes little here: 94.2 %, Dice 0.74 and 0.62.)</p>
+<p><strong>C7.</strong> The uncertainty is high on the rims of all objects, where the classes meet (the forest often calls the rim of a nucleus “granular”: the edge gives a strong gradient, as the speckle does), and on the brightest background at the right edge of the image, which looks like nothing painted; there the segmentation has scattered granular-cell pixels. Paint background on the right, and a nucleus and a granular cell on the right half, then retrain.</p>
 </div>
 </div>
 </div>

@@ -8972,6 +8972,7 @@ window.Quarto = {
   <li><a href="#math-questions" id="toc-math-questions" class="nav-link" data-scroll-target="#math-questions">Math questions</a></li>
   </ul></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: what happens to the measurements</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9147,6 +9148,45 @@ Solutions
 <p><strong>M4.</strong> Peaks on both axes at 32, 64, 96 and 128 cycles per image width (multiples of 256/8), circled; blocking index 136.5 at quality 30. The original (and lossless) has 0.9 (no peaks), the wavelet codec at the same size 0.7: no block grid.</p>
 <p><strong>M5.</strong> Wavelet at 1 973 B: 57 found, 0 false, dim spots 11.2%, noise 29.7, blocking index 0.7. JPEG at quality 30: 56 found, 1 false, dim spots 24.7%, noise 30.2, blocking index 136.5. The wavelet codec does less damage at the same size; its error is smooth blur and faint ripples around spots, while JPEG’s error is blocky. (The wavelet size is an entropy estimate, slightly optimistic compared with JPEG’s real Huffman code, so the comparison favours it a little.)</p>
 <p><strong>M6.</strong> Lossless: 55 586 bytes, 2.4× smaller, all numbers identical. Noise sd within 5% of 35.1 (33.3 to 36.9): qualities 95 and 100 (36.3 and 35.2); at 90 it is 33.6, 4.3% low, just inside; from 75 down (30.8) it is outside. High-frequency power within 5% of 1.08%: only quality 100 (1.11%); already at 95 it is 1.19% (+10%), at 90 0.67% (−38%). Texture measures are the most fragile.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day08-compression/src/compress_science/exercise.rs</code>.</p>
+<p><strong>C1.</strong> <code>lift53(x)</code>: one level of the reversible 5/3 wavelet of a signal of even length, by lifting. It returns the smooth half <span class="math inline">s</span> and the detail half <span class="math inline">d</span>:</p>
+<pre><code>for n in 0 .. len/2 − 1:                                  # predict
+    d[n] = x[2n+1] − floor((x[2n] + x[2n+2]) / 2)         # past the end: use x[2n] for x[2n+2]
+for n in 0 .. len/2 − 1:                                  # update
+    s[n] = x[2n] + floor((d[n−1] + d[n] + 2) / 4)         # before the start: use d[0] for d[−1]</code></pre>
+<p>The checks are a short signal worked out by hand, and that a constant signal has no detail.</p>
+<p><strong>C2.</strong> <code>unlift53(s, d)</code>: the inverse, with the same rounded terms in reverse order:</p>
+<pre><code>for every n:  x[2n]   = s[n] − floor((d[n−1] + d[n] + 2) / 4)
+for every n:  x[2n+1] = d[n] + floor((x[2n] + x[2n+2]) / 2)</code></pre>
+<p>(with the same rules at the ends as in C1)</p>
+<p>The check: random whole numbers come back exactly (B7).</p>
+<p><strong>C3.</strong> <code>wavelet2d(img)</code>: <code>lift53</code> on every row (smooth half left, detail half right), then on every column of the result (smooth half on top). The low-pass band LL ends up in the top-left quarter.</p>
+<p><strong>C4.</strong> <code>bitplane_guess(value, bits, planes)</code>: the decoder has the top <code>planes</code> bits of a value and guesses the middle of all values that start with those bits. The check is B6.</p>
+<p><strong>C5.</strong> <code>chunks_read(region, chunk)</code>: the number of chunks a region read touches, the product over the dimensions of <span class="math inline">\lfloor (b-1)/c \rfloor - \lfloor a/c \rfloor + 1</span>. The checks are B4 and the lecture’s x–z plane.</p>
+<p>Then <code>cargo run -p day08 -- compress-science</code> and open the pictures in <code>out/compress-science/</code>. The program checks that every row of the micrograph comes back exactly, applies three levels of the 2D wavelet (each to the LL quarter of the level before), saves the three LL bands (<code>ll-level*.png</code>) and all coefficients (<code>wavelet-3-levels.png</code>, details × 2 around mid grey), and prints the entropy of the pixels and of the coefficients. It also prints the bit-plane guesses of B6 and the chunk counts of the lecture.</p>
+<p><strong>C6.</strong> Compare the entropy of the wavelet coefficients with the best residual entropy of the lossless unit (6.50 bits per pixel with the average predictor). What can a decoder do with the wavelet code stream that it cannot do with the prediction residuals?</p>
+<p><strong>C7.</strong> From the chunk counts, compute the read amplification (decoded / needed) for the two accesses and the two chunk shapes. Which chunk shape suits which access?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-4-contents" aria-controls="callout-4" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-4" class="callout-4-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day08-compression/src/compress_science/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> The pixels have 7.68 bits per pixel, the three-level wavelet coefficients 6.61: an ideal lossless ratio of about <span class="math inline">8 / 6.61 = 1.21</span>, close to the best predictor (6.50). The grain of the micrograph limits both. But the wavelet stream holds the image at several resolutions: the LL bands <code>ll-level1-128.png</code>, <code>ll-level2-64.png</code> and <code>ll-level3-32.png</code> are the micrograph at 128, 64 and 32 pixels, which a decoder reads without the detail bands. Prediction residuals are only useful all together.</p>
+<p><strong>C7.</strong> A 512 × 512 region of one slice: chunks 256 × 256 × 1 read 4 chunks, 0.52 MB for 0.52 MB needed (amplification 1); chunks 64³ read 64 chunks, 33.55 MB (64 times). An x–z plane: chunks 256 × 256 × 1 read 800 chunks, 104.86 MB for 0.41 MB (256 times); chunks 64³ read 64 chunks, 33.55 MB (82 times). Thin slice chunks suit slice viewing; cubic chunks are the compromise when profiles through z are needed too.</p>
 </div>
 </div>
 </div>

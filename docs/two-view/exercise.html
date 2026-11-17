@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-triangulate" id="toc-explore-triangulate" class="nav-link" data-scroll-target="#explore-triangulate">Explore: triangulation in flatland</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: epipolar geometry and estimating <span class="math inline">F</span></a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9204,6 +9205,52 @@ Solutions
 <p><strong>E4.</strong> Unnormalised: the true matches lie 23.7 px from the estimated lines on average; normalised: 0.81 px. Before the rank-2 step, the unnormalised <span class="math inline">F</span> has singular values <span class="math inline">1.0</span>, <span class="math inline">2.8 \cdot 10^{-5}</span>, <span class="math inline">2.1 \cdot 10^{-7}</span>: wildly different scales (pixel coordinates in the hundreds next to 1), a badly conditioned problem. Normalised: 0.74, 0.67, 0.0037.</p>
 <p><strong>E5.</strong> 7 of the 29 matches are outliers. Least squares: 19.1 px. RANSAC: 22 inliers (as many as there are good matches), the best sample at iteration 209 of 1177, and 0.45 px.</p>
 <p><strong>E6.</strong> For points on one plane, many <span class="math inline">F</span> satisfy all the equations (the planar points are related by a homography; any <span class="math inline">F</span> compatible with it fits). The three smallest singular values of <span class="math inline">A</span> are 0.014, 0.009 and 0.008, against 1.6, 1.2 and 0.024 for the general scene: two extra (nearly) null directions. The estimated epipolar lines happen to pass through the planar matches but point in wrong directions, and the epipoles are wrong.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day49-multiview/src/two_view/exercise.rs</code>. A line <span class="math inline">(a, b, c)</span> is the set of pixels with <span class="math inline">a u + b v + c = 0</span>.</p>
+<p><strong>C1.</strong> <code>epipolar_line(F, x)</code> and <code>line_distance(l, x)</code>: the line <span class="math inline">F(u, v, 1)^\top</span> in image 2, and the distance <span class="math inline">|a u + b v + c| / \sqrt{a^2 + b^2}</span> of a pixel from it. The check is B3.</p>
+<p><strong>C2.</strong> <code>eight_point(matches)</code>: the normalised eight-point algorithm.</p>
+<pre><code>T1, T2 = normalising transforms of the pixels of image 1 and of image 2
+for every match:  p = T1 (u, v, 1),  q = T2 (u', v', 1)
+    add the row ( q₀p₀, q₀p₁, q₀, q₁p₀, q₁p₁, q₁, p₀, p₁, 1 ) to A
+f = the unit vector with the smallest |A f|        # eigenvector of AᵀA
+F̂ = f as 3 rows of 3
+v = the unit vector with the smallest |F̂ v|        # eigenvector of F̂ᵀF̂
+F̂ = F̂ (I − v vᵀ)                                   # rank 2
+F = T2ᵀ F̂ T1</code></pre>
+<p>The checks: from exact matches every match lies on its epipolar line and <span class="math inline">\det F = 0</span>; and B2 (a), sideways motion, gives the image rows as epipolar lines.</p>
+<p><strong>C3.</strong> <code>ransac_iterations(p, w, s)</code>: <span class="math inline">N = \log(1 - p)/\log(1 - w^s)</span>, rounded up. The check is the table of B4.</p>
+<p><strong>C4.</strong> <code>ransac_fundamental(matches, eps, iterations, rng)</code>:</p>
+<pre><code>best = no inliers
+repeat iterations times:
+    pick 8 different matches at random;  F = eight_point(those 8)
+    inliers = matches whose x' lies within eps pixels of the line F x
+    if more inliers than best: best = inliers
+return eight_point(best), best</code></pre>
+<p>The check: 40 matches, 12 of them wrong; every correct match must be found.</p>
+<p><strong>C5.</strong> <code>triangulate_midpoint(c1, d1, c2, d2)</code>: the middle of the shortest segment between the rays <span class="math inline">\mathbf c_1 + s\mathbf d_1</span> and <span class="math inline">\mathbf c_2 + t\mathbf d_2</span>, from the <span class="math inline">2\times2</span> system of the slide “The math: triangulation”. The check is B5 (a): <span class="math inline">(0.5, 0, 4)</span>.</p>
+<p>Then <code>cargo run -p day49 -- two-view</code> and open the pictures in <code>out/two-view/</code>. The program makes a scene of 80 points 4–9 m in front of two cameras (<span class="math inline">f = 700</span> px, camera 2 1.2 m to the right and turned by 10°), with 0.5 px noise, and replaces the image-2 pixel of 20 matches by a random one. It estimates <span class="math inline">F</span> from all matches by least squares and by RANSAC, and draws the epipolar lines of eight points into image 2 (<code>epipolar-ls.png</code>, <code>epipolar-ransac.png</code>; black dots: correct matches, red: wrong ones). Then it triangulates the correct matches with the known cameras and prints the depth errors.</p>
+<p><strong>C6.</strong> Compare the two pictures and the printed distances. What happens to least squares with a quarter of wrong matches? How many inliers does RANSAC find, and are they all correct?</p>
+<p><strong>C7.</strong> Read the printed depth errors for the near points (4–6 m) and the far points (7.5–9 m). Do they follow the rule <span class="math inline">\delta Z \approx \sqrt2\,\sigma Z^2/(fB)</span>?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day49-multiview/src/two_view/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Least squares on all matches is useless: all its epipolar lines run through a false epipole inside the image, and the correct matches lie 31.8 px from their lines on average. The wrong matches pull the whole solution. RANSAC (1177 samples, for <span class="math inline">w = 0.5</span>, <span class="math inline">s = 8</span>) finds 55 inliers, all of them correct; the other 5 correct matches have so much noise that they fall just outside <span class="math inline">\varepsilon = 1.5</span> px. Its lines run nearly along the image rows, as they should for a camera moved sideways, and the correct matches lie 0.59 px from them, about the noise level.</p>
+<p><strong>C7.</strong> RMS depth error 0.024 m for the near points (mean depth 5.07 m) and 0.063 m for the far ones (8.29 m): 2.6 times as large for points 1.64 times as far, close to <span class="math inline">1.64^2 = 2.7</span>. With <span class="math inline">B \approx 1.2</span> m, <span class="math inline">f = 700</span> px and <span class="math inline">\sigma = 0.5</span> px the rule gives <span class="math inline">\sqrt2 \cdot 0.5 \cdot 5.07^2/(700 \cdot 1.2) = 0.022</span> m and 0.058 m at 8.29 m: the right size. Depth error grows with the square of the depth.</p>
 </div>
 </div>
 </div>

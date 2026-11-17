@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-diffusion2d" id="toc-explore-diffusion2d" class="nav-link" data-scroll-target="#explore-diffusion2d">Explore: diffusion in 2D</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: which details are real?</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9189,6 +9190,87 @@ Solutions
 <p><strong>G5.</strong> The truth is a ring-shaped nucleus (area 114). The classical restoration keeps the measured shape (area 114, 26.7 dB). The mean and the samples show a normal, filled nucleus (area 150), PSNR 26.0 dB: the prior has never seen a ring, so the posterior uses normal cells (the top six training cells get 11 % each). The disagreement map is dark (max sd 0.03): the samples agree on the wrong answer. A low disagreement does not prove correctness when the prior lacks the phenotype.</p>
 <p><strong>G6.</strong> All 32 samples show 2 nucleoli (truth 3), the mean shows 2 with the best PSNR (30.9 dB), the classical restoration 1 (27.4 dB). The posterior puts 90 % on one training cell with two nucleoli: no training cell has three. The best-PSNR image has the wrong count.</p>
 <p><strong>G7.</strong> The samples fill the hole with 0, 1 or 2 nucleoli (16, 11 and 5 of 32); the truth has 1. The mean shows a smooth nucleus (0), the best PSNR (31.9 dB). The classical filling interpolates smoothly from the edge of the hole and leaves a dim patch (area 89 instead of 150). Whatever is shown inside the hole is the prior’s guess.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day39-moderndl/src/diffusion/exercise.rs</code>. As in the demo, the data are points (of 1 or 2 numbers) from round Gaussian blobs, all equally likely, with centres <span class="math inline">\boldsymbol\mu_k</span> and spread <span class="math inline">s</span>; for such data the best denoiser is known exactly, so no network needs to be trained.</p>
+<p><strong>C1.</strong> <code>cosine_alpha_bar(tau)</code>: the cosine schedule of the lecture’s math slide; and <code>forward(x0, alpha_bar, eps)</code>: <span class="math inline">\mathbf x = \sqrt{\bar\alpha}\,\mathbf x_0 + \sqrt{1 - \bar\alpha}\,\boldsymbol\varepsilon</span>. The checks are the signal levels of the lecture’s figure and your answer to B1 (a).</p>
+<p><strong>C2.</strong> <code>best_x0(x, alpha_bar, centres, spread)</code>: the best denoiser, the average of all clean points compatible with <span class="math inline">\mathbf x</span>. With <span class="math inline">a = \sqrt{\bar\alpha}</span> and <span class="math inline">v = a^2 s^2 + 1 - \bar\alpha</span>:</p>
+<pre><code>for every blob k:
+    r_k = exp( −|x − a·μ_k|² / (2v) )             # how well blob k explains x
+    guess_k = μ_k + (a s² / v) · (x − a·μ_k)       # best guess if x came from blob k
+x̂0 = Σ_k r_k · guess_k / Σ_k r_k</code></pre>
+<p>(Subtract the largest exponent before <code>exp</code>, as in a softmax.) The checks are B2 (the <span class="math inline">\tanh</span>), B1 (b), and a single blob (B10).</p>
+<p><strong>C3.</strong> <code>sample_ddim(x, alpha_bars, centres, spread)</code>: deterministic sampling from pure noise, through the rising signal levels <span class="math inline">\bar\alpha_0 &lt; \bar\alpha_1 &lt; \dots &lt; \bar\alpha_n = 1</span>:</p>
+<pre><code>for every step from level ab to the next level ab':
+    x̂0 = best_x0(x, ab)
+    ε̂ = (x − √ab · x̂0) / √(1 − ab)               # the noise in x
+    x = √ab' · x̂0 + √(1 − ab') · ε̂                # same noise direction, less of it</code></pre>
+<p>The check is B3: one step puts every sample at the mean, 100 steps put them in the blobs.</p>
+<p><strong>C4.</strong> <code>sample_ddpm(...)</code>: stochastic sampling. Each step draws the next point at random from the Gaussian of the lecture’s math slide “one sampling step” (its mean mixes <span class="math inline">\hat{\mathbf x}_0</span> and <span class="math inline">\mathbf x</span>). The check: 100 steps put the samples in the two blobs, about half in each.</p>
+<p><strong>C5.</strong> <code>posterior(mu, s, sigma, y)</code>: the posterior mean and variance for one value with a Gaussian prior (the lecture’s math slide “mean against sample”). The checks are B9, also by simulation: a posterior sample has twice the error of the posterior mean.</p>
+<p>Then <code>cargo run -p day39 -- diffusion</code> and open the pictures in <code>out/diffusion/</code>. The program runs the forward process on the micrograph (<code>forward-tau….png</code>), samples 500 points from two blobs and from a ring of 8 blobs with 1, 2, 5 and 100 deterministic steps and 100 stochastic steps (<code>two-….png</code>, <code>ring-….png</code>: training data grey, samples blue), samples with the perfect denoiser of only 20 training points (<code>memorise.png</code>), and restores 100,000 values with a Gaussian prior.</p>
+<p><strong>C6.</strong> Look at the forward pictures and the printed signal and noise. Up to which <span class="math inline">\tau</span> can you still see the nucleus?</p>
+<p><strong>C7.</strong> Read the fraction of samples “off the data” (further than <span class="math inline">3s</span> from every blob centre) for every number of steps, and look at <code>two-ddim2.png</code>, <code>ring-ddim2.png</code> and <code>ring-ddim5.png</code>. Where do the samples land with few steps, and why? Why is the fraction not exactly 0 even with 100 steps?</p>
+<p><strong>C8.</strong> How many of the 500 samples of the perfect 20-point denoiser lie within 0.05 of a training point? What does that mean for a claim that a generated image is “new”?</p>
+<p><strong>C9.</strong> Compare the three printed errors: the measurement, the posterior mean, a posterior sample. Compare them with B9.</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day39-moderndl/src/diffusion/solution.rs</code> in the download.</p>
+<p><strong>C6.</strong> Signal and noise: <span class="math inline">\tau = 0.2</span>: 0.95 and 0.32; 0.4: 0.80 and 0.59; 0.6: 0.58 and 0.81; 1: 0.00 and 1.00. The nucleus is clear at 0.2, still visible at 0.4 and, faintly, at 0.6 (as in the lecture’s figure); at <span class="math inline">\tau = 1</span> only noise is left.</p>
+<p><strong>C7.</strong></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>steps</th>
+<th>two blobs, off the data</th>
+<th>ring of 8, off the data</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>100 %</td>
+<td>100 %</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>55.6 %</td>
+<td>90.0 %</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td>3.0 %</td>
+<td>20.4 %</td>
+</tr>
+<tr class="even">
+<td>100</td>
+<td>0.8 %</td>
+<td>1.6 %</td>
+</tr>
+<tr class="odd">
+<td>100, stochastic</td>
+<td>0.2 %</td>
+<td>0.2 %</td>
+</tr>
+</tbody>
+</table>
+<p>One step returns the average of all the data: every sample lands at the mean, between the blobs (B3). With 2 steps, the two-blob samples lie on the line between the blobs, and the ring samples fill the inside of the ring: each step can only move to an average of the blobs the point might still come from. With 5 steps the ring samples lie on the ring but also between its blobs; with 100 they sit in the blobs. Even perfect samples are sometimes further than <span class="math inline">3s</span> from their centre: for a round 2D Gaussian that happens with probability <span class="math inline">e^{-4.5} \approx 1.1\,\%</span>.</p>
+<p><strong>C8.</strong> All 500 lie within 0.05 of a training point: the perfect denoiser of a finite set only knows those 20 points, and sampling reproduces them. A generated image can be a copy of a training image; “new” has to be checked, for example against the nearest training images.</p>
+<p><strong>C9.</strong> Measurement 0.251 (the noise variance 0.25), posterior mean 0.200, posterior sample 0.401: as in B9, the mean has error <span class="math inline">v = 0.2</span> and a sample <span class="math inline">2v = 0.4</span>, worse even than the raw measurement, although every sample “looks like” a value from the prior.</p>
 </div>
 </div>
 </div>

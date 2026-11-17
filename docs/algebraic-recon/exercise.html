@@ -8973,6 +8973,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#explore-art" id="toc-explore-art" class="nav-link" data-scroll-target="#explore-art">Explore: ART and SIRT by hand</a></li>
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: iterative reconstruction</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9179,6 +9180,47 @@ Solutions
 <p><strong>E10.</strong> FBP: 0.081, with streaks. ART + non-negativity + TV: 0.020 after 30 sweeps. Without TV (non-negativity only): 0.028, with faint streaks and noise-like ripples. Without non-negativity as well (plain ART) the error is 0.079, about as bad as FBP: the background between the streaks goes negative (about 1500 pixels below −0.02). Non-negativity removes the negative half of every streak; TV removes the ripples and keeps the edges.</p>
 <p><strong>E11.</strong> FBP: 0.132, the phantom stretched vertically. Iterative with priors: 0.067. The top and bottom of the skull come back much better, though not perfectly: the priors (non-negativity, piecewise constant) fill part of the missing wedge with the most plausible values, which the data cannot contradict.</p>
 <p><strong>E12.</strong> Noisy + TV (<span class="math inline">\lambda = 0.01</span>): 0.027, clean flat regions with sharp edges. <span class="math inline">\lambda = 0.05</span>: 0.048: a cartoon, with the small ellipses merged or flattened and low-contrast details gone. Too much prior overrides the data: fine texture and small, faint structures are what TV removes first.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day09-radon/src/algebraic_recon/exercise.rs</code>. The matrix <span class="math inline">A</span> is stored by rows: row <span class="math inline">i</span> lists the pixels that ray <span class="math inline">i</span> touches, with their weights. The matrix of a real scan (the projector of the first unit, as a sparse matrix) is given.</p>
+<p><strong>C1.</strong> <code>forward(a, x)</code> and <code>back(a, y, n_pixels)</code>: the products <span class="math inline">A\mathbf x</span> (for every ray, the weighted sum of its pixels) and <span class="math inline">A^\top\mathbf y</span> (every ray adds its value, with the same weights, to its pixels). The checks are B1, B2(b) and B4(b), and <span class="math inline">\langle A\mathbf x, \mathbf y\rangle = \langle \mathbf x, A^\top\mathbf y\rangle</span>.</p>
+<p><strong>C2.</strong> <code>art_sweep(a, b, x, ω)</code>: one sweep of ART over all rays, changing <span class="math inline">\mathbf x</span> in place:</p>
+<pre><code>for every ray i:
+    error = b[i] − (sum over the ray's pixels j of a_ij · x[j])
+    norm2 = sum over the ray's pixels j of a_ij²
+    for every pixel j of the ray:
+        x[j] = x[j] + ω · error / norm2 · a_ij</code></pre>
+<p>The checks are B3 step by step, B5(a) and (b), and the cycle of B6(b).</p>
+<p><strong>C3.</strong> <code>sirt_step(a, b, x, ω)</code>: one SIRT step:</p>
+<pre><code>r = b − A x                                    # all errors, with the x you start with
+for every ray i:     r[i] = r[i] / (sum of the weights of ray i)
+c = Aᵀ r
+for every pixel j:   x[j] = x[j] + ω · c[j] / (sum of the weights of the rays through j)</code></pre>
+<p>The checks are B4(a), and that many steps fit the data.</p>
+<p>Then <code>cargo run -p day09 -- algebraic-recon</code> and open the pictures in <code>out/algebraic-recon/</code>. The program reconstructs a <span class="math inline">96 \times 96</span> Shepp–Logan phantom: with SIRT from 60 angles (after 1 and after 100 steps), with ART (<span class="math inline">\omega = 0.5</span>) from 60 angles of noisy data, printing the error against the truth, the relative data residual <span class="math inline">\|A\mathbf x - \mathbf b\|/\|\mathbf b\|</span> and the relative size of the noise, and with ART from only 20 angles, without and with non-negativity (negative pixels set to 0 after every sweep).</p>
+<p><strong>C4.</strong> Compare <code>sirt-step1.png</code> with <code>sirt-100.png</code>. What is the first SIRT step, and why does it look like that? (B4.)</p>
+<p><strong>C5.</strong> ART on noisy data: follow the error and the residual over the sweeps. When would you stop, and how could you know without the truth? Compare <code>art-noisy-best.png</code> with <code>art-noisy-30.png</code>.</p>
+<p><strong>C6.</strong> 20 angles: how much does non-negativity help, and where in the pictures?</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day09-radon/src/algebraic_recon/solution.rs</code> in the download.</p>
+<p><strong>C4.</strong> The first step from zero is a scaled back-projection (B4: <span class="math inline">A^\top\mathbf b</span> divided by the weights): a blurred, glowing phantom, RMSE 0.193. After 100 steps the image is sharp, RMSE 0.083, and the residual is 0.024: the iterations remove the blur of back-projection step by step.</p>
+<p><strong>C5.</strong> RMSE after sweeps 1, 2, 3, 5, 10, 20, 30: 0.108, 0.086, 0.079, 0.0775, 0.080, 0.084, 0.088; the lowest, 0.0774, after sweep 4. The residual keeps falling: 0.160, 0.106, 0.074, 0.043, 0.022, 0.017, 0.016. After sweep 4 the iteration fits the noise: semi-convergence. Stop early. Without the truth: stop when the residual has fallen to the size of the noise in the data, which the program prints (0.037). That happens shortly after sweep 5, close to the best sweep; fitting the data any better means fitting the noise (a discrepancy rule, as for Richardson–Lucy on the deconvolution day). The 30-sweep image is grainier than the best one.</p>
+<p><strong>C6.</strong> Without the constraint the RMSE is 0.113, with it 0.062, almost half. Without it, streaks of positive and negative values run through the empty space around the head; setting the negative values to 0 removes most of them, and the inside of the head is cleaner too.</p>
 </div>
 </div>
 </div>

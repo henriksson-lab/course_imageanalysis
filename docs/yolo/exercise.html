@@ -8974,6 +8974,7 @@ window.Quarto = {
   <li><a href="#explore" id="toc-explore" class="nav-link" data-scroll-target="#explore">Explore: the real network</a></li>
   <li><a href="#explore-nmsboxes" id="toc-explore-nmsboxes" class="nav-link" data-scroll-target="#explore-nmsboxes">Explore: anchors and heat maps</a></li>
   <li><a href="#explore-yolodecode" id="toc-explore-yolodecode" class="nav-link" data-scroll-target="#explore-yolodecode">Explore: decoding on a simulated network</a></li>
+  <li><a href="#code" id="toc-code" class="nav-link" data-scroll-target="#code">Code</a></li>
   <li><a href="#where-this-leads" id="toc-where-this-leads" class="nav-link" data-scroll-target="#where-this-leads">Where this leads</a></li>
   </ul>
 </nav>
@@ -9279,6 +9280,47 @@ Solutions
 <p><strong>E10.</strong> The large cell is 460 × 300 px. Its stride-8 centre cell needs 29.3, 18.8, 28.3 and 18.8 strides; the bins stop at 15, the decoded distances are 14.7 each: a 236 × 236 box, IoU 0.40, not a match. This cell’s score is 0.01 (in training, stride 8 does not answer for objects this large). The kept box comes from stride 32 (distances 7.4, 4.8, 6.7, 3.8; score 0.83), and TP 3 of 3. Without stride 32: one stride-16 candidate still finds it (F1 1.00). Without strides 32 and 16: the large cell is lost (FN 1, F1 0.80). The small cell (12 × 12 px) contains 4 stride-8 centres and none of stride 16 or 32. Without stride 8 the small cell is lost, and with it most of the scene: only 4 of 13 objects are left (the large cells that stride 16 also answers for), F1 0.47.</p>
 <p><strong>E11.</strong> Class-aware: 14 boxes, TP 13, FP 1, F1 0.96: the “debris that looks like a cell” (28 × 23 px) gets a debris box (0.77) and a cell box (0.67); both survive because NMS compares only boxes of the same class, and the cell box is a false positive. Class-agnostic: 13 boxes, FP 0, F1 1.00. Crowded rods: the boxes of neighbouring rods overlap by about 0.46. At NMS 0.45 one rod is removed by its neighbour (8 boxes, FN 1); 0.3: 5 boxes, 4 rods lost; 0.5 to 0.7: all 9 objects, no duplicate (F1 1.00); 0.8: 14 boxes, 5 duplicates; 0.9: 75 boxes. Here a window 0.5–0.7 works because the simulated duplicates mostly overlap their object’s best box by more than 0.7; in a real crowd the two ranges overlap (the <a href="../detection/lec.html">boxes unit</a>).</p>
 <p><strong>E12.</strong> With one square template 4 strides wide per cell (32, 64, 128 px), the small cell (12 × 12, best anchor IoU 0.14) and the three debris pieces (0.19, 0.14, 0.25) never overlap an anchor with IoU <span class="math inline">\ge 0.5</span>: in training they are background everywhere, so the network never learns them: FN 4, F1 0.78 (distance head: FN 0, F1 0.96). On the “large cell” scene the large cell (best anchor IoU 0.12) is never learned either. Box noise 1 (a stride of jitter per side): the candidate boxes of one object disagree so much that their IoU falls below the NMS threshold: 39 boxes kept, 29 FP, and some small objects get no box with IoU ≥ 0.5 (F1 0.38). Score noise 2: background cells reach the threshold and many cells near objects get unreliable scores: 69 boxes, 56 FP, F1 0.32. Both kinds of errors of a real network feed straight into the decoded list; the decoding cannot repair them.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="code" class="level2">
+<h2 class="anchored" data-anchor-id="code">Code</h2>
+<p>Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code: <a href="../code.html">coding exercises: getting started</a>. Your code goes in <code>day40-cellnets/src/yolo/exercise.rs</code>. As in the decoding demo, the network of the program is simulated. Every grid cell whose centre lies in a nucleus answers for it, with noisy distances, and its score is highest near the centre. The box IoU of the detection day is given.</p>
+<p><strong>C1.</strong> <code>distance_target(y)</code>: the training target of one distance <span class="math inline">y</span> (in strides, at most 15), all of the probability on the two bins around it:</p>
+<pre><code>y = clamp(y, 0, 15);   k = floor(y)
+p = 16 zeros
+p[k] = k + 1 − y;   p[k + 1] = y − k        # if k = 15: p[15] = 1</code></pre>
+<p>The check is B7 (<span class="math inline">y = 2.3</span> gives 0.7 and 0.3), and that the mean of the target is <span class="math inline">y</span>.</p>
+<p><strong>C2.</strong> <code>decode_cell(stride, row, col, dists, score, class)</code>: one cell’s box, as in B1:</p>
+<pre><code>centre = (stride · (col + ½), stride · (row + ½))
+for each side (left, top, right, bottom):  d = Σ_k k · p_k        # the mean, in strides
+box = (centre_x − stride · d_left, centre_y − stride · d_top) to (centre_x + stride · d_right, centre_y + stride · d_bottom)</code></pre>
+<p>The checks are B1 (c), (d) and (f).</p>
+<p><strong>C3.</strong> <code>nms_classes(boxes, score_threshold, t, class_aware)</code>: greedy NMS, as on the detection day, but a kept box removes another only if they overlap by more than <span class="math inline">t</span> <strong>and</strong>, if class-aware, have the same class. The checks are B3 (a), (b), (d) and the counterexample of B10.</p>
+<p><strong>C4.</strong> <code>heatmap_peaks(map, radius, threshold)</code>: the local maxima of a centre heat map:</p>
+<pre><code>for every pixel p with value &gt; threshold:
+    if no pixel in the (2·radius + 1) × (2·radius + 1) window around p is larger:
+        p is a peak</code></pre>
+<p>The check is B5.</p>
+<p>Then <code>cargo run -p day40 -- yolo</code> and open the pictures in <code>out/yolo/</code>. The program detects 40 synthetic nuclei with strides 8 and 16. For every sixth nucleus the network also gives a “debris” score at 0.8 times the cell score. It prints the kept boxes and TP, FP and FN (IoU ≥ 0.5, the class must match) for four NMS thresholds, class-aware and class-agnostic. <code>kept-aware.png</code> and <code>kept-agnostic.png</code> show the result at 0.5 (green: cell, pink: debris). Finally it finds the peaks of a noisy centre heat map with three window sizes.</p>
+<p><strong>C5.</strong> Compare class-aware and class-agnostic NMS, and the NMS thresholds 0.3 to 0.9. Which setting is right for these images, and why? What happens when the box noise grows from 0.15 to 1 stride?</p>
+<p><strong>C6.</strong> The heat map: how many peaks do the <span class="math inline">3 \times 3</span>, <span class="math inline">7 \times 7</span> and <span class="math inline">13 \times 13</span> windows find for the 40 nuclei? Explain each with B5 (c).</p>
+<div class="callout callout-style-default callout-note callout-titled" title="Solutions (code)">
+<div class="callout-header d-flex align-content-center" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Solutions (code)
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The model solution is <code>day40-cellnets/src/yolo/solution.rs</code> in the download.</p>
+<p><strong>C5.</strong> 365 candidates, 263 above the score threshold 0.25 (<code>candidates.png</code>: several boxes per nucleus). At NMS 0.5, class-aware NMS keeps 44 boxes: TP 37, FP 7, FN 3. The 7 false positives are the debris boxes, each lying on a nucleus that also has a cell box, as with b4 in B3. Class-agnostic NMS keeps 37 boxes: TP 37, FP 0, FN 3. Here every object is one thing, and the debris score is the network hesitating about the class, so class-agnostic NMS is right (B3 (c)). At 0.3 the result is the same; at 0.7 near-copies start to survive (agnostic: 50 boxes, FP 12), and at 0.9 almost nothing is removed (agnostic: 186 boxes, FP 148). Two of the 3 misses are tiny visible remains of nuclei that lie under others (62 and 2 pixels). No grid cell answers for objects that small (B6). With 1 stride of noise on every side, the boxes of one nucleus disagree so much that they no longer overlap by 0.5. Many survive NMS, and few fit the truth: 171 boxes, TP 22, FP 149, FN 18 (as in E12). The decoding cannot repair errors of the network.</p>
+<p><strong>C6.</strong> <span class="math inline">3 \times 3</span>: 149 peaks, TP 40, FP 109. Every bump is found, but the noise makes many small local maxima in the background and on the bumps. <span class="math inline">7 \times 7</span>: 41 peaks, TP 40, FP 1. <span class="math inline">13 \times 13</span>: 40 peaks, TP 39, FP 1, FN 1: the missed centre is only 2.7 pixels from the next one (a nucleus almost hidden under another). The two bumps make a single peak; with the smaller windows a second, noisy peak nearby happens to count for it. As in B5 (c), a noisy map needs a larger window, and the window must stay smaller than the distance between neighbouring objects.</p>
 </div>
 </div>
 </div>
