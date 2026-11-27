@@ -1,4 +1,4 @@
-// The checks of day 29, one module per unit:  cargo test -p graphseg <unit>::
+// The checks of day 30, one module per unit:  cargo test -p graphseg <unit>::
 
 mod random_walker;
 mod mst_seg;

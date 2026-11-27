@@ -1,4 +1,4 @@
-//! Helpers shared by the units of day 32 (plumbing, not part of the exercises): a priority
+//! Helpers shared by the units of day 33 (plumbing, not part of the exercises): a priority
 //! queue of pixels for Dijkstra's algorithm and fast marching (it hands out the pixel with the
 //! smallest value first), and Gaussian smoothing for the programs.
 //!

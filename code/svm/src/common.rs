@@ -1,4 +1,4 @@
-//! Helpers shared by the programs (`run.rs`) of the units of day 34: the class colours and a
+//! Helpers shared by the programs (`run.rs`) of the units of day 35: the class colours and a
 //! picture of a 2D feature space with a decision function.
 
 use imgcourse::Image;

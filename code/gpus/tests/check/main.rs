@@ -1,4 +1,4 @@
-// The checks of day 51, one module per unit:  cargo test -p gpus <unit>::
+// The checks of day 52, one module per unit:  cargo test -p gpus <unit>::
 
 mod gpu_parallel;
 mod gpu_memory;

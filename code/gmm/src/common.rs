@@ -1,4 +1,4 @@
-//! Helpers shared by the programs (`run.rs`) of the units of day 35.
+//! Helpers shared by the programs (`run.rs`) of the units of day 36.
 
 use imgcourse::{io, Image};
 

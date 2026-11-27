@@ -1,4 +1,4 @@
-// The checks of day 50, one module per unit:  cargo test -p raytracing <unit>::
+// The checks of day 51, one module per unit:  cargo test -p raytracing <unit>::
 
 mod raycast;
 mod whitted;

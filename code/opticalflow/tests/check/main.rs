@@ -1,4 +1,4 @@
-// The checks of day 25, one module per unit:  cargo test -p opticalflow <unit>::
+// The checks of day 26, one module per unit:  cargo test -p opticalflow <unit>::
 
 mod flow_constraint;
 mod lucas_kanade;

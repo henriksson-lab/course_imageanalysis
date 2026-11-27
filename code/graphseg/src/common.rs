@@ -1,4 +1,4 @@
-//! Helpers shared by the units of day 29 (filled in, not exercises): the edge type, union–find
+//! Helpers shared by the units of day 30 (filled in, not exercises): the edge type, union–find
 //! `find`, sorting edges by weight, and the gradient landscape used by the programs.
 
 use imgcourse::{Border, Image};

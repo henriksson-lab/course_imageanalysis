@@ -1,4 +1,4 @@
-// The checks of day 27, one module per unit:  cargo test -p graphcuts <unit>::
+// The checks of day 28, one module per unit:  cargo test -p graphcuts <unit>::
 
 mod seg_energy;
 mod maxflow;

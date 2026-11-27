@@ -1,4 +1,4 @@
-// The checks of day 46, one module per unit:  cargo test -p flim <unit>::
+// The checks of day 47, one module per unit:  cargo test -p flim <unit>::
 
 mod lifetime;
 mod decayfit;

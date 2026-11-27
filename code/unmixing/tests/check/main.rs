@@ -1,4 +1,4 @@
-// The checks of day 43, one module per unit:  cargo test -p unmixing <unit>::
+// The checks of day 44, one module per unit:  cargo test -p unmixing <unit>::
 
 mod crosstalk;
 mod lsunmix;

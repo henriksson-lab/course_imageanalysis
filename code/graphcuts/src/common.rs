@@ -1,4 +1,4 @@
-//! Helpers shared by the units of day 27 (used by the unit programs, not part of the exercises).
+//! Helpers shared by the units of day 28 (used by the unit programs, not part of the exercises).
 
 use imgcourse::Image;
 

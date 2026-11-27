@@ -1,4 +1,4 @@
-// The checks of day 28, one module per unit:  cargo test -p ising <unit>::
+// The checks of day 29, one module per unit:  cargo test -p ising <unit>::
 
 mod ising;
 mod mcmc;

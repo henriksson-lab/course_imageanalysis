@@ -1,4 +1,4 @@
-//! Helpers shared by the units of day 25: bilinear interpolation, a Gaussian blur and the flow
+//! Helpers shared by the units of day 26: bilinear interpolation, a Gaussian blur and the flow
 //! colour wheel (given, not part of the exercises).
 
 use imgcourse::{Border, Image};

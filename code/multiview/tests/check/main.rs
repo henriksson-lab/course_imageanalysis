@@ -1,4 +1,4 @@
-// The checks of day 49, one module per unit:  cargo test -p multiview <unit>::
+// The checks of day 50, one module per unit:  cargo test -p multiview <unit>::
 
 mod cameras;
 mod two_view;

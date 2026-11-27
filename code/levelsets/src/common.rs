@@ -1,4 +1,4 @@
-//! Helpers shared by the programs (`run.rs`) of the units of day 31: counting the pieces of a
+//! Helpers shared by the programs (`run.rs`) of the units of day 32: counting the pieces of a
 //! region, drawing a zero level and putting pictures side by side.
 
 use imgcourse::Image;

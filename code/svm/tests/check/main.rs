@@ -1,4 +1,4 @@
-// The checks of day 34, one module per unit:  cargo test -p svm <unit>::
+// The checks of day 35, one module per unit:  cargo test -p svm <unit>::
 
 mod classify;
 mod maxmargin;

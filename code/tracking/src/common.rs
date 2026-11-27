@@ -1,4 +1,4 @@
-//! Helpers shared by the units of day 26 (provided, not an exercise): a fast exact solver for the
+//! Helpers shared by the units of day 27 (provided, not an exercise): a fast exact solver for the
 //! assignment problem (the Hungarian algorithm, in the compact form of Kuhn and Munkres with
 //! potentials). The lecture only says what it computes; `global_by_search` (C4 of track-linking)
 //! computes the same, slowly.

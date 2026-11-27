@@ -1,4 +1,4 @@
-//! Helpers shared by the units of day 33 (`pixelclass` and `forest_objects`): a small random
+//! Helpers shared by the units of day 34 (`pixelclass` and `forest_objects`): a small random
 //! forest, the trees of the decision-trees unit, grown on bootstrap samples with a random
 //! subset of `m` features at every split (the forest unit). Filled in as a tool; it is not part
 //! of the exercises.

@@ -1,4 +1,4 @@
-//! Helpers shared by the units of day 24: bilinear interpolation and a Gaussian blur (given,
+//! Helpers shared by the units of day 25: bilinear interpolation and a Gaussian blur (given,
 //! not part of the exercises).
 
 use imgcourse::{Border, Image};

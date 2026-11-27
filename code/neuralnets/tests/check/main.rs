@@ -1,4 +1,4 @@
-// The checks of day 36, one module per unit:  cargo test -p neuralnets <unit>::
+// The checks of day 37, one module per unit:  cargo test -p neuralnets <unit>::
 
 mod neuralnet;
 mod backprop;

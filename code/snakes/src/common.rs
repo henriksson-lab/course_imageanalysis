@@ -1,4 +1,4 @@
-//! Helpers shared by the units of day 30 (filled in, not exercises): Gaussian blur, bilinear
+//! Helpers shared by the units of day 31 (filled in, not exercises): Gaussian blur, bilinear
 //! lookup between pixels, and a circle of beads.
 
 use imgcourse::{filters, Border, Image};

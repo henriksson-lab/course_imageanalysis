@@ -1,4 +1,4 @@
-// The checks of day 42, one module per unit:  cargo test -p colour <unit>::
+// The checks of day 43, one module per unit:  cargo test -p colour <unit>::
 
 mod colour_vision;
 mod rgb_linear;
