@@ -43,9 +43,10 @@ After the day a student can:
    tapering, high-pass weighting, interpolation);
 4. explain **FFT docking**: receptor and ligand on a grid with a surface layer and an interior,
    a score that rewards contact and punishes overlap, one correlation per ligand rotation,
-   and the cost of the rotation loop in 2D and 3D;
-5. *(optional)* say how the same idea extends to 3D (rotation sampling, spherical harmonics) and
-   to cryo-EM particle alignment, and what rigid docking cannot do.
+   the cost of the rotation loop, and what rigid docking cannot do.
+
+**Scope (decided 2026-11-27): 2D only.** Real docking is 3D; here 2D shapes stand in for
+molecules, said once on a slide. No 3D unit, no spherical harmonics, no 3D demo.
 
 Why it fits this audience: it is one theorem (the shift theorem) used three more times, now on
 an outline, on an angle and on a grid of molecules. Everything has a 1D version small enough to
@@ -83,12 +84,10 @@ structural biology, which many students know from the other side.
 | Generalised Hough (R-table, rotation by looping over angles) | Hough day (`ght/`) | unit 3: same rotation loop, different evidence; pointer |
 | Template matching with NCC | `fftreg` (`matching/`) | unit 3: docking is template matching with a score that is not NCC; pointer |
 | Distance transforms (surface layers) | morphology day | unit 3: the surface layer = dilation minus the object; recall |
-| GPUs for batches of FFTs | GPU day | unit 4: the rotation loop is the textbook GPU workload; pointer |
-| 3D volumes, voxel spacing | marching-cubes day (`volumes3d/`) | unit 4: pointer only |
 
 ## Units (one folder each: lec, quiz, exercise with #explore and ## Code)
 
-Three core units, about 1.5 h each including the exercise, plus one shorter optional unit.
+Three units, about 1.5 h each including the exercise.
 Layering as in README.md "Marking the math layer".
 
 ### 1. `fourier-descriptors/`: Outlines as periodic signals
@@ -168,7 +167,7 @@ Layering as in README.md "Marking the math layer".
   a shift. The Mellin transform is the Fourier transform in $\log r$.
 - **The math: rotational correlation** {.math}: with $f(r, \theta) = \sum_m f_m(r) e^{im\theta}$,
   $\int f(r, \theta)\, g(r, \theta + \alpha)\,d\theta = 2\pi\sum_m \overline{f_m(r)}\, g_m(r)\, e^{im\alpha}$: every
-  angle at once by one inverse FFT in $\alpha$ (the 2D case of the spherical-harmonic trick of unit 4).
+  angle at once by one inverse FFT in $\alpha$.
 - Applications (one slide): aligning rotated tiles or slide scans; **cryo-EM 2D classification**:
   thousands of noisy particle images aligned in rotation and translation to class averages by
   exactly these polar correlations; orientation of cells before averaging.
@@ -187,8 +186,8 @@ Layering as in README.md "Marking the math layer".
 
 - The problem, in pictures: two proteins (or any two rigid pieces) fit together; find the
   relative position and angle where the surfaces touch over a large area without overlapping.
-  Six unknowns in 3D, three in 2D (two shifts, one angle). In this unit 2D shapes stand in for
-  molecules: honest caption.
+  Three unknowns in 2D (two shifts, one angle). 2D shapes stand in for molecules; one sentence
+  says that real docking is the same in 3D with six unknowns and a far longer rotation loop.
 - **The grid score** (Katchalski-Katzir et al. 1992), concept first: put the receptor on a grid
   as a thin **surface layer** (value 1) around an **interior** (a large negative value $\rho$); the
   ligand as 1 on its cells. Slide the ligand: each ligand cell on the receptor's surface adds 1
@@ -226,24 +225,6 @@ Layering as in README.md "Marking the math layer".
 - Math questions: show that the complex score's real part is surface·surface − core·core; count
   flops for a 2D search ($128^2$ grid, 5° steps) both ways.
 
-### 4. (optional / further reading) `docking-3d/`: Rotations in 3D and beyond rigid shapes
-
-- Rotations in 3D: three angles; sampling them evenly is not a 3D grid of Euler angles (it
-  crowds near the poles). Number of rotations ≈ $8\pi^2 / (\Delta\theta)^3$: a few thousand at 15°,
-  ≈ 50 000–70 000 at 6°. With a $128^3$ grid one FFT is ≈ $2\cdot10^8$ flops, so a fine search is
-  ≈ $10^{13}$ flops: hours on one CPU core, minutes on a GPU (pointer to the GPU day).
-- **Spherical harmonics**: the 3D analogue of unit 1 and unit 2's angular Fourier series; a
-  rotation mixes coefficients of the same degree (Wigner matrices) instead of multiplying them
-  by a phase, and correlations over rotations can again be computed by fast transforms (Hex:
-  Ritchie & Kemp 2000; SO(3) FFT: Kostelec & Rockmore 2008). Concept and one picture only.
-- Related uses of the same machine: template matching in cryo-electron tomograms (a known
-  complex searched in rotation and translation), fitting atomic models into cryo-EM maps,
-  ligand docking into pockets (where flexible, non-FFT methods dominate).
-- Limits and where the field went: flexibility, scoring, and learned methods that predict
-  complexes directly from sequence; FFT docking stays as a fast, exhaustive first pass. One
-  slide, no tool names beyond the classic references.
-- Figures only (rotation sampling on a sphere, a spherical-harmonic picture); no demo.
-
 ## Shared engineering
 
 - **`demos/src/lib/registration.ts`** (owner `fftreg`): reuse `correlate2d`, `crossPower`,
@@ -270,8 +251,7 @@ Layering as in README.md "Marking the math layer".
 - **Rust code** (`plan/code-plan.md`): crate `code/shapematch/`, modules `fourier_descriptors`
   (arc-length resampling, descriptors, invariants, matching over starting points with an FFT),
   `fourier_mellin` (log-polar resampling, phase correlation copied into `common.rs` from the
-  fftreg pattern), `fft_docking` (grids, correlation per angle, best poses); `docking_3d` has
-  none. Uses `imgcourse::fft` and `Complex` as the fftreg crate does.
+  fftreg pattern), `fft_docking` (grids, correlation per angle, best poses). Uses `imgcourse::fft` and `Complex` as the fftreg crate does.
 - Follow `demos/README.md`: fixed seeds, presets + reset, keyboard back to reveal.js, fits
   1150×560 on a slide, static figure as print fallback.
 
@@ -282,7 +262,7 @@ Layering as in README.md "Marking the math layer".
 | 09:00–10:30 | Unit 1 lecture + by-hand descriptors, `fdmatch` |
 | 10:45–12:15 | Unit 2 lecture + exercise (`fmellin`) |
 | 13:15–14:45 | Unit 3 lecture + exercise (`dock2d`) |
-| 15:00–15:45 | Unit 4 (optional) slides; quizzes as wrap-up |
+| 15:00–15:30 | Quizzes as wrap-up |
 
 ## Changes elsewhere when this is built
 
@@ -302,7 +282,6 @@ Layering as in README.md "Marking the math layer".
   docking ("Rotations, outlines and docking")?
 - Placement: right after FFT registration (proposed; it needs only `fftreg`), or after the
   moments day? The latter is earlier in the course and would lack phase correlation.
-- Is unit 4 worth a folder, or three slides at the end of `fft-docking/`?
 - A real 2D test case for docking: a slice through a known protein complex rasterised to a grid
   (licence: PDB entries are public domain), or synthetic shapes only (proposed for the demo, with
   a real slice as a figure)?
@@ -320,5 +299,3 @@ Layering as in README.md "Marking the math layer".
 - Katchalski-Katzir, Shariv, Eisenstein, Friesem, Aflalo & Vakser (1992), *Molecular surface recognition: determination of geometric fit between proteins and their ligands by correlation techniques*, PNAS.
 - Gabb, Jackson & Sternberg (1997), *Modelling protein docking using shape complementarity, electrostatics and biochemical information*, J. Mol. Biol.
 - Chen, Li & Weng (2003), *ZDOCK: an initial-stage protein-docking algorithm*, Proteins.
-- Ritchie & Kemp (2000), *Protein docking using spherical polar Fourier correlations*, Proteins.
-- Kostelec & Rockmore (2008), *FFTs on the rotation group*, J. Fourier Analysis and Applications.
