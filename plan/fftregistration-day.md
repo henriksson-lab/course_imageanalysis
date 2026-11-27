@@ -121,6 +121,8 @@ idea with the demo; `## The math: … {.math}` slides follow the concept slide t
 
 ### 5. (optional / further reading) `fourier-mellin/`: Rotation and scale
 
+**Moved (2026-11-27)** to the planned shape-matching day (`plan/shapematch-day.md`, unit 2), which builds on this day; the text below is kept as its origin.
+
 - The magnitude spectrum $|F|$ ignores shifts (`fourier/` B4). Rotating the image rotates $|F|$ by the same angle; scaling the image by $s$ scales $|F|$ by $1/s$. Resample $|F|$ on a **log-polar** grid ($\log r$, $\theta$): rotation and scale become **shifts**, which phase correlation finds. Undo them, then phase correlate again for the translation (Reddy & Chatterji 1996; De Castro & Morandi 1987 for rotation).
 - Practicalities: the 180° ambiguity ($|F|$ of a real image is point-symmetric, so test $\theta$ and $\theta + 180°$); high-pass weighting of $|F|$ (low frequencies dominate and carry little angle information); tapering is essential (the border cross does not rotate); log-polar resampling needs interpolation (`images/`); usable range of scale ≈ 0.5–2.
 - **The math: Fourier–Mellin** {.math}: $g(\mathbf x) = f(sR\mathbf x + \mathbf t)$ ⇒ $|G(\mathbf k)| = s^{-2}|F(s^{-1}R\mathbf k)|$ (continuous FT); in log-polar coordinates $(\rho, \theta) = (\log|\mathbf k|, \arg\mathbf k)$: $|G|(\rho, \theta) = s^{-2}|F|(\rho - \log s, \theta - \alpha)$: a shift. The Mellin transform is the Fourier transform in $\log r$.

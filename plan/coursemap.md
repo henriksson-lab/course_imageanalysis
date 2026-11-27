@@ -257,3 +257,9 @@ Applied:
   earlier fine-tuning entry). Four new days; see `plan/ml-additions-plan.md`. **Built 2026-11-17**
   (days 37, 40, 42, 44, plus the `drifting` unit, ResNet, the VAE-as-tokenizer slide and feature
   pyramids).
+
+- **Shape matching in Fourier space** (requested 2026-11-27): Fourier descriptors in depth
+  (matching over rotation and starting point), rotation and scale as shifts (Fourier–Mellin,
+  moved from the FFT registration plan's optional unit 5), FFT docking (Katchalski-Katzir), and
+  an optional 3D/spherical-harmonics outlook. One new day after FFT registration; see
+  `plan/shapematch-day.md`. Not yet planned into `days.yml`.
