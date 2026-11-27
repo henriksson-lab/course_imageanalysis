@@ -43,10 +43,12 @@ After the day a student can:
    tapering, high-pass weighting, interpolation);
 4. explain **FFT docking**: receptor and ligand on a grid with a surface layer and an interior,
    a score that rewards contact and punishes overlap, one correlation per ligand rotation,
-   the cost of the rotation loop, and what rigid docking cannot do.
+   the cost of the rotation loop, and what rigid docking cannot do; say in words what changes
+   in 3D.
 
-**Scope (decided 2026-11-27): 2D only.** Real docking is 3D; here 2D shapes stand in for
-molecules, said once on a slide. No 3D unit, no spherical harmonics, no 3D demo.
+**Scope (decided 2026-11-27): 2D in the demos, exercises and code; 3D as concept slides.**
+Everything students compute is 2D. The docking unit ends with concept slides on 3D (pictures,
+counts, no derivations, no demo, no code); no separate 3D unit.
 
 Why it fits this audience: it is one theorem (the shift theorem) used three more times, now on
 an outline, on an angle and on a grid of molecules. Everything has a 1D version small enough to
@@ -209,6 +211,26 @@ Layering as in README.md "Marking the math layer".
   poses and **re-rank** them with finer models (clustering, energy refinement). Grid spacing
   and angle step set the resolution: a 10° step moves a ligand atom 20 Å from the centre by about
   3.5 Å.
+- **In 3D** (concept slides, pictures only, after the 2D material):
+  - *Same recipe, bigger loop*: six unknowns (three shifts, three angles); grids of atoms instead
+    of pixels; one 3D FFT per ligand orientation. Picture: a receptor surface (mesh) with a
+    ligand in several poses.
+  - *How many orientations?* Three angles cannot be sampled as an even grid of Euler angles (it
+    crowds near the poles); even samplings put points on a sphere and a turn about each.
+    Count ≈ $8\pi^2/(\Delta\theta)^3$: a few thousand at 15°, 50 000–70 000 at 6°. With a $128^3$
+    grid one FFT is ≈ $2\cdot10^8$ flops, so a fine search is ≈ $10^{13}$: hours on one core, minutes
+    on a GPU (pointer to the GPU day). Picture: rotation samples as points on a sphere.
+  - *Rotating the coefficients instead of the grid*: in 2D a rotation multiplies the angular
+    harmonic $e^{im\theta}$ by a phase (units 1 and 2); in 3D the angular harmonics are
+    **spherical harmonics**, and a rotation mixes the few coefficients of each degree instead of
+    re-gridding the molecule. Docking programs built on this scan rotations by fast transforms
+    too (Ritchie & Kemp 2000). Picture: the first spherical harmonics on a sphere next to the
+    2D $\cos m\theta$ patterns. Words only, no formulas.
+  - *The same machine elsewhere*: template matching in cryo-electron tomograms (a known complex
+    searched in rotation and position), fitting atomic models into cryo-EM maps. One slide.
+  - *Where the field went*: flexibility and scoring remain the hard part; learned methods now
+    predict many complexes directly from sequence, and FFT docking stays as a fast, exhaustive
+    first pass. One slide, no tool names beyond the classic references.
 - **Demo `dock2d`** (new): a receptor with a pocket and a ligand (shape presets, or draw them on
   a grid with `lib/paint.ts`), receptor surface layer and core shown in colour. Drag and turn the
   ligand by hand with a live score readout; button "search": the score map for the current
@@ -299,3 +321,4 @@ Layering as in README.md "Marking the math layer".
 - Katchalski-Katzir, Shariv, Eisenstein, Friesem, Aflalo & Vakser (1992), *Molecular surface recognition: determination of geometric fit between proteins and their ligands by correlation techniques*, PNAS.
 - Gabb, Jackson & Sternberg (1997), *Modelling protein docking using shape complementarity, electrostatics and biochemical information*, J. Mol. Biol.
 - Chen, Li & Weng (2003), *ZDOCK: an initial-stage protein-docking algorithm*, Proteins.
+- Ritchie & Kemp (2000), *Protein docking using spherical polar Fourier correlations*, Proteins.

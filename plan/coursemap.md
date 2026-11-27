@@ -261,5 +261,5 @@ Applied:
 - **Shape matching in Fourier space** (requested 2026-11-27): Fourier descriptors in depth
   (matching over rotation and starting point), rotation and scale as shifts (Fourier–Mellin,
   moved from the FFT registration plan's optional unit 5), FFT docking (Katchalski-Katzir);
-  2D only (decided 2026-11-27). One new day after FFT registration; see
+  2D in demos and code, 3D as concept slides (decided 2026-11-27). One new day after FFT registration; see
   `plan/shapematch-day.md`. Not yet planned into `days.yml`.
