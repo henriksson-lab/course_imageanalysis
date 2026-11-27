@@ -19,6 +19,8 @@
 
 import { fft1d, fft2dRect, dft1d, freq, isPow2 } from "./fft";
 import { solve } from "./linalg";
+import { toPolar } from "./polar";
+import { Grey, Border, sampleBilinear } from "./imageops";
 
 export interface Complex { re: Float64Array; im: Float64Array }
 export interface Surface { data: Float64Array; w: number; h: number }
@@ -609,4 +611,181 @@ export function chainPositions(n: number, edges: TileEdge[], tree: number[], roo
     }
   }
   return { x, y };
+}
+
+// ---------------------------------------------------------------------------------------
+// Rotation and scale as shifts: polar and log-polar resampling, rotational correlation,
+// Fourier–Mellin registration (added by the shape-matching day, unit fourier-mellin/; built
+// on lib/polar.ts). Angles in radians, positive = clockwise on screen (x right, y down), as
+// everywhere in the course.
+
+/** Rotation (about the image centre), scale and shift of a similarity transform. */
+export interface Similarity { angle: number; scale: number; tx: number; ty: number }
+
+/**
+ * A w × h view of `src` rotated by `angle` about the centre, scaled by `scale`, then shifted
+ * by (tx, ty), by inverse mapping with bilinear lookup:
+ *   out(x) = src(cs + R(−angle)(x − c − t) / scale),   c = (w/2, h/2),
+ * cs = (cx, cy) the matching point of the source (default c). Outside the source → `border`.
+ */
+export function warpSimilarity(src: Grey, w: number, h: number, T: Similarity,
+  o: { cx?: number; cy?: number; border?: Border } = {}): Float64Array {
+  const out = new Float64Array(w * h), c = Math.cos(T.angle), s = Math.sin(T.angle);
+  const ox = w / 2, oy = h / 2, cx = o.cx ?? ox, cy = o.cy ?? oy, border = o.border ?? "zero";
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (x - ox - T.tx) / T.scale, dy = (y - oy - T.ty) / T.scale;
+    // R(−α) = [[cos α, sin α], [−sin α, cos α]] (R(α) turns clockwise on screen)
+    out[y * w + x] = sampleBilinear(src, cx + c * dx + s * dy, cy - s * dx + c * dy, border);
+  }
+  return out;
+}
+
+/** A Grey view of a flat array (no copy when it is already a Float32Array). */
+function asGrey(a: ArrayLike<number>, w: number, h: number): Grey {
+  return { width: w, height: h, data: a instanceof Float32Array ? a : Float32Array.from(a) };
+}
+
+/**
+ * The high-pass weight of Reddy & Chatterji (1996) on a centred w × h frequency grid:
+ * (1 − X)(2 − X) with X = cos(π fx) cos(π fy), f in cycles per pixel. 0 at frequency 0,
+ * rising like f² near it; damps the strong low frequencies, which carry little angle.
+ */
+export function highpassWeight(w: number, h: number): Float64Array {
+  const out = new Float64Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const X = Math.cos(Math.PI * (x - w / 2) / w) * Math.cos(Math.PI * (y - h / 2) / h);
+    out[y * w + x] = (1 - X) * (2 - X);
+  }
+  return out;
+}
+
+/**
+ * Magnitude spectrum |F| of a real w × h image (powers of two), centred: frequency 0 at
+ * (w/2, h/2). The mean is removed first; optional Hann taper and high-pass weight.
+ */
+export function centredMagnitude(a: ArrayLike<number>, w: number, h: number,
+  o: { taper?: boolean; highpass?: boolean } = {}): Float64Array {
+  const p = prepare(a, { meanFree: true, taper: o.taper ? taper2d(w, h) : null });
+  const F = fftReal(p, w, h), out = new Float64Array(w * h), hp = o.highpass ? highpassWeight(w, h) : null;
+  for (let ky = 0; ky < h; ky++) for (let kx = 0; kx < w; kx++) {
+    const i = ((ky + h / 2) % h) * w + (kx + w / 2) % w, k = ky * w + kx;
+    out[i] = Math.hypot(F.re[k], F.im[k]) * (hp ? hp[i] : 1);
+  }
+  return out;
+}
+
+/** Grid of a log-polar spectrum: nTheta columns over HALF a turn, nR log-spaced radii rMin…rMax. */
+export interface LogPolarGrid { nTheta: number; nR: number; rMin: number; rMax: number }
+
+/** Size of one log-radius row: ln(rMax / rMin) / (nR − 1). A scale s moves rows by ln(s) / step. */
+export const logStep = (g: LogPolarGrid): number => Math.log(g.rMax / g.rMin) / (g.nR - 1);
+
+/**
+ * Log-polar resampling of a centred spectrum (w × h, frequency 0 at (w/2, h/2)). |F| of a real
+ * image is point-symmetric, so half a turn is enough: column j ↔ θ = π j / nTheta (clockwise
+ * from the +x axis), row i ↔ r = rMin (rMax / rMin)^(i / (nR − 1)). Bilinear (toPolar of
+ * lib/polar.ts on a full turn of 2·nTheta columns, of which the first half is kept).
+ */
+export function logPolarSpectrum(mag: ArrayLike<number>, w: number, h: number, g: LogPolarGrid): Float64Array {
+  const full = toPolar(asGrey(mag, w, h), { cx: w / 2, cy: h / 2, rMin: g.rMin, rMax: g.rMax, nR: g.nR, nTheta: 2 * g.nTheta, log: true });
+  const out = new Float64Array(g.nTheta * g.nR);
+  for (let i = 0; i < g.nR; i++) for (let j = 0; j < g.nTheta; j++) out[i * g.nTheta + j] = full.data[i * 2 * g.nTheta + j];
+  return out;
+}
+
+/**
+ * Rotational correlation of two polar images (nTheta columns per row, nTheta a power of two;
+ * one row per ring): score(t) = Σ_rings weight_i Σ_j A(i, j) B(i, j + t), circular in j: every
+ * angle at once, one FFT along θ per ring (the inverse FFT of Σ_i w_i conj(A_i,m) B_i,m). The
+ * peak is at t = the rotation of B relative to A, in columns (clockwise positive). Options:
+ * remove each ring's mean first (default true), weights per ring (e.g. the radius, for an
+ * area-weighted sum), and `phase` (normalise the summed cross-power: a sharper peak).
+ */
+export function rotationalCorrelation(pa: ArrayLike<number>, pb: ArrayLike<number>, nTheta: number, nRings: number,
+  o: { meanFree?: boolean; weights?: ArrayLike<number>; phase?: boolean } = {}): Float64Array {
+  const re = new Float64Array(nTheta), im = new Float64Array(nTheta);
+  for (let i = 0; i < nRings; i++) {
+    const ar = new Float64Array(nTheta), br = new Float64Array(nTheta);
+    let ma = 0, mb = 0;
+    for (let j = 0; j < nTheta; j++) { ar[j] = pa[i * nTheta + j]; br[j] = pb[i * nTheta + j]; ma += ar[j]; mb += br[j]; }
+    if (o.meanFree ?? true) for (let j = 0; j < nTheta; j++) { ar[j] -= ma / nTheta; br[j] -= mb / nTheta; }
+    const A = dftReal(ar), B = dftReal(br), wi = o.weights ? o.weights[i] : 1;
+    for (let m = 0; m < nTheta; m++) {      // conj(A) · B
+      re[m] += wi * (A.re[m] * B.re[m] + A.im[m] * B.im[m]);
+      im[m] += wi * (A.re[m] * B.im[m] - A.im[m] * B.re[m]);
+    }
+  }
+  if (o.phase) {
+    let mm = 0;
+    for (let m = 0; m < nTheta; m++) mm += Math.hypot(re[m], im[m]) / nTheta;
+    for (let m = 0; m < nTheta; m++) { const s = 1 / (Math.hypot(re[m], im[m]) + 1e-6 * mm); re[m] *= s; im[m] *= s; }
+  }
+  return idftReal({ re, im });
+}
+
+export interface FMOptions {
+  taper?: boolean;      // Hann taper on both images before |F| (default true)
+  highpass?: boolean;   // Reddy–Chatterji high-pass on |F| (default true)
+  both?: boolean;       // test θ and θ + 180° by the translation peak (default true)
+  grid?: Partial<LogPolarGrid>;   // default nTheta 256, nR 128, rMin 2, rMax w/2 − 2
+}
+
+/** One candidate angle with its translation step. */
+export interface FMCandidate {
+  angle: number;            // radians, clockwise positive
+  tx: number; ty: number;   // the shift of the similarity B = T(A) (see warpSimilarity)
+  height: number; ratio: number;  // of the translation phase-correlation peak
+  unwarped: Float64Array;   // B with rotation and scale undone (≈ A shifted)
+  surface: Surface;         // the translation phase-correlation surface
+}
+
+export interface FMResult {
+  grid: LogPolarGrid;
+  magA: Float64Array; magB: Float64Array;   // centred |F| (after taper / high-pass)
+  lpA: Float64Array; lpB: Float64Array;     // log-polar, nTheta × nR
+  surface: Surface;          // phase correlation in (θ, log r): index (θ shift mod nTheta, row shift mod nR)
+  thetaBins: number; rhoBins: number;      // sub-pixel peak (signed bins; rhoBins = −ln(s) / step)
+  peakHeight: number; peakRatio: number;
+  angle: number;             // from the peak, in (−90°, 90°]
+  scale: number;
+  candidates: FMCandidate[]; // angle and angle + 180° (only the first with both = false)
+  best: FMCandidate;         // the candidate with the higher translation peak
+}
+
+/**
+ * Fourier–Mellin registration (Reddy & Chatterji 1996) of two w × h images (powers of two),
+ * B ≈ A rotated by α, scaled by s and shifted by t (as warpSimilarity). Steps: |F| of both
+ * (translation drops out), log-polar resampling (rotation → shift along θ, scale → shift along
+ * log r), phase correlation → α (mod 180°) and s; undo them on B; phase-correlate with A for
+ * the shift, for α and α + 180°, and keep the higher peak.
+ */
+export function fourierMellin(a: ArrayLike<number>, b: ArrayLike<number>, w: number, h: number, o: FMOptions = {}): FMResult {
+  const taper = o.taper ?? true, highpass = o.highpass ?? true;
+  const grid: LogPolarGrid = { nTheta: 256, nR: 128, rMin: 2, rMax: Math.min(w, h) / 2 - 2, ...o.grid };
+  const magA = centredMagnitude(a, w, h, { taper, highpass }), magB = centredMagnitude(b, w, h, { taper, highpass });
+  const lpA = logPolarSpectrum(magA, w, h, grid), lpB = logPolarSpectrum(magB, w, h, grid);
+  // score(t) = Σ lpB(x + t) lpA(x): peak at t = (α in columns, −ln s / step)
+  const surface = correlate2d(lpB, lpA, grid.nTheta, grid.nR, { p: 1, eps: 1e-6 });
+  const pk = findPeaks(surface, 1)[0];
+  const sub = parabolaPeak2d(surface, pk.ix, pk.iy);
+  const angle = sub.tx * Math.PI / grid.nTheta, scale = Math.exp(-sub.ty * logStep(grid));
+  const angles = (o.both ?? true) ? [angle, angle + Math.PI] : [angle];
+  const candidates = angles.map(al => translationStep(a, b, w, h, al, scale, taper));
+  const best = candidates.reduce((p, q) => (q.height > p.height ? q : p));
+  return {
+    grid, magA, magB, lpA, lpB, surface, thetaBins: sub.tx, rhoBins: sub.ty, peakHeight: pk.value,
+    peakRatio: peakRatio(surface), angle, scale, candidates, best,
+  };
+}
+
+/** Undo rotation `angle` and `scale` on B, phase-correlate with A, convert the shift back. */
+function translationStep(a: ArrayLike<number>, b: ArrayLike<number>, w: number, h: number, angle: number, scale: number, taper: boolean): FMCandidate {
+  // B'(x) = B(c + s R(α)(x − c)) ≈ A(x − R(−α) t / s)
+  const unwarped = warpSimilarity(asGrey(b, w, h), w, h, { angle: -angle, scale: 1 / scale, tx: 0, ty: 0 });
+  const surface = correlate2d(a, unwarped, w, h, { p: 1, taper, eps: 1e-6 });
+  const pk = findPeaks(surface, 1)[0], sub = parabolaPeak2d(surface, pk.ix, pk.iy);
+  // B'(x) = A(x + t') with t' = −R(−α) t / s  ⇒  t = −s R(α) t'
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const tx = -scale * (c * sub.tx - s * sub.ty), ty = -scale * (s * sub.tx + c * sub.ty);
+  return { angle, tx, ty, height: pk.value, ratio: peakRatio(surface), unwarped, surface };
 }

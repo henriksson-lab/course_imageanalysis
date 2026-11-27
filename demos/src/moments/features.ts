@@ -5,7 +5,6 @@
 // convention) and has its centre at (x + 0.5, y + 0.5).
 import { Pt, maskHull, shoelaceArea, polygonPerimeter, rotatingCalipers, Calipers, minEnclosingCircle, Circle } from "../lib/convexhull";
 import { edt } from "../lib/distance";
-import { dft1d } from "../lib/fft";
 import { maskProps, Region, traceContour } from "./regionprops";
 
 export interface ShapeFeatures {
@@ -94,25 +93,4 @@ export function outline(mask: ArrayLike<number>, w: number, h: number, n = 128):
   return out;
 }
 
-/** Fourier descriptors of a closed outline z(t) = x + i y: keep the coefficients with
- *  frequency |f| ≤ k (and the mean), reconstruct. Returns the smoothed outline and the
- *  magnitudes |c_f| / |c_1| for f = 1..kmax (translation- and scale-invariant). */
-export function fourierOutline(pts: Pt[], k: number): { smooth: Pt[]; mags: number[] } {
-  const n = pts.length;
-  if (n < 3) return { smooth: pts, mags: [] };
-  const re = Float64Array.from(pts, p => p[0]), im = Float64Array.from(pts, p => p[1]);
-  const F = dft1d(re, im, false);
-  const fr = F.re, fi = F.im;
-  const kr = new Float64Array(n), ki = new Float64Array(n);
-  for (let j = 0; j < n; j++) {
-    const f = j <= n / 2 ? j : j - n;
-    if (Math.abs(f) <= k) { kr[j] = fr[j]; ki[j] = fi[j]; }
-  }
-  const B = dft1d(kr, ki, true);
-  const smooth: Pt[] = Array.from({ length: n }, (_, j) => [B.re[j] / n, B.im[j] / n] as Pt);
-  // the boundary is traced clockwise on screen: the dominant coefficient is f = 1 or f = −1
-  const m1 = Math.max(Math.hypot(fr[1], fi[1]), Math.hypot(fr[n - 1], fi[n - 1])) || 1;
-  const mags: number[] = [];
-  for (let f = 1; f <= Math.min(12, Math.floor(n / 2) - 1); f++) mags.push((Math.hypot(fr[f], fi[f]) + Math.hypot(fr[n - f], fi[n - f])) / m1);
-  return { smooth, mags };
-}
+// fourierOutline() (Fourier descriptors) moved to lib/contour.ts (shape-matching day).

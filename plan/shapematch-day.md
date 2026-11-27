@@ -120,7 +120,7 @@ Layering as in README.md "Marking the math layer".
 - **The math: complex Procrustes over cyclic shifts** {.math}: minimise
   $\sum_k |c'_k - \lambda\, e^{2\pi i k m/N} c_k|^2$ over $\lambda = s e^{i\alpha} \in \mathbb C$ and $m$;
   for fixed $m$, $\lambda^* = \frac{\sum_k \overline{c_k} e^{-2\pi i k m/N} c'_k}{\sum_k |c_k|^2}$; the residual is
-  smallest where $|\sum_k \overline{c_k}\,c'_k\,e^{-2\pi i k m/N}|$ is largest, an inverse DFT of
+  smallest where $|\sum_k \overline{c_k}\,c'_k\,e^{-2\pi i k m/N}|$ is largest, a DFT (over $k$) of
   $\overline{c_k}\,c'_k$: the correlation theorem again. Mirror images: repeat with the conjugated,
   reversed outline.
 - **Elliptic Fourier descriptors** (Kuhl & Giardina 1982): $x(t)$ and $y(t)$ as two real series,
@@ -218,7 +218,7 @@ Layering as in README.md "Marking the math layer".
   - *How many orientations?* Three angles cannot be sampled as an even grid of Euler angles (it
     crowds near the poles); even samplings put points on a sphere and a turn about each.
     Count ≈ $8\pi^2/(\Delta\theta)^3$: a few thousand at 15°, 50 000–70 000 at 6°. With a $128^3$
-    grid one FFT is ≈ $2\cdot10^8$ flops, so a fine search is ≈ $10^{13}$: hours on one core, minutes
+    grid one FFT is ≈ $2\cdot10^8$ flops, so a fine search (two FFTs per orientation) is ≈ $3\cdot10^{13}$: hours on one core, minutes
     on a GPU (pointer to the GPU day). Picture: rotation samples as points on a sphere.
   - *Rotating the coefficients instead of the grid*: in 2D a rotation multiplies the angular
     harmonic $e^{im\theta}$ by a phase (units 1 and 2); in 3D the angular harmonics are

@@ -5,7 +5,8 @@ import { rasterise, Poly } from "../../../demos/src/lib/shapecanvas";
 import { widthProfile } from "../../../demos/src/lib/convexhull";
 import { edt } from "../../../demos/src/lib/distance";
 import { exactMeasures, disc, crescent, twoDiscs, rod, star } from "../../../demos/src/moments/shapes";
-import { shapeFeatures, outline, fourierOutline } from "../../../demos/src/moments/features";
+import { shapeFeatures, outline } from "../../../demos/src/moments/features";
+import { fourierOutline } from "../../../demos/src/lib/contour";
 
 const S = 64, discArea = Math.PI * 16 * 16;
 const scaledStar = (): Poly => { const p = star(32, 33, 26, 11, 5); const a = Math.abs(exactMeasures([p])!.area); return p.map(([x, y]) => [32 + (x - 32) * Math.sqrt(discArea / a), 33 + (y - 33) * Math.sqrt(discArea / a)] as [number, number]); };

@@ -10,7 +10,8 @@ import { floodFrames, twoPassFrames, runFrames } from "../src/morphgrid/mode-lab
 import { Forest, Compression } from "../src/unionfind/forest";
 import * as RP from "../src/moments/regionprops";
 import * as CH from "../src/lib/convexhull";
-import { shapeFeatures, fourierOutline, outline } from "../src/moments/features";
+import { shapeFeatures, outline } from "../src/moments/features";
+import { fourierOutline } from "../src/lib/contour";
 import { rasterise, ellipsePoly } from "../src/lib/shapecanvas";
 import * as TOP from "../src/connparadox/topology";
 import * as RF from "../src/regionfilter/pipeline";

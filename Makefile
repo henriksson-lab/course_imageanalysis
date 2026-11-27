@@ -27,7 +27,8 @@ TESTS = demos/test/test.ts demos/test/bitdepth-test.ts demos/test/pca-test.ts \
   demos/test/deconvolution-test.ts demos/test/thresholding-test.ts \
   demos/test/colour-test.ts demos/test/morphology-test.ts demos/test/labelling-test.ts \
   demos/test/watershed-test.ts demos/test/measurements-test.ts \
-  demos/test/fftregistration-test.ts demos/test/randomforest-test.ts \
+  demos/test/fftregistration-test.ts demos/test/fdmatch-test.ts demos/test/fmellin-test.ts \
+  demos/test/dock2d-test.ts demos/test/randomforest-test.ts \
   demos/test/neuralnets-test.ts demos/test/evaluation-test.ts \
   demos/test/moderndl-test.ts demos/test/skeleton-test.ts demos/test/moments-test.ts \
   demos/test/snakes-test.ts demos/test/levelsets-test.ts demos/test/dynprog-test.ts \

@@ -1,0 +1,219 @@
+---
+title: "Exercise: docking by correlation"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- put a receptor and a ligand on a grid (**surface layer**, **core**, ligand cells) and compute a docking score by hand,
+- explain why the score of **every shift** is one correlation and costs two FFTs per ligand angle,
+- predict what the **core value** $\rho$, the **surface thickness**, the **grid spacing** and the **angle step** do to the search,
+- explain why rigid docking misses flexible fits and why pipelines **re-rank** many poses,
+- say in numbers what changes in **3D** (orientations, FFT size, cost),
+- *(math)* derive the complex two-term score and count the operations of a search.
+
+Do the pen-and-paper part first, then the demo, then the code. The receptor and ligand in the demo and the code are synthetic 2D shapes that stand in for two molecules.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Receptor grid $a$ | 1 on the **surface layer** (cells outside the receptor within a given distance of it: dilation minus the receptor), $\rho < 0$ on the **core** (the receptor's own cells), 0 elsewhere |
+| Ligand grid $b_\theta$ | 1 on the cells of the ligand turned by $\theta$, its centre at cell 0 |
+| Score | $S_\theta(\mathbf d) = \sum_{\mathbf x} a(\mathbf x)\,b_\theta(\mathbf x - \mathbf d)$: contacts count +1, clashes $\rho$ |
+| FFT route | $S_\theta$ = inverse FFT of $\hat a\,\overline{\hat b_\theta}$; $\hat a$ once, two FFTs per angle; zero-pad against wrap-around |
+| Search | loop over angles $0, \Delta\theta, 2\Delta\theta, \ldots$; keep the best peaks; drop near-duplicates; re-rank |
+| 3D | six unknowns; about $8\pi^2/\Delta\theta^3$ orientations ($\Delta\theta$ in radians); one 3D FFT per orientation |
+
+## By hand
+
+**B1.** A receptor of eight cells: $a = (\rho, \rho, \rho, 1, 0, 0, 0, 0)$ with $\rho = -9$ (core in cells 0–2, surface layer in cell 3). The ligand has two cells and is placed on cells $d$ and $d + 1$.
+(a) Compute $S(1)$, $S(2)$, $S(3)$ and $S(4)$. Which pose is best, and what does it look like?
+(b) Treat the grid as circular (cell 7 is next to cell 0). Compute $S(0)$, $S(5)$, $S(6)$ and $S(7)$. Which value is an artefact, and how do you avoid it?
+(c) Make the surface layer two cells thick: $a = (\rho, \rho, \rho, 1, 1, 0, 0, 0)$. Recompute $S(2)$, $S(3)$, $S(4)$.
+(d) For which values of $\rho$ would the half-inside pose $d = 2$ beat the touching pose $d = 3$ in (a)?
+
+**B2.** Check B1 with the correlation theorem, two frequencies only. For length 8, $\hat a_0 = \sum_x a(x)$ and $\hat a_4 = \sum_x (-1)^x a(x)$, the same for $b = (1, 1, 0, 0, 0, 0, 0, 0)$.
+(a) Compute $\hat a_0$, $\hat b_0$, $\hat a_4$, $\hat b_4$.
+(b) The correlation theorem says $\sum_d S(d) = \hat a_0\,\hat b_0$ and $\sum_d (-1)^d S(d) = \hat a_4\,\hat b_4$ (both are real here). Check both with the eight values of B1(a, b).
+
+**B3.** *Concept.* What changes if the **ligand** also gets a surface layer and a core, and the score counts "receptor surface on ligand surface" as contact and "core on core" as clash? Which poses become acceptable that were not before?
+
+**B4.** The demo puts a box of $64 \times 64$ cells in the middle of a $128 \times 128$ grid and searches in 5° steps.
+(a) How many FFTs does one search need?
+(b) The ligand reaches about 10 cells from its centre. By how many cells does its tip move when it turns by 5°? By 30°?
+(c) The pocket leaves the key about half a cell of clearance. Which angle step would you choose, and why?
+
+**B5.** 3D in numbers.
+(a) How many orientations does $8\pi^2/\Delta\theta^3$ give for $\Delta\theta = 15°$ and for $6°$?
+(b) One FFT of a $128^3$ grid costs about $5M\log_2 M$ operations. How many is that, and how many for a whole search at 6° (two FFTs per orientation)?
+(c) At $10^{10}$ operations per second, how long does that take?
+(d) A turn of 10° about the ligand's centre: how far does an atom 20 Å from the centre move?
+
+**B6.** *Concept.* In the true complex, a side chain of the ligand sticks two cells into the receptor's core (the receptor structure was determined without the ligand, and the side chain had another position). With $\rho = -9$, how much does the true pose lose? Name two ways to keep it among the best poses, and the price of each.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) $S(1) = a(1) + a(2) = 2\rho = -18$ (both cells in the core); $S(2) = a(2) + a(3) = \rho + 1 = -8$ (half inside); $S(3) = a(3) + a(4) = 1$ (one cell on the surface layer, the other in empty space); $S(4) = 0$ (nothing touched). The best pose, $d = 3$, **touches** the receptor without entering it.
+(b) $S(0) = a(0) + a(1) = -18$, $S(5) = S(6) = 0$, and $S(7) = a(7) + a(0) = 0 + \rho = -9$: the ligand on cells 7 and "8" wraps around onto cell 0, a clash that does not exist on a real line. Zero-pad: put the receptor into a longer grid, so that the ligand never reaches the receptor through the border.
+(c) $S(2) = \rho + 1 = -8$, $S(3) = 1 + 1 = 2$, $S(4) = 1 + 0 = 1$: the best pose is still $d = 3$, now with both cells in contact, and the pose one cell away still scores. A thicker layer rewards "near" as well as "touching".
+(d) $\rho + 1 > 1$, i.e. $\rho > 0$: never for a negative core value. But with $\rho = 0$ the two poses tie: nothing then keeps the ligand out.
+
+**B2.** (a) $\hat a_0 = 3\rho + 1 = -26$, $\hat b_0 = 2$; $\hat a_4 = \rho - \rho + \rho - 1 = -10$, $\hat b_4 = 1 - 1 = 0$. (b) $\sum_d S(d) = -18 - 18 - 8 + 1 + 0 + 0 + 0 - 9 = -52 = (-26)(2)$. $\sum_d (-1)^d S(d) = -18 + 18 - 8 - 1 + 0 - 0 + 0 + 9 = 0 = (-10)(0)$. Both agree, including the wrapped value $S(7)$: the FFT computes the **circular** score.
+
+**B3.** Contact is now "outer layer on outer layer" and clash "core on core". The ligand's own outer layer may enter the receptor's surface layer and even its core without penalty, as long as the two cores stay apart: the score tolerates a slight interpenetration of the surfaces. That is softer (side chains can overlap a little) and gives two terms; with a complex grid both fit in one FFT per angle (B7).
+
+**B4.** (a) $1 + 2 \cdot 72 = 145$ (the receptor once, two per angle). (b) $10 \cdot 5\pi/180 \approx 0.87$ cells at 5°, $10 \cdot 30\pi/180 \approx 5.2$ cells at 30°. (c) The tip should move less than the clearance or about a cell: $\Delta\theta \lesssim 0.5/10$ rad $\approx 3°$ for a strict fit, 5° if a cell of error is tolerated. 30° moves the tip by 5 cells: the key cannot enter the pocket at a searched angle unless it happens to be the right one.
+
+**B5.** (a) $\Delta\theta = 15° = 0.262$ rad: $8\pi^2/0.262^3 = 79.0/0.0179 \approx 4400$. $6° = 0.105$ rad: $79.0/0.00115 \approx 69\,000$. (b) $M = 128^3 = 2.1\cdot10^6$, $\log_2 M = 21$: $5 \cdot 2.1\cdot10^6 \cdot 21 \approx 2.2\cdot10^8$. Two per orientation at 6°: $69\,000 \cdot 2 \cdot 2.2\cdot10^8 \approx 3\cdot10^{13}$. (c) $3\cdot10^{13}/10^{10} = 3000$ s, almost an hour; real FFTs reach less than their peak speed, so hours on one core. (d) $20 \cdot 10\pi/180 \approx 3.5$ Å, about the length of two bonds.
+
+**B6.** Two clash cells cost $2 \cdot 9 = 18$ points, and the side chain's cells no longer count as contacts: on a score of a few dozen this can push the true pose below poses that merely touch a flat surface. Remedies: (1) a **softer core** (smaller $|\rho|$, or a thinner core that leaves the outer cells of the receptor free); price: other poses may sink into the receptor and win. (2) Keep **many** poses (hundreds or thousands) and **re-rank** them with a finer model that lets side chains move; price: computing time for the refinement. (A coarser grid also blurs small clashes away, at the price of precision.)
+:::
+
+### Math questions
+
+**B7.** *(math)* (Two scores in one correlation.) Let $s_R, c_R$ be the receptor's surface layer and core, $s_L, c_L$ the ligand's, all real, and $w > 0$.
+(a) With $a = s_R + i\sqrt w\,c_R$ and $b = s_L - i\sqrt w\,c_L$, show that
+$$\operatorname{Re}\sum_{\mathbf x} a(\mathbf x)\,\overline{b(\mathbf x - \mathbf d)} = \sum_{\mathbf x} s_R(\mathbf x)\,s_L(\mathbf x - \mathbf d) - w\sum_{\mathbf x} c_R(\mathbf x)\,c_L(\mathbf x - \mathbf d).$$
+(b) Why is the ligand's imaginary part given a minus sign? What would the real part be with $b = s_L + i\sqrt w\,c_L$?
+(c) Show that the left side is the inverse DFT of $\hat a\,\overline{\hat b}$, so that the two-term score costs as many FFTs per angle as the one-term score.
+
+**B8.** *(math)* (Counting.) A 2D search on a $128 \times 128$ grid (already padded) in 5° steps. One complex FFT of $M$ samples costs about $5M\log_2 M$ operations, a complex product about 6.
+(a) Count the operations of the FFT route.
+(b) Count brute force that multiplies every cell of the receptor grid with every cell of the ligand grid for every shift (a multiply-add = 2 operations).
+(c) Count brute force that adds the receptor grid under the ligand's $L = 155$ cells only. Compare the three. Which wins in 3D on a $128^3$ grid with a ligand of 5000 cells?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B7.** (a) $\overline{b} = s_L + i\sqrt w\,c_L$, so the product at each $\mathbf x$ is $(s_R + i\sqrt w\,c_R)(s_L + i\sqrt w\,c_L) = s_R s_L - w\,c_R c_L + i\sqrt w\,(s_R c_L + c_R s_L)$, with $s_L, c_L$ taken at $\mathbf x - \mathbf d$. Summing over $\mathbf x$ and taking the real part gives the formula. (b) The correlation conjugates $b$; the minus sign makes the conjugate $s_L + i\sqrt w\,c_L$, so that $i \cdot i = -1$ turns core·core into a penalty. With $b = s_L + i\sqrt w\,c_L$ the conjugate is $s_L - i\sqrt w\,c_L$ and the real part becomes $\sum s_R s_L + w\sum c_R c_L$: overlap of the cores would be **rewarded**. (c) The correlation theorem holds for complex sequences as well: $\sum_{\mathbf x} a(\mathbf x)\,\overline{b(\mathbf x - \mathbf d)}$ has the DFT $\hat a(\mathbf k)\,\overline{\hat b(\mathbf k)}$ (substitute the inverse DFTs and use the orthogonality of the waves, as on the FFT registration day). So per angle: one FFT of the complex ligand grid, a product, one inverse FFT, exactly as for the real score; only the real part of the result is used.
+
+**B8.** $M = 128^2 = 16\,384$, $\log_2 M = 14$, $R = 360/5 = 72$. (a) $(1 + 2R)\cdot 5M\log_2 M + 6RM = 145 \cdot 1.15\cdot10^6 + 7\cdot10^6 \approx 1.7\cdot10^8$. (b) $R \cdot M \cdot M \cdot 2 = 72 \cdot 2.7\cdot10^8 \cdot 2 \approx 3.9\cdot10^{10}$, about 220 times more. (c) $R \cdot M \cdot L = 72 \cdot 16\,384 \cdot 155 \approx 1.8\cdot10^8$: about the same as the FFT route. In 2D a small ligand makes the plain sum competitive. In 3D: FFT route per orientation $2 \cdot 5 \cdot 2.1\cdot10^6 \cdot 21 \approx 4.4\cdot10^8$; sum over the ligand's cells $2.1\cdot10^6 \cdot 5000 \approx 10^{10}$, about 24 times more, and the gap grows with the ligand: the FFT wins clearly. (The program of the code section prints these numbers.)
+:::
+
+## Explore {#explore}
+
+Left: the receptor (blue core, orange surface layer) and the ligand (green outline). Drag the ligand; turn it by its round handle or the **ligand angle** slider. Its cells light up green on the surface layer (contacts) and red in the core (clashes), and the readout adds them up. Middle: the **score map** for the current angle (the value at each point is the score with the ligand's centre there; red contact, blue clash; cyan ring the best shift) and, after **search**, the best score per angle (green line: the angle of the true fit). **search** scores every angle with the FFT (animated); the top five poses are drawn on the receptor and the buttons #1–#5 put the ligand there. **direct sum** computes the current angle's map without the FFT and compares.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="dock2d" data-preset="key"></div>
+<script src="../demos/dist/dock2d.js"></script>
+```
+
+**E1.** Preset **key and lock**. Drag the key into the pocket at angle 0°. How many contacts and clashes, and what score? Turn it to 10°, 20°, 25° and 30° with the slider, adjusting the position if needed. Where is the best by hand?
+
+**E2.** Press **search**. How many FFTs were done? Where are the top five poses, and how far is the best from the second? Why is the best angle 25° rather than exactly 20°?
+
+**E3.** Preset **the right angle, the wrong angle**: the key sits at the pocket, turned to 110°. Read the score and look at the score map: where is its best shift and what is its value? Turn the key back to 20° and watch the map.
+
+**E4.** Preset **ρ too mild: the ligand sinks in**. Search. Look at the top pose (button #1): where is it, how many clashes does it have, and where is the true fit in the ranking? Then search again with $\rho = -0.2$, $-1$ and $-9$.
+
+**E5.** Preset **surface too thin: no contact signal** (thickness 0). Search. What do the score map and the best scores look like? Then search with thickness 1, 3 and 4 and compare the score of the best pose with the second-best.
+
+**E6.** Preset **coarse angle step misses the fit** (30°). Search: which is the top pose, and where is the pocket pose? Then try 20°, 15° and 10°. Then go back to 5° and set the grid spacing to 1.5, 2 and 3. Explain with B4.
+
+**E7.** Preset **a flexible bump: the true fit clashes**. Read the score at the true pose. Search: is the true fit among the top five? Then search with $\rho = -3$, $-1$ and $-0.1$.
+
+**E8.** Press **direct sum (this angle)**. Compare the number of operations and the times of the direct sum and the FFT route for one angle, and check the largest difference. Relate the counts to B8.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** At 0° in the pocket: 43 contacts, 12 clashes, score $43 - 108 = -65$. At 10°: 46 contacts, 4 clashes, 10. At 20°: 51 contacts, no clash, 51. At 25°: 54, no clash. At 30°: 48 contacts, 7 clashes, $-15$. The fit is good from about 15° (48) to 25° (54): the pocket's half cell of clearance lets the key wobble a little.
+
+**E2.** 145 FFTs (the receptor once, two for each of 72 angles). Top five: 25° in the pocket (54), then 30 at 10° and 30 at 350° on the underside of the receptor, 28 at 0° and 26 at 10° (also on the underside). The best is almost twice the second. At 25° three more of the key's cells lie on the surface layer than at exactly 20° (54 against 51), and the pocket's clearance allows it without a clash. The demo counts a pose within 10° and 1.5 units of the true pose as the true fit.
+
+**E3.** At 110° by the pocket: 46 contacts, 29 clashes, score $-215$. The map's best at 110° is only 20, at (29.5, 23.5), at the rim of the pocket. Turning back to 20° makes a bright spot of 51 appear in the pocket: the peak of the map exists only at the right angle, which is why the search loops over angles.
+
+**E4.** At $\rho = -0.1$ the top pose is at 130° with 62.6 (button #1: 67 contacts, 44 clashes): the key lies half inside the receptor, covering the pocket's surface layer from inside. The true fit (20°, 59.3) is second. With $\rho = -0.2$ the true fit is first again, barely (58.6 against 58.2); with $-1$ clearly (54 against 40); with $-9$ by far (54 against 30).
+
+**E5.** With thickness 0 the map is 0 wherever the key does not clash and negative inside: every pose that does not touch the receptor scores 0, so the top poses are arbitrary places in empty space. Thickness 1: best 21 (the fit), second 14; thickness 2: 54 and 30; thickness 3: 91 and 48; thickness 4: 121 and 78. The winner stays the fit throughout. With 1 cell the contact signal is small (a few cells decide); at 2–3 the margin is largest (second/best 0.56 and 0.53); at 4 the rivals catch up again (0.64), because poses that only come **near** the surface score too: a thick layer is tolerant but less precise.
+
+**E6.** With 30° steps the top pose is at 0° on the underside (28); the pocket pose at 30° only fits half a cell out (23) and is third. 20°: found (51 at 20°); 15°: found (48 at 15°); 10°: found (51 at 20°). Grid spacing 1.5: found (31 at 20°); 2: found (28 at 30°, coarser); 3: missed, the best is 135° (14) and the key has only 19 cells. B4: a 30° step moves the tip by 5 cells, far more than the clearance; a coarse grid loses the key's tooth and the pocket's shape.
+
+**E7.** At the true pose the bumped key has 53 contacts and 5 clashes: $53 - 45 = 8$. The search's top five are all elsewhere (best 30 on the underside): the fit is not among them. With $\rho = -3$ the fit is first (38 against 30), with $-1$ first by more (52 against 38). With $-0.1$ the sinking-in pose wins again (62.6 against 61.9): too soft a score brings back the false poses. Hence: a moderately soft first pass, many poses kept, then re-ranking.
+
+**E8.** For one angle on the $128 \times 128$ grid: the direct sum needs $16\,384 \cdot 155 \approx 2.5$ million additions, the FFT route about 2.4 million operations; the times are of the same order, milliseconds (they depend on your machine), and the largest difference is rounding error. This is B8(c): in 2D with a small ligand the direct sum is not slower; dense brute force over every cell would need $128^4 \approx 2.7\cdot10^8$ multiply-adds per angle.
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `shapematch/src/fft_docking/exercise.rs`.
+
+**C1.** `score_1d(a, b)`: the docking score in 1D, directly, for every circular shift. The check is
+your answer to B1(a, b).
+
+**C2.** `receptor_grid(mask, thickness, rho)`: $\rho$ on the receptor's cells, 1 on the cells outside
+it with a receptor cell within distance `thickness` (a disk), 0 elsewhere. The checks are B1 and a
+single core cell with its disk of radius 2.
+
+```
+for every cell x:
+    if x is in the receptor:  a(x) = ρ
+    else if some receptor cell y has |x − y|² ≤ thickness²:  a(x) = 1
+    else:  a(x) = 0
+```
+
+**C3.** `ligand_grid`, `score_at` and `score_map`: the ligand (a small image with its centre in the
+middle) moved onto the big grid with its centre at cell (0, 0), the score of one pose directly, and
+the score of every shift with the FFT. The check: both agree on a small grid.
+
+```
+b = ligand on an m × m grid of zeros, its centre cell at (0, 0), wrapping around
+S = real part of the inverse FFT of  A · conj(FFT(b))        # A = FFT of the receptor grid
+```
+
+**C4.** `rotate_ligand(ligand, degrees)`: the ligand turned about its centre cell, clockwise on screen,
+by inverse mapping with the nearest cell ([the images unit](../images/lec.qmd)). The check: a quarter turn
+moves a cell from the right of the centre to below it.
+
+**C5.** `dock(receptor, ligand, step)`: the whole search, the best pose of every angle.
+
+```
+A = FFT(receptor grid)
+for θ = 0, step, 2·step, … < 360:
+    S = score_map(A, rotate_ligand(ligand, θ))
+    record (θ, position of the largest S, largest S)
+```
+
+The check: an L-shaped ligand is found in an L-shaped pocket at the right angle and position.
+
+Then `cargo run -p shapematch -- fft-docking`. It builds the demo's receptor (an ellipse with the
+key's shape cut out at 20°) on a $128 \times 128$ grid, docks the key in 5° steps, varies $\rho$, the
+angle step and the surface layer, times one angle directly and with the FFT, prints the counts of
+B5 and B8, and saves the receptor, two score maps and the best pose in `out/fft-docking/`.
+
+**C6.** Where is the best pose, how far is it from the true one, and what is the best score more than
+20° away from it? Compare `map-20.png` and `map-110.png`.
+
+**C7.** Which values of $\rho$ still find the fit? Which angle steps? What happens without a surface
+layer? Compare with E4–E6.
+
+**C8.** Compare the times of the direct sum and the FFT route for one angle, and the counts it prints
+with your answers to B5 and B8.
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `shapematch/src/fft_docking/solution.rs` in the download.
+
+**C6.** The best pose is 20° with its centre at (32.5, 28.5), exactly the true pose, score 47 (47
+contacts, no clash; the key turned by nearest-neighbour inverse mapping has slightly different cells
+from the demo's, which is why the numbers differ a little from E2). The best pose more than 20° away is
+350° on the underside of the receptor, 29. `map-20.png` has one bright point in the pocket
+(highest 47); `map-110.png` has no such point (highest 19); inside the receptor both are dark (down
+to −1386, the whole key in the core).
+
+**C7.** $\rho = -9$ and $-1$ find the fit (at $-1$ one cell deeper, 59 contacts and 4 clashes, 55);
+$\rho = -0.1$ does not: the best pose is 130° with 65 contacts and 43 clashes (60.7), sunk into the
+receptor. 15° steps find the fit at 15° (39); 30° steps do not (the best is 0° on the underside, 28).
+Without a surface layer the highest score anywhere is 0: nothing rewards contact.
+
+**C8.** One angle, all 16 384 shifts: the direct sum over the 155 ligand cells took about 15 ms, the
+FFT route about 2 ms (times depend on the computer; the largest difference, $3\cdot10^{-3}$, is
+rounding in 32-bit floats). The direct sum has about as many operations as the FFT route (B8(c),
+$1.8\cdot10^8$ against $1.7\cdot10^8$ for 72 angles), but the program computes two wrapped indices for every
+addition, which costs more than the addition itself. Dense brute force: $3.9\cdot10^{10}$. In 3D: one $128^3$ FFT
+$2.2\cdot10^8$; 4400 orientations at 15° ($1.9\cdot10^{12}$ operations), 68 755 at 6°
+($3.0\cdot10^{13}$); 10° at 20 Å: 3.49 Å.
+:::
+
+## Where this leads
+
+The same loop, one FFT correlation per orientation, finds known complexes in **cryo-electron tomograms** and places atomic models in **cryo-EM maps**. The hard part of docking is the **score** and the **flexibility** of real molecules, not the search: scores learned from known complexes, and methods that predict complexes from sequence, now take over much of the ranking, with the FFT search as an exhaustive first pass. On the course, the [keypoints day](../keypoints/lec.qmd) aligns images by matching **features** instead of whole grids, and the [GPU day](../gpu-parallel/lec.qmd) shows why thousands of independent FFTs suit a graphics card.

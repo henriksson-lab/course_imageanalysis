@@ -1,0 +1,221 @@
+---
+title: "Exercise: rotation and scale become shifts (Fourier–Mellin)"
+---
+
+## Goal
+
+By the end of this exercise you should be able to:
+
+- explain why a rotation about a **known centre** is a circular shift on a polar grid, and score every angle with one FFT per ring,
+- explain why the **magnitude spectrum** removes the shift but keeps the rotation and the scale, and why a **log-polar** grid turns both into a shift,
+- convert an angle and a scale into **bins** of a log-polar grid and back,
+- handle the practical issues: the **180° ambiguity**, the **taper**, the **high-pass** weight and its price, the usable **range**,
+- *(math)* derive the Fourier–Mellin shift and the rotational correlation.
+
+Do the pen-and-paper part first, then the demo.
+
+## Background
+
+| Idea | What it means |
+|---|---|
+| Polar unwrap | one row per radius, one column per angle around a centre; a turn about that centre shifts every row by the same number of columns |
+| Rotational correlation | per ring a circular 1D correlation by FFT; the spectra summed over the rings, one inverse FFT: a score for every angle |
+| Magnitude spectrum $\lvert F\rvert$ | ignores shifts; turns with the image; shrinks by $1/s$ when the image is enlarged by $s$ |
+| Log-polar grid | angle across (half a turn suffices), radii spaced by a constant factor; a scale $s$ shifts the rows by $\ln s / \text{step}$ |
+| Fourier–Mellin | phase correlation of the log-polar $\lvert F_A\rvert$ and $\lvert F_B\rvert$ gives angle (mod 180°) and scale; undo them on B, phase-correlate again for the shift |
+| 180° ambiguity | $\lvert F\rvert$ of a real image is point-symmetric: test $\theta$ and $\theta + 180°$ by the final shift peak |
+| High-pass weight | $(1 - X)(2 - X)$ with $X = \cos\pi f_x\cos\pi f_y$: damps the strong low frequencies; also lifts the noise |
+
+## By hand
+
+**B1.** A log-polar grid has 256 angle bins over 180°.
+(a) By how many bins does the peak move for a turn of 30°? For 200°?
+(b) The peak sits at bin $-64$. Which two turns are possible?
+
+**B2.** Log-polar radii.
+(a) 64 rows of $\log r$ span $r = 1 \ldots 128$, so one row is $\ln 128 / 64$. By how many rows does the content move when the image is **enlarged by 2**? In which direction?
+(b) The demo uses 128 rows from $r = 2$ to $62$, one row $= \ln(62/2)/127$. How many rows for a scale of 1.5? For a scale of 3, and what fraction of the grid's height is that?
+
+**B3.** One ring of 4 samples (90° apart) around a known centre: A $= (2, 0, -1, -1)$; B is A turned by one step: B $= (-1, 2, 0, -1)$.
+(a) Compute the score $S(t) = \sum_j A_j B_{j+t}$ (indices modulo 4) for $t = 0, 1, 2, 3$. Which turn wins?
+(b) Check with the DFT: $A_m = (0,\; 3 - i,\; 2,\; 3 + i)$ and $B_m = A_m\,(-i)^m$. Compute $\overline{A_m}B_m$ and $S(t) = \tfrac14\sum_m \overline{A_m}B_m\, i^{mt}$ for $t = 1$.
+
+**B4.** A cell is turned by 30° **and** moved 10 px to the right between two images. You unwrap both images around the **image centre** and correlate along the angle. Why does this fail? Which centre would work, and how could you find it?
+
+**B5.** B is A turned by 200°. (a) Why does $\lvert F_B\rvert$ look exactly like A's spectrum turned by 20°? (b) How does the method decide between 20° and 200°? (c) A shape that is symmetric under a 180° turn (an ellipse, the letter S): what happens?
+
+**B6.** Two micrographs overlap by only half their area, and B is turned. Why does Fourier–Mellin get much worse, although phase correlation copes with half overlaps on the previous day?
+
+**B7.** The high-pass weight damps the low frequencies of $\lvert F\rvert$. (a) Why do the low frequencies carry little information about the angle? (b) Which frequencies does noise dominate? Predict what the high-pass does to a noisy pair.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**B1.** (a) One bin is $180°/256 = 0.703°$: 30° is $30/0.703 = 42.7$ bins. 200° is 20° modulo 180°: 28.4 bins. (b) $-64 \cdot 0.703° = -45°$: a turn of $-45°$ or of $135°$; the final shift step decides.
+
+**B2.** (a) One row is $\ln 128/64 = 4.85/64 = 0.0758$. Enlarging the image by 2 makes the spectrum 2 times **smaller**: every feature moves to half its radius, $\ln 2 = 0.693$ lower in $\ln r$: $0.693/0.0758 = 9.1$ rows towards the small radii. (b) One row is $\ln 31/127 = 0.0270$: scale 1.5 is $\ln 1.5/0.0270 = 15.0$ rows; scale 3 is $\ln 3/0.0270 = 40.6$ rows, a third of the 128 rows: a third of the pattern leaves the grid, and what remains of B shares only a ninth of A's area.
+
+**B3.** (a) $S(0) = 2(-1) + 0 + 0 + (-1)(-1) = -1$; $S(1) = 2 \cdot 2 + 0 \cdot 0 + (-1)(-1) + (-1)(-1) = 6$; $S(2) = 0 + 0 + (-1)(-1) + (-1)(2) = -1$; $S(3) = 2(-1) + 0 + (-1)(2) + 0 = -4$. The winner is $t = 1$: B is A turned by one step, 90°. (The scores add up to 0 because the ring has mean 0.) (b) $B_1 = (3 - i)(-i) = -1 - 3i$, $\overline{A_1}B_1 = (3 + i)(-1 - 3i) = -10i$; $B_2 = 2 \cdot (-1) = -2$, $\overline{A_2}B_2 = -4$; $\overline{A_3}B_3 = 10i$; $\overline{A_0}B_0 = 0$. So $\overline{A_m}B_m = 10\,(-i)^m$ for $m = 1, 3$ ($= |A_m|^2$ times the turn's phase) and $-4$ for $m = 2$. For $t = 1$: $\tfrac14\big(0 + (-10i)(i) + (-4)(-1) + (10i)(-i)\big) = \tfrac14(10 + 4 + 10) = 6$. The same as the direct sum.
+
+**B4.** A turn about the image centre plus a shift is a turn about **another point**. Around the image centre, the cell's rings do not map onto themselves: content moves from one radius to another, so the rows of the unwrap do not just shift. The right centre is the cell's own (the centroid of its mask): the turn is about that point and the shift moves it, so unwrapping each image around its own cell centroid works. Without a reliable centre, use the magnitude spectrum, whose centre is always frequency 0.
+
+**B5.** (a) For a real image, $F(-\mathbf k)$ is the complex conjugate of $F(\mathbf k)$, so $\lvert F\rvert$ looks the same after a turn by 180°; a turn by 200° and by 20° give the same $\lvert F_B\rvert$. (b) Undo both candidates on B and phase-correlate each with A: the true one leaves a shifted copy of A (high shift peak), the other one a copy turned by 180° (no peak). (c) Then both candidates match equally well: the angle is only defined modulo 180° for that object, and the method cannot (and need not) choose.
+
+**B6.** $\lvert F\rvert$ summarises **the whole view**. With half the area not shared, half of each spectrum comes from content the other image does not have; the log-polar patterns agree only partly and the peak sinks into the floor. Phase correlation of shifted tiles tolerates this better, because the shared half still lines up pixel by pixel at one shift. Fourier–Mellin is best when the two views show mostly the same content (cut the overlap first, if it is known roughly).
+
+**B7.** (a) The lowest frequencies describe the coarse brightness distribution: a few broad blobs near the centre of the spectrum, with few samples per ring there (log-polar rows near $r_{\min}$ come from the same few pixels). They are large, so they dominate the correlation, but they say little about the direction of edges and texture. (b) Noise is spread evenly over all frequencies, so it dominates the **high** ones, where the image is weak. The high-pass weight lifts exactly those: with enough noise it hurts. The demo shows it: noise SD 25 fails with the high-pass and works without it.
+:::
+
+### Math questions
+
+**B8.** *(math)* Let $b(\mathbf x) = a\big(R_{-\alpha}(\mathbf x - \mathbf t)/s\big)$ (B is A turned by $\alpha$, enlarged by $s$, shifted by $\mathbf t$). Show with the continuous Fourier transform that $\lvert B(\mathbf k)\rvert = s^2\,\lvert A(s R_{-\alpha}\mathbf k)\rvert$, and that in $(\rho, \theta) = (\ln\lvert\mathbf k\rvert, \arg\mathbf k)$ this is a shift by $(-\ln s, \alpha)$.
+
+**B9.** *(math)* Write $f(r, \theta) = \sum_m f_m(r)e^{im\theta}$ and the same for $g$. Show that $\int_0^{2\pi} f(r, \theta)\,g(r, \theta + \alpha)\,d\theta = 2\pi\sum_m \overline{f_m(r)}\,g_m(r)\,e^{im\alpha}$ for real $f$, and explain why one inverse FFT gives the score for all sampled angles.
+
+**B10.** *(math)* (a) Show that $A(-\mathbf k) = \overline{A(\mathbf k)}$ for a real image. (b) Undo angle and scale on B about the centre, $b'(\mathbf x) = b(s R_\alpha \mathbf x)$ (centre 0), and show that $b'$ is A shifted by $\mathbf t' = R_{-\alpha}\mathbf t/s$. What is $b'$ for the wrong candidate $\alpha + \pi$?
+
+::: {.callout-note collapse="true" title="Solutions (math)"}
+**B8.** $B(\mathbf k) = \int a\big(R_{-\alpha}(\mathbf x - \mathbf t)/s\big)e^{-2\pi i\,\mathbf k\cdot\mathbf x}d\mathbf x$. Substitute $\mathbf x = \mathbf t + sR_\alpha\mathbf u$, $d\mathbf x = s^2 d\mathbf u$ ($\det R = 1$): $B(\mathbf k) = s^2e^{-2\pi i\,\mathbf k\cdot\mathbf t}\int a(\mathbf u)e^{-2\pi i\,\mathbf k\cdot sR_\alpha\mathbf u}d\mathbf u$. Since $\mathbf k\cdot R_\alpha\mathbf u = (R_\alpha^\top\mathbf k)\cdot\mathbf u = (R_{-\alpha}\mathbf k)\cdot\mathbf u$, the integral is $A(sR_{-\alpha}\mathbf k)$, and the phase factor has size 1. The vector $sR_{-\alpha}\mathbf k$ has length $s\lvert\mathbf k\rvert$, i.e. $\ln$-length $\rho + \ln s$, and angle $\theta - \alpha$: $\lvert B\rvert(\rho, \theta) = s^2\lvert A\rvert(\rho + \ln s, \theta - \alpha)$. B's pattern is A's moved by $+\alpha$ in angle and by $-\ln s$ in $\rho$.
+
+**B9.** $\int_0^{2\pi}\sum_{m, m'}\overline{f_m}\,e^{-im\theta}\,g_{m'}e^{im'(\theta + \alpha)}d\theta$ (using $f = \overline f = \sum\overline{f_m}e^{-im\theta}$ for real $f$) $= \sum_{m, m'}\overline{f_m}\,g_{m'}e^{im'\alpha}\int_0^{2\pi}e^{i(m' - m)\theta}d\theta = 2\pi\sum_m\overline{f_m}\,g_m\,e^{im\alpha}$. With $n_\theta$ samples per ring, the $f_m$ and $g_m$ are the DFT coefficients of the ring (divided by $n_\theta$), and the sum over $m$ evaluated at $\alpha_t = 2\pi t/n_\theta$ is exactly an inverse DFT of $\overline{f_m}g_m$: one inverse FFT gives all $n_\theta$ angles. Summing over rings first (the sum is linear) needs only one inverse FFT in total.
+
+**B10.** (a) $A(-\mathbf k) = \int a(\mathbf x)e^{+2\pi i\,\mathbf k\cdot\mathbf x}d\mathbf x = \overline{\int a(\mathbf x)e^{-2\pi i\,\mathbf k\cdot\mathbf x}d\mathbf x} = \overline{A(\mathbf k)}$, since $a$ is real. (b) $b'(\mathbf x) = a\big(R_{-\alpha}(sR_\alpha\mathbf x - \mathbf t)/s\big) = a(\mathbf x - R_{-\alpha}\mathbf t/s)$: A shifted by $\mathbf t'$. For the candidate $\alpha + \pi$: $b'(\mathbf x) = a\big(R_{-\alpha}(sR_{\alpha + \pi}\mathbf x - \mathbf t)/s\big) = a(-\mathbf x - R_{-\alpha}\mathbf t/s)$, A turned by 180° (and shifted): no single shift matches it, so its phase correlation has no clear peak.
+:::
+
+## Explore {#explore}
+
+**Unknown centre** (the Fourier–Mellin tab): top row, views A and B (B is A turned by **angle**, clockwise, enlarged by **scale**, then shifted) and the log magnitude spectra; middle, the log-polar resamplings of $\lvert F\rvert$ (angle 0–180° across, log radius down); bottom, the phase-correlation surface in (θ, log r) with the highest peak (cyan) and where the true angle and scale should put it (green), the overlay of A (magenta) and B after undoing angle, scale and shift (grey where they agree), and the final shift surface. **Known centre**: a disc and its turned copy, both unwrapped, and the rotational correlation over the angle.
+
+```{=html}
+<link rel="stylesheet" href="../demos/dist/demo.css">
+<div data-demo="fmellin" data-preset="rot30"></div>
+<script src="../demos/dist/fmellin.js"></script>
+```
+
+**E1.** Preset **known centre: one 1D correlation**. Which angle is found? Turn B to 135°, then raise the noise to 80. Watch the unwrapped strips while you turn B.
+
+**E2.** Preset **pure rotation 30°**. Read the log-polar peak (in bins) and compare with B1. What are the two candidates' shift peaks? Untick **high-pass on |F|**: how do the peak height and the ratio change?
+
+**E3.** Preset **scale 1.5 + shift**. Where is the log-polar peak now? Compare the row shift with B2(b). Is the shift found?
+
+**E4.** Preset **180° ambiguity**. What is found, and how high is the shift peak? Tick **test θ and θ + 180°**.
+
+**E5.** Preset **no taper: the cross dominates**. Look at the spectra and the log-polar pictures: what does not turn? Where is the peak? Tick **Hann taper**. Then untick it again and set **uneven light** to 0.
+
+**E6.** Preset **scale 3: out of range**. Lower the scale step by step until the result is right. Then try small scales (below 1). What is the usable range here?
+
+**E7.** Preset **noise: the high-pass hurts** (noise SD 25). What is found? Untick the high-pass. Then set the noise to 15 with the high-pass, and to 40 without it.
+
+::: {.callout-note collapse="true" title="Solutions"}
+**E1.** 50.0° (truth 50°). At 135° it finds 135.0°; with noise 80 still 49.8°. Turning B moves both strips' content sideways together, wrapping around at 360°: every ring shifts by the same angle.
+
+**E2.** The peak is at (42.7, 0.0) bins: 42.7 bins = 30.0°, as in B1, and no change of scale (scale 1.000). Height 0.29, ratio 7.6. Candidates: 30° gives a shift peak of 0.70, −150° only 0.05. Without the high-pass: height 0.23, ratio 9.0, still 30.0°; here the high-pass raises the peak but not its ratio.
+
+**E3.** At (0.2, −15.0) bins: no turn, and 15.0 rows towards small radii, $\ln 1.5/0.0270 = 15.0$ as in B2(b); scale 1.499. The shift is found: (12.0, −7.7), truth (12, −8).
+
+**E4.** With one candidate: 20.0°, shift peak 0.04, marked wrong; the overlay is a mess. With both: −160.0° (= 200°), shift peak 0.60 against 0.04 for 20°, shift (10.0, 4.9).
+
+**E5.** Both spectra have a bright horizontal and vertical **cross** from the border jumps; it stays at 0° and 90° in B too (it belongs to the frame), and in the log-polar pictures it is a bright vertical line at 90° (and the edge at 0°). The peak is at (0, 0): turned 0°, scale 1, wrong. With the taper: 30.0°. Without the taper but also without the uneven light, it works here (30.1°, log-polar peak 0.16 instead of 0.29): the cross is weaker when the border jumps are small.
+
+**E6.** Scale 3 is wrong (the peak is a random one); 2.0 is still wrong, **1.9** is right. Going down: 0.6 is wrong, **0.65** right. Usable range here about 0.65–1.9: the content moves off the log-polar grid, and an enlarged view shares less content with A (B2).
+
+**E7.** With the high-pass: 38.6° × 0.949, wrong. Without: 30.0°, scale 0.998, shift peak 0.27, log-polar ratio 1.66: right. Noise 15 with the high-pass: right (30.2°). Noise 40 without it: wrong (26.1°). The high-pass lifts the high frequencies, which noise dominates; with clean images it sharpens the peak, with noisy ones it drowns it (B7).
+:::
+
+## Code {#code}
+
+Write the algorithms of this unit yourself, in Rust. Setup, and how to run and check your code:
+[coding exercises: getting started](../code.qmd). Your code goes in `shapematch/src/fourier_mellin/exercise.rs`.
+Given in the file: `hann`, `phase_correlation` (from the phase-correlation unit), `peak` (the highest
+value of a surface, signed and refined by a parabola) and `warp_similarity` (turn, scale and shift an
+image by inverse mapping).
+
+**C1.** `polar(img, cx, cy, r_max, n_r, n_theta)`: the polar unwrap. Column $j$ is the angle
+$2\pi j/n_\theta$, row $i$ the radius $r_{\max} i/(n_r - 1)$.
+
+```
+for every row i and column j:
+    θ = 2π j / n_theta,   r = r_max · i / (n_r − 1)
+    out(j, i) = bilinear(img, cx + r cos θ, cy + r sin θ)
+```
+
+**C2.** `rotational_correlation(pa, pb, weights)`: every angle at once (B3).
+
+```
+S = zeros(n_theta)                                   # complex
+for every row i:
+    a = FFT(row i of PA − its mean),  b = FFT(row i of PB − its mean)
+    S = S + weights[i] · conj(a) · b
+score = real part of inverse FFT(S)
+```
+
+**C3.** `magnitude_spectrum(img, taper, highpass)`: $\lvert F\rvert$ with frequency 0 in the middle.
+
+```
+F = FFT(taper · (img − mean))                         # taper = 1 if switched off
+for every pixel (x, y) of the output:
+    v = |F((x + w/2) mod w, (y + h/2) mod h)|
+    if highpass:  X = cos(π fx) · cos(π fy),  v = v · (1 − X)(2 − X)    # fx = (x − w/2)/w, fy = (y − h/2)/h
+```
+
+**C4.** `log_polar(mag, r_min, r_max, n_r, n_theta)`: as C1 around the centre $(w/2, h/2)$, but over half a
+turn ($\theta = \pi j/n_\theta$) and with $r = r_{\min}(r_{\max}/r_{\min})^{i/(n_r - 1)}$.
+
+**C5.** `fourier_mellin(a, b, settings)`: the whole method, as on the slide "Fourier–Mellin as pseudocode".
+
+```
+LA = log_polar(magnitude_spectrum(A)),  LB = log_polar(magnitude_spectrum(B))
+(u, v) = peak(phase_correlation(LB, LA))
+angle = 180° · u / n_theta,  scale = exp(−v · step),  step = ln(r_max / r_min) / (n_r − 1)
+for θ in {angle, angle + 180°}:
+    B' = warp_similarity(B, −θ, 1 / scale)
+    (px, py, height) = peak(phase_correlation(A, B'))
+    tx = −scale (cos θ · px − sin θ · py),  ty = −scale (sin θ · px + cos θ · py)
+keep the θ with the higher height
+```
+
+The checks: a linear ramp read along rays (C1) and a quarter turn that shifts the columns by a
+quarter (C1); B3 (C2) and a turned disc of the micrograph (C2); $\lvert F\rvert$ unchanged by a circular
+shift and centred correctly (C3); the radii and angles of the log-polar grid (C4); 30° and scale 1.5
+within 1° and 2 %, and 200° rather than 20° (C5).
+
+Then `cargo run -p shapematch -- fourier-mellin`. It registers views of the micrograph ($128 \times 128$,
+B turned, scaled and shifted, noise SD 5 grey levels) under several conditions, prints the truth, the
+result and both peak heights (log-polar / final shift), and saves the views, the spectrum of B, both
+log-polar pictures, the (θ, log r) surface and an overlay in `out/fourier-mellin/`; then a known-centre
+case.
+
+**C6.** Compare `rotation-30` and `rotation-30-scale-1.5`: how close are the angle, the scale and the
+shift? How do the two peak heights change with the scale, and why?
+
+**C7.** `rotation-200` against `rotation-200-one`, and `shade-taper` against `shade-no-taper`. Explain
+each wrong result. Look at `shade-no-taper-spectrum-b.png` and `shade-no-taper-logpolar-a.png`.
+
+**C8.** `scale-1.8`, `scale-3`, and `noise-25` against `noise-25-no-highpass`: which are right, and why?
+The known-centre case: why is the result 50.6° and not 50°?
+
+::: {.callout-note collapse="true" title="Solutions (code)"}
+The model solution is `shapematch/src/fourier_mellin/solution.rs` in the download.
+
+**C6.** `rotation-30`: 29.96°, scale 1.000, shift (−0.01, 0.00): right to a twentieth of a degree.
+`rotation-30-scale-1.5`: 29.84°, scale 1.500, shift (11.89, −8.35) against (12, −8). The peaks drop from
+0.281 / 0.699 to 0.111 / 0.566: the enlarged view B shows only the middle of A (4/9 of its area), so less
+of the two spectra agrees, and after undoing the scale B' covers only part of A.
+
+**C7.** `rotation-200`: −160.04° (= 200°), shift (9.98, 4.85), final peak 0.579. With one candidate
+(`rotation-200-one`) the angle is 19.96°: the log-polar step only knows the angle modulo 180°, and
+nothing tests the other candidate; the final peak is 0.039, a sign that something is wrong. `shade-no-taper`:
+the border jumps of the unevenly lit views put a bright cross into both spectra (visible in
+`shade-no-taper-spectrum-b.png` and as lines in the log-polar picture) that does not turn with B, so the
+log-polar peak is at "no turn": 179.98°, a random choice between two candidates that both fail (final peak
+0.034). With the taper: 29.96°.
+
+**C8.** `scale-1.8` is right (19.83°, 1.785, shift ≈ 0). `scale-3` is wrong (166.72°, 1.004): the log-polar
+pattern moves by $\ln 3$ = a third of the grid, and B shows only a ninth of A. `noise-25` fails with the
+high-pass (−7.71°) and works without it (30.06°, 1.003): the weight lifts the high frequencies, where the
+noise is stronger than the image. Known centre: the score is computed only at whole columns of
+$360°/256 = 1.41°$; 50° lies between columns 35 (49.2°) and 36 (50.6°), and the nearer one wins (a
+parabola through the peak, as in the given `peak`, would refine it).
+:::
+
+## Where this leads
+
+The [next unit](../fft-docking/lec.qmd) puts the same correlation theorem to work on two different shapes that should fit together, **docking**: there the rotation cannot be turned into a shift, and a loop over angles remains. Large turns, zooms, perspective and partial overlaps are handled by matching [keypoints](../keypoints/lec.qmd) and fitting a transform ([from matches to a transform](../feature-alignment/lec.qmd), day 25). The polar unwrap returns on the dynamic-programming day, where a closed boundary around a known centre becomes a path across the unwrapped image ([closed boundaries by DP](../polar-boundary/lec.qmd), day 33). In 3D the same idea needs spherical harmonics, whose coefficients mix under a rotation instead of just turning (the [docking](../fft-docking/lec.qmd) unit's outlook).

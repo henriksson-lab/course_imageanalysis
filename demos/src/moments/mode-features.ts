@@ -12,7 +12,8 @@ import { label2d } from "../lib/label";
 import { seDisk, dilateBinary, erodeBinary } from "../lib/morph";
 import { convexHull, shoelaceArea, rotatingCalipers, feretAt, minEnclosingCircle, widthProfile, Pt } from "../lib/convexhull";
 import { registerMode, MomentsContext, MomentsModeSpec, Digitised } from "./registry";
-import { shapeFeatures, outline, fourierOutline } from "./features";
+import { shapeFeatures, outline } from "./features";
+import { fourierOutline } from "../lib/contour";
 import { exactMeasures, disc, crescent, twoDiscs, rod, rect, star } from "./shapes";
 import { sline, spoly, scircle, scross, table, f2, P2 } from "./draw";
 
